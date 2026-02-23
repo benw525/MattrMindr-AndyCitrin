@@ -2984,7 +2984,7 @@ const REPORT_DEFS = [
     icon: "⚖️",
     title: "Cases by Trial Date",
     desc: "All active cases with a trial date set, sorted soonest first. Includes judge, lead attorney, and stage.",
-    params: [],
+    params: ["office"],
   },
   {
     id: "attorney",
@@ -2998,35 +2998,35 @@ const REPORT_DEFS = [
     icon: "🤝",
     title: "Cases by Mediation Deadline",
     desc: "Active cases with a mediation date, sorted soonest first. Includes mediator and days remaining.",
-    params: [],
+    params: ["office"],
   },
   {
     id: "discovery",
     icon: "🔍",
     title: "Cases by Discovery Deadline",
     desc: "Cases with written discovery, party deposition, or expert deposition deadlines. Filter by deadline window.",
-    params: ["window"],
+    params: ["window", "office"],
   },
   {
     id: "task_filter",
     icon: "✅",
     title: "Cases with Specific Open Task",
     desc: "Select an incomplete task type from the list and see all cases that have that task open.",
-    params: ["task"],
+    params: ["task", "office"],
   },
   {
     id: "no_trial",
     icon: "📋",
     title: "Active Cases Without Trial Date",
     desc: "Cases currently active but with no trial date set — useful for tracking docket gaps.",
-    params: [],
+    params: ["office"],
   },
   {
     id: "overdue_tasks",
     icon: "🔴",
     title: "Overdue Tasks by Case",
     desc: "All cases that have at least one overdue task, with a breakdown of each overdue item.",
-    params: [],
+    params: ["office"],
   },
   {
     id: "workload",
@@ -3040,19 +3040,27 @@ const REPORT_DEFS = [
     icon: "📅",
     title: "Upcoming Deadlines by Window",
     desc: "All deadlines falling within a chosen time window — 7, 14, 30, 60, or 90 days.",
-    params: ["window"],
+    params: ["window", "office"],
   },
   {
     id: "answer_due",
     icon: "📝",
     title: "Cases by Answer Filed Date",
     desc: "Cases sorted by answer filed date. Identifies early-stage cases and tracks answer timelines.",
-    params: [],
+    params: ["office"],
   },
 ];
 
 function buildReport(id, allCases, tasks, deadlines, params) {
-  const activeCases = allCases.filter(c => c.status === "Active");
+  const office = params.office || null;
+  const filteredCases = office ? allCases.filter(c => (c.offices || []).includes(office)) : allCases;
+  const filteredDeadlines = office ? deadlines.filter(d => {
+    const c = allCases.find(x => x.id === d.caseId);
+    return c && (c.offices || []).includes(office);
+  }) : deadlines;
+  const activeCases = filteredCases.filter(c => c.status === "Active");
+  allCases = filteredCases;
+  deadlines = filteredDeadlines;
   switch (id) {
     case "trial_date": {
       const rows = activeCases.filter(c => c.trialDate).sort((a, b) => a.trialDate.localeCompare(b.trialDate));
@@ -3327,6 +3335,15 @@ function ReportsView({ allCases, tasks, deadlines, currentUser }) {
                     </select>
                   </div>
                 )}
+                {def?.params.includes("office") && (
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
+                    <label>Office</label>
+                    <select value={params.office || ""} onChange={e => setParams(p => ({ ...p, office: e.target.value || null }))}>
+                      <option value="">All Offices</option>
+                      {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                )}
                 <button className="btn btn-gold" onClick={generate}
                   disabled={
                     (def?.params.includes("attorney") && !params.attorney) ||
@@ -3350,6 +3367,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser }) {
                   {generated.params.attorney ? ` · ${getUserById(generated.params.attorney)?.name}` : ""}
                   {generated.params.window ? ` · Next ${generated.params.window} days` : ""}
                   {generated.params.task ? ` · Task: "${generated.params.task}"` : ""}
+                  {generated.params.office ? ` · Office: ${generated.params.office}` : ""}
                   {" · "}Generated {generated.generatedAt}
                 </div>
               </div>
