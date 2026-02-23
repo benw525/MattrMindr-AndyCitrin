@@ -137,6 +137,14 @@ const TASK_CHAINS = {
     autoEscalate: false,
     notes: "Auto-generated after Request Check was completed.",
   },
+  "Send Release and Dismissal to Client": {
+    title: "Close File",
+    assignedRole: "legalAssistant",
+    priority: "High",
+    dueDaysFromCompletion: 0,
+    autoEscalate: false,
+    notes: "Auto-generated after Send Release and Dismissal to Client was completed.",
+  },
 };
 
 const MULTI_CHAINS = {
@@ -582,7 +590,7 @@ export default function App() {
         }
       }
 
-      // When stage changes to "Settled", spawn the settlement trigger task
+      // When stage changes to "Settled", spawn trigger task + complete all other open tasks
       if (saved.stage === "Settled" && prev && prev.stage !== "Settled") {
         const alreadyExists = tasks.some(t =>
           t.caseId === saved.id && t.title === "Let Client know Case is Settled"
@@ -605,6 +613,31 @@ export default function App() {
           };
           const savedTask = await apiCreateTask(triggerTask);
           setTasks(prev => [...prev, savedTask]);
+        }
+        // Mark all other open tasks for this case as Completed
+        const openOthers = tasks.filter(t =>
+          t.caseId === saved.id &&
+          t.status !== "Completed" &&
+          t.title !== "Let Client know Case is Settled"
+        );
+        if (openOthers.length > 0) {
+          const completed = await Promise.all(
+            openOthers.map(t => apiUpdateTask(t.id, { status: "Completed" }))
+          );
+          setTasks(prev => prev.map(t => completed.find(c => c.id === t.id) || t));
+        }
+      }
+
+      // When stage changes to "Closed", mark all open tasks as Completed
+      if (saved.stage === "Closed" && prev && prev.stage !== "Closed") {
+        const openTasks = tasks.filter(t =>
+          t.caseId === saved.id && t.status !== "Completed"
+        );
+        if (openTasks.length > 0) {
+          const completed = await Promise.all(
+            openTasks.map(t => apiUpdateTask(t.id, { status: "Completed" }))
+          );
+          setTasks(prev => prev.map(t => completed.find(c => c.id === t.id) || t));
         }
       }
     } catch (err) {
