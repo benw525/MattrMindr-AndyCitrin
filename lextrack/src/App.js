@@ -3882,61 +3882,64 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
           {/* Field-by-field chooser */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#445566", textTransform: "uppercase", marginBottom: 6 }}>Choose Field Values</div>
-            <div style={{ fontSize: 12, color: "#556677", marginBottom: 14 }}>For each field, click the value you want to keep in the merged contact.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {MERGE_FIELDS.map(({ key, label }, fi) => {
-                const allSameValue = contacts.every(c => (c[key] || "") === (contacts[0][key] || ""));
+            <div style={{ fontSize: 12, color: "#556677", marginBottom: 14 }}>Click a cell to choose that contact's value for each field.</div>
+            <div style={{ border: "1px solid #1a2235", borderRadius: 5, overflow: "hidden" }}>
+              {/* Header row — contact names, one column each */}
+              <div style={{ display: "flex", background: "#0d1525", borderBottom: "2px solid #1a2235" }}>
+                <div style={{ width: 90, flexShrink: 0, padding: "9px 10px" }} />
+                {contacts.map(c => (
+                  <div key={c.id} style={{ flex: 1, padding: "9px 14px", fontSize: 12, fontWeight: 700, color: c.id === primaryId ? "#c9a84c" : "#7788aa", borderLeft: "1px solid #1a2235", wordBreak: "break-word" }}>
+                    {c.name}{c.id === primaryId ? " ★" : ""}
+                  </div>
+                ))}
+              </div>
+              {/* One row per field */}
+              {MERGE_FIELDS.map(({ key, label }) => {
+                const allSame = contacts.every(c => (c[key] || "") === (contacts[0][key] || ""));
                 return (
-                  <div key={key} style={{ display: "flex", alignItems: "stretch", borderTop: fi === 0 ? "1px solid #1a2235" : "none", borderBottom: "1px solid #1a2235" }}>
-                    {/* Field label */}
-                    <div style={{ width: 80, flexShrink: 0, padding: "12px 14px 12px 0", display: "flex", alignItems: "center" }}>
+                  <div key={key} style={{ display: "flex", alignItems: "stretch", borderBottom: "1px solid #0d1525" }}>
+                    {/* Field label column */}
+                    <div style={{ width: 90, flexShrink: 0, padding: "12px 10px", background: "#090d18", display: "flex", alignItems: "center", borderRight: "1px solid #1a2235" }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "#445566", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
                     </div>
-                    {/* Options */}
-                    <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 0", alignItems: "center" }}>
-                      {allSameValue ? (
-                        <div style={{ padding: "6px 12px", borderRadius: 4, background: "#111e14", border: "1px solid #2a5a2a", color: "#4CAE72", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 10 }}>✓</span>
-                          <span>{contacts[0][key] || <em style={{ color: "#3a5a3a" }}>empty on all</em>}</span>
-                        </div>
-                      ) : contacts.map(c => {
+                    {/* When identical across all contacts: single spanning cell */}
+                    {allSame ? (
+                      <div style={{ flex: 1, padding: "12px 14px", display: "flex", alignItems: "center" }}>
+                        <span style={{ fontSize: 13, color: "#4CAE72", background: "#0e1c10", border: "1px solid #2a4a2a", borderRadius: 4, padding: "4px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 11 }}>✓</span>
+                          {contacts[0][key] ? contacts[0][key] : <em style={{ color: "#3a5a3a" }}>empty on all</em>}
+                        </span>
+                      </div>
+                    ) : (
+                      /* One cell per contact, side by side */
+                      contacts.map(c => {
                         const val = c[key] || "";
                         const isChosen = choices[key] === c.id;
-                        const isPrimContact = c.id === primaryId;
                         return (
-                          <label
+                          <div
                             key={c.id}
                             onClick={() => setChoices(p => ({ ...p, [key]: c.id }))}
-                            style={{
-                              display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer",
-                              padding: "7px 12px", borderRadius: 5, transition: "all 0.12s",
-                              background: isChosen ? "#111e2e" : "#0d1525",
-                              border: `1px solid ${isChosen ? "#2a5a8a" : "#141c2b"}`,
-                              minWidth: 120, maxWidth: 280,
-                            }}
+                            style={{ flex: 1, padding: "11px 14px", borderLeft: "1px solid #111827", cursor: "pointer", background: isChosen ? "#0e1e32" : "transparent", transition: "background 0.1s" }}
                           >
-                            <input
-                              type="radio"
-                              name={`mfc-${key}`}
-                              checked={isChosen}
-                              onChange={() => setChoices(p => ({ ...p, [key]: c.id }))}
-                              onClick={e => e.stopPropagation()}
-                              style={{ flexShrink: 0, marginTop: 2 }}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 10, color: isPrimContact ? "#c9a84c" : "#445566", fontWeight: 600, marginBottom: 2 }}>
-                                {c.name}{isPrimContact ? " ★" : ""}
-                              </div>
+                            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", pointerEvents: "none" }}>
+                              <input
+                                type="radio"
+                                name={`mfc-${key}`}
+                                checked={isChosen}
+                                onChange={() => setChoices(p => ({ ...p, [key]: c.id }))}
+                                onClick={e => e.stopPropagation()}
+                                style={{ marginTop: 2, flexShrink: 0, pointerEvents: "auto" }}
+                              />
                               {val ? (
-                                <div style={{ fontSize: 13, color: isChosen ? "#ccd6e8" : "#556677", wordBreak: "break-word", lineHeight: 1.4 }}>{val}</div>
+                                <span style={{ color: isChosen ? "#ccd6e8" : "#556677", fontSize: 13, wordBreak: "break-word", lineHeight: 1.5 }}>{val}</span>
                               ) : (
-                                <div style={{ fontSize: 12, color: "#2a3a5a", fontStyle: "italic" }}>empty</div>
+                                <em style={{ color: "#2a3a5a", fontSize: 12 }}>empty</em>
                               )}
-                            </div>
-                          </label>
+                            </label>
+                          </div>
                         );
-                      })}
-                    </div>
+                      })
+                    )}
                   </div>
                 );
               })}
@@ -4202,7 +4205,7 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
         {!isDeleted && (
           <>
             {mergeMode && (
-              <div style={{ marginBottom: 14, padding: "10px 14px", background: "#1a2a1a", border: "1px solid #2a4a2a", borderRadius: 4, display: "flex", alignItems: "center", gap: 14, fontSize: 13 }}>
+              <div style={{ position: "sticky", top: 0, zIndex: 12, marginBottom: 0, padding: "10px 14px", background: "#131d13", border: "1px solid #2a4a2a", borderBottom: "none", borderRadius: "4px 4px 0 0", display: "flex", alignItems: "center", gap: 14, fontSize: 13 }}>
                 <span style={{ color: "#4CAE72" }}>Select 2 or more contacts to merge.</span>
                 {mergeSelected.size >= 2 && (
                   <button
@@ -4224,13 +4227,13 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
             )}
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ fontSize: 11, color: "#445566", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #1a2235" }}>
-                  {mergeMode && <th style={{ width: 32, padding: "6px 8px 6px 0" }}></th>}
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Category</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Phone</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Email</th>
-                  <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 600 }}>Cases</th>
+                <tr style={{ fontSize: 11, color: "#445566", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {mergeMode && <th style={{ width: 32, padding: "6px 8px 6px 0", position: "sticky", top: mergeMode ? 44 : 0, background: "#0d1117", zIndex: 11, borderBottom: "1px solid #1a2235" }}></th>}
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#0d1117", zIndex: 11, borderBottom: "1px solid #1a2235" }}>Category</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#0d1117", zIndex: 11, borderBottom: "1px solid #1a2235" }}>Name</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#0d1117", zIndex: 11, borderBottom: "1px solid #1a2235" }}>Phone</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#0d1117", zIndex: 11, borderBottom: "1px solid #1a2235" }}>Email</th>
+                  <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#0d1117", zIndex: 11, borderBottom: "1px solid #1a2235" }}>Cases</th>
                 </tr>
               </thead>
               <tbody>
