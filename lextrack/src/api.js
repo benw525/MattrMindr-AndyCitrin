@@ -42,7 +42,7 @@ export const apiGetTasks             = ()                       => apiFetch("/ap
 export const apiCreateTask           = (data)                   => apiFetch("/api/tasks",                  { method: "POST", body: data });
 export const apiCreateTasks          = (arr)                    => apiFetch("/api/tasks/bulk",             { method: "POST", body: arr });
 export const apiUpdateTask           = (id, data)               => apiFetch(`/api/tasks/${id}`,            { method: "PUT",  body: data });
-export const apiCompleteTask         = (id, timeLogged)         => apiFetch(`/api/tasks/${id}/complete`,   { method: "POST", body: { timeLogged: timeLogged || null } });
+export const apiCompleteTask         = (id, timeLogged, completedBy, timeLogUser) => apiFetch(`/api/tasks/${id}/complete`, { method: "POST", body: { timeLogged: timeLogged || null, completedBy: completedBy || null, timeLogUser: timeLogUser || null } });
 export const apiReassignTasksByRole  = (caseId, role, userId)  => apiFetch("/api/tasks/reassign-by-role", { method: "PUT",  body: { caseId, role, userId } });
 
 // Deadlines

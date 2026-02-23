@@ -14,6 +14,7 @@ const toFrontend = (row) => ({
   authorRole: row.author_role,
   createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
   timeLogged: row.time_logged || null,
+  timeLogUser: row.time_log_user || null,
 });
 
 router.get("/:caseId", requireAuth, async (req, res) => {
@@ -33,11 +34,11 @@ router.post("/", requireAuth, async (req, res) => {
   const d = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO case_notes (case_id, type, body, author_id, author_name, author_role, created_at, time_logged)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      `INSERT INTO case_notes (case_id, type, body, author_id, author_name, author_role, created_at, time_logged, time_log_user)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [d.caseId, d.type || "General", d.body, d.authorId || null,
        d.authorName || "", d.authorRole || "", d.createdAt || new Date().toISOString(),
-       d.timeLogged || null]
+       d.timeLogged || null, d.timeLogUser || null]
     );
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {

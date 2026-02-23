@@ -21,6 +21,8 @@ const toFrontend = (row) => ({
   isChained: row.is_chained,
   completedAt: row.completed_at ? row.completed_at.toISOString().split("T")[0] : null,
   timeLogged: row.time_logged || null,
+  completedBy: row.completed_by || null,
+  timeLogUser: row.time_log_user || null,
 });
 
 const orNull = (val) => (val && String(val).trim() && String(val) !== "0") ? val : null;
@@ -163,10 +165,13 @@ router.post("/:id/complete", requireAuth, async (req, res) => {
     const task = current[0];
     const completing = task.status !== "Completed";
     const today = new Date().toISOString().split("T")[0];
-    const timeLogged = (completing && req.body && req.body.timeLogged) ? req.body.timeLogged : null;
+    const b = req.body || {};
+    const timeLogged   = (completing && b.timeLogged)   ? b.timeLogged           : null;
+    const completedBy  = (completing && b.completedBy)  ? Number(b.completedBy)  : null;
+    const timeLogUser  = (completing && b.timeLogUser)  ? Number(b.timeLogUser)  : null;
     const { rows } = await pool.query(
-      `UPDATE tasks SET status = $1, completed_at = $2, time_logged = $3 WHERE id = $4 RETURNING *`,
-      [completing ? "Completed" : "In Progress", completing ? today : null, timeLogged, req.params.id]
+      `UPDATE tasks SET status = $1, completed_at = $2, time_logged = $3, completed_by = $4, time_log_user = $5 WHERE id = $6 RETURNING *`,
+      [completing ? "Completed" : "In Progress", completing ? today : null, timeLogged, completedBy, timeLogUser, req.params.id]
     );
     return res.json(toFrontend(rows[0]));
   } catch (err) {

@@ -582,14 +582,42 @@ body.dark-body { background: #0f172a; }
 
 
 // ─── TimePromptModal ──────────────────────────────────────────────────────────
+const ATTY_PARA_ROLES = ["Attorney", "Associate", "Shareholder", "Paralegal"];
+const isAttyPara  = (u) => ATTY_PARA_ROLES.some(r => hasRole(u, r));
+const isLegalAsst = (u) => hasRole(u, "Legal Assistant");
+
 function TimePromptModal({ pending, onSubmit }) {
-  const [time, setTime] = useState("");
+  const [time, setTime]           = useState("");
+  const [claimIt, setClaimIt]     = useState(null);   // null | true | false
+  const [assignId, setAssignId]   = useState(0);
+  const [showAll, setShowAll]     = useState(false);
+
   if (!pending) return null;
+
+  const { task, completingUser, caseForTask } = pending;
+
+  const showClaimPrompt  = isAttyPara(completingUser)  && task?.assigned > 0 && task.assigned !== completingUser?.id;
+  const showAssignPrompt = isLegalAsst(completingUser);
+
+  const caseTeamIds   = caseForTask ? [caseForTask.leadAttorney, caseForTask.secondAttorney, caseForTask.paralegal, caseForTask.paralegal2].filter(id => id > 0) : [];
+  const caseTeamUsers = USERS.filter(u => caseTeamIds.includes(u.id) && isAttyPara(u));
+  const otherAttyPara = USERS.filter(u => !caseTeamIds.includes(u.id) && isAttyPara(u));
+  const assignedUser  = task ? getUserById(task.assigned) : null;
+
+  const saveDisabled = showClaimPrompt && claimIt === null;
+
+  const handleSave = () => {
+    const t          = time.trim() || null;
+    const completedBy = (showClaimPrompt  && claimIt === true && completingUser) ? completingUser.id : null;
+    const timeLogUser = (showAssignPrompt && assignId > 0)                       ? assignId          : null;
+    onSubmit(pending.taskId, t, completedBy, timeLogUser);
+  };
+
   return (
     <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 400 }}>
+      <div className="modal" style={{ maxWidth: 430 }}>
         <div className="modal-title" style={{ marginBottom: 6 }}>Log Time</div>
-        <p style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 14 }}>
           How much time did this task take?
         </p>
         <input
@@ -597,16 +625,78 @@ function TimePromptModal({ pending, onSubmit }) {
           placeholder="e.g. 1.5 hours, 30 min, 2 hrs"
           value={time}
           onChange={e => setTime(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && onSubmit(pending.taskId, time.trim() || null)}
+          onKeyDown={e => e.key === "Enter" && !saveDisabled && handleSave()}
           autoFocus
         />
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <button className="btn btn-gold" style={{ flex: 1 }} onClick={() => onSubmit(pending.taskId, time.trim() || null)}>
-            Save
-          </button>
-          <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => onSubmit(pending.taskId, null)}>
-            Skip
-          </button>
+
+        {/* Attorney / Paralegal: claim for own time log? */}
+        {showClaimPrompt && (
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--c-border)" }}>
+            <p style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10 }}>
+              This task is assigned to <strong>{assignedUser?.name || "another user"}</strong>.
+              Add it to <strong>your</strong> time log instead?
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className={`btn ${claimIt === true  ? "btn-gold" : "btn-outline"}`}
+                style={{ flex: 1, fontSize: 13 }}
+                onClick={() => setClaimIt(true)}
+              >Yes, add to mine</button>
+              <button
+                className={`btn ${claimIt === false ? "btn-gold" : "btn-outline"}`}
+                style={{ flex: 1, fontSize: 13 }}
+                onClick={() => setClaimIt(false)}
+              >No, keep in theirs</button>
+            </div>
+            {claimIt === null && (
+              <p style={{ fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
+                Please choose an option above to continue.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Legal Assistant: assign credit to attorney/paralegal? */}
+        {showAssignPrompt && (
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--c-border)" }}>
+            <p style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10 }}>
+              Assign time credit to an attorney or paralegal?
+            </p>
+            <select value={assignId} onChange={e => setAssignId(Number(e.target.value))}>
+              <option value={0}>— Keep in my log —</option>
+              {caseTeamUsers.length > 0 && (
+                <optgroup label="On this file">
+                  {caseTeamUsers.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
+                </optgroup>
+              )}
+              {showAll && otherAttyPara.length > 0 && (
+                <optgroup label="All attorneys / paralegals">
+                  {otherAttyPara.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
+                </optgroup>
+              )}
+            </select>
+            {!showAll && (
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ marginTop: 6, fontSize: 11 }}
+                onClick={() => setShowAll(true)}
+              >Show all attorneys / paralegals</button>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <button
+            className="btn btn-gold"
+            style={{ flex: 1 }}
+            onClick={handleSave}
+            disabled={saveDisabled}
+          >Save</button>
+          <button
+            className="btn btn-outline"
+            style={{ flex: 1 }}
+            onClick={() => onSubmit(pending.taskId, null, null, null)}
+          >Skip</button>
         </div>
       </div>
     </div>
@@ -920,19 +1010,25 @@ export default function App() {
     const target = tasks.find(t => t.id === taskId);
     if (!target) return;
     if (target.status === "Completed") {
-      finishCompleteTask(taskId, null, true);
+      finishCompleteTask(taskId, null, null, null, true);
     } else {
-      setPendingTimePrompt({ taskId });
+      const caseForTask = allCases.find(c => c.id === target.caseId);
+      setPendingTimePrompt({ taskId, task: target, completingUser: currentUser, caseForTask });
     }
   };
 
-  const finishCompleteTask = async (taskId, timeLogged, isUncomplete = false) => {
+  const finishCompleteTask = async (taskId, timeLogged, completedBy, timeLogUser, isUncomplete = false) => {
     setPendingTimePrompt(null);
     try {
       const target = tasks.find(t => t.id === taskId);
       if (!target) return;
 
-      const toggled = await apiCompleteTask(taskId, isUncomplete ? null : timeLogged);
+      const toggled = await apiCompleteTask(
+        taskId,
+        isUncomplete ? null : timeLogged,
+        isUncomplete ? null : completedBy,
+        isUncomplete ? null : timeLogUser
+      );
       const completing = toggled.status === "Completed";
       const completedDate = today;
 
@@ -1177,8 +1273,9 @@ export default function App() {
         onDecide={handleFollowUpDecision}
       />
       <TimePromptModal
+        key={pendingTimePrompt?.taskId}
         pending={pendingTimePrompt}
-        onSubmit={(taskId, timeLogged) => finishCompleteTask(taskId, timeLogged)}
+        onSubmit={(taskId, timeLogged, completedBy, timeLogUser) => finishCompleteTask(taskId, timeLogged, completedBy, timeLogUser)}
       />
     </div>
   );
@@ -1994,9 +2091,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     onCompleteTask(taskId);
     if (t) {
       const completing = t.status !== "Completed";
+      const assignedToOther = completing && t.assigned > 0 && t.assigned !== currentUser.id;
+      const assignedName = assignedToOther ? (getUserById(t.assigned)?.name || "unknown") : null;
       log(
         completing ? "Task Completed" : "Task Reopened",
-        `"${t.title}" marked ${completing ? "complete" : "incomplete"}`
+        assignedToOther
+          ? `"${t.title}" completed by ${currentUser.name} (assigned to ${assignedName})`
+          : `"${t.title}" marked ${completing ? "complete" : "incomplete"}`
       );
     }
   };
@@ -2273,7 +2374,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
               <div className="case-overlay-section">
-                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={onAddNote} onDeleteNote={onDeleteNote} />
+                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={onAddNote} onDeleteNote={onDeleteNote} caseRecord={c} />
               </div>
             </div>
 
@@ -2490,10 +2591,18 @@ const NOTE_TYPES = [
 const noteTypeStyle = (label) => NOTE_TYPES.find(t => t.label === label) || NOTE_TYPES[0];
 
 // ─── CaseNotes Component ──────────────────────────────────────────────────────
-function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
+function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRecord }) {
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [form, setForm] = useState({ type: "General", body: "", time: "" });
+  const [assignId, setAssignId] = useState(0);
+  const [showAllAssign, setShowAllAssign] = useState(false);
+
+  const currentIsLegalAsst = isLegalAsst(currentUser);
+
+  const caseTeamIds   = caseRecord ? [caseRecord.leadAttorney, caseRecord.secondAttorney, caseRecord.paralegal, caseRecord.paralegal2].filter(id => id > 0) : [];
+  const caseTeamUsers = USERS.filter(u => caseTeamIds.includes(u.id) && isAttyPara(u));
+  const otherAttyPara = USERS.filter(u => !caseTeamIds.includes(u.id) && isAttyPara(u));
 
   const handleAdd = () => {
     if (!form.body.trim()) return;
@@ -2507,8 +2616,11 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
       authorRole: currentUser.role,
       createdAt: new Date().toISOString(),
       timeLogged: form.time.trim() || null,
+      timeLogUser: (currentIsLegalAsst && assignId > 0) ? assignId : null,
     });
     setForm({ type: "General", body: "", time: "" });
+    setAssignId(0);
+    setShowAllAssign(false);
     setShowForm(false);
   };
 
@@ -2556,6 +2668,32 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
               onChange={e => setForm(p => ({ ...p, time: e.target.value }))}
             />
           </div>
+          {currentIsLegalAsst && (
+            <div className="form-group" style={{ marginBottom: 10 }}>
+              <label>Assign Time Credit To <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>(optional)</span></label>
+              <select value={assignId} onChange={e => setAssignId(Number(e.target.value))}>
+                <option value={0}>— Keep in my log —</option>
+                {caseTeamUsers.length > 0 && (
+                  <optgroup label="On this file">
+                    {caseTeamUsers.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
+                  </optgroup>
+                )}
+                {showAllAssign && otherAttyPara.length > 0 && (
+                  <optgroup label="All attorneys / paralegals">
+                    {otherAttyPara.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
+                  </optgroup>
+                )}
+              </select>
+              {!showAllAssign && (
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ marginTop: 4, fontSize: 11 }}
+                  onClick={() => setShowAllAssign(true)}
+                  type="button"
+                >Show all attorneys / paralegals</button>
+              )}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={handleAdd} disabled={!form.body.trim()}>
               Save Note
@@ -4035,9 +4173,10 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
       return d >= from && d <= to;
     };
 
-    // Task completions
+    // Task completions — attribute to completedBy or timeLogUser if set, else assigned
     tasks.forEach(t => {
-      if (t.assigned !== currentUser.id) return;
+      const creditId = t.timeLogUser || t.completedBy || t.assigned;
+      if (creditId !== currentUser.id) return;
       if (t.status !== "Completed" || !t.completedAt) return;
       if (!inRange(t.completedAt)) return;
       const cs = allCases.find(c => c.id === t.caseId);
@@ -4052,10 +4191,11 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
       });
     });
 
-    // Notes
+    // Notes — attribute to timeLogUser if set, else author
     Object.entries(caseNotes).forEach(([caseId, notes]) => {
       (notes || []).forEach(note => {
-        if (note.authorId !== currentUser.id) return;
+        const creditId = note.timeLogUser || note.authorId;
+        if (creditId !== currentUser.id) return;
         if (!inRange(note.createdAt)) return;
         const cs = allCases.find(c => c.id === Number(caseId));
         const summary = (note.body || "").slice(0, 100).replace(/\n/g, " ") + (note.body?.length > 100 ? "…" : "");
