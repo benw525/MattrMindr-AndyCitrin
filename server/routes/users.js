@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id, name, role, email, initials, phone, cell, avatar, offices FROM users ORDER BY id");
+    const { rows } = await pool.query("SELECT id, name, role, email, initials, phone, cell, ext, avatar, offices FROM users ORDER BY id");
     return res.json(rows.map(r => ({ ...r, offices: r.offices || [] })));
   } catch (err) {
     console.error("Users fetch error:", err);

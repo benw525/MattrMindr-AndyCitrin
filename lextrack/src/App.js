@@ -4516,7 +4516,13 @@ function StaffView({ allCases, currentUser, userOffices, setUserOffices }) {
                   <div style={{ width: 48, height: 48, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{u.initials}</div>
                   <div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: "#e8d5a8", fontWeight: 600 }}>{u.name}</div><Badge label={u.role} /></div>
                 </div>
-                {[["Email", u.email], ["Direct Line", u.phone || "—"], ["Cell", u.cell || "—"], ["Active Cases", `${mine.filter(c => c.status === "Active").length} (${mine.length} total)`]].map(([k, v]) => (
+                {[
+                  ["Extension", u.ext || "—"],
+                  ["Direct Line", u.phone || "—"],
+                  ["Cell", u.cell || "—"],
+                  ["Email", u.email],
+                  ["Active Cases", `${mine.filter(c => c.status === "Active").length} (${mine.length} total)`]
+                ].map(([k, v]) => (
                   <div key={k} className="info-row"><span className="info-key">{k}</span><span className="info-val" style={{ fontSize: 12 }}>{v}</span></div>
                 ))}
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1a2235" }}>
