@@ -5,6 +5,7 @@ import {
   apiGetCases, apiGetDeletedCases, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
   apiGetTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline,
+  apiGetUsers, apiUpdateUserOffices,
   apiGetNotes, apiCreateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
   apiGetActivity, apiCreateActivity,
@@ -13,6 +14,8 @@ import {
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
+
+const OFFICES = ["Mobile", "Birmingham", "Auburn", "Montgomery", "Demopolis"];
 
 const today = new Date().toISOString().split("T")[0];
 let _idCounter = Date.now();
@@ -425,6 +428,7 @@ export default function App() {
   const [caseLinks,    setCaseLinks]    = useState({});
   const [caseActivity, setCaseActivity] = useState({});
   const [deletedCases, setDeletedCases] = useState(null); // null = not yet loaded
+  const [userOffices,  setUserOffices]  = useState({}); // { [userId]: string[] }
 
   const [calcInputs, setCalcInputs] = useState({ ruleId: 1, fromDate: today });
   const [calcResult, setCalcResult] = useState(null);
@@ -438,11 +442,15 @@ export default function App() {
       apiGetCases(),
       apiGetTasks(),
       apiGetDeadlines(),
+      apiGetUsers(),
     ])
-      .then(([cases, fetchedTasks, deadlines]) => {
+      .then(([cases, fetchedTasks, deadlines, users]) => {
         setAllCases(cases);
         setTasks(fetchedTasks);
         setAllDeadlines(deadlines);
+        const offMap = {};
+        users.forEach(u => { offMap[u.id] = u.offices || []; });
+        setUserOffices(offMap);
       })
       .catch(err => setDataError(err.message))
       .finally(() => setLoading(false));
@@ -704,13 +712,13 @@ export default function App() {
       </aside>
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { setSelectedCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={setSelectedCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={setSelectedCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} userOffices={userOffices} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { setSelectedCase(c); setView("cases"); }} />}
-        {view === "staff" && <StaffView allCases={allCases} />}
+        {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} userOffices={userOffices} setUserOffices={setUserOffices} />}
       </div>
     </div>
   );
@@ -1012,13 +1020,14 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
 // ─── Cases View ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, userOffices }) {
   const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [attyFilter, setAttyFilter] = useState("All");
+  const [officeFilter, setOfficeFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
   const [sortCol, setSortCol] = useState("title");
   const [sortDir, setSortDir] = useState("asc");
@@ -1075,6 +1084,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       if (typeFilter === "Case" && !isFiled(c)) return false;
       if (typeFilter === "Matter" && isFiled(c)) return false;
       if (attyFilter !== "All" && c.leadAttorney !== Number(attyFilter) && c.secondAttorney !== Number(attyFilter)) return false;
+      if (officeFilter !== "All" && !(c.offices || []).includes(officeFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
         return c.title?.toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q) || (c.client || "").toLowerCase().includes(q) || (c.plaintiff || "").toLowerCase().includes(q) || (c.fileNum || "").toLowerCase().includes(q) || (c.claimNum || "").toLowerCase().includes(q);
@@ -1093,11 +1103,11 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       return (sortDir === "asc" ? 1 : -1) * av.localeCompare(bv);
     });
     return list;
-  }, [allCases, statusFilter, typeFilter, attyFilter, search, sortCol, sortDir]);
+  }, [allCases, statusFilter, typeFilter, attyFilter, officeFilter, search, sortCol, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => setPage(1), [search, statusFilter, typeFilter, attyFilter, sortCol]);
+  useEffect(() => setPage(1), [search, statusFilter, typeFilter, attyFilter, officeFilter, sortCol]);
 
   const caseTasks = useMemo(() => selectedCase ? tasks.filter(t => t.caseId === selectedCase.id) : [], [tasks, selectedCase]);
   const caseDeadlines = useMemo(() => selectedCase ? deadlines.filter(d => d.caseId === selectedCase.id) : [], [deadlines, selectedCase]);
@@ -1116,6 +1126,10 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           <div className="topbar-subtitle">{filtered.length} of {allCases.length} · {allCases.filter(c => isFiled(c) && c.status === "Active").length} active cases · {allCases.filter(c => !isFiled(c) && c.status === "Active").length} active matters</div>
         </div>
         <div className="topbar-actions">
+          <select style={{ width: 140 }} value={officeFilter} onChange={e => setOfficeFilter(e.target.value)}>
+            <option value="All">All Offices</option>
+            {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
           <select style={{ width: 160 }} value={attyFilter} onChange={e => setAttyFilter(e.target.value)}>
             <option value="All">All Attorneys</option>
             {USERS.filter(u => u.role === "Shareholder" || u.role === "Associate").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -1229,6 +1243,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           notes={notes}
           links={caseLinks[selectedCase.id] || []}
           activity={caseActivity[selectedCase.id] || []}
+          userOffices={userOffices}
           onClose={() => setSelectedCase(null)}
           onUpdate={onUpdateCase}
           onDeleteCase={handleDeleteFromOverlay}
@@ -1278,9 +1293,10 @@ const CORE_FIELDS = [
 
 const isAttorney = (user) => user.role === "Shareholder" || user.role === "Associate";
 
-function EditField({ fieldKey, label, type, options, value, onChange, onBlur, onRemove, canRemove, isCustom }) {
+function EditField({ fieldKey, label, type, options, value, onChange, onBlur, onRemove, canRemove, isCustom, userList }) {
   const displayVal = type === "date" ? (value || "") : (value ?? "");
   const userVal = type === "user" ? (value || "") : undefined;
+  const availableUsers = userList || USERS;
 
   return (
     <div className="edit-field">
@@ -1295,7 +1311,7 @@ function EditField({ fieldKey, label, type, options, value, onChange, onBlur, on
         {type === "user" && (
           <select value={userVal} onChange={e => onChange(Number(e.target.value))}>
             <option value="">— None —</option>
-            {USERS.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+            {availableUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
           </select>
         )}
         {type === "date" && (
@@ -1321,7 +1337,7 @@ function EditField({ fieldKey, label, type, options, value, onChange, onBlur, on
   );
 }
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddNote, onDeleteNote, onAddLink, onDeleteLink, onLogActivity }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddNote, onDeleteNote, onAddLink, onDeleteLink, onLogActivity, userOffices }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const [addingField, setAddingField] = useState(false);
@@ -1401,6 +1417,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const detailFields = CORE_FIELDS.filter(f => f.section === "details");
   const dateFields   = CORE_FIELDS.filter(f => f.section === "dates");
   const teamFields   = CORE_FIELDS.filter(f => f.section === "team");
+
+  const filteredUsersForTeam = useMemo(() => {
+    const caseOffices = draft.offices || [];
+    if (caseOffices.length === 0) return USERS;
+    return USERS.filter(u => {
+      const uOff = (userOffices || {})[u.id] || [];
+      return uOff.length === 0 || uOff.some(o => caseOffices.includes(o));
+    });
+  }, [draft.offices, userOffices]);
 
   const addCustomField = () => {
     if (!newFieldLabel.trim()) return;
@@ -1572,9 +1597,37 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
             </div>
 
+            {/* Offices */}
+            <div className="case-overlay-section" style={{ maxWidth: 500 }}>
+              <div className="case-overlay-section-title">Office(s)</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 4 }}>
+                {OFFICES.map(o => {
+                  const checked = (draft.offices || []).includes(o);
+                  return (
+                    <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#c9a84c" : "#7788aa", userSelect: "none" }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const curr = draft.offices || [];
+                          setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
+                        }}
+                      />
+                      {o}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Team */}
             <div className="case-overlay-section" style={{ maxWidth: 500 }}>
               <div className="case-overlay-section-title">Team</div>
+              {(draft.offices || []).length > 0 && filteredUsersForTeam.length < USERS.length && (
+                <div style={{ fontSize: 11, color: "#c9a84c", marginBottom: 8, fontStyle: "italic" }}>
+                  Showing {filteredUsersForTeam.length} staff in selected office(s)
+                </div>
+              )}
               {teamFields.map(f => (
                 <EditField
                   key={f.key}
@@ -1584,6 +1637,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   value={draft[f.key]}
                   onChange={val => setAndLog(f.key, val)}
                   canRemove={false}
+                  userList={filteredUsersForTeam}
                 />
               ))}
             </div>
@@ -4343,14 +4397,44 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
   );
 }
 
-function StaffView({ allCases }) {
+function StaffView({ allCases, currentUser, userOffices, setUserOffices }) {
+  const [officeFilter, setOfficeFilter] = useState("All");
+  const isShareholder = currentUser?.role === "Shareholder";
+
+  const filteredStaff = officeFilter === "All"
+    ? USERS
+    : USERS.filter(u => (userOffices[u.id] || []).includes(officeFilter));
+
+  const handleToggleOffice = async (userId, office) => {
+    const current = userOffices[userId] || [];
+    const next = current.includes(office) ? current.filter(o => o !== office) : [...current, office];
+    try {
+      await apiUpdateUserOffices(userId, next);
+      setUserOffices(prev => ({ ...prev, [userId]: next }));
+    } catch (err) {
+      alert("Failed to update office: " + err.message);
+    }
+  };
+
   return (
     <>
-      <div className="topbar"><div><div className="topbar-title">Staff Directory</div><div className="topbar-subtitle">{USERS.length} team members</div></div></div>
+      <div className="topbar">
+        <div>
+          <div className="topbar-title">Staff Directory</div>
+          <div className="topbar-subtitle">{filteredStaff.length} of {USERS.length} team members</div>
+        </div>
+        <div className="topbar-actions">
+          <select style={{ width: 140 }} value={officeFilter} onChange={e => setOfficeFilter(e.target.value)}>
+            <option value="All">All Offices</option>
+            {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+      </div>
       <div className="content">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 16 }}>
-          {USERS.map(u => {
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 16 }}>
+          {filteredStaff.map(u => {
             const mine = allCases.filter(c => c.leadAttorney === u.id || c.secondAttorney === u.id || c.paralegal === u.id || c.paralegal2 === u.id || c.legalAssistant === u.id);
+            const offices = userOffices[u.id] || [];
             return (
               <div key={u.id} className="card" style={{ padding: "20px 22px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
@@ -4360,6 +4444,26 @@ function StaffView({ allCases }) {
                 {[["Email", u.email], ["Direct Line", u.phone || "—"], ["Cell", u.cell || "—"], ["Active Cases", `${mine.filter(c => c.status === "Active").length} (${mine.length} total)`]].map(([k, v]) => (
                   <div key={k} className="info-row"><span className="info-key">{k}</span><span className="info-val" style={{ fontSize: 12 }}>{v}</span></div>
                 ))}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1a2235" }}>
+                  <div style={{ fontSize: 11, color: "#445566", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                    Offices {isShareholder && <span style={{ fontWeight: 400, color: "#2a3a5a" }}>— click to toggle</span>}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {OFFICES.map(o => {
+                      const on = offices.includes(o);
+                      return isShareholder ? (
+                        <button
+                          key={o}
+                          onClick={() => handleToggleOffice(u.id, o)}
+                          style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#c9a84c55" : "#1a2235"}`, background: on ? "#2a2010" : "transparent", color: on ? "#c9a84c" : "#2a3a5a", transition: "all 0.15s" }}
+                        >{o}</button>
+                      ) : on ? (
+                        <span key={o} style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, background: "#2a2010", color: "#c9a84c", border: "1px solid #c9a84c55" }}>{o}</span>
+                      ) : null;
+                    })}
+                    {!isShareholder && offices.length === 0 && <span style={{ fontSize: 12, color: "#2a3a5a", fontStyle: "italic" }}>None assigned</span>}
+                  </div>
+                </div>
               </div>
             );
           })}
