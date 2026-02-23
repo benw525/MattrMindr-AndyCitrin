@@ -21,8 +21,10 @@ export const apiLogout  = ()             => apiFetch("/api/auth/logout", { metho
 export const apiMe      = ()             => apiFetch("/api/auth/me");
 
 // Users
-export const apiGetUsers         = ()              => apiFetch("/api/users");
-export const apiUpdateUserOffices = (id, offices)  => apiFetch(`/api/users/${id}/offices`, { method: "PUT", body: { offices } });
+export const apiGetUsers          = ()              => apiFetch("/api/users");
+export const apiCreateUser        = (data)          => apiFetch("/api/users",              { method: "POST",   body: data });
+export const apiDeleteUser        = (id)            => apiFetch(`/api/users/${id}`,        { method: "DELETE" });
+export const apiUpdateUserOffices = (id, offices)   => apiFetch(`/api/users/${id}/offices`, { method: "PUT",    body: { offices } });
 
 // Cases
 export const apiGetCases        = ()         => apiFetch("/api/cases");

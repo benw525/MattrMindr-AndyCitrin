@@ -5,7 +5,7 @@ import {
   apiGetCases, apiGetDeletedCases, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
   apiGetTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline,
-  apiGetUsers, apiUpdateUserOffices,
+  apiGetUsers, apiCreateUser, apiDeleteUser, apiUpdateUserOffices,
   apiGetNotes, apiCreateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
   apiGetActivity, apiCreateActivity,
@@ -16,6 +16,11 @@ import {
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
 
 const OFFICES = ["Mobile", "Birmingham", "Auburn", "Montgomery", "Demopolis"];
+
+const STAFF_ROLES = ["Attorney","Paralegal","Legal Assistant","Associate","Shareholder","Billing","Receptionist","Firm Administrator"];
+const AVATAR_PALETTE = ["#C9A84C","#4C7AC9","#4CAE72","#C94C4C","#9B4CC9","#4CC9C9","#C97B4C","#4C9BC9","#7BC94C","#C94C8C","#884CC9","#4CC96A","#C9C94C","#4C6AC9","#C94C6A","#4CAEC9","#6AC94C","#C9844C","#4CC9A8","#5884C9"];
+const makeInitials = n => n.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join("").slice(0, 3).toUpperCase();
+const pickAvatar   = n => AVATAR_PALETTE[n.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_PALETTE.length];
 
 const today = new Date().toISOString().split("T")[0];
 let _idCounter = Date.now();
@@ -429,9 +434,18 @@ export default function App() {
   const [caseActivity, setCaseActivity] = useState({});
   const [deletedCases, setDeletedCases] = useState(null); // null = not yet loaded
   const [userOffices,  setUserOffices]  = useState({}); // { [userId]: string[] }
+  const [allUsers,     setAllUsers]     = useState(USERS);
 
   const [calcInputs, setCalcInputs] = useState({ ruleId: 1, fromDate: today });
   const [calcResult, setCalcResult] = useState(null);
+
+  // Load users from API even before login (so login dropdown shows dynamic list)
+  useEffect(() => {
+    apiGetUsers().then(users => {
+      USERS.splice(0, USERS.length, ...users);
+      setAllUsers([...users]);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load all data from API when user logs in
   useEffect(() => {
@@ -448,6 +462,8 @@ export default function App() {
         setAllCases(cases);
         setTasks(fetchedTasks);
         setAllDeadlines(deadlines);
+        USERS.splice(0, USERS.length, ...users);
+        setAllUsers([...users]);
         const offMap = {};
         users.forEach(u => { offMap[u.id] = u.offices || []; });
         setUserOffices(offMap);
@@ -463,7 +479,7 @@ export default function App() {
     return () => document.head.removeChild(style);
   }, []);
 
-  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
+  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} allUsers={allUsers} />;
 
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "#080c12", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
@@ -718,14 +734,14 @@ export default function App() {
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { setSelectedCase(c); setView("cases"); }} />}
-        {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} userOffices={userOffices} setUserOffices={setUserOffices} />}
+        {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} userOffices={userOffices} setUserOffices={setUserOffices} allUsers={allUsers} setAllUsers={setAllUsers} />}
       </div>
     </div>
   );
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, allUsers }) {
   const [sel, setSel] = useState(null);
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
@@ -753,9 +769,9 @@ function LoginScreen({ onLogin }) {
         <div className="login-sub">Case Management System</div>
         <div className="form-group">
           <label>Select User</label>
-          <select value={sel?.id || ""} onChange={e => { setSel(USERS.find(u => u.id === Number(e.target.value))); setErr(""); }}>
+          <select value={sel?.id || ""} onChange={e => { setSel(allUsers.find(u => u.id === Number(e.target.value))); setErr(""); }}>
             <option value="">— Choose your account —</option>
-            {USERS.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
+            {allUsers.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
           </select>
         </div>
         <div className="form-group">
@@ -4472,13 +4488,85 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
   );
 }
 
-function StaffView({ allCases, currentUser, userOffices, setUserOffices }) {
+function AddStaffModal({ onSave, onClose }) {
+  const [form, setForm] = useState({ name: "", role: "Attorney", email: "", phone: "", cell: "", ext: "", offices: [] });
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const toggleOffice = o => { const c = form.offices; set("offices", c.includes(o) ? c.filter(x => x !== o) : [...c, o]); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setBusy(true);
+    try {
+      const initials = makeInitials(form.name);
+      const avatar = pickAvatar(form.name);
+      const email = form.email.trim() || `${form.name.trim().toLowerCase().replace(/\s+/g, ".").replace(/[^a-z.]/g, "")}@firm.com`;
+      const saved = await onSave({ ...form, name: form.name.trim(), initials, avatar, email });
+      onClose(saved);
+    } catch (err) {
+      alert("Failed to add staff: " + err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose(null)}>
+      <div className="modal">
+        <div className="modal-title">Add Staff Member</div>
+        <div className="modal-sub">New staff can log in immediately using PIN 1234.</div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: "#445566", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Office(s)</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {OFFICES.map(o => {
+              const checked = form.offices.includes(o);
+              return (
+                <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#c9a84c" : "#556677", userSelect: "none" }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleOffice(o)} />
+                  {o}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="form-group"><label>Full Name *</label><input value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Jane Smith" autoFocus /></div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Role</label>
+            <select value={form.role} onChange={e => set("role", e.target.value)}>
+              {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="form-group"><label>Extension</label><input value={form.ext} onChange={e => set("ext", e.target.value)} placeholder="e.g. 312" /></div>
+        </div>
+        <div className="form-group"><label>Email</label><input value={form.email} onChange={e => set("email", e.target.value)} placeholder="auto-generated if blank" /></div>
+        <div className="form-row">
+          <div className="form-group"><label>Direct Line</label><input value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(251) 278-0000" /></div>
+          <div className="form-group"><label>Cell</label><input value={form.cell} onChange={e => set("cell", e.target.value)} placeholder="(251) 404-0000" /></div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={() => onClose(null)}>Cancel</button>
+          <button className="btn btn-gold" disabled={!form.name.trim() || busy} onClick={handleSave}>
+            {busy ? "Adding…" : "Add Staff Member"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StaffView({ allCases, currentUser, userOffices, setUserOffices, allUsers, setAllUsers }) {
   const [officeFilter, setOfficeFilter] = useState("All");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const isShareholder = currentUser?.role === "Shareholder";
 
   const filteredStaff = officeFilter === "All"
-    ? USERS
-    : USERS.filter(u => (userOffices[u.id] || []).includes(officeFilter));
+    ? allUsers
+    : allUsers.filter(u => (userOffices[u.id] || []).includes(officeFilter));
 
   const handleToggleOffice = async (userId, office) => {
     const current = userOffices[userId] || [];
@@ -4491,18 +4579,48 @@ function StaffView({ allCases, currentUser, userOffices, setUserOffices }) {
     }
   };
 
+  const handleAddStaff = async (formData) => {
+    const saved = await apiCreateUser(formData);
+    const newUser = { ...saved, offices: saved.offices || [] };
+    USERS.push(newUser);
+    setAllUsers(prev => [...prev, newUser]);
+    setUserOffices(prev => ({ ...prev, [saved.id]: saved.offices || [] }));
+    return newUser;
+  };
+
+  const handleDeleteStaff = async (userId) => {
+    try {
+      await apiDeleteUser(userId);
+      USERS.splice(USERS.findIndex(u => u.id === userId), 1);
+      setAllUsers(prev => prev.filter(u => u.id !== userId));
+      setUserOffices(prev => { const next = { ...prev }; delete next[userId]; return next; });
+      setConfirmDeleteId(null);
+    } catch (err) {
+      alert("Failed to remove staff: " + err.message);
+    }
+  };
+
   return (
     <>
+      {showAddModal && (
+        <AddStaffModal
+          onSave={handleAddStaff}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
       <div className="topbar">
         <div>
           <div className="topbar-title">Staff Directory</div>
-          <div className="topbar-subtitle">{filteredStaff.length} of {USERS.length} team members</div>
+          <div className="topbar-subtitle">{filteredStaff.length} of {allUsers.length} team members</div>
         </div>
         <div className="topbar-actions">
           <select style={{ width: 140 }} value={officeFilter} onChange={e => setOfficeFilter(e.target.value)}>
             <option value="All">All Offices</option>
             {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
+          {isShareholder && (
+            <button className="btn btn-gold" onClick={() => setShowAddModal(true)}>+ Add Staff</button>
+          )}
         </div>
       </div>
       <div className="content">
@@ -4510,8 +4628,22 @@ function StaffView({ allCases, currentUser, userOffices, setUserOffices }) {
           {filteredStaff.map(u => {
             const mine = allCases.filter(c => c.leadAttorney === u.id || c.secondAttorney === u.id || c.paralegal === u.id || c.paralegal2 === u.id || c.legalAssistant === u.id);
             const offices = userOffices[u.id] || [];
+            const isConfirming = confirmDeleteId === u.id;
             return (
-              <div key={u.id} className="card" style={{ padding: "20px 22px" }}>
+              <div key={u.id} className="card" style={{ padding: "20px 22px", position: "relative" }}>
+                {isShareholder && (
+                  <div style={{ position: "absolute", top: 12, right: 14 }}>
+                    {isConfirming ? (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "#e05252" }}>Remove?</span>
+                        <button onClick={() => handleDeleteStaff(u.id)} style={{ padding: "2px 8px", background: "#e05252", color: "#fff", border: "none", borderRadius: 3, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Yes</button>
+                        <button onClick={() => setConfirmDeleteId(null)} style={{ padding: "2px 8px", background: "transparent", color: "#556677", border: "1px solid #2a3a5a", borderRadius: 3, fontSize: 11, cursor: "pointer" }}>No</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteId(u.id)} title="Remove staff member" style={{ background: "transparent", border: "none", color: "#2a3a5a", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 2 }}>✕</button>
+                    )}
+                  </div>
+                )}
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
                   <div style={{ width: 48, height: 48, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{u.initials}</div>
                   <div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: "#e8d5a8", fontWeight: 600 }}>{u.name}</div><Badge label={u.role} /></div>
@@ -4520,7 +4652,7 @@ function StaffView({ allCases, currentUser, userOffices, setUserOffices }) {
                   ["Extension", u.ext || "—"],
                   ["Direct Line", u.phone || "—"],
                   ["Cell", u.cell || "—"],
-                  ["Email", u.email],
+                  ["Email", u.email || "—"],
                   ["Active Cases", `${mine.filter(c => c.status === "Active").length} (${mine.length} total)`]
                 ].map(([k, v]) => (
                   <div key={k} className="info-row"><span className="info-key">{k}</span><span className="info-val" style={{ fontSize: 12 }}>{v}</span></div>
