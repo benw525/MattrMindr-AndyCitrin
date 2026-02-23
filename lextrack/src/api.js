@@ -33,11 +33,12 @@ export const apiDeleteCase      = (id)       => apiFetch(`/api/cases/${id}`,    
 export const apiRestoreCase     = (id)       => apiFetch(`/api/cases/${id}/restore`, { method: "POST" });
 
 // Tasks
-export const apiGetTasks      = ()         => apiFetch("/api/tasks");
-export const apiCreateTask    = (data)     => apiFetch("/api/tasks",         { method: "POST", body: data });
-export const apiCreateTasks   = (arr)      => apiFetch("/api/tasks/bulk",    { method: "POST", body: arr });
-export const apiUpdateTask    = (id, data) => apiFetch(`/api/tasks/${id}`,   { method: "PUT",  body: data });
-export const apiCompleteTask  = (id)       => apiFetch(`/api/tasks/${id}/complete`, { method: "POST" });
+export const apiGetTasks             = ()                       => apiFetch("/api/tasks");
+export const apiCreateTask           = (data)                   => apiFetch("/api/tasks",                  { method: "POST", body: data });
+export const apiCreateTasks          = (arr)                    => apiFetch("/api/tasks/bulk",             { method: "POST", body: arr });
+export const apiUpdateTask           = (id, data)               => apiFetch(`/api/tasks/${id}`,            { method: "PUT",  body: data });
+export const apiCompleteTask         = (id)                     => apiFetch(`/api/tasks/${id}/complete`,   { method: "POST" });
+export const apiReassignTasksByRole  = (caseId, role, userId)  => apiFetch("/api/tasks/reassign-by-role", { method: "PUT",  body: { caseId, role, userId } });
 
 // Deadlines
 export const apiGetDeadlines   = ()     => apiFetch("/api/deadlines");

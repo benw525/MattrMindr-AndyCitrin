@@ -3,7 +3,7 @@ import { USERS } from "./firmData.js";
 import {
   apiLogin, apiLogout,
   apiGetCases, apiGetDeletedCases, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
-  apiGetTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask,
+  apiGetTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline,
   apiGetNotes, apiCreateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
@@ -65,6 +65,7 @@ const getEffectivePriority = (task) => {
 const TASK_CHAINS = {
   "Confirm Service": {
     title: "File Answer",
+    assignedRole: "leadAttorney",
     priority: "Urgent",
     dueDaysFromCompletion: 0,
     autoEscalate: true,
@@ -72,6 +73,7 @@ const TASK_CHAINS = {
   },
   "File Answer": {
     title: "Send Discovery to Plaintiff",
+    assignedRole: "paralegal2",
     priority: "High",
     dueDaysFromCompletion: 0,
     autoEscalate: false,
@@ -79,6 +81,7 @@ const TASK_CHAINS = {
   },
   "Send Written Discovery to Plaintiff": {
     title: "Plaintiff's Discovery Received",
+    assignedRole: "paralegal2",
     priority: "High",
     dueDaysFromCompletion: 30,
     autoEscalate: true,
@@ -86,6 +89,7 @@ const TASK_CHAINS = {
   },
   "Plaintiff's Discovery Received": {
     title: "Send Subpoenas to Providers",
+    assignedRole: "paralegal2",
     priority: "Urgent",
     dueDaysFromCompletion: 0,
     autoEscalate: true,
@@ -93,6 +97,7 @@ const TASK_CHAINS = {
   },
   "Send Subpoenas to Providers": {
     title: "Follow-up on Subpoenas",
+    assignedRole: "paralegal2",
     priority: "Medium",
     dueDaysFromCompletion: 30,
     autoEscalate: true,
@@ -100,6 +105,7 @@ const TASK_CHAINS = {
   },
   "Follow-up on Subpoenas": {
     title: "Update Medical Record Summary",
+    assignedRole: "paralegal",
     priority: "Medium",
     dueDaysFromCompletion: 30,
     autoEscalate: true,
@@ -107,6 +113,7 @@ const TASK_CHAINS = {
   },
   "Schedule Party Depositions": {
     title: "Complete DWU Report",
+    assignedRole: "leadAttorney",
     priority: "Medium",
     dueDaysFromCompletion: 180,
     autoEscalate: true,
@@ -121,6 +128,7 @@ const DUAL_CHAINS = [
     requires: ["Send Written Discovery to Plaintiff", "Plaintiff's Discovery Received"],
     spawn: {
       title: "Schedule Party Depositions",
+      assignedRole: "paralegal2",
       priority: "Medium",
       dueDaysFromCompletion: 30,
       autoEscalate: true,
@@ -130,25 +138,26 @@ const DUAL_CHAINS = [
 ];
 
 const generateDefaultTasks = (caseObj, userId) => {
+  const resolveRole = (role) => role ? (caseObj[role] || userId) : userId;
   const base = [
-    { title: "Open file and assign file number",       priority: "High",   dueDays: 1,  notes: "" },
-    { title: "Send acknowledgment letter to client",   priority: "High",   dueDays: 3,  notes: "Confirm representation and provide case number." },
-    { title: "Confirm Service",                      priority: "Urgent", dueDays: 5,  notes: "Verify service date and calculate ARCP 12(a) deadline." },
-    { title: "Subpoena Police File",                   priority: "High",   dueDays: 14, notes: "" },
-    { title: "Send Written Discovery to Plaintiff", priority: "Urgent", dueDays: 0,  notes: "Completing this task will automatically generate Plaintiff's Discovery Received (due 30 days out)." },
-    { title: "Investigate Accident Scene",             priority: "Medium", dueDays: 30, notes: "" },
-    { title: "Complete Written Discovery",             priority: "Medium", dueDays: 30, notes: "" },
-    { title: "Complete Medical Record Summary",        priority: "Medium", dueDays: 30, notes: "" },
-    { title: "Submit ILP",                             priority: "Medium", dueDays: 60, notes: "" },
-    { title: "Call claim specialist with status update", priority: "Medium", dueDays: 30, notes: "Introduce firm and confirm coverage.", recurring: true, recurringDays: 30 },
+    { title: "Open file and assign file number",         assignedRole: null,             priority: "High",   dueDays: 1,  notes: "" },
+    { title: "Send acknowledgment letter to client",     assignedRole: "legalAssistant", priority: "High",   dueDays: 3,  notes: "Confirm representation and provide case number." },
+    { title: "Confirm Service",                          assignedRole: "legalAssistant", priority: "Urgent", dueDays: 5,  notes: "Verify service date and calculate ARCP 12(a) deadline." },
+    { title: "Subpoena Police File",                     assignedRole: "paralegal2",     priority: "High",   dueDays: 14, notes: "" },
+    { title: "Send Written Discovery to Plaintiff",      assignedRole: "paralegal2",     priority: "Urgent", dueDays: 0,  notes: "Completing this task will automatically generate Plaintiff's Discovery Received (due 30 days out)." },
+    { title: "Investigate Accident Scene",               assignedRole: "secondAttorney", priority: "Medium", dueDays: 30, notes: "" },
+    { title: "Complete Written Discovery",               assignedRole: "secondAttorney", priority: "Medium", dueDays: 30, notes: "" },
+    { title: "Complete Medical Record Summary",          assignedRole: "paralegal",      priority: "Medium", dueDays: 30, notes: "" },
+    { title: "Submit ILP",                               assignedRole: "leadAttorney",   priority: "Medium", dueDays: 60, notes: "" },
+    { title: "Call claim specialist with status update", assignedRole: "leadAttorney",   priority: "Medium", dueDays: 30, notes: "Introduce firm and confirm coverage.", recurring: true, recurringDays: 30 },
   ];
-  // Pre-generate all IDs in a separate pass so each gets a guaranteed unique counter tick
   const ids = base.map(() => newId());
   return base.map((t, i) => ({
     id: ids[i],
     caseId: caseObj.id,
     title: t.title,
-    assigned: userId,
+    assigned: resolveRole(t.assignedRole),
+    assignedRole: t.assignedRole || null,
     due: addDays(today, t.dueDays),
     priority: t.priority,
     autoEscalate: true,
@@ -504,11 +513,25 @@ export default function App() {
     }
   };
 
+  const TEAM_ROLES = ["leadAttorney", "secondAttorney", "paralegal", "paralegal2", "legalAssistant"];
+
   const handleUpdateCase = async (updated) => {
     try {
+      const prev = allCases.find(c => c.id === updated.id);
       const saved = await apiUpdateCase(updated.id, updated);
       setAllCases(p => p.map(c => c.id === saved.id ? saved : c));
       setSelectedCase(saved);
+
+      const roleChanges = prev ? TEAM_ROLES.filter(role => saved[role] !== prev[role]) : [];
+      if (roleChanges.length > 0) {
+        const results = await Promise.all(
+          roleChanges.map(role => apiReassignTasksByRole(saved.id, role, saved[role] || 0))
+        );
+        const allReassigned = results.flat();
+        if (allReassigned.length > 0) {
+          setTasks(prev => prev.map(t => allReassigned.find(r => r.id === t.id) || t));
+        }
+      }
     } catch (err) {
       alert("Failed to save case: " + err.message);
     }
@@ -551,13 +574,16 @@ export default function App() {
       }
 
       const toSpawn = [];
+      const caseForTask = allCases.find(c => c.id === target.caseId);
+      const resolveRole = (role) => role ? (caseForTask?.[role] || 0) : 0;
 
       // Recurring spawn
       if (target.recurring && target.recurringDays) {
         toSpawn.push({
           caseId: target.caseId,
           title: target.title,
-          assigned: target.assigned,
+          assigned: target.assignedRole ? resolveRole(target.assignedRole) : target.assigned,
+          assignedRole: target.assignedRole || null,
           due: addDays(target.due || completedDate, target.recurringDays),
           priority: target.priority,
           autoEscalate: target.autoEscalate,
@@ -579,7 +605,8 @@ export default function App() {
         toSpawn.push({
           caseId: target.caseId,
           title: chainDef.title,
-          assigned: target.assigned,
+          assigned: resolveRole(chainDef.assignedRole),
+          assignedRole: chainDef.assignedRole || null,
           due,
           priority: chainDef.priority,
           autoEscalate: chainDef.autoEscalate,
@@ -612,7 +639,8 @@ export default function App() {
         toSpawn.push({
           caseId: target.caseId,
           title: s.title,
-          assigned: target.assigned,
+          assigned: resolveRole(s.assignedRole),
+          assignedRole: s.assignedRole || null,
           due,
           priority: s.priority,
           autoEscalate: s.autoEscalate,

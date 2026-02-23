@@ -9,6 +9,7 @@ const toFrontend = (row) => ({
   caseId: row.case_id,
   title: row.title,
   assigned: row.assigned || 0,
+  assignedRole: row.assigned_role || null,
   due: row.due ? row.due.toISOString().split("T")[0] : null,
   priority: row.priority,
   autoEscalate: row.auto_escalate,
@@ -46,11 +47,11 @@ router.post("/", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `INSERT INTO tasks
-        (case_id, title, assigned, due, priority, auto_escalate, status,
+        (case_id, title, assigned, assigned_role, due, priority, auto_escalate, status,
          notes, recurring, recurring_days, is_generated, is_chained)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [
-        d.caseId, d.title, orNull(d.assigned),
+        d.caseId, d.title, orNull(d.assigned), d.assignedRole || null,
         d.due || null, d.priority || "Medium",
         d.autoEscalate !== false, d.status || "Not Started",
         d.notes || "", d.recurring || false,
@@ -76,11 +77,11 @@ router.post("/bulk", requireAuth, async (req, res) => {
     for (const d of tasks) {
       const { rows } = await client.query(
         `INSERT INTO tasks
-          (case_id, title, assigned, due, priority, auto_escalate, status,
+          (case_id, title, assigned, assigned_role, due, priority, auto_escalate, status,
            notes, recurring, recurring_days, is_generated, is_chained)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
         [
-          d.caseId, d.title, orNull(d.assigned),
+          d.caseId, d.title, orNull(d.assigned), d.assignedRole || null,
           d.due || null, d.priority || "Medium",
           d.autoEscalate !== false, d.status || "Not Started",
           d.notes || "", d.recurring || false,
@@ -100,6 +101,24 @@ router.post("/bulk", requireAuth, async (req, res) => {
   }
 });
 
+router.put("/reassign-by-role", requireAuth, async (req, res) => {
+  const { caseId, role, userId } = req.body;
+  if (!caseId || !role) return res.status(400).json({ error: "Missing caseId or role" });
+  const assignedVal = (userId && userId !== 0) ? userId : null;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE tasks SET assigned = $1
+       WHERE case_id = $2 AND assigned_role = $3 AND status != 'Completed'
+       RETURNING *`,
+      [assignedVal, caseId, role]
+    );
+    return res.json(rows.map(toFrontend));
+  } catch (err) {
+    console.error("Reassign tasks error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.put("/:id", requireAuth, async (req, res) => {
   const d = req.body;
   try {
@@ -107,7 +126,8 @@ router.put("/:id", requireAuth, async (req, res) => {
     const params = [];
     let i = 1;
     const map = {
-      title: "title", assigned: "assigned", due: "due", priority: "priority",
+      title: "title", assigned: "assigned", assignedRole: "assigned_role",
+      due: "due", priority: "priority",
       autoEscalate: "auto_escalate", status: "status", notes: "notes",
       recurring: "recurring", recurringDays: "recurring_days",
       completedAt: "completed_at",
