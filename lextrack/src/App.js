@@ -3868,12 +3868,12 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                 const noteCount = (contactNotes[c.id] || []).length;
                 const isPrimary = primaryId === c.id;
                 return (
-                  <label key={c.id} onClick={() => handleSetPrimary(c.id)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "9px 14px", borderRadius: 5, background: isPrimary ? "#111e2e" : "#0d1525", border: `1px solid ${isPrimary ? "#2a5a8a" : "#141c2b"}`, transition: "all 0.15s" }}>
-                    <input type="radio" name="merge-primary" checked={isPrimary} onChange={() => handleSetPrimary(c.id)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }} />
-                    <span style={{ color: isPrimary ? "#ccd6e8" : "#7788aa", fontWeight: isPrimary ? 600 : 400, flex: 1 }}>{c.name}</span>
+                  <div key={c.id} onClick={() => handleSetPrimary(c.id)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "9px 14px", borderRadius: 5, background: isPrimary ? "#111e2e" : "#0d1525", border: `1px solid ${isPrimary ? "#2a5a8a" : "#141c2b"}`, transition: "all 0.15s" }}>
+                    <input type="radio" name="merge-primary" checked={isPrimary} onChange={() => handleSetPrimary(c.id)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0, cursor: "pointer" }} />
+                    <span style={{ color: isPrimary ? "#ccd6e8" : "#7788aa", fontWeight: isPrimary ? 600 : 400, flex: 1, fontSize: 14 }}>{c.name}</span>
                     <span style={{ padding: "1px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>{c.category}</span>
                     {noteCount > 0 && <span style={{ fontSize: 11, color: "#556677" }}>{noteCount} note{noteCount !== 1 ? "s" : ""}</span>}
-                  </label>
+                  </div>
                 );
               })}
             </div>
@@ -3883,67 +3883,66 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#445566", textTransform: "uppercase", marginBottom: 6 }}>Choose Field Values</div>
             <div style={{ fontSize: 12, color: "#556677", marginBottom: 14 }}>Click a cell to choose that contact's value for each field.</div>
-            <div style={{ border: "1px solid #1a2235", borderRadius: 5, overflow: "hidden" }}>
-              {/* Header row — contact names, one column each */}
-              <div style={{ display: "flex", background: "#0d1525", borderBottom: "2px solid #1a2235" }}>
-                <div style={{ width: 90, flexShrink: 0, padding: "9px 10px" }} />
-                {contacts.map(c => (
-                  <div key={c.id} style={{ flex: 1, padding: "9px 14px", fontSize: 12, fontWeight: 700, color: c.id === primaryId ? "#c9a84c" : "#7788aa", borderLeft: "1px solid #1a2235", wordBreak: "break-word" }}>
-                    {c.name}{c.id === primaryId ? " ★" : ""}
-                  </div>
-                ))}
-              </div>
-              {/* One row per field */}
-              {MERGE_FIELDS.map(({ key, label }) => {
-                const allSame = contacts.every(c => (c[key] || "") === (contacts[0][key] || ""));
-                return (
-                  <div key={key} style={{ display: "flex", alignItems: "stretch", borderBottom: "1px solid #0d1525" }}>
-                    {/* Field label column */}
-                    <div style={{ width: 90, flexShrink: 0, padding: "12px 10px", background: "#090d18", display: "flex", alignItems: "center", borderRight: "1px solid #1a2235" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#445566", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
-                    </div>
-                    {/* When identical across all contacts: single spanning cell */}
-                    {allSame ? (
-                      <div style={{ flex: 1, padding: "12px 14px", display: "flex", alignItems: "center" }}>
-                        <span style={{ fontSize: 13, color: "#4CAE72", background: "#0e1c10", border: "1px solid #2a4a2a", borderRadius: 4, padding: "4px 10px", display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 11 }}>✓</span>
-                          {contacts[0][key] ? contacts[0][key] : <em style={{ color: "#3a5a3a" }}>empty on all</em>}
-                        </span>
-                      </div>
-                    ) : (
-                      /* One cell per contact, side by side */
-                      contacts.map(c => {
+            <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #1a2235", borderRadius: 5, overflow: "hidden", tableLayout: "fixed" }}>
+              <thead>
+                <tr style={{ background: "#0d1525", borderBottom: "2px solid #1a2235" }}>
+                  <th style={{ width: 90, padding: "9px 10px", textAlign: "left", fontWeight: 400 }}></th>
+                  {contacts.map(c => (
+                    <th key={c.id} style={{ padding: "9px 14px", textAlign: "left", fontSize: 13, fontWeight: 700, color: c.id === primaryId ? "#c9a84c" : "#7788aa", borderLeft: "1px solid #1a2235", wordBreak: "break-word", letterSpacing: "normal", textTransform: "none" }}>
+                      {c.name}{c.id === primaryId ? " ★" : ""}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {MERGE_FIELDS.map(({ key, label: fLabel }) => {
+                  const allSame = contacts.every(c => (c[key] || "") === (contacts[0][key] || ""));
+                  return (
+                    <tr key={key} style={{ borderBottom: "1px solid #0d1525" }}>
+                      <td style={{ padding: "11px 10px", background: "#090d18", borderRight: "1px solid #1a2235", fontSize: 11, fontWeight: 700, color: "#445566", textTransform: "uppercase", letterSpacing: "0.06em", verticalAlign: "middle", whiteSpace: "nowrap" }}>
+                        {fLabel}
+                      </td>
+                      {allSame ? (
+                        <td colSpan={contacts.length} style={{ padding: "11px 14px", verticalAlign: "middle" }}>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 4, background: "#0e1c10", border: "1px solid #2a4a2a", color: "#4CAE72", fontSize: 13 }}>
+                            <span>✓</span>
+                            <span style={{ fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>
+                              {contacts[0][key] || <em style={{ color: "#3a5a3a", fontStyle: "italic" }}>empty on all</em>}
+                            </span>
+                          </div>
+                        </td>
+                      ) : contacts.map(c => {
                         const val = c[key] || "";
                         const isChosen = choices[key] === c.id;
                         return (
-                          <div
+                          <td
                             key={c.id}
                             onClick={() => setChoices(p => ({ ...p, [key]: c.id }))}
-                            style={{ flex: 1, padding: "11px 14px", borderLeft: "1px solid #111827", cursor: "pointer", background: isChosen ? "#0e1e32" : "transparent", transition: "background 0.1s" }}
+                            style={{ padding: "11px 14px", borderLeft: "1px solid #111827", cursor: "pointer", background: isChosen ? "#0e1e32" : "transparent", verticalAlign: "middle", transition: "background 0.1s" }}
                           >
-                            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", pointerEvents: "none" }}>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                               <input
                                 type="radio"
                                 name={`mfc-${key}`}
                                 checked={isChosen}
                                 onChange={() => setChoices(p => ({ ...p, [key]: c.id }))}
                                 onClick={e => e.stopPropagation()}
-                                style={{ marginTop: 2, flexShrink: 0, pointerEvents: "auto" }}
+                                style={{ marginTop: 2, flexShrink: 0, cursor: "pointer" }}
                               />
                               {val ? (
-                                <span style={{ color: isChosen ? "#ccd6e8" : "#556677", fontSize: 13, wordBreak: "break-word", lineHeight: 1.5 }}>{val}</span>
+                                <span style={{ color: isChosen ? "#ccd6e8" : "#7788aa", fontSize: 13, wordBreak: "break-word", lineHeight: 1.5, fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>{val}</span>
                               ) : (
-                                <em style={{ color: "#2a3a5a", fontSize: 12 }}>empty</em>
+                                <span style={{ color: "#2a3a5a", fontSize: 12, fontStyle: "italic", fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>empty</span>
                               )}
-                            </label>
-                          </div>
+                            </div>
+                          </td>
                         );
-                      })
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
           {/* Notes notice */}
