@@ -72,7 +72,7 @@ const TASK_CHAINS = {
     title: "Send Discovery to Plaintiff",
     priority: "High",
     dueDaysFromCompletion: 0,
-    autoEscalate: true,
+    autoEscalate: false,
     notes: "Auto-generated after File Answer was completed. Send discovery to plaintiff immediately.",
   },
   "Send Written Discovery to Plaintiff": {
