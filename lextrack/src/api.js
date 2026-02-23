@@ -65,6 +65,8 @@ export const apiUpdateContact      = (id, data) => apiFetch(`/api/contacts/${id}
 export const apiDeleteContact      = (id)       => apiFetch(`/api/contacts/${id}`,       { method: "DELETE" });
 export const apiRestoreContact     = (id)       => apiFetch(`/api/contacts/${id}/restore`, { method: "POST" });
 
+export const apiMergeContacts      = (data)       => apiFetch("/api/contacts/merge",        { method: "POST",   body: data });
+
 // Contact Notes
 export const apiGetContactNotes    = (contactId) => apiFetch(`/api/contact-notes/${contactId}`);
 export const apiCreateContactNote  = (data)      => apiFetch("/api/contact-notes",       { method: "POST",   body: data });

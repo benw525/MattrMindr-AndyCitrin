@@ -8,7 +8,7 @@ import {
   apiGetNotes, apiCreateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
   apiGetActivity, apiCreateActivity,
-  apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact,
+  apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact, apiMergeContacts,
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
 } from "./api.js";
 
@@ -3807,6 +3807,143 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   );
 }
 
+function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
+  const [primaryId, setPrimaryId] = useState(contacts[0].id);
+  const [fields, setFields] = useState({ name: contacts[0].name, category: contacts[0].category, phone: contacts[0].phone, email: contacts[0].email, fax: contacts[0].fax, address: contacts[0].address });
+  const [merging, setMerging] = useState(false);
+
+  // When primary changes, reset fields to that contact's values
+  const handleSetPrimary = (id) => {
+    setPrimaryId(id);
+    const p = contacts.find(c => c.id === id);
+    setFields({ name: p.name, category: p.category, phone: p.phone, email: p.email, fax: p.fax, address: p.address });
+  };
+
+  const totalNotes = contacts.reduce((sum, c) => sum + (contactNotes[c.id] || []).length, 0);
+
+  const MERGE_FIELDS = [
+    { key: "name",     label: "Name" },
+    { key: "category", label: "Category" },
+    { key: "phone",    label: "Phone" },
+    { key: "email",    label: "Email" },
+    { key: "fax",      label: "Fax" },
+    { key: "address",  label: "Address" },
+  ];
+
+  const handleMerge = async () => {
+    setMerging(true);
+    try {
+      await onMerge({ primaryId, mergeIds: contacts.filter(c => c.id !== primaryId).map(c => c.id), fields });
+    } catch { setMerging(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 720, maxHeight: "88vh", overflowY: "auto" }}>
+        <div className="modal-header">
+          <span>Merge {contacts.length} Contacts</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+
+          {/* Surviving record */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#445566", textTransform: "uppercase", marginBottom: 8 }}>Surviving Record</div>
+            <div style={{ fontSize: 12, color: "#556677", marginBottom: 10 }}>All other contacts will be permanently removed. The selected record's ID is kept.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {contacts.map(c => {
+                const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
+                const noteCount = (contactNotes[c.id] || []).length;
+                return (
+                  <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 4, background: primaryId === c.id ? "#1a2a3a" : "#0d1525", border: `1px solid ${primaryId === c.id ? "#2a4a6a" : "transparent"}`, transition: "all 0.15s" }}>
+                    <input type="radio" name="merge-primary" value={c.id} checked={primaryId === c.id} onChange={() => handleSetPrimary(c.id)} />
+                    <span style={{ color: "#ccd6e8", fontWeight: 500 }}>{c.name}</span>
+                    <span style={{ padding: "1px 7px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color }}>{c.category}</span>
+                    {noteCount > 0 && <span style={{ fontSize: 11, color: "#7788aa" }}>{noteCount} note{noteCount !== 1 ? "s" : ""}</span>}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Field chooser */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#445566", textTransform: "uppercase", marginBottom: 8 }}>Choose Field Values</div>
+            <div style={{ fontSize: 12, color: "#556677", marginBottom: 12 }}>Select which value to keep for each field. Click a radio button to choose that contact's value.</div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #1a2235" }}>
+                    <th style={{ textAlign: "left", padding: "6px 10px 8px 0", fontSize: 11, color: "#445566", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", width: 90, whiteSpace: "nowrap" }}>Field</th>
+                    {contacts.map(c => (
+                      <th key={c.id} style={{ textAlign: "left", padding: "6px 10px 8px 0", fontSize: 12, color: c.id === primaryId ? "#c9a84c" : "#7788aa", fontWeight: 600 }}>
+                        {c.name}{c.id === primaryId ? " ★" : ""}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {MERGE_FIELDS.map(({ key, label }) => {
+                    const values = contacts.map(c => c[key] || "");
+                    const uniqueValues = [...new Set(values)];
+                    const allSame = uniqueValues.length === 1;
+                    return (
+                      <tr key={key} style={{ borderBottom: "1px solid #0d1525" }}>
+                        <td style={{ padding: "10px 10px 10px 0", color: "#556677", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", verticalAlign: "top", paddingTop: 13 }}>{label}</td>
+                        {contacts.map(c => {
+                          const val = c[key] || "";
+                          const isSelected = fields[key] === val && (val !== "" || contacts.every(x => !x[key]));
+                          return (
+                            <td key={c.id} style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
+                              <label style={{ display: "flex", alignItems: "flex-start", gap: 7, cursor: "pointer" }}>
+                                <input
+                                  type="radio"
+                                  name={`mf-${key}`}
+                                  checked={isSelected}
+                                  onChange={() => setFields(p => ({ ...p, [key]: val }))}
+                                  style={{ marginTop: 3, flexShrink: 0 }}
+                                  disabled={allSame && c !== contacts[0]}
+                                />
+                                {val ? (
+                                  <span style={{ color: isSelected ? "#ccd6e8" : "#445566", wordBreak: "break-word", fontSize: 13 }}>{val}</span>
+                                ) : (
+                                  <span style={{ color: "#2a3a5a", fontStyle: "italic", fontSize: 12 }}>empty</span>
+                                )}
+                              </label>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {totalNotes > 0 && (
+            <div style={{ background: "#1a2a1a", border: "1px solid #2a4a2a", borderRadius: 4, padding: "10px 14px", fontSize: 12, color: "#4CAE72" }}>
+              {totalNotes} note{totalNotes !== 1 ? "s" : ""} across all selected contacts will be automatically combined onto the surviving record.
+            </div>
+          )}
+
+          {/* Warning */}
+          <div style={{ background: "#1f1010", border: "1px solid #4a2020", borderRadius: 4, padding: "10px 14px", fontSize: 12, color: "#e05252" }}>
+            This action is permanent. Non-surviving contacts will be hard-deleted and cannot be recovered.
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+          <button onClick={handleMerge} disabled={merging} style={{ background: "#c9a84c", color: "#0a0f1a", border: "none", borderRadius: 4, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: merging ? "not-allowed" : "pointer", opacity: merging ? 0.6 : 1 }}>
+            {merging ? "Merging…" : `Merge ${contacts.length} Contacts`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ContactsView({ currentUser, allCases, onOpenCase }) {
   const [contacts, setContacts] = useState(null);
   const [deletedContacts, setDeletedContacts] = useState(null);
@@ -3816,6 +3953,9 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
   const [contactNotes, setContactNotes] = useState({});
   const [showNew, setShowNew] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeSelected, setMergeSelected] = useState(new Set());
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   useEffect(() => {
     apiGetContacts().then(data => { setContacts(data); setLoading(false); }).catch(() => setLoading(false));
@@ -3870,6 +4010,39 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
       setShowNew(false);
       handleSelectContact(saved);
     } catch (err) { alert("Failed to create contact: " + err.message); }
+  };
+
+  const toggleMergeMode = () => {
+    setMergeMode(m => !m);
+    setMergeSelected(new Set());
+    setSelectedContact(null);
+  };
+
+  const toggleMergeSelect = (id) => {
+    setMergeSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleMerge = async ({ primaryId, mergeIds, fields }) => {
+    try {
+      const merged = await apiMergeContacts({ primaryId, mergeIds, fields });
+      setContacts(p => {
+        const without = (p || []).filter(c => c.id !== primaryId && !mergeIds.includes(c.id));
+        return [...without, merged].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setContactNotes(p => {
+        const combined = [...(p[primaryId] || []), ...mergeIds.flatMap(id => p[id] || [])];
+        const next = { ...p, [merged.id]: combined };
+        mergeIds.forEach(id => delete next[id]);
+        return next;
+      });
+      setShowMergeModal(false);
+      setMergeMode(false);
+      setMergeSelected(new Set());
+    } catch (err) { alert("Merge failed: " + err.message); }
   };
 
   const handleAddNote = async (contactId, noteData) => {
@@ -3929,7 +4102,15 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
             onChange={e => setSearch(e.target.value)}
             style={{ width: 220, fontSize: 13 }}
           />
-          <button className="btn btn-primary" onClick={() => setShowNew(true)}>+ New Contact</button>
+          {currentUser.role === "Shareholder" && !isDeleted && (
+            <button
+              onClick={toggleMergeMode}
+              style={{ background: mergeMode ? "#c9a84c" : "#1a2235", color: mergeMode ? "#0a0f1a" : "#7788aa", border: `1px solid ${mergeMode ? "#c9a84c" : "#2a3a5a"}`, borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}
+            >
+              {mergeMode ? "Cancel Merge" : "Merge Contacts"}
+            </button>
+          )}
+          {!mergeMode && <button className="btn btn-primary" onClick={() => setShowNew(true)}>+ New Contact</button>}
         </div>
       </div>
 
@@ -3992,53 +4173,83 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
 
         {/* Active contacts table */}
         {!isDeleted && (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ fontSize: 11, color: "#445566", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #1a2235" }}>
-                <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Category</th>
-                <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Name</th>
-                <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Phone</th>
-                <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Email</th>
-                <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 600 }}>Cases</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={5} style={{ padding: 30, color: "#445566", textAlign: "center" }}>Loading contacts…</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: 30, color: "#445566", textAlign: "center" }}>
-                  {search ? "No contacts match your search." : "No contacts in this category yet."}
-                </td></tr>
-              ) : filtered.map(c => {
-                const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
-                const caseCount = c.category === "Client"   ? allCases.filter(a => a.client === c.name && !a.deletedAt).length
-                                : c.category === "Attorney" ? allCases.filter(a => a.plaintiff === c.name && !a.deletedAt).length
-                                : c.category === "Court"    ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
-                                : 0;
-                return (
-                  <tr
-                    key={c.id}
-                    onClick={() => handleSelectContact(c)}
-                    style={{ borderBottom: "1px solid #0d1525", cursor: "pointer", transition: "background 0.1s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#0d1525"}
-                    onMouseLeave={e => e.currentTarget.style.background = ""}
+          <>
+            {mergeMode && (
+              <div style={{ marginBottom: 14, padding: "10px 14px", background: "#1a2a1a", border: "1px solid #2a4a2a", borderRadius: 4, display: "flex", alignItems: "center", gap: 14, fontSize: 13 }}>
+                <span style={{ color: "#4CAE72" }}>Select 2 or more contacts to merge.</span>
+                {mergeSelected.size >= 2 && (
+                  <button
+                    onClick={async () => {
+                      const selected = [...mergeSelected];
+                      const toLoad = selected.filter(id => !contactNotes[id]);
+                      if (toLoad.length > 0) {
+                        await Promise.all(toLoad.map(id => apiGetContactNotes(id).then(notes => setContactNotes(p => ({ ...p, [id]: notes }))).catch(() => {})));
+                      }
+                      setShowMergeModal(true);
+                    }}
+                    style={{ background: "#c9a84c", color: "#0a0f1a", border: "none", borderRadius: 4, padding: "6px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
                   >
-                    <td style={{ padding: "10px 12px 10px 0" }}>
-                      <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>
-                        {c.category}
-                      </span>
-                    </td>
-                    <td style={{ padding: "10px 12px 10px 0", color: "#ccd6e8", fontWeight: 500 }}>{c.name}</td>
-                    <td style={{ padding: "10px 12px 10px 0", color: "#7788aa", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "#2a3a5a" }}>—</span>}</td>
-                    <td style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12 }}>{c.email || <span style={{ color: "#2a3a5a" }}>—</span>}</td>
-                    <td style={{ padding: "10px 0", color: caseCount > 0 ? "#c9a84c" : "#2a3a5a", fontWeight: caseCount > 0 ? 600 : 400 }}>
-                      {caseCount > 0 ? caseCount : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    Merge Selected ({mergeSelected.size})
+                  </button>
+                )}
+                <span style={{ color: "#445566", fontSize: 12 }}>{mergeSelected.size} selected</span>
+              </div>
+            )}
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ fontSize: 11, color: "#445566", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #1a2235" }}>
+                  {mergeMode && <th style={{ width: 32, padding: "6px 8px 6px 0" }}></th>}
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Category</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Name</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Phone</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Email</th>
+                  <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 600 }}>Cases</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#445566", textAlign: "center" }}>Loading contacts…</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#445566", textAlign: "center" }}>
+                    {search ? "No contacts match your search." : "No contacts in this category yet."}
+                  </td></tr>
+                ) : filtered.map(c => {
+                  const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
+                  const caseCount = c.category === "Client"   ? allCases.filter(a => a.client === c.name && !a.deletedAt).length
+                                  : c.category === "Attorney" ? allCases.filter(a => a.plaintiff === c.name && !a.deletedAt).length
+                                  : c.category === "Court"    ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
+                                  : 0;
+                  const isChecked = mergeSelected.has(c.id);
+                  return (
+                    <tr
+                      key={c.id}
+                      onClick={() => mergeMode ? toggleMergeSelect(c.id) : handleSelectContact(c)}
+                      style={{ borderBottom: "1px solid #0d1525", cursor: "pointer", transition: "background 0.1s", background: isChecked ? "#111e10" : "" }}
+                      onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = "#0d1525"; }}
+                      onMouseLeave={e => { if (!isChecked) e.currentTarget.style.background = ""; }}
+                    >
+                      {mergeMode && (
+                        <td style={{ padding: "10px 8px 10px 0" }}>
+                          <input type="checkbox" checked={isChecked} onChange={() => toggleMergeSelect(c.id)} onClick={e => e.stopPropagation()} style={{ width: 15, height: 15, cursor: "pointer" }} />
+                        </td>
+                      )}
+                      <td style={{ padding: "10px 12px 10px 0" }}>
+                        <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>
+                          {c.category}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px 12px 10px 0", color: "#ccd6e8", fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ padding: "10px 12px 10px 0", color: "#7788aa", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "#2a3a5a" }}>—</span>}</td>
+                      <td style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12 }}>{c.email || <span style={{ color: "#2a3a5a" }}>—</span>}</td>
+                      <td style={{ padding: "10px 0", color: caseCount > 0 ? "#c9a84c" : "#2a3a5a", fontWeight: caseCount > 0 ? 600 : 400 }}>
+                        {caseCount > 0 ? caseCount : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
 
@@ -4056,6 +4267,14 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
         />
       )}
       {showNew && <NewContactModal onSave={handleCreateContact} onClose={() => setShowNew(false)} />}
+      {showMergeModal && mergeSelected.size >= 2 && (
+        <ContactMergeModal
+          contacts={(contacts || []).filter(c => mergeSelected.has(c.id))}
+          contactNotes={contactNotes}
+          onMerge={handleMerge}
+          onClose={() => setShowMergeModal(false)}
+        />
+      )}
     </>
   );
 }
