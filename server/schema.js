@@ -10,12 +10,15 @@ async function createSchema() {
         id          INTEGER PRIMARY KEY,
         name        TEXT    NOT NULL,
         role        TEXT    NOT NULL,
-        email       TEXT    NOT NULL,
-        initials    TEXT    NOT NULL,
+        roles       TEXT[]  NOT NULL DEFAULT '{}',
+        email       TEXT    NOT NULL DEFAULT '',
+        initials    TEXT    NOT NULL DEFAULT '',
         phone       TEXT    NOT NULL DEFAULT '',
         cell        TEXT    NOT NULL DEFAULT '',
+        ext         TEXT    NOT NULL DEFAULT '',
         avatar      TEXT    NOT NULL DEFAULT '#4C7AC9',
-        pin_hash    TEXT    NOT NULL DEFAULT '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
+        offices     TEXT[]  NOT NULL DEFAULT '{}',
+        pin_hash    TEXT    NOT NULL DEFAULT ''
       );
     `);
 
@@ -36,6 +39,9 @@ async function createSchema() {
         lead_attorney   INTEGER REFERENCES users(id),
         second_attorney INTEGER REFERENCES users(id),
         paralegal       INTEGER REFERENCES users(id),
+        paralegal2      INTEGER REFERENCES users(id),
+        legal_assistant INTEGER REFERENCES users(id),
+        offices         TEXT[]  NOT NULL DEFAULT '{}',
         trial_date      DATE,
         answer_filed    DATE,
         written_disc    DATE,
@@ -47,6 +53,7 @@ async function createSchema() {
         judge           TEXT    NOT NULL DEFAULT '',
         dol             DATE,
         custom_fields   JSONB   NOT NULL DEFAULT '[]',
+        deleted_at      TIMESTAMPTZ,
         created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
@@ -57,6 +64,7 @@ async function createSchema() {
         case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
         title           TEXT    NOT NULL,
         assigned        INTEGER REFERENCES users(id),
+        assigned_role   VARCHAR(50),
         due             DATE,
         priority        TEXT    NOT NULL DEFAULT 'Medium',
         auto_escalate   BOOLEAN NOT NULL DEFAULT true,
@@ -67,19 +75,22 @@ async function createSchema() {
         is_generated    BOOLEAN NOT NULL DEFAULT false,
         is_chained      BOOLEAN NOT NULL DEFAULT false,
         completed_at    DATE,
+        time_logged     VARCHAR(50),
+        completed_by    INTEGER REFERENCES users(id),
+        time_log_user   INTEGER REFERENCES users(id),
         created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS deadlines (
-        id       SERIAL PRIMARY KEY,
-        case_id  INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
-        title    TEXT    NOT NULL,
-        date     DATE    NOT NULL,
-        type     TEXT    NOT NULL DEFAULT 'Filing',
-        rule     TEXT    NOT NULL DEFAULT '',
-        assigned INTEGER REFERENCES users(id),
+        id         SERIAL PRIMARY KEY,
+        case_id    INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        title      TEXT    NOT NULL,
+        date       DATE    NOT NULL,
+        type       TEXT    NOT NULL DEFAULT 'Filing',
+        rule       TEXT    NOT NULL DEFAULT '',
+        assigned   INTEGER REFERENCES users(id),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
@@ -91,8 +102,10 @@ async function createSchema() {
         type        TEXT    NOT NULL DEFAULT 'General',
         body        TEXT    NOT NULL,
         author_id   INTEGER REFERENCES users(id),
-        author_name TEXT    NOT NULL,
-        author_role TEXT    NOT NULL,
+        author_name TEXT    NOT NULL DEFAULT '',
+        author_role TEXT    NOT NULL DEFAULT '',
+        time_logged VARCHAR(50),
+        time_log_user INTEGER REFERENCES users(id),
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
@@ -104,7 +117,7 @@ async function createSchema() {
         path      TEXT    NOT NULL,
         label     TEXT    NOT NULL,
         category  TEXT    NOT NULL DEFAULT 'General',
-        added_by  TEXT    NOT NULL,
+        added_by  TEXT    NOT NULL DEFAULT '',
         added_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
@@ -115,10 +128,37 @@ async function createSchema() {
         case_id   INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
         ts        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         user_id   INTEGER REFERENCES users(id),
-        user_name TEXT    NOT NULL,
-        user_role TEXT    NOT NULL,
+        user_name TEXT    NOT NULL DEFAULT '',
+        user_role TEXT    NOT NULL DEFAULT '',
         action    TEXT    NOT NULL,
         detail    TEXT    NOT NULL DEFAULT ''
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id         SERIAL PRIMARY KEY,
+        name       TEXT    NOT NULL,
+        category   TEXT    NOT NULL,
+        phone      TEXT    NOT NULL DEFAULT '',
+        email      TEXT    NOT NULL DEFAULT '',
+        fax        TEXT    NOT NULL DEFAULT '',
+        address    TEXT    NOT NULL DEFAULT '',
+        deleted_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS contact_notes (
+        id          SERIAL PRIMARY KEY,
+        contact_id  INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        type        TEXT    NOT NULL DEFAULT 'General',
+        body        TEXT    NOT NULL,
+        author_id   INTEGER REFERENCES users(id),
+        author_name TEXT    NOT NULL DEFAULT '',
+        author_role TEXT    NOT NULL DEFAULT '',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 

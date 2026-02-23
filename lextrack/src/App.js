@@ -2634,7 +2634,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
         <button
           className="btn btn-outline btn-sm"
           style={{ fontSize: 11 }}
-          onClick={() => { setShowForm(s => !s); setExpandedId(null); }}
+          onClick={() => { setShowForm(s => !s); setExpandedId(null); if (showForm) { setAssignId(0); setShowAllAssign(false); } }}
         >
           {showForm ? "Cancel" : "+ Add Note"}
         </button>
@@ -4793,12 +4793,11 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
     apiGetContacts().then(data => { setContacts(data); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (categoryFilter !== "Deleted") return;
     if (deletedContacts !== null) return;
     apiGetDeletedContacts().then(setDeletedContacts).catch(console.error);
-  }, [categoryFilter]);
+  }, [categoryFilter, deletedContacts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectContact = async (c) => {
     setSelectedContact(c);
