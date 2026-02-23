@@ -50,7 +50,7 @@ const urgencyColor = (days) => {
   if (days === null) return "#8899aa";
   if (days < 0) return "#e05252";
   if (days <= 7) return "#e07a30";
-  if (days <= 21) return "#5b8fd4";
+  if (days <= 21) return "#2563eb";
   return "#4CAE72";
 };
 
@@ -181,28 +181,28 @@ const generateDefaultTasks = (caseObj, userId) => {
 
 const statusBadgeStyle = (status) => {
   const map = {
-    Case: { bg: "#1a2a3a", color: "#5599cc", border: "#1a4a6a" },
-    Matter: { bg: "#2a1a3a", color: "#a066cc", border: "#4a2a6a" },
-    Active: { bg: "#1a3a2a", color: "#4CAE72", border: "#2a5a3a" },
-    Closed: { bg: "#1a1a2a", color: "#8b9ab5", border: "#2a2a4a" },
-    Urgent: { bg: "#3a1a1a", color: "#e05252", border: "#6a2a2a" },
-    Overdue: { bg: "#3a1a1a", color: "#e05252", border: "#6a2a2a" },
-    "Trial Set": { bg: "#2a1a3a", color: "#a066cc", border: "#4a2a6a" },
-    "Post-Answer": { bg: "#1a2a1a", color: "#66aa66", border: "#2a4a2a" },
-    "Written Discovery": { bg: "#1a2a3a", color: "#5599cc", border: "#1a4a6a" },
-    Depositions: { bg: "#2a2a1a", color: "#5b8fd4", border: "#4a4a1a" },
+    Case: { bg: "#dbeafe", color: "#5599cc", border: "#dbeafe" },
+    Matter: { bg: "#f3e8ff", color: "#a066cc", border: "#f3e8ff" },
+    Active: { bg: "#dcfce7", color: "#4CAE72", border: "#bbf7d0" },
+    Closed: { bg: "#1a1a2a", color: "#475569", border: "#2a2a4a" },
+    Urgent: { bg: "#fee2e2", color: "#e05252", border: "#fca5a5" },
+    Overdue: { bg: "#fee2e2", color: "#e05252", border: "#fca5a5" },
+    "Trial Set": { bg: "#f3e8ff", color: "#a066cc", border: "#f3e8ff" },
+    "Post-Answer": { bg: "#1a2a1a", color: "#66aa66", border: "#bbf7d0" },
+    "Written Discovery": { bg: "#dbeafe", color: "#5599cc", border: "#dbeafe" },
+    Depositions: { bg: "#fef9c3", color: "#2563eb", border: "#fef9c3" },
     "Expert Discovery": { bg: "#2a1a2a", color: "#cc66aa", border: "#4a1a4a" },
-    Pleadings: { bg: "#1a1a2a", color: "#8b9ab5", border: "#2a2a4a" },
-    Mediation: { bg: "#1a2a3a", color: "#5599cc", border: "#1a4a6a" },
-    "In Progress": { bg: "#1a2a3a", color: "#5599cc", border: "#1a4a6a" },
-    "Not Started": { bg: "#252c3d", color: "#8899bb", border: "#2a2d45" },
-    Completed: { bg: "#1a3a2a", color: "#4CAE72", border: "#2a5a3a" },
-    Waiting: { bg: "#2a2a1a", color: "#5b8fd4", border: "#4a4a1a" },
-    High: { bg: "#3a2a1a", color: "#e07a30", border: "#6a4a1a" },
-    Medium: { bg: "#2a2a1a", color: "#5b8fd4", border: "#4a4a1a" },
-    Low: { bg: "#1a2a3a", color: "#5599cc", border: "#1a4a6a" },
+    Pleadings: { bg: "#1a1a2a", color: "#475569", border: "#2a2a4a" },
+    Mediation: { bg: "#dbeafe", color: "#5599cc", border: "#dbeafe" },
+    "In Progress": { bg: "#dbeafe", color: "#5599cc", border: "#dbeafe" },
+    "Not Started": { bg: "#ffffff", color: "#8899bb", border: "#2a2d45" },
+    Completed: { bg: "#dcfce7", color: "#4CAE72", border: "#bbf7d0" },
+    Waiting: { bg: "#fef9c3", color: "#2563eb", border: "#fef9c3" },
+    High: { bg: "#fef3c7", color: "#e07a30", border: "#fde68a" },
+    Medium: { bg: "#fef9c3", color: "#2563eb", border: "#fef9c3" },
+    Low: { bg: "#dbeafe", color: "#5599cc", border: "#dbeafe" },
   };
-  return map[status] || { bg: "#252c3d", color: "#8899bb", border: "#2a2d45" };
+  return map[status] || { bg: "#ffffff", color: "#8899bb", border: "#2a2d45" };
 };
 
 const Badge = ({ label }) => {
@@ -223,7 +223,7 @@ const SortTh = ({ col, label, sortCol, sortDir, onSort, style }) => (
   <th style={{ cursor: "pointer", userSelect: "none", ...style }} onClick={() => onSort(col)}>
     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
       {label}
-      <span style={{ color: sortCol === col ? "#5b8fd4" : "#3a4a65", fontSize: 10 }}>
+      <span style={{ color: sortCol === col ? "#2563eb" : "#cbd5e1", fontSize: 10 }}>
         {sortCol === col ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
       </span>
     </span>
@@ -246,116 +246,116 @@ const COURT_RULES = [
 const CSS = `
 ${FONTS}
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #1e2330; color: #dce4f0; font-family: 'Source Sans 3', sans-serif; }
+body { background: #f1f5f9; color: #1e293b; font-family: 'Source Sans 3', sans-serif; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #1e2330; }
-::-webkit-scrollbar-thumb { background: #3a4a65; border-radius: 3px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 .app { display: flex; height: 100vh; overflow: hidden; }
-.sidebar { width: 240px; background: #191f2d; border-right: 1px solid #2e3a50; display: flex; flex-direction: column; flex-shrink: 0; }
-.sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid #2e3a50; }
-.sidebar-logo-text { font-family: 'Playfair Display', serif; font-size: 17px; color: #5b8fd4; font-weight: 700; }
-.sidebar-logo-sub { font-size: 10px; color: #5a6880; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 2px; }
-.sidebar-user { padding: 16px 20px; border-bottom: 1px solid #2e3a50; display: flex; align-items: center; gap: 10px; }
-.sidebar-user-name { font-size: 13px; font-weight: 600; color: #dce4f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebar-user-role { font-size: 11px; color: #6b7a95; }
+.sidebar { width: 240px; background: #ffffff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid #e2e8f0; }
+.sidebar-logo-text { font-family: 'Playfair Display', serif; font-size: 17px; color: #2563eb; font-weight: 700; }
+.sidebar-logo-sub { font-size: 10px; color: #94a3b8; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 2px; }
+.sidebar-user { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }
+.sidebar-user-name { font-size: 13px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-user-role { font-size: 11px; color: #64748b; }
 .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 0; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; font-size: 13.5px; color: #8b9ab5; border-left: 3px solid transparent; transition: all 0.15s; }
-.nav-item:hover { color: #dce4f0; background: #202840; }
-.nav-item.active { color: #5b8fd4; background: #252c3d; border-left-color: #5b8fd4; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; font-size: 13.5px; color: #475569; border-left: 3px solid transparent; transition: all 0.15s; }
+.nav-item:hover { color: #1e293b; background: #f1f5f9; }
+.nav-item.active { color: #2563eb; background: #eff6ff; border-left-color: #2563eb; }
 .nav-icon { font-size: 15px; width: 18px; text-align: center; }
-.nav-badge { margin-left: auto; background: #3a1a1a; color: #e05252; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+.nav-badge { margin-left: auto; background: #fee2e2; color: #e05252; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.topbar { padding: 14px 28px; border-bottom: 1px solid #2e3a50; display: flex; align-items: center; justify-content: space-between; background: #191f2d; flex-shrink: 0; flex-wrap: wrap; gap: 10px; }
-.topbar-title { font-family: 'Playfair Display', serif; font-size: 20px; color: #d4e2f4; font-weight: 600; }
-.topbar-subtitle { font-size: 12px; color: #5a6880; margin-top: 1px; }
+.topbar { padding: 14px 28px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; background: #ffffff; flex-shrink: 0; flex-wrap: wrap; gap: 10px; }
+.topbar-title { font-family: 'Playfair Display', serif; font-size: 20px; color: #0f172a; font-weight: 600; }
+.topbar-subtitle { font-size: 12px; color: #94a3b8; margin-top: 1px; }
 .topbar-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .btn { padding: 7px 16px; border-radius: 5px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: 'Source Sans 3', sans-serif; }
-.btn-gold { background: #5b8fd4; color: #ffffff; }
-.btn-gold:hover { background: #6b9fe4; }
+.btn-gold { background: #2563eb; color: #ffffff; }
+.btn-gold:hover { background: #1d4ed8; }
 .btn-gold:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-outline { background: transparent; color: #8b9ab5; border: 1px solid #3a4a65; }
-.btn-outline:hover { border-color: #5b8fd4; color: #5b8fd4; }
+.btn-outline { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
+.btn-outline:hover { border-color: #2563eb; color: #2563eb; }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 .content { flex: 1; overflow-y: auto; padding: 24px 28px; }
-.card { background: #252c3d; border: 1px solid #2e3a50; border-radius: 8px; }
-.card-header { padding: 16px 20px; border-bottom: 1px solid #2e3a50; display: flex; align-items: center; justify-content: space-between; }
-.card-title { font-family: 'Playfair Display', serif; font-size: 15px; color: #5b8fd4; font-weight: 600; }
+.card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.card-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-family: 'Playfair Display', serif; font-size: 15px; color: #2563eb; font-weight: 600; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.stat-card { background: #252c3d; border: 1px solid #2e3a50; border-radius: 8px; padding: 18px 20px; }
-.stat-label { font-size: 11px; color: #6b7a95; text-transform: uppercase; letter-spacing: 0.1em; }
-.stat-value { font-family: 'Playfair Display', serif; font-size: 32px; color: #d4e2f4; font-weight: 700; margin-top: 4px; }
-.stat-sub { font-size: 12px; color: #5a6880; margin-top: 4px; }
+.stat-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; }
+.stat-value { font-family: 'Playfair Display', serif; font-size: 32px; color: #0f172a; font-weight: 700; margin-top: 4px; }
+.stat-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th { text-align: left; padding: 10px 14px; font-size: 11px; color: #6b7a95; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #2e3a50; white-space: nowrap; }
-td { padding: 11px 14px; font-size: 13px; color: #b8c8db; border-bottom: 1px solid #252f42; vertical-align: middle; }
+th { text-align: left; padding: 10px 14px; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+td { padding: 11px 14px; font-size: 13px; color: #334155; border-bottom: 1px solid #f0f4f8; vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: #2a3345; }
+tr:hover td { background: #f8fafc; }
 .clickable-row { cursor: pointer; }
-.selected-row td { background: #1e2c42 !important; }
-.selected-row td:first-child { border-left: 3px solid #5b8fd4; }
-input:not([type=radio]):not([type=checkbox]), select, textarea { background: #1e2330; border: 1px solid #3a4a65; color: #dce4f0; padding: 8px 12px; border-radius: 5px; font-size: 13.5px; font-family: 'Source Sans 3', sans-serif; width: 100%; }
-input:not([type=radio]):not([type=checkbox]):focus, select:focus, textarea:focus { outline: none; border-color: #5b8fd4; }
+.selected-row td { background: #eff6ff !important; }
+.selected-row td:first-child { border-left: 3px solid #2563eb; }
+input:not([type=radio]):not([type=checkbox]), select, textarea { background: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b; padding: 8px 12px; border-radius: 5px; font-size: 13.5px; font-family: 'Source Sans 3', sans-serif; width: 100%; }
+input:not([type=radio]):not([type=checkbox]):focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; }
 input[type=radio], input[type=checkbox] { width: auto; padding: 0; border: none; background: none; cursor: pointer; }
-label { font-size: 12px; color: #6b7a95; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-group { margin-bottom: 14px; }
-.tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid #2e3a50; flex-wrap: wrap; }
-.tab { padding: 8px 16px; font-size: 13px; color: #8b9ab5; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; white-space: nowrap; }
-.tab.active { color: #5b8fd4; border-bottom-color: #5b8fd4; }
-.tab:hover:not(.active) { color: #dce4f0; }
-.tab-divider { width: 1px; background: #2e3a50; margin: 4px 6px; }
-.deadline-item { padding: 12px 16px; border-bottom: 1px solid #252f42; display: flex; align-items: center; gap: 12px; }
+.tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+.tab { padding: 8px 16px; font-size: 13px; color: #475569; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; white-space: nowrap; }
+.tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+.tab:hover:not(.active) { color: #1e293b; }
+.tab-divider { width: 1px; background: #e2e8f0; margin: 4px 6px; }
+.deadline-item { padding: 12px 16px; border-bottom: 1px solid #f0f4f8; display: flex; align-items: center; gap: 12px; }
 .deadline-item:last-child { border-bottom: none; }
 .dl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .dl-info { flex: 1; min-width: 0; }
-.dl-title { font-size: 13.5px; color: #dce4f0; }
-.dl-case { font-size: 11.5px; color: #6b7a95; margin-top: 2px; }
-.empty { text-align: center; padding: 40px 20px; color: #5a6880; font-size: 14px; }
-.detail-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 440px; background: #1e2535; border-left: 1px solid #2e3a50; z-index: 500; overflow-y: auto; box-shadow: -10px 0 30px rgba(0,0,0,0.4); }
-.panel-header { padding: 20px 24px; border-bottom: 1px solid #2e3a50; display: flex; align-items: flex-start; justify-content: space-between; position: sticky; top: 0; background: #1e2535; z-index: 1; }
+.dl-title { font-size: 13.5px; color: #1e293b; }
+.dl-case { font-size: 11.5px; color: #64748b; margin-top: 2px; }
+.empty { text-align: center; padding: 40px 20px; color: #94a3b8; font-size: 14px; }
+.detail-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 440px; background: #ffffff; border-left: 1px solid #e2e8f0; z-index: 500; overflow-y: auto; box-shadow: -10px 0 30px rgba(0,0,0,0.4); }
+.panel-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: flex-start; justify-content: space-between; position: sticky; top: 0; background: #ffffff; z-index: 1; }
 .panel-content { padding: 20px 24px; }
 .panel-section { margin-bottom: 22px; }
-.panel-section-title { font-size: 10px; color: #6b7a95; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px; font-weight: 600; }
-.info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #252f42; font-size: 13px; gap: 12px; }
+.panel-section-title { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px; font-weight: 600; }
+.info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f0f4f8; font-size: 13px; gap: 12px; }
 .info-row:last-child { border-bottom: none; }
-.info-key { color: #6b7a95; flex-shrink: 0; }
-.info-val { color: #dce4f0; text-align: right; word-break: break-word; }
+.info-key { color: #64748b; flex-shrink: 0; }
+.info-val { color: #1e293b; text-align: right; word-break: break-word; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(3px); }
-.modal { background: #252c3d; border: 1px solid #3a4a65; border-radius: 10px; padding: 28px; width: 620px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-.modal-title { font-family: 'Playfair Display', serif; font-size: 20px; color: #d4e2f4; font-weight: 600; margin-bottom: 4px; }
-.modal-sub { font-size: 12px; color: #6b7a95; margin-bottom: 20px; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #2e3a50; }
-.login-bg { min-height: 100vh; background: #171d28; display: flex; align-items: center; justify-content: center; }
-.login-box { background: #1e2535; border: 1px solid #2e3a50; border-radius: 12px; padding: 44px 40px; width: 400px; }
-.login-title { font-family: 'Playfair Display', serif; font-size: 26px; color: #5b8fd4; text-align: center; margin-bottom: 6px; }
-.login-sub { font-size: 12px; color: #5a6880; text-align: center; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 32px; }
-.calc-result { background: #1e2330; border: 1px solid #5b8fd433; border-radius: 6px; padding: 14px 16px; margin-top: 16px; }
-.pagination { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-top: 1px solid #2e3a50; font-size: 13px; color: #6b7a95; flex-wrap: wrap; }
-.page-btn { padding: 4px 10px; border-radius: 4px; background: #2e3a50; border: 1px solid #3a4a65; color: #8b9ab5; cursor: pointer; font-size: 12px; }
-.page-btn:hover { border-color: #5b8fd4; color: #5b8fd4; }
-.page-btn.active { background: #5b8fd422; border-color: #5b8fd4; color: #5b8fd4; }
-.checkbox { width: 17px; height: 17px; border-radius: 4px; border: 2px solid #3a4a65; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; flex-shrink: 0; transition: all 0.15s; }
+.modal { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 28px; width: 620px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.modal-title { font-family: 'Playfair Display', serif; font-size: 20px; color: #0f172a; font-weight: 600; margin-bottom: 4px; }
+.modal-sub { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.login-bg { min-height: 100vh; background: #f1f5f9; display: flex; align-items: center; justify-content: center; }
+.login-box { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 44px 40px; width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+.login-title { font-family: 'Playfair Display', serif; font-size: 26px; color: #2563eb; text-align: center; margin-bottom: 6px; }
+.login-sub { font-size: 12px; color: #94a3b8; text-align: center; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 32px; }
+.calc-result { background: #f1f5f9; border: 1px solid #2563eb15; border-radius: 6px; padding: 14px 16px; margin-top: 16px; }
+.pagination { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b; flex-wrap: wrap; }
+.page-btn { padding: 4px 10px; border-radius: 4px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #475569; cursor: pointer; font-size: 12px; }
+.page-btn:hover { border-color: #2563eb; color: #2563eb; }
+.page-btn.active { background: #2563eb12; border-color: #2563eb; color: #2563eb; }
+.checkbox { width: 17px; height: 17px; border-radius: 4px; border: 2px solid #cbd5e1; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; flex-shrink: 0; transition: all 0.15s; }
 .checkbox.done { background: #4CAE72; border-color: #4CAE72; }
-.rec-badge { display: inline-flex; align-items: center; gap: 3px; background: #1a2a2a; color: #44bbaa; border: 1px solid #1a4a4a; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
-.chain-badge { display: inline-flex; align-items: center; gap: 3px; background: #1a1a2e; color: #8877cc; border: 1px solid #3a2a6a; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+.rec-badge { display: inline-flex; align-items: center; gap: 3px; background: #ccfbf1; color: #44bbaa; border: 1px solid #5eead4; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+.chain-badge { display: inline-flex; align-items: center; gap: 3px; background: #ede9fe; color: #8877cc; border: 1px solid #a78bfa; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
 .task-inline-edit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
-.task-inline-edit input[type="date"] { background: #2e3a50; border: 1px solid #3a4a65; color: #dce4f0; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
-.task-inline-edit select { background: #2e3a50; border: 1px solid #3a4a65; color: #dce4f0; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
-.task-inline-edit input[type="date"]:focus, .task-inline-edit select:focus { outline: none; border-color: #5b8fd4; }
+.task-inline-edit input[type="date"] { background: #e2e8f0; border: 1px solid #cbd5e1; color: #1e293b; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+.task-inline-edit select { background: #e2e8f0; border: 1px solid #cbd5e1; color: #1e293b; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+.task-inline-edit input[type="date"]:focus, .task-inline-edit select:focus { outline: none; border-color: #2563eb; }
 .toggle { width: 38px; height: 20px; border-radius: 10px; cursor: pointer; position: relative; flex-shrink: 0; transition: background 0.2s; }
 .toggle-knob { position: absolute; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.2s; }
-.report-card { background: #252c3d; border: 1px solid #2e3a50; border-radius: 8px; padding: 18px 20px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-.report-card:hover { border-color: #5b8fd455; background: #2a3345; }
-.report-card.active { border-color: #5b8fd4; background: #2a3345; }
+.report-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.report-card:hover { border-color: #2563eb22; background: #f8fafc; }
+.report-card.active { border-color: #2563eb; background: #f8fafc; }
 .report-card-icon { font-size: 24px; margin-bottom: 8px; }
-.report-card-title { font-family: 'Playfair Display', serif; font-size: 14px; color: #d4e2f4; font-weight: 600; margin-bottom: 4px; }
-.report-card-desc { font-size: 11px; color: #6b7a95; line-height: 1.4; }
-.report-output { background: #1e2330; border: 1px solid #2e3a50; border-radius: 8px; }
-.report-output-header { padding: 16px 20px; border-bottom: 1px solid #2e3a50; display: flex; align-items: center; justify-content: space-between; }
-.report-output-title { font-family: 'Playfair Display', serif; font-size: 16px; color: #d4e2f4; font-weight: 600; }
-.report-meta { font-size: 11px; color: #5a6880; margin-top: 2px; }
+.report-card-title { font-family: 'Playfair Display', serif; font-size: 14px; color: #0f172a; font-weight: 600; margin-bottom: 4px; }
+.report-card-desc { font-size: 11px; color: #64748b; line-height: 1.4; }
+.report-output { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; }
+.report-output-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; }
+.report-output-title { font-family: 'Playfair Display', serif; font-size: 16px; color: #0f172a; font-weight: 600; }
+.report-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
 @media print {
   .sidebar, .topbar, .tabs, .report-card, .btn, .pagination { display: none !important; }
   .content { padding: 0 !important; }
@@ -367,10 +367,10 @@ label { font-size: 12px; color: #6b7a95; display: block; margin-bottom: 4px; tex
   th { background: #f5f5f5 !important; }
   @page { margin: 0.75in; }
 }
-.note-item { padding: 10px 14px; border-bottom: 1px solid #252f42; cursor: pointer; transition: background 0.1s; }
+.note-item { padding: 10px 14px; border-bottom: 1px solid #f0f4f8; cursor: pointer; transition: background 0.1s; }
 .note-item:last-child { border-bottom: none; }
-.note-item:hover { background: #2a3345; }
-.note-item.expanded { background: #1a2740; border-left: 3px solid #5b8fd4; }
+.note-item:hover { background: #f8fafc; }
+.note-item.expanded { background: #eff6ff; border-left: 3px solid #2563eb; }
 .note-type-badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
 .print-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 30px 20px; }
 .print-doc { background: #fff; color: #111; width: 816px; min-height: 100vh; padding: 60px 72px; font-family: 'Source Sans 3', Georgia, serif; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
@@ -389,30 +389,30 @@ label { font-size: 12px; color: #6b7a95; display: block; margin-bottom: 4px; tex
 .print-doc td { padding: 6px 10px; border-bottom: 1px solid #eee; color: #222; }
 .print-doc .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ccc; font-size: 10px; color: #999; display: flex; justify-content: space-between; }
 .case-overlay { position: fixed; top: 0; left: 220px; right: 0; bottom: 0; background: #0a0e18; z-index: 600; display: flex; flex-direction: column; overflow: hidden; }
-.case-overlay-header { flex-shrink: 0; background: #1e2535; border-bottom: 1px solid #2e3a50; padding: 18px 32px; display: flex; align-items: flex-start; justify-content: space-between; z-index: 10; gap: 16px; }
-.case-overlay-tabs { flex-shrink: 0; display: flex; gap: 0; border-bottom: 1px solid #2e3a50; padding: 0 32px; background: #1e2535; }
-.case-overlay-tab { padding: 12px 20px; font-size: 13px; color: #6b7a95; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; }
-.case-overlay-tab:hover { color: #b8c8db; }
-.case-overlay-tab.active { color: #d4e2f4; border-bottom-color: #5b8fd4; }
+.case-overlay-header { flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 18px 32px; display: flex; align-items: flex-start; justify-content: space-between; z-index: 10; gap: 16px; }
+.case-overlay-tabs { flex-shrink: 0; display: flex; gap: 0; border-bottom: 1px solid #e2e8f0; padding: 0 32px; background: #ffffff; }
+.case-overlay-tab { padding: 12px 20px; font-size: 13px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; }
+.case-overlay-tab:hover { color: #334155; }
+.case-overlay-tab.active { color: #0f172a; border-bottom-color: #2563eb; }
 .case-overlay-body { flex: 1; overflow-y: auto; padding: 28px 32px; }
 .case-overlay-body > * { max-width: 1100px; width: 100%; margin-left: auto; margin-right: auto; }
 .case-overlay-section { margin-bottom: 32px; }
-.case-overlay-section-title { font-size: 10px; color: #5a6880; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
-.activity-entry { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #252f42; }
+.case-overlay-section-title { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+.activity-entry { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #f0f4f8; }
 .activity-entry:last-child { border-bottom: none; }
 .activity-avatar-col { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 36px; }
-.activity-line { width: 1px; flex: 1; background: #2e3a50; min-height: 20px; }
+.activity-line { width: 1px; flex: 1; background: #e2e8f0; min-height: 20px; }
 .activity-body { flex: 1; min-width: 0; }
-.activity-action { font-size: 13px; color: #dce4f0; font-weight: 600; margin-bottom: 2px; }
-.activity-detail { font-size: 12px; color: #8b9ab5; margin-bottom: 3px; line-height: 1.5; }
-.activity-meta { font-size: 11px; color: #5a6880; }
-.edit-field { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #252f42; }
+.activity-action { font-size: 13px; color: #1e293b; font-weight: 600; margin-bottom: 2px; }
+.activity-detail { font-size: 12px; color: #475569; margin-bottom: 3px; line-height: 1.5; }
+.activity-meta { font-size: 11px; color: #94a3b8; }
+.edit-field { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f0f4f8; }
 .edit-field:last-child { border-bottom: none; }
-.edit-field-key { font-size: 12px; color: #6b7a95; min-width: 150px; flex-shrink: 0; }
-.edit-field-val { flex: 1; font-size: 13px; color: #dce4f0; }
-.edit-field-val input, .edit-field-val select { background: transparent; border: none; color: #dce4f0; font-size: 13px; padding: 2px 4px; border-radius: 3px; width: 100%; font-family: 'Source Sans 3', sans-serif; }
-.edit-field-val input:hover, .edit-field-val select:hover { background: #2e3a50; }
-.edit-field-val input:focus, .edit-field-val select:focus { background: #2e3a50; outline: none; border: none; }
+.edit-field-key { font-size: 12px; color: #64748b; min-width: 150px; flex-shrink: 0; }
+.edit-field-val { flex: 1; font-size: 13px; color: #1e293b; }
+.edit-field-val input, .edit-field-val select { background: transparent; border: none; color: #1e293b; font-size: 13px; padding: 2px 4px; border-radius: 3px; width: 100%; font-family: 'Source Sans 3', sans-serif; }
+.edit-field-val input:hover, .edit-field-val select:hover { background: #e2e8f0; }
+.edit-field-val input:focus, .edit-field-val select:focus { background: #e2e8f0; outline: none; border: none; }
 .edit-field-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
 .edit-field:hover .edit-field-actions { opacity: 1; }
 .add-field-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
@@ -484,15 +484,15 @@ export default function App() {
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} allUsers={allUsers} />;
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#171d28", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#5b8fd4" }}>LexTrack</div>
-      <div style={{ fontSize: 13, color: "#5a6880" }}>Loading case data…</div>
+    <div style={{ minHeight: "100vh", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#2563eb" }}>LexTrack</div>
+      <div style={{ fontSize: 13, color: "#94a3b8" }}>Loading case data…</div>
     </div>
   );
 
   if (dataError) return (
-    <div style={{ minHeight: "100vh", background: "#171d28", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#5b8fd4" }}>LexTrack</div>
+    <div style={{ minHeight: "100vh", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#2563eb" }}>LexTrack</div>
       <div style={{ fontSize: 13, color: "#e05252" }}>Failed to load data: {dataError}</div>
       <button className="btn btn-outline" onClick={() => setCurrentUser(null)}>Return to Login</button>
     </div>
@@ -722,9 +722,9 @@ export default function App() {
             </div>
           ))}
         </nav>
-        <div style={{ padding: "16px 20px", borderTop: "1px solid #2e3a50" }}>
-          <div style={{ fontSize: 11, color: "#5a6880", marginBottom: 4 }}>Signed in as</div>
-          <div style={{ fontSize: 12, color: "#8b9ab5", marginBottom: 10 }}>{currentUser.email}</div>
+        <div style={{ padding: "16px 20px", borderTop: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Signed in as</div>
+          <div style={{ fontSize: 12, color: "#475569", marginBottom: 10 }}>{currentUser.email}</div>
           <button className="btn btn-outline" style={{ width: "100%", fontSize: 12 }} onClick={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }}>Sign Out</button>
         </div>
       </aside>
@@ -784,16 +784,16 @@ function LoginScreen({ onLogin, allUsers }) {
         <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doLogin} disabled={busy}>
           {busy ? "Signing in…" : "Sign In"}
         </button>
-        <div style={{ marginTop: 20, fontSize: 12, color: "#5a6880", textAlign: "center" }}>All accounts share PIN 1234 in demo mode</div>
+        <div style={{ marginTop: 20, fontSize: 12, color: "#94a3b8", textAlign: "center" }}>All accounts share PIN 1234 in demo mode</div>
       </div>
     </div>
   );
 }
 
 // ─── Toggle Helper ────────────────────────────────────────────────────────────
-function Toggle({ on, onChange, color = "#5b8fd4" }) {
+function Toggle({ on, onChange, color = "#2563eb" }) {
   return (
-    <div className="toggle" style={{ background: on ? color : "#3a4a65" }} onClick={onChange}>
+    <div className="toggle" style={{ background: on ? color : "#cbd5e1" }} onClick={onChange}>
       <div className="toggle-knob" style={{ left: on ? 20 : 2 }} />
     </div>
   );
@@ -833,12 +833,12 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
 
         {/* Office assignment */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, color: "#5a6880", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Office(s)</div>
+          <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Office(s)</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {OFFICES.map(o => {
               const checked = form.offices.includes(o);
               return (
-                <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#5b8fd4" : "#6b7a95", userSelect: "none" }}>
+                <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#2563eb" : "#64748b", userSelect: "none" }}>
                   <input type="checkbox" checked={checked} onChange={() => toggleOffice(o)} />
                   {o}
                 </label>
@@ -846,7 +846,7 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
             })}
           </div>
           {form.offices.length > 0 && filteredUsers.length < USERS.length && (
-            <div style={{ fontSize: 11, color: "#5b8fd4", marginTop: 6, fontStyle: "italic" }}>
+            <div style={{ fontSize: 11, color: "#2563eb", marginTop: 6, fontStyle: "italic" }}>
               Team dropdowns showing {filteredUsers.length} staff in selected office(s)
             </div>
           )}
@@ -907,11 +907,11 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
           <div className="form-group" />
         </div>
 
-        <div style={{ background: autoTasks ? "#0f1e2e" : "#1e2330", border: `1px solid ${autoTasks ? "#5b8fd455" : "#3a4a65"}`, borderRadius: 7, padding: "12px 14px", marginBottom: 4 }}>
+        <div style={{ background: autoTasks ? "#0f1e2e" : "#f1f5f9", border: `1px solid ${autoTasks ? "#2563eb22" : "#cbd5e1"}`, borderRadius: 7, padding: "12px 14px", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 13, color: "#dce4f0", fontWeight: 600 }}>✅ Auto-generate opening tasks</div>
-              <div style={{ fontSize: 11, color: "#6b7a95", marginTop: 2 }}>Open file, ack. letter, calendar answer deadline, subpoena police file, send written discovery, investigate scene, written discovery, medical record summary, ILP, claim specialist call (recurring)</div>
+              <div style={{ fontSize: 13, color: "#1e293b", fontWeight: 600 }}>✅ Auto-generate opening tasks</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Open file, ack. letter, calendar answer deadline, subpoena police file, send written discovery, investigate scene, written discovery, medical record summary, ILP, claim specialist call (recurring)</div>
             </div>
             <Toggle on={autoTasks} onChange={() => setAutoTasks(p => !p)} />
           </div>
@@ -931,9 +931,9 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
 // ─── Auto-escalate preview box ────────────────────────────────────────────────
 function EscalateBox({ on, onChange, basePriority }) {
   return (
-    <div style={{ background: on ? "#0f1e2e" : "#1e2330", border: `1px solid ${on ? "#5b8fd455" : "#3a4a65"}`, borderRadius: 7, padding: "12px 14px", transition: "all 0.2s" }}>
+    <div style={{ background: on ? "#0f1e2e" : "#f1f5f9", border: `1px solid ${on ? "#2563eb22" : "#cbd5e1"}`, borderRadius: 7, padding: "12px 14px", transition: "all 0.2s" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: on ? 10 : 0 }}>
-        <div><div style={{ fontSize: 13, color: "#dce4f0", fontWeight: 600 }}>🔺 Auto-Escalate Priority</div><div style={{ fontSize: 11, color: "#6b7a95", marginTop: 2 }}>Priority rises automatically as the due date approaches</div></div>
+        <div><div style={{ fontSize: 13, color: "#1e293b", fontWeight: 600 }}>🔺 Auto-Escalate Priority</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Priority rises automatically as the due date approaches</div></div>
         <Toggle on={on} onChange={onChange} />
       </div>
       {on && (
@@ -946,10 +946,10 @@ function EscalateBox({ on, onChange, basePriority }) {
           ].map(({ label, result, note }) => {
             const s = statusBadgeStyle(result);
             return (
-              <div key={label} style={{ background: "#1e2330", border: `1px solid ${s.border}`, borderRadius: 5, padding: "7px 8px", textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "#5a6880", marginBottom: 4 }}>{label}</div>
+              <div key={label} style={{ background: "#f1f5f9", border: `1px solid ${s.border}`, borderRadius: 5, padding: "7px 8px", textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>{label}</div>
                 <div style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, display: "inline-block" }}>{result}</div>
-                <div style={{ fontSize: 10, color: "#5a6880", marginTop: 3 }}>{note}</div>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 3 }}>{note}</div>
               </div>
             );
           })}
@@ -987,23 +987,23 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
           </div>
           <div className="stat-card">
             <div className="stat-label">Upcoming Deadlines</div>
-            <div className="stat-value" style={{ color: upcomingDl.length > 5 ? "#e07a30" : "#d4e2f4" }}>{upcomingDl.length}</div>
+            <div className="stat-value" style={{ color: upcomingDl.length > 5 ? "#e07a30" : "#0f172a" }}>{upcomingDl.length}</div>
             <div className="stat-sub">Next 30 days</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">My Open Tasks</div>
-            <div className="stat-value" style={{ color: myTasks.filter(t => daysUntil(t.due) < 0).length > 0 ? "#e05252" : "#d4e2f4" }}>{myTasks.length}</div>
+            <div className="stat-value" style={{ color: myTasks.filter(t => daysUntil(t.due) < 0).length > 0 ? "#e05252" : "#0f172a" }}>{myTasks.length}</div>
             <div className="stat-sub">{myTasks.filter(t => daysUntil(t.due) < 0).length} overdue</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Trials in 90 Days</div>
-            <div className="stat-value" style={{ color: trialSoon.length > 0 ? "#5b8fd4" : "#d4e2f4" }}>{trialSoon.length}</div>
+            <div className="stat-value" style={{ color: trialSoon.length > 0 ? "#2563eb" : "#0f172a" }}>{trialSoon.length}</div>
             <div className="stat-sub">{allCases.filter(c => c.trialDate).length} with trial dates</div>
           </div>
         </div>
         <div className="grid2" style={{ marginBottom: 20 }}>
           <div className="card">
-            <div className="card-header"><div className="card-title">Upcoming Deadlines</div><span style={{ fontSize: 12, color: "#6b7a95" }}>30 days</span></div>
+            <div className="card-header"><div className="card-title">Upcoming Deadlines</div><span style={{ fontSize: 12, color: "#64748b" }}>30 days</span></div>
             {upcomingDl.length === 0 && <div className="empty">No upcoming deadlines</div>}
             {upcomingDl.slice(0, 7).map(d => {
               const days = daysUntil(d.date); const col = urgencyColor(days);
@@ -1014,7 +1014,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                   <div className="dl-info"><div className="dl-title">{d.title}</div><div className="dl-case">{cs?.title?.slice(0, 40) || `#${d.caseId}`}</div></div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ color: col, fontSize: 12, fontWeight: 700 }}>{days === 0 ? "Today" : `${days}d`}</div>
-                    <div style={{ fontSize: 11, color: "#5a6880" }}>{fmt(d.date)}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{fmt(d.date)}</div>
                   </div>
                 </div>
               );
@@ -1031,7 +1031,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                   <div className="dl-info"><div className="dl-title" style={{ fontSize: 13 }}>{c.title}</div><div className="dl-case">{c.caseNum}{c.judge ? ` · ${c.judge}` : ""}</div></div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ color: col, fontSize: 12, fontWeight: 700 }}>{days}d</div>
-                    <div style={{ fontSize: 11, color: "#5a6880" }}>{fmt(c.trialDate)}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{fmt(c.trialDate)}</div>
                   </div>
                 </div>
               );
@@ -1057,23 +1057,23 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                       <Badge label={ep} />
-                      <div style={{ fontSize: 11, color: days < 0 ? "#e05252" : "#5a6880" }}>{fmt(t.due)}</div>
+                      <div style={{ fontSize: 11, color: days < 0 ? "#e05252" : "#94a3b8" }}>{fmt(t.due)}</div>
                       <button
                         onClick={() => setExpandedTask(isExpanded ? null : t.id)}
-                        style={{ background: "none", border: "none", color: "#5a6880", cursor: "pointer", fontSize: 12, padding: "2px 4px" }}
+                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, padding: "2px 4px" }}
                         title="Edit task"
                       >{isExpanded ? "▲" : "✎"}</button>
                     </div>
                   </div>
                   {isExpanded && (
                     <div className="task-inline-edit" style={{ paddingLeft: 44, marginTop: 8 }}>
-                      <label style={{ fontSize: 11, color: "#6b7a95" }}>Due</label>
+                      <label style={{ fontSize: 11, color: "#64748b" }}>Due</label>
                       <input
                         type="date"
                         value={t.due || ""}
                         onChange={e => onUpdateTask(t.id, { due: e.target.value })}
                       />
-                      <label style={{ fontSize: 11, color: "#6b7a95" }}>Priority</label>
+                      <label style={{ fontSize: 11, color: "#64748b" }}>Priority</label>
                       <select
                         value={t.priority}
                         onChange={e => onUpdateTask(t.id, { priority: e.target.value })}
@@ -1264,11 +1264,11 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         return (
                           <tr key={c.id}>
                             <td><Badge label={recordType(c)} /></td>
-                            <td style={{ fontFamily: "monospace", fontSize: 11, color: "#5b8fd4", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
-                            <td><div style={{ color: "#dce4f0", fontWeight: 600, fontSize: 13 }}>{c.title}</div>{c.plaintiff && <div style={{ fontSize: 11, color: "#5a6880" }}>Pltf: {c.plaintiff}</div>}</td>
-                            <td style={{ fontFamily: "monospace", fontSize: 11, color: "#8b9ab5" }}>{c.fileNum || "—"}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 11, color: "#2563eb", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
+                            <td><div style={{ color: "#1e293b", fontWeight: 600, fontSize: 13 }}>{c.title}</div>{c.plaintiff && <div style={{ fontSize: 11, color: "#94a3b8" }}>Pltf: {c.plaintiff}</div>}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 11, color: "#475569" }}>{c.fileNum || "—"}</td>
                             <td style={{ fontSize: 12, color: "#e05252" }}>{deletedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                            <td style={{ fontSize: 12, color: daysLeft <= 7 ? "#e05252" : "#5a6880" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</td>
+                            <td style={{ fontSize: 12, color: daysLeft <= 7 ? "#e05252" : "#94a3b8" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</td>
                             <td><button className="btn btn-outline btn-sm" onClick={() => handleRestoreDeleted(c.id)}>Restore</button></td>
                           </tr>
                         );
@@ -1299,12 +1299,12 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                     {paged.map(c => (
                       <tr key={c.id} className={`clickable-row ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
                         <td><Badge label={recordType(c)} /></td>
-                        <td style={{ fontFamily: "monospace", fontSize: 11, color: "#5b8fd4", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
-                        <td><div style={{ color: "#dce4f0", fontWeight: 600, fontSize: 13 }}>{c.title}</div>{c.plaintiff && <div style={{ fontSize: 11, color: "#5a6880" }}>Pltf: {c.plaintiff}</div>}</td>
-                        <td style={{ fontFamily: "monospace", fontSize: 11, color: "#8b9ab5" }}>{c.fileNum || "—"}</td>
-                        <td style={{ fontSize: 12, color: "#8b9ab5" }}>{c.client || "—"}{c.claimNum && <div style={{ fontSize: 10, color: "#5a6880" }}>Claim: {c.claimNum}</div>}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: 11, color: "#2563eb", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
+                        <td><div style={{ color: "#1e293b", fontWeight: 600, fontSize: 13 }}>{c.title}</div>{c.plaintiff && <div style={{ fontSize: 11, color: "#94a3b8" }}>Pltf: {c.plaintiff}</div>}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: 11, color: "#475569" }}>{c.fileNum || "—"}</td>
+                        <td style={{ fontSize: 12, color: "#475569" }}>{c.client || "—"}{c.claimNum && <div style={{ fontSize: 10, color: "#94a3b8" }}>Claim: {c.claimNum}</div>}</td>
                         <td><Badge label={c.stage} /></td>
-                        <td style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#5a6880", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
+                        <td style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#94a3b8", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
                         <td><Avatar userId={c.leadAttorney} size={26} /></td>
                       </tr>
                     ))}
@@ -1583,7 +1583,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const actionColor = (action) => {
     if (action.includes("Completed")) return "#4CAE72";
     if (action.includes("Removed") || action.includes("Reopened")) return "#e05252";
-    if (action.includes("Added") || action.includes("Created")) return "#5b8fd4";
+    if (action.includes("Added") || action.includes("Created")) return "#2563eb";
     return "#5599cc";
   };
 
@@ -1595,14 +1595,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       {showDeleteConfirm && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
           <div className="modal-box" style={{ maxWidth: 440 }}>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#d4e2f4", marginBottom: 10 }}>Delete {recordType(draft)}?</div>
-            <div style={{ fontSize: 13, color: "#8b9ab5", marginBottom: 6, lineHeight: 1.6 }}>
-              <strong style={{ color: "#dce4f0" }}>{draft.title}</strong> will be moved to the Deleted tab and permanently removed after 30 days.
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#0f172a", marginBottom: 10 }}>Delete {recordType(draft)}?</div>
+            <div style={{ fontSize: 13, color: "#475569", marginBottom: 6, lineHeight: 1.6 }}>
+              <strong style={{ color: "#1e293b" }}>{draft.title}</strong> will be moved to the Deleted tab and permanently removed after 30 days.
             </div>
-            <div style={{ fontSize: 12, color: "#6b7a95", marginBottom: 24 }}>This action can be undone within the 30-day window by restoring the record.</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 24 }}>This action can be undone within the 30-day window by restoring the record.</div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button className="btn btn-outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
-              <button className="btn" style={{ background: "#6a2a2a", color: "#e05252", border: "1px solid #8a3a3a" }} onClick={() => { setShowDeleteConfirm(false); onDeleteCase(c.id); }}>Delete {recordType(draft)}</button>
+              <button className="btn" style={{ background: "#fca5a5", color: "#e05252", border: "1px solid #8a3a3a" }} onClick={() => { setShowDeleteConfirm(false); onDeleteCase(c.id); }}>Delete {recordType(draft)}</button>
             </div>
           </div>
         </div>
@@ -1615,17 +1615,17 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
               <Badge label={recordType(draft)} />
               <Badge label={draft.status} />
-              {draft.caseNum && <span style={{ fontSize: 11, color: "#5b8fd4", fontFamily: "monospace" }}>{draft.caseNum}</span>}
-              <span style={{ fontSize: 11, color: "#5a6880" }}>Auto-saving</span>
+              {draft.caseNum && <span style={{ fontSize: 11, color: "#2563eb", fontFamily: "monospace" }}>{draft.caseNum}</span>}
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>Auto-saving</span>
             </div>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "#d4e2f4", fontWeight: 600, lineHeight: 1.2 }}>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "#0f172a", fontWeight: 600, lineHeight: 1.2 }}>
               {draft.title || "Untitled"}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexShrink: 0, alignItems: "flex-start" }}>
             <button className="btn btn-outline btn-sm" onClick={() => setShowPrint(true)}>🖨 Print</button>
             {canDelete && (
-              <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#6a2a2a" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
+              <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
             )}
             <button className="btn btn-outline btn-sm" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={onClose}>✕</button>
           </div>
@@ -1635,7 +1635,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="case-overlay-tabs">
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
           <div className={`case-overlay-tab ${activeTab === "activity" ? "active" : ""}`} onClick={() => setActiveTab("activity")}>
-            Activity {activity.length > 0 && <span style={{ fontSize: 10, color: "#5a6880", marginLeft: 4 }}>({activity.length})</span>}
+            Activity {activity.length > 0 && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 4 }}>({activity.length})</span>}
           </div>
         </div>
 
@@ -1697,7 +1697,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 {OFFICES.map(o => {
                   const checked = (draft.offices || []).includes(o);
                   return (
-                    <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#5b8fd4" : "#8b9ab5", userSelect: "none" }}>
+                    <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#2563eb" : "#475569", userSelect: "none" }}>
                       <input
                         type="checkbox"
                         checked={checked}
@@ -1717,7 +1717,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div className="case-overlay-section" style={{ maxWidth: 500 }}>
               <div className="case-overlay-section-title">Team</div>
               {(draft.offices || []).length > 0 && filteredUsersForTeam.length < USERS.length && (
-                <div style={{ fontSize: 11, color: "#5b8fd4", marginBottom: 8, fontStyle: "italic" }}>
+                <div style={{ fontSize: 11, color: "#2563eb", marginBottom: 8, fontStyle: "italic" }}>
                   Showing {filteredUsersForTeam.length} staff in selected office(s)
                 </div>
               )}
@@ -1757,7 +1757,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
               )}
               {customFields.length === 0 && !addingField && (
-                <div style={{ fontSize: 12, color: "#5a6880", fontStyle: "italic" }}>No additional fields. Click "+ Add Field" to track anything not listed above.</div>
+                <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No additional fields. Click "+ Add Field" to track anything not listed above.</div>
               )}
               {customFields.map(f => (
                 <EditField
@@ -1775,21 +1775,21 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               ))}
             </div>
 
-            <div style={{ borderTop: "1px solid #2e3a50", margin: "8px 0 32px" }} />
+            <div style={{ borderTop: "1px solid #e2e8f0", margin: "8px 0 32px" }} />
 
             {/* Three-column: Deadlines | Tasks | Notes */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 32px" }}>
               <div className="case-overlay-section">
                 <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
-                {deadlines.length === 0 && <div style={{ fontSize: 12, color: "#5a6880" }}>None on record.</div>}
+                {deadlines.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8" }}>None on record.</div>}
                 {[...deadlines].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(d => {
                   const days = daysUntil(d.date); const col = urgencyColor(days);
                   return (
-                    <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #252f42" }}>
+                    <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f0f4f8" }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, color: "#dce4f0" }}>{d.title}</div>
-                        {d.type && <div style={{ fontSize: 10, color: "#5a6880" }}>{d.type}</div>}
+                        <div style={{ fontSize: 13, color: "#1e293b" }}>{d.title}</div>
+                        {d.type && <div style={{ fontSize: 10, color: "#94a3b8" }}>{d.type}</div>}
                       </div>
                       <div style={{ fontSize: 12, color: col, whiteSpace: "nowrap", textAlign: "right" }}>
                         <div>{fmt(d.date)}</div>
@@ -1802,28 +1802,28 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
               <div className="case-overlay-section">
                 <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
-                {tasks.length === 0 && <div style={{ fontSize: 12, color: "#5a6880" }}>No tasks yet.</div>}
+                {tasks.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8" }}>No tasks yet.</div>}
                 {tasks.map(t => {
                   const done = t.status === "Completed"; const days = daysUntil(t.due);
                   const assignee = getUserById(t.assigned);
                   return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid #252f42", opacity: done ? 0.45 : 1 }}>
+                    <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid #f0f4f8", opacity: done ? 0.45 : 1 }}>
                       <div className={`checkbox ${done ? "done" : ""}`} style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)}>{done && "✓"}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: "#dce4f0", textDecoration: done ? "line-through" : "none", lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 13, color: "#1e293b", textDecoration: done ? "line-through" : "none", lineHeight: 1.3 }}>
                           {t.title}
                           {t.recurring && <span className="rec-badge">🔁</span>}
                           {t.isChained && <span className="chain-badge">⛓</span>}
                         </div>
                         <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                           <Badge label={getEffectivePriority(t)} />
-                          <span style={{ fontSize: 10, color: days < 0 && !done ? "#e05252" : "#5a6880" }}>
+                          <span style={{ fontSize: 10, color: days < 0 && !done ? "#e05252" : "#94a3b8" }}>
                             {fmt(t.due)}{days < 0 && !done ? ` (${Math.abs(days)}d over)` : ""}
                           </span>
                           {assignee && (
                             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                               <Avatar userId={assignee.id} size={16} />
-                              <span style={{ fontSize: 10, color: "#6b7a95" }}>{assignee.name}</span>
+                              <span style={{ fontSize: 10, color: "#64748b" }}>{assignee.name}</span>
                             </span>
                           )}
                         </div>
@@ -1839,7 +1839,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
 
             {/* File Links */}
-            <div style={{ borderTop: "1px solid #2e3a50", marginTop: 8, paddingTop: 28 }}>
+            <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 8, paddingTop: 28 }}>
               <CaseFileLinks
                 caseId={c.id}
                 links={links}
@@ -1857,11 +1857,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div className="case-overlay-section">
               <div className="case-overlay-section-title" style={{ marginBottom: 20 }}>
                 <span>Case Activity</span>
-                <span style={{ fontSize: 11, color: "#5a6880", fontWeight: 400 }}>{activity.length} event{activity.length !== 1 ? "s" : ""}</span>
+                <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{activity.length} event{activity.length !== 1 ? "s" : ""}</span>
               </div>
 
               {activity.length === 0 && (
-                <div style={{ fontSize: 13, color: "#5a6880", fontStyle: "italic", padding: "20px 0" }}>
+                <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic", padding: "20px 0" }}>
                   No activity recorded yet. Changes to this case will appear here.
                 </div>
               )}
@@ -1879,11 +1879,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         background: "#111a2c", border: `1px solid ${actionColor(entry.action)}44`,
                         color: actionColor(entry.action),
                       }}>{entry.action}</span>
-                      <span style={{ fontSize: 12, color: "#dce4f0", fontWeight: 500 }}>{entry.userName}</span>
-                      <span style={{ fontSize: 11, color: "#5a6880" }}>{entry.userRole}</span>
+                      <span style={{ fontSize: 12, color: "#1e293b", fontWeight: 500 }}>{entry.userName}</span>
+                      <span style={{ fontSize: 11, color: "#94a3b8" }}>{entry.userRole}</span>
                     </div>
-                    <div style={{ fontSize: 13, color: "#b8c8db", marginBottom: 4, lineHeight: 1.5 }}>{entry.detail}</div>
-                    <div style={{ fontSize: 11, color: "#5a6880" }}>{fmtTs(entry.ts)}</div>
+                    <div style={{ fontSize: 13, color: "#334155", marginBottom: 4, lineHeight: 1.5 }}>{entry.detail}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{fmtTs(entry.ts)}</div>
                   </div>
                 </div>
               ))}
@@ -1943,7 +1943,7 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
   return (
     <div className="case-overlay-section">
       <div className="case-overlay-section-title" style={{ marginBottom: 14 }}>
-        <span>Linked Files {links.length > 0 && <span style={{ color: "#5a6880" }}>({links.length})</span>}</span>
+        <span>Linked Files {links.length > 0 && <span style={{ color: "#94a3b8" }}>({links.length})</span>}</span>
         <button
           className="btn btn-outline btn-sm"
           style={{ fontSize: 11 }}
@@ -1952,9 +1952,9 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
       </div>
 
       {showForm && (
-        <div style={{ background: "#0d1520", border: "1px solid #2e3a50", borderRadius: 7, padding: "14px 16px", marginBottom: 14 }}>
+        <div style={{ background: "#0d1520", border: "1px solid #e2e8f0", borderRadius: 7, padding: "14px 16px", marginBottom: 14 }}>
           <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, color: "#6b7a95", display: "block", marginBottom: 4 }}>File Path *</label>
+            <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>File Path *</label>
             <input
               autoFocus
               value={newPath}
@@ -1963,11 +1963,11 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
               placeholder="e.g. C:\Cases\Smith v Jones\Complaint.pdf or /Users/ben/cases/file.pdf"
               style={{ width: "100%", fontFamily: "monospace", fontSize: 12 }}
             />
-            <div style={{ fontSize: 10, color: "#5a6880", marginTop: 4 }}>Paste the full path to the file on your computer or network drive.</div>
+            <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>Paste the full path to the file on your computer or network drive.</div>
           </div>
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "#6b7a95", display: "block", marginBottom: 4 }}>Display Name <span style={{ color: "#5a6880" }}>(optional)</span></label>
+              <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Display Name <span style={{ color: "#94a3b8" }}>(optional)</span></label>
               <input
                 value={newLabel}
                 onChange={e => setNewLabel(e.target.value)}
@@ -1976,7 +1976,7 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
               />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: "#6b7a95", display: "block", marginBottom: 4 }}>Category</label>
+              <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Category</label>
               <select value={newCat} onChange={e => setNewCat(e.target.value)} style={{ height: 36 }}>
                 {LINK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
               </select>
@@ -1990,15 +1990,15 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
       )}
 
       {links.length === 0 && !showForm && (
-        <div style={{ fontSize: 12, color: "#5a6880", fontStyle: "italic" }}>
+        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>
           No linked files yet. Click "+ Add Link" to paste a local or network file path.
         </div>
       )}
 
       {links.length > 0 && (
-        <div style={{ background: "#191f2d", border: "1px solid #2e3a50", borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 6, overflow: "hidden" }}>
           {links.map((link, i) => (
-            <div key={link.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < links.length - 1 ? "1px solid #252f42" : "none", transition: "background 0.12s" }}
+            <div key={link.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < links.length - 1 ? "1px solid #f0f4f8" : "none", transition: "background 0.12s" }}
               onMouseEnter={e => e.currentTarget.style.background = "#111a2c"}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
             >
@@ -2007,24 +2007,24 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
                 <div
                   onClick={() => openLink(link.path)}
                   title={link.path}
-                  style={{ fontSize: 13, color: "#dce4f0", fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#5b8fd4"; e.currentTarget.style.textDecoration = "underline"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#dce4f0"; e.currentTarget.style.textDecoration = "none"; }}
+                  style={{ fontSize: 13, color: "#1e293b", fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#2563eb"; e.currentTarget.style.textDecoration = "underline"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#1e293b"; e.currentTarget.style.textDecoration = "none"; }}
                 >
                   {link.label}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 10, color: "#5a6880", background: "#2e3a50", border: "1px solid #3a4a65", borderRadius: 3, padding: "1px 5px" }}>{link.category}</span>
+                  <span style={{ fontSize: 10, color: "#94a3b8", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 3, padding: "1px 5px" }}>{link.category}</span>
                   <span style={{ fontSize: 10, color: "#334455", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 320 }} title={link.path}>{link.path}</span>
                 </div>
-                <div style={{ fontSize: 10, color: "#5a6880", marginTop: 2 }}>Added by {link.addedBy} · {new Date(link.addedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>Added by {link.addedBy} · {new Date(link.addedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
               </div>
               <button
                 onClick={() => window.confirm(`Remove link to "${link.label}"?`) && onDeleteLink(link.id)}
-                style={{ background: "none", border: "none", color: "#5a6880", cursor: "pointer", padding: "4px 6px", fontSize: 14, flexShrink: 0, lineHeight: 1 }}
+                style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px 6px", fontSize: 14, flexShrink: 0, lineHeight: 1 }}
                 title="Remove link"
                 onMouseEnter={e => e.currentTarget.style.color = "#e05252"}
-                onMouseLeave={e => e.currentTarget.style.color = "#5a6880"}
+                onMouseLeave={e => e.currentTarget.style.color = "#94a3b8"}
               >🗑</button>
             </div>
           ))}
@@ -2036,16 +2036,16 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
 
 // ─── Note type config ─────────────────────────────────────────────────────────
 const NOTE_TYPES = [
-  { label: "General",          color: "#8b9ab5", bg: "#252c3d" },
-  { label: "Attorney Note",    color: "#5b8fd4", bg: "#2a2010" },
+  { label: "General",          color: "#475569", bg: "#ffffff" },
+  { label: "Attorney Note",    color: "#2563eb", bg: "#fef3c7" },
   { label: "Client Contact",   color: "#5599cc", bg: "#102030" },
   { label: "Claim Specialist", color: "#44bbaa", bg: "#102020" },
   { label: "Mediation",        color: "#a066cc", bg: "#201030" },
   { label: "Court / Hearing",  color: "#e07a30", bg: "#2a1800" },
   { label: "Investigation",    color: "#4CAE72", bg: "#0f2a18" },
   { label: "Medical",          color: "#e05252", bg: "#2a0f0f" },
-  { label: "Settlement",       color: "#6b9fe4", bg: "#241e08" },
-  { label: "Internal",         color: "#6b7a95", bg: "#111820" },
+  { label: "Settlement",       color: "#1d4ed8", bg: "#241e08" },
+  { label: "Internal",         color: "#64748b", bg: "#111820" },
 ];
 
 const noteTypeStyle = (label) => NOTE_TYPES.find(t => t.label === label) || NOTE_TYPES[0];
@@ -2077,7 +2077,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <div className="panel-section-title" style={{ marginBottom: 0 }}>
-          Notes {notes.length > 0 && <span style={{ color: "#5a6880" }}>({notes.length})</span>}
+          Notes {notes.length > 0 && <span style={{ color: "#94a3b8" }}>({notes.length})</span>}
         </div>
         <button
           className="btn btn-outline btn-sm"
@@ -2090,7 +2090,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
 
       {/* Add form */}
       {showForm && (
-        <div style={{ background: "#1e2330", border: "1px solid #3a4a65", borderRadius: 7, padding: 14, marginBottom: 12 }}>
+        <div style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 7, padding: 14, marginBottom: 12 }}>
           <div className="form-group" style={{ marginBottom: 10 }}>
             <label>Note Type</label>
             <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
@@ -2111,7 +2111,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
             <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={handleAdd} disabled={!form.body.trim()}>
               Save Note
             </button>
-            <span style={{ fontSize: 11, color: "#5a6880" }}>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>
               Will be recorded as {currentUser.name} · {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
             </span>
           </div>
@@ -2120,10 +2120,10 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
 
       {/* Notes list */}
       {notes.length === 0 && !showForm && (
-        <div style={{ fontSize: 12, color: "#5a6880", fontStyle: "italic" }}>No notes yet. Click "+ Add Note" to create the first one.</div>
+        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No notes yet. Click "+ Add Note" to create the first one.</div>
       )}
       {notes.length > 0 && (
-        <div style={{ background: "#191f2d", border: "1px solid #2e3a50", borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 6, overflow: "hidden" }}>
           {notes.map((note, i) => {
             const ts = noteTypeStyle(note.type);
             const dt = new Date(note.createdAt);
@@ -2146,13 +2146,13 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
                   >
                     {note.type}
                   </span>
-                  <span style={{ fontSize: 11, color: "#6b7a95", flex: 1 }}>{note.authorName}</span>
-                  <span style={{ fontSize: 10, color: "#5a6880", whiteSpace: "nowrap" }}>{dateStr}</span>
-                  <span style={{ fontSize: 10, color: "#3a4a65" }}>{isExpanded ? "▲" : "▼"}</span>
+                  <span style={{ fontSize: 11, color: "#64748b", flex: 1 }}>{note.authorName}</span>
+                  <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{dateStr}</span>
+                  <span style={{ fontSize: 10, color: "#cbd5e1" }}>{isExpanded ? "▲" : "▼"}</span>
                 </div>
 
                 {!isExpanded && (
-                  <div style={{ fontSize: 12, color: "#6b7a95", paddingLeft: 2, fontStyle: "italic", lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 12, color: "#64748b", paddingLeft: 2, fontStyle: "italic", lineHeight: 1.4 }}>
                     {preview}
                   </div>
                 )}
@@ -2160,17 +2160,17 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote }) {
                 {/* Expanded body */}
                 {isExpanded && (
                   <div>
-                    <div style={{ fontSize: 11, color: "#5a6880", marginBottom: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
                       <span>👤 {note.authorName} ({note.authorRole})</span>
                       <span>🕐 {dateStr} at {timeStr}</span>
                     </div>
-                    <div style={{ fontSize: 13, color: "#dce4f0", lineHeight: 1.7, whiteSpace: "pre-wrap", background: "#060a10", padding: "10px 12px", borderRadius: 5, border: "1px solid #2e3a50" }}>
+                    <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.7, whiteSpace: "pre-wrap", background: "#060a10", padding: "10px 12px", borderRadius: 5, border: "1px solid #e2e8f0" }}>
                       {note.body}
                     </div>
                     <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ fontSize: 11, color: "#e05252", borderColor: "#5a2a2a" }}
+                        style={{ fontSize: 11, color: "#e05252", borderColor: "#fca5a5" }}
                         onClick={e => { e.stopPropagation(); if (window.confirm("Delete this note?")) { onDeleteNote(note.id); setExpandedId(null); } }}
                       >
                         🗑 Delete
@@ -2234,7 +2234,7 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
       <div style={{ width: "100%", maxWidth: 860 }}>
         {/* Toolbar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, padding: "0 4px" }}>
-          <div style={{ color: "#dce4f0", fontSize: 14, fontWeight: 600 }}>📄 Case File Preview — {c.title}</div>
+          <div style={{ color: "#1e293b", fontSize: 14, fontWeight: 600 }}>📄 Case File Preview — {c.title}</div>
           <div style={{ display: "flex", gap: 10 }}>
             <button className="btn btn-gold" onClick={handlePrint}>🖨 Print / Save as PDF</button>
             <button className="btn btn-outline" onClick={onClose}>✕ Close</button>
@@ -2469,9 +2469,9 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
       {/* Calendar */}
       <div className="card" style={{ flex: 1, minWidth: 0 }}>
         {/* Month nav */}
-        <div style={{ padding: "14px 18px", borderBottom: "1px solid #2e3a50", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ padding: "14px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <button className="btn btn-outline btn-sm" onClick={prevMonth}>← Prev</button>
-          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "#d4e2f4", fontWeight: 600 }}>{monthName}</div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "#0f172a", fontWeight: 600 }}>{monthName}</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="btn btn-outline btn-sm" onClick={() => { setCalMonth(now.getMonth()); setCalYear(now.getFullYear()); setSelected(todayStr); }}>Today</button>
             <button className="btn btn-outline btn-sm" onClick={nextMonth}>Next →</button>
@@ -2479,34 +2479,34 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
         </div>
 
         {/* Legend */}
-        <div style={{ padding: "8px 18px", borderBottom: "1px solid #2e3a50", display: "flex", gap: 16, flexWrap: "wrap" }}>
-          {[["#e05252","Overdue"],["#e07a30","≤7 days"],["#5b8fd4","≤21 days"],["#4CAE72","Upcoming"],["#5588cc","External Cal"]].map(([col,lbl]) => (
+        <div style={{ padding: "8px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {[["#e05252","Overdue"],["#e07a30","≤7 days"],["#2563eb","≤21 days"],["#4CAE72","Upcoming"],["#5588cc","External Cal"]].map(([col,lbl]) => (
             <div key={lbl} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: col, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: "#6b7a95" }}>{lbl}</span>
+              <span style={{ fontSize: 11, color: "#64748b" }}>{lbl}</span>
             </div>
           ))}
         </div>
 
         {/* Day headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: "1px solid #2e3a50" }}>
-          {DOW.map(d => <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "#6b7a95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>{d}</div>)}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: "1px solid #e2e8f0" }}>
+          {DOW.map(d => <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>{d}</div>)}
         </div>
 
         {/* Day cells */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
           {cells.map((dateStr, i) => {
-            if (!dateStr) return <div key={i} style={{ minHeight: 80, borderRight: "1px solid #252f42", borderBottom: "1px solid #252f42", background: "#191f2d" }} />;
+            if (!dateStr) return <div key={i} style={{ minHeight: 80, borderRight: "1px solid #f0f4f8", borderBottom: "1px solid #f0f4f8", background: "#ffffff" }} />;
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selected;
             const events = eventsByDate[dateStr] || [];
             const dayNum = Number(dateStr.split("-")[2]);
-            const borderR = (i + 1) % 7 !== 0 ? "1px solid #252f42" : "none";
+            const borderR = (i + 1) % 7 !== 0 ? "1px solid #f0f4f8" : "none";
             return (
               <div key={dateStr} onClick={() => setSelected(isSelected ? null : dateStr)}
-                style={{ minHeight: 80, borderRight: borderR, borderBottom: "1px solid #252f42", padding: "6px 7px", cursor: events.length ? "pointer" : "default", background: isSelected ? "#1e2c42" : isToday ? "#121c2c" : "transparent", transition: "background 0.1s", position: "relative" }}>
+                style={{ minHeight: 80, borderRight: borderR, borderBottom: "1px solid #f0f4f8", padding: "6px 7px", cursor: events.length ? "pointer" : "default", background: isSelected ? "#eff6ff" : isToday ? "#121c2c" : "transparent", transition: "background 0.1s", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? "#5b8fd4" : "#6b7a95", width: 22, height: 22, borderRadius: "50%", background: isToday ? "#5b8fd422" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{dayNum}</span>
+                  <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? "#2563eb" : "#64748b", width: 22, height: 22, borderRadius: "50%", background: isToday ? "#2563eb12" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{dayNum}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {events.slice(0, 3).map((ev, ei) => (
@@ -2514,7 +2514,7 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
                       {ev.title}
                     </div>
                   ))}
-                  {events.length > 3 && <div style={{ fontSize: 10, color: "#5a6880", paddingLeft: 2 }}>+{events.length - 3} more</div>}
+                  {events.length > 3 && <div style={{ fontSize: 10, color: "#94a3b8", paddingLeft: 2 }}>+{events.length - 3} more</div>}
                 </div>
               </div>
             );
@@ -2526,7 +2526,7 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
       <div className="card" style={{ width: 300, flexShrink: 0 }}>
         <div className="card-header">
           <div className="card-title">{selected ? fmt(selected) : "Select a date"}</div>
-          {selected && <span style={{ fontSize: 12, color: "#6b7a95" }}>{selectedEvents.length} event{selectedEvents.length !== 1 ? "s" : ""}</span>}
+          {selected && <span style={{ fontSize: 12, color: "#64748b" }}>{selectedEvents.length} event{selectedEvents.length !== 1 ? "s" : ""}</span>}
         </div>
         {!selected && <div className="empty" style={{ padding: "30px 20px" }}>Click any date to see its deadlines and events.</div>}
         {selected && selectedEvents.length === 0 && <div className="empty" style={{ padding: "30px 20px" }}>No deadlines or events on this date.</div>}
@@ -2534,16 +2534,16 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
           const col = chipColor(ev);
           const cs = ev.caseId ? allCases.find(c => c.id === ev.caseId) : null;
           return (
-            <div key={i} style={{ padding: "12px 16px", borderBottom: "1px solid #252f42" }}>
+            <div key={i} style={{ padding: "12px 16px", borderBottom: "1px solid #f0f4f8" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: col, flexShrink: 0, marginTop: 3 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: "#dce4f0", fontWeight: 600, marginBottom: 3 }}>{ev.title}</div>
-                  {ev.kind === "deadline" && cs && <div style={{ fontSize: 11, color: "#6b7a95" }}>{cs.title?.slice(0, 45)}</div>}
+                  <div style={{ fontSize: 13, color: "#1e293b", fontWeight: 600, marginBottom: 3 }}>{ev.title}</div>
+                  {ev.kind === "deadline" && cs && <div style={{ fontSize: 11, color: "#64748b" }}>{cs.title?.slice(0, 45)}</div>}
                   {ev.kind === "deadline" && ev.type && <Badge label={ev.type} />}
                   {ev.kind === "external" && <div style={{ fontSize: 11, color: "#5588cc", marginTop: 2 }}>📅 {ev.source}</div>}
-                  {ev.location && <div style={{ fontSize: 11, color: "#5a6880", marginTop: 2 }}>📍 {ev.location}</div>}
-                  {ev.notes && <div style={{ fontSize: 11, color: "#5a6880", marginTop: 2, fontStyle: "italic" }}>{ev.notes.slice(0, 80)}</div>}
+                  {ev.location && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>📍 {ev.location}</div>}
+                  {ev.notes && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, fontStyle: "italic" }}>{ev.notes.slice(0, 80)}</div>}
                 </div>
               </div>
             </div>
@@ -2602,17 +2602,17 @@ function ICalManager({ externalEvents, setExternalEvents }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div className="card-title">📅 Internet Calendar Feeds</div>
-          <span style={{ fontSize: 12, color: "#6b7a95" }}>{feeds.length} feed{feeds.length !== 1 ? "s" : ""} · {externalEvents.length} events imported</span>
+          <span style={{ fontSize: 12, color: "#64748b" }}>{feeds.length} feed{feeds.length !== 1 ? "s" : ""} · {externalEvents.length} events imported</span>
         </div>
         <div style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, color: "#8b9ab5", marginBottom: 16, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 13, color: "#475569", marginBottom: 16, lineHeight: 1.6 }}>
             Add any iCal/webcal feed URL to overlay external events on the calendar — court dockets, Google Calendar, Outlook, bar association deadlines, etc.
-            <br /><span style={{ fontSize: 11, color: "#5a6880" }}>Tip: In Google Calendar, go to the calendar's settings → "Integrate calendar" → copy the public iCal address. In Outlook, use File → Account Settings → Internet Calendars.</span>
+            <br /><span style={{ fontSize: 11, color: "#94a3b8" }}>Tip: In Google Calendar, go to the calendar's settings → "Integrate calendar" → copy the public iCal address. In Outlook, use File → Account Settings → Internet Calendars.</span>
           </div>
 
           {/* Add feed form */}
-          <div style={{ background: "#1e2330", border: "1px solid #3a4a65", borderRadius: 7, padding: 16, marginBottom: feeds.length ? 16 : 0 }}>
-            <div style={{ fontSize: 12, color: "#5b8fd4", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>Add New Calendar Feed</div>
+          <div style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 7, padding: 16, marginBottom: feeds.length ? 16 : 0 }}>
+            <div style={{ fontSize: 12, color: "#2563eb", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>Add New Calendar Feed</div>
             <div className="form-row" style={{ marginBottom: 10 }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Calendar Name</label>
@@ -2636,15 +2636,15 @@ function ICalManager({ externalEvents, setExternalEvents }) {
 
           {/* Feed list */}
           {feeds.map(feed => (
-            <div key={feed.id} style={{ background: "#1e2330", border: "1px solid #3a4a65", borderRadius: 7, padding: "12px 14px", marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
+            <div key={feed.id} style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 7, padding: "12px 14px", marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                  <div style={{ fontSize: 13, color: "#dce4f0", fontWeight: 600 }}>{feed.name}</div>
-                  {feed.status === "ok" && <span style={{ fontSize: 10, background: "#1a3a2a", color: "#4CAE72", border: "1px solid #2a5a3a", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✓ {feed.count} events</span>}
-                  {feed.status === "error" && <span style={{ fontSize: 10, background: "#3a1a1a", color: "#e05252", border: "1px solid #6a2a2a", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✗ Error</span>}
-                  {feed.status === "pending" && <span style={{ fontSize: 10, color: "#6b7a95" }}>Importing…</span>}
+                  <div style={{ fontSize: 13, color: "#1e293b", fontWeight: 600 }}>{feed.name}</div>
+                  {feed.status === "ok" && <span style={{ fontSize: 10, background: "#dcfce7", color: "#4CAE72", border: "1px solid #bbf7d0", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✓ {feed.count} events</span>}
+                  {feed.status === "error" && <span style={{ fontSize: 10, background: "#fee2e2", color: "#e05252", border: "1px solid #fca5a5", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✗ Error</span>}
+                  {feed.status === "pending" && <span style={{ fontSize: 10, color: "#64748b" }}>Importing…</span>}
                 </div>
-                <div style={{ fontSize: 11, color: "#5a6880", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{feed.url}</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{feed.url}</div>
                 {feed.lastSync && <div style={{ fontSize: 10, color: "#2a4a3a", marginTop: 2 }}>Last synced: {feed.lastSync}</div>}
                 {feed.status === "error" && feed.error && <div style={{ fontSize: 11, color: "#994444", marginTop: 3 }}>{feed.error}</div>}
               </div>
@@ -2652,13 +2652,13 @@ function ICalManager({ externalEvents, setExternalEvents }) {
                 <button className="btn btn-outline btn-sm" onClick={() => importFeed(feed)} disabled={importing === feed.id}>
                   {importing === feed.id ? "…" : "↻ Sync"}
                 </button>
-                <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#5a2a2a" }} onClick={() => removeFeed(feed.id, feed.name)}>✕</button>
+                <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => removeFeed(feed.id, feed.name)}>✕</button>
               </div>
             </div>
           ))}
 
           {feeds.length === 0 && (
-            <div style={{ textAlign: "center", padding: "24px 0 4px", color: "#5a6880", fontSize: 13 }}>
+            <div style={{ textAlign: "center", padding: "24px 0 4px", color: "#94a3b8", fontSize: 13 }}>
               No calendar feeds added yet. Paste a webcal or iCal URL above to get started.
             </div>
           )}
@@ -2676,9 +2676,9 @@ function ICalManager({ externalEvents, setExternalEvents }) {
             ["Court Dockets (PACER/Odyssey)", "Check your court's website for a published calendar feed, or use a third-party court-alert service that provides iCal export"],
             ["Bar Association Calendars", "Most state bar websites publish a CLE/events calendar — look for an iCal or .ics download link"],
           ].map(([src, tip]) => (
-            <div key={src} style={{ display: "flex", gap: 12, padding: "9px 0", borderBottom: "1px solid #252f42" }}>
-              <div style={{ fontSize: 13, color: "#5b8fd4", fontWeight: 600, width: 180, flexShrink: 0 }}>{src}</div>
-              <div style={{ fontSize: 12, color: "#8b9ab5", lineHeight: 1.5 }}>{tip}</div>
+            <div key={src} style={{ display: "flex", gap: 12, padding: "9px 0", borderBottom: "1px solid #f0f4f8" }}>
+              <div style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, width: 180, flexShrink: 0 }}>{src}</div>
+              <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{tip}</div>
             </div>
           ))}
         </div>
@@ -2740,7 +2740,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
 
         {tab === "list" && (
           <div className="card">
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid #2e3a50", display: "flex", gap: 10 }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", display: "flex", gap: 10 }}>
               <select style={{ width: 160 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>{types.map(t => <option key={t}>{t}</option>)}</select>
               <input placeholder="Search deadlines or cases…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
@@ -2763,8 +2763,8 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
                     return (
                       <tr key={d.id}>
                         <td><div style={{ width: 10, height: 10, borderRadius: "50%", background: col }} /></td>
-                        <td><div style={{ color: "#dce4f0", fontWeight: 600 }}>{d.title}</div>{d.rule && <div style={{ fontSize: 11, color: "#5b8fd4", fontFamily: "monospace" }}>{d.rule}</div>}</td>
-                        <td style={{ fontSize: 12, color: "#8b9ab5" }}>{cs?.title?.slice(0, 40) || `#${d.caseId}`}<div style={{ fontSize: 10, color: "#5a6880" }}>{cs?.caseNum}</div></td>
+                        <td><div style={{ color: "#1e293b", fontWeight: 600 }}>{d.title}</div>{d.rule && <div style={{ fontSize: 11, color: "#2563eb", fontFamily: "monospace" }}>{d.rule}</div>}</td>
+                        <td style={{ fontSize: 12, color: "#475569" }}>{cs?.title?.slice(0, 40) || `#${d.caseId}`}<div style={{ fontSize: 10, color: "#94a3b8" }}>{cs?.caseNum}</div></td>
                         <td><Badge label={d.type} /></td>
                         <td style={{ color: col, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(d.date)}</td>
                         <td style={{ color: col, fontWeight: 700 }}>{days < 0 ? <span style={{ color: "#e05252" }}>{Math.abs(days)}d over</span> : days === 0 ? "Today" : `${days}d`}</td>
@@ -2841,9 +2841,9 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
                 <button className="btn btn-gold" onClick={runCalc}>Calculate</button>
                 {calcResult && (
                   <div className="calc-result">
-                    <div style={{ fontSize: 11, color: "#5b8fd4", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Result</div>
-                    <div style={{ fontSize: 24, fontFamily: "'Playfair Display',serif", color: "#d4e2f4", marginBottom: 8 }}>{fmt(calcResult.result)}</div>
-                    <div style={{ fontSize: 13, color: "#8b9ab5" }}><strong style={{ color: "#5b8fd4" }}>{calcResult.rule.name}</strong><br />{calcResult.rule.days} days from {fmt(calcResult.from)} · <span style={{ fontFamily: "monospace", fontSize: 12 }}>{calcResult.rule.rule}</span></div>
+                    <div style={{ fontSize: 11, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Result</div>
+                    <div style={{ fontSize: 24, fontFamily: "'Playfair Display',serif", color: "#0f172a", marginBottom: 8 }}>{fmt(calcResult.result)}</div>
+                    <div style={{ fontSize: 13, color: "#475569" }}><strong style={{ color: "#2563eb" }}>{calcResult.rule.name}</strong><br />{calcResult.rule.days} days from {fmt(calcResult.from)} · <span style={{ fontFamily: "monospace", fontSize: 12 }}>{calcResult.rule.rule}</span></div>
                     <div style={{ marginTop: 10, fontSize: 12, color: "#e07a30", fontStyle: "italic" }}>⚠ Always verify against court orders and local rules.</div>
                   </div>
                 )}
@@ -2854,7 +2854,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Action</th><th>Days</th><th>From</th><th>Rule</th></tr></thead>
-                  <tbody>{COURT_RULES.map(r => <tr key={r.id}><td style={{ color: "#dce4f0" }}>{r.name}</td><td style={{ color: "#5b8fd4", fontWeight: 700 }}>{r.days}</td><td style={{ fontSize: 12, color: "#8b9ab5" }}>{r.from}</td><td style={{ fontFamily: "monospace", fontSize: 11, color: "#6b7a95" }}>{r.rule}</td></tr>)}</tbody>
+                  <tbody>{COURT_RULES.map(r => <tr key={r.id}><td style={{ color: "#1e293b" }}>{r.name}</td><td style={{ color: "#2563eb", fontWeight: 700 }}>{r.days}</td><td style={{ fontSize: 12, color: "#475569" }}>{r.from}</td><td style={{ fontFamily: "monospace", fontSize: 11, color: "#64748b" }}>{r.rule}</td></tr>)}</tbody>
                 </table>
               </div>
             </div>
@@ -2948,17 +2948,17 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 
               {/* Recurring toggle */}
               <div className="form-group">
-                <div style={{ background: newTask.recurring ? "#0f201e" : "#1e2330", border: `1px solid ${newTask.recurring ? "#44bbaa55" : "#3a4a65"}`, borderRadius: 7, padding: "12px 14px", marginBottom: 8, transition: "all 0.2s" }}>
+                <div style={{ background: newTask.recurring ? "#0f201e" : "#f1f5f9", border: `1px solid ${newTask.recurring ? "#44bbaa55" : "#cbd5e1"}`, borderRadius: 7, padding: "12px 14px", marginBottom: 8, transition: "all 0.2s" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: newTask.recurring ? 12 : 0 }}>
-                    <div><div style={{ fontSize: 13, color: "#dce4f0", fontWeight: 600 }}>🔁 Recurring Task</div><div style={{ fontSize: 11, color: "#6b7a95", marginTop: 2 }}>A new task is auto-generated when this one is checked off</div></div>
+                    <div><div style={{ fontSize: 13, color: "#1e293b", fontWeight: 600 }}>🔁 Recurring Task</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>A new task is auto-generated when this one is checked off</div></div>
                     <Toggle on={newTask.recurring} onChange={() => setNewTask(p => ({ ...p, recurring: !p.recurring }))} color="#44bbaa" />
                   </div>
                   {newTask.recurring && (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 13, color: "#8b9ab5", whiteSpace: "nowrap" }}>Repeat every</span>
+                      <span style={{ fontSize: 13, color: "#475569", whiteSpace: "nowrap" }}>Repeat every</span>
                       <input type="number" min={1} max={365} value={newTask.recurringDays} onChange={e => setNewTask(p => ({ ...p, recurringDays: Number(e.target.value) }))} style={{ width: 80 }} />
-                      <span style={{ fontSize: 13, color: "#8b9ab5" }}>days</span>
-                      <span style={{ fontSize: 12, color: "#5a6880" }}>→ Next: {fmt(addDays(newTask.due, newTask.recurringDays))}</span>
+                      <span style={{ fontSize: 13, color: "#475569" }}>days</span>
+                      <span style={{ fontSize: 12, color: "#94a3b8" }}>→ Next: {fmt(addDays(newTask.due, newTask.recurringDays))}</span>
                     </div>
                   )}
                 </div>
@@ -3006,26 +3006,26 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                       <tr style={{ opacity: done ? 0.5 : 1 }}>
                         <td><div className={`checkbox ${done ? "done" : ""}`} onClick={() => onCompleteTask(t.id)}>{done && "✓"}</div></td>
                         <td>
-                          <div style={{ color: "#dce4f0", fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>
+                          <div style={{ color: "#1e293b", fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>
                             {t.title}{t.recurring && <span className="rec-badge">🔁 {t.recurringDays}d</span>}{t.isChained && <span className="chain-badge">⛓ auto</span>}
                           </div>
-                          {t.notes && <div style={{ fontSize: 11, color: "#5a6880", marginTop: 2 }}>{t.notes}</div>}
+                          {t.notes && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{t.notes}</div>}
                         </td>
-                        <td style={{ fontSize: 12, color: "#8b9ab5", maxWidth: 200 }}>{cs?.title?.slice(0, 40) || `#${t.caseId}`}<div style={{ fontSize: 10, color: "#5a6880" }}>{cs?.caseNum}</div></td>
-                        <td><div style={{ display: "flex", alignItems: "center", gap: 6 }}><Avatar userId={t.assigned} size={24} /><span style={{ fontSize: 12, color: "#8b9ab5" }}>{getUserById(t.assigned)?.name.split(" ")[0]}</span></div></td>
+                        <td style={{ fontSize: 12, color: "#475569", maxWidth: 200 }}>{cs?.title?.slice(0, 40) || `#${t.caseId}`}<div style={{ fontSize: 10, color: "#94a3b8" }}>{cs?.caseNum}</div></td>
+                        <td><div style={{ display: "flex", alignItems: "center", gap: 6 }}><Avatar userId={t.assigned} size={24} /><span style={{ fontSize: 12, color: "#475569" }}>{getUserById(t.assigned)?.name.split(" ")[0]}</span></div></td>
                         <td style={{ color: urgencyColor(days), fontSize: 13, whiteSpace: "nowrap" }}>{fmt(t.due)}{days < 0 && !done && <div style={{ fontSize: 11, color: "#e05252" }}>{Math.abs(days)}d over</div>}</td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                             <Badge label={ep} />
                             {t.autoEscalate && <span title={escalated ? `Escalated from ${t.priority}` : "Auto-escalate on"} style={{ fontSize: 11, cursor: "help" }}>🔺</span>}
                           </div>
-                          {escalated && <div style={{ fontSize: 10, color: "#6b7a95", marginTop: 2 }}>was {t.priority}</div>}
+                          {escalated && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>was {t.priority}</div>}
                         </td>
                         <td><Badge label={done ? "Completed" : t.status} /></td>
                         <td>
                           <button
                             onClick={() => setExpandedTask(isExpanded ? null : t.id)}
-                            style={{ background: "none", border: "none", color: isExpanded ? "#5b8fd4" : "#5a6880", cursor: "pointer", fontSize: 13, padding: "2px 6px", borderRadius: 3 }}
+                            style={{ background: "none", border: "none", color: isExpanded ? "#2563eb" : "#94a3b8", cursor: "pointer", fontSize: 13, padding: "2px 6px", borderRadius: 3 }}
                             title="Edit due date, priority, assignee"
                           >✎</button>
                         </td>
@@ -3035,20 +3035,20 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                           <td />
                           <td colSpan={7} style={{ paddingBottom: 12, paddingTop: 4 }}>
                             <div className="task-inline-edit">
-                              <label style={{ fontSize: 11, color: "#6b7a95" }}>Due date</label>
+                              <label style={{ fontSize: 11, color: "#64748b" }}>Due date</label>
                               <input
                                 type="date"
                                 value={t.due || ""}
                                 onChange={e => onUpdateTask(t.id, { due: e.target.value })}
                               />
-                              <label style={{ fontSize: 11, color: "#6b7a95" }}>Priority</label>
+                              <label style={{ fontSize: 11, color: "#64748b" }}>Priority</label>
                               <select
                                 value={t.priority}
                                 onChange={e => onUpdateTask(t.id, { priority: e.target.value })}
                               >
                                 {["Urgent", "High", "Medium", "Low"].map(p => <option key={p}>{p}</option>)}
                               </select>
-                              <label style={{ fontSize: 11, color: "#6b7a95" }}>Assigned to</label>
+                              <label style={{ fontSize: 11, color: "#64748b" }}>Assigned to</label>
                               <select
                                 value={t.assigned || ""}
                                 onChange={e => onUpdateTask(t.id, { assigned: Number(e.target.value) })}
@@ -3402,8 +3402,8 @@ function ReportsView({ allCases, tasks, deadlines, currentUser }) {
           <div className="card" style={{ marginBottom: 20, padding: 20 }}>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: "#d4e2f4", marginBottom: 4 }}>{def?.icon} {def?.title}</div>
-                <div style={{ fontSize: 12, color: "#6b7a95" }}>{def?.desc}</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: "#0f172a", marginBottom: 4 }}>{def?.icon} {def?.title}</div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>{def?.desc}</div>
               </div>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginLeft: "auto" }}>
                 {def?.params.includes("attorney") && (
@@ -3496,7 +3496,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser }) {
                           return (
                             <td key={ci} style={{ color: color || undefined }}>
                               {isStatus && cell && cell !== "—" ? <Badge label={cell} /> : (
-                                <span style={{ fontWeight: ci === 1 ? 600 : 400, color: color || (ci === 1 ? "#dce4f0" : undefined), fontFamily: ci === 0 ? "monospace" : undefined, fontSize: ci === 0 ? 11 : undefined }}>{cell || "—"}</span>
+                                <span style={{ fontWeight: ci === 1 ? 600 : 400, color: color || (ci === 1 ? "#1e293b" : undefined), fontFamily: ci === 0 ? "monospace" : undefined, fontSize: ci === 0 ? 11 : undefined }}>{cell || "—"}</span>
                               )}
                             </td>
                           );
@@ -3509,24 +3509,24 @@ function ReportsView({ allCases, tasks, deadlines, currentUser }) {
             )}
 
             {/* Summary footer */}
-            <div style={{ padding: "12px 20px", borderTop: "1px solid #2e3a50", display: "flex", gap: 20, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 12, color: "#5a6880" }}>
-                <strong style={{ color: "#5b8fd4" }}>{generated.count}</strong> total records
+            <div style={{ padding: "12px 20px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                <strong style={{ color: "#2563eb" }}>{generated.count}</strong> total records
               </div>
               {generated.reportId === "workload" && (() => {
                 const totalActive = allCases.filter(c => c.status === "Active").length;
-                return <div style={{ fontSize: 12, color: "#5a6880" }}><strong style={{ color: "#5b8fd4" }}>{totalActive}</strong> total active cases across firm</div>;
+                return <div style={{ fontSize: 12, color: "#94a3b8" }}><strong style={{ color: "#2563eb" }}>{totalActive}</strong> total active cases across firm</div>;
               })()}
               {generated.reportId === "overdue_tasks" && (() => {
                 const caseCount = new Set(generated.rows.map(r => r[0])).size;
-                return <div style={{ fontSize: 12, color: "#5a6880" }}><strong style={{ color: "#e05252" }}>{caseCount}</strong> cases affected</div>;
+                return <div style={{ fontSize: 12, color: "#94a3b8" }}><strong style={{ color: "#e05252" }}>{caseCount}</strong> cases affected</div>;
               })()}
               {(generated.reportId === "trial_date" || generated.reportId === "discovery" || generated.reportId === "upcoming_deadlines") && (() => {
                 const urgent = generated.rows.filter(r => { const v = parseInt(r[generated.colorCol]); return !isNaN(v) && v <= 14; }).length;
                 if (urgent === 0) return null;
-                return <div style={{ fontSize: 12, color: "#5a6880" }}><strong style={{ color: "#e07a30" }}>{urgent}</strong> within 14 days</div>;
+                return <div style={{ fontSize: 12, color: "#94a3b8" }}><strong style={{ color: "#e07a30" }}>{urgent}</strong> within 14 days</div>;
               })()}
-              <div style={{ marginLeft: "auto", fontSize: 11, color: "#3a4a65" }}>LexTrack · {generated.generatedAt} · {currentUser.name}</div>
+              <div style={{ marginLeft: "auto", fontSize: 11, color: "#cbd5e1" }}>LexTrack · {generated.generatedAt} · {currentUser.name}</div>
             </div>
           </div>
         )}
@@ -3678,11 +3678,11 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
         <div className="card" style={{ marginBottom: 18 }}>
           <div style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ fontSize: 12, color: "#6b7a95", whiteSpace: "nowrap" }}>From</label>
+              <label style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>From</label>
               <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} style={{ width: 150 }} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ fontSize: 12, color: "#6b7a95", whiteSpace: "nowrap" }}>To</label>
+              <label style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>To</label>
               <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ width: 150 }} />
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -3702,7 +3702,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
         <div className="card">
           <div className="card-header">
             <div className="card-title">Activity Preview</div>
-            <span style={{ fontSize: 12, color: "#6b7a95" }}>{rows.length} entries · {fmtDateTime(fromDate)} – {fmtDateTime(toDate)}</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{rows.length} entries · {fmtDateTime(fromDate)} – {fmtDateTime(toDate)}</span>
           </div>
           {rows.length === 0 ? (
             <div className="empty">No activity recorded for this date range.</div>
@@ -3721,7 +3721,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={i}>
-                      <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "#8b9ab5" }}>{fmtDateTime(r.date)}</td>
+                      <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "#475569" }}>{fmtDateTime(r.date)}</td>
                       <td>
                         <span style={{
                           display: "inline-block",
@@ -3729,21 +3729,21 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
                           borderRadius: 4,
                           fontSize: 11,
                           fontWeight: 600,
-                          background: r.type === "Task Completed" ? "#1a3a2a" : "#1a2a3a",
+                          background: r.type === "Task Completed" ? "#dcfce7" : "#dbeafe",
                           color:      r.type === "Task Completed" ? "#4CAE72"  : "#5599cc",
-                          border:     `1px solid ${r.type === "Task Completed" ? "#2a5a3a" : "#1a4a6a"}`,
+                          border:     `1px solid ${r.type === "Task Completed" ? "#bbf7d0" : "#dbeafe"}`,
                         }}>{r.type}</span>
                       </td>
                       <td>
-                        <div style={{ fontSize: 13, color: "#dce4f0", fontWeight: 500 }}>{r.caseTitle}</div>
-                        {r.fileNum && <div style={{ fontSize: 10, color: "#5a6880", fontFamily: "monospace" }}>File # {r.fileNum}</div>}
+                        <div style={{ fontSize: 13, color: "#1e293b", fontWeight: 500 }}>{r.caseTitle}</div>
+                        {r.fileNum && <div style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>File # {r.fileNum}</div>}
                       </td>
-                      <td style={{ fontSize: 12, color: "#b8c8db", maxWidth: 380 }}>
+                      <td style={{ fontSize: 12, color: "#334155", maxWidth: 380 }}>
                         <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{r.detail}</div>
                       </td>
                       <td>
                         {r.category && (
-                          <span style={{ fontSize: 11, color: "#5b8fd4", background: "#2a1800", border: "1px solid #4a3000", padding: "2px 7px", borderRadius: 4 }}>
+                          <span style={{ fontSize: 11, color: "#2563eb", background: "#2a1800", border: "1px solid #4a3000", padding: "2px 7px", borderRadius: 4 }}>
                             {r.category}
                           </span>
                         )}
@@ -3763,19 +3763,19 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
 const CONTACT_CATEGORIES = ["Client", "Attorney", "Court", "Expert", "Miscellaneous"];
 
 const CONTACT_CAT_STYLE = {
-  Client:        { bg: "#1a2a3a", color: "#5599cc", border: "#2a4a6a" },
-  Attorney:      { bg: "#2a2a1a", color: "#5b8fd4", border: "#4a4a1a" },
-  Court:         { bg: "#2a1a3a", color: "#9966cc", border: "#4a2a6a" },
-  Expert:        { bg: "#1a3a2a", color: "#4CAE72", border: "#2a5a3a" },
+  Client:        { bg: "#dbeafe", color: "#5599cc", border: "#2a4a6a" },
+  Attorney:      { bg: "#fef9c3", color: "#2563eb", border: "#fef9c3" },
+  Court:         { bg: "#f3e8ff", color: "#9966cc", border: "#f3e8ff" },
+  Expert:        { bg: "#dcfce7", color: "#4CAE72", border: "#bbf7d0" },
   Miscellaneous: { bg: "#2a2a2a", color: "#8899aa", border: "#3a3a3a" },
 };
 
 const CONTACT_NOTE_TYPES = [
-  { label: "General",    bg: "#2e3a50", color: "#8b9ab5" },
-  { label: "Call Log",   bg: "#1a3a2a", color: "#4CAE72" },
-  { label: "Email Log",  bg: "#1a2a3a", color: "#5599cc" },
-  { label: "Meeting",    bg: "#2a2a1a", color: "#5b8fd4" },
-  { label: "Follow-up",  bg: "#3a1a1a", color: "#e05252" },
+  { label: "General",    bg: "#e2e8f0", color: "#475569" },
+  { label: "Call Log",   bg: "#dcfce7", color: "#4CAE72" },
+  { label: "Email Log",  bg: "#dbeafe", color: "#5599cc" },
+  { label: "Meeting",    bg: "#fef9c3", color: "#2563eb" },
+  { label: "Follow-up",  bg: "#fee2e2", color: "#e05252" },
 ];
 
 function NewContactModal({ onSave, onClose }) {
@@ -3880,18 +3880,18 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               <span style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>
                 {contact.category.toUpperCase()}
               </span>
-              {saving && <span style={{ fontSize: 11, color: "#5a6880" }}>Saving…</span>}
+              {saving && <span style={{ fontSize: 11, color: "#94a3b8" }}>Saving…</span>}
             </div>
             <input
               value={draft.name}
               onChange={e => set("name", e.target.value)}
               onBlur={handleBlur}
-              style={{ background: "transparent", border: "none", outline: "none", fontSize: 20, fontWeight: 700, color: "#dce4f0", fontFamily: "inherit", width: "100%", padding: 0 }}
+              style={{ background: "transparent", border: "none", outline: "none", fontSize: 20, fontWeight: 700, color: "#1e293b", fontFamily: "inherit", width: "100%", padding: 0 }}
             />
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
             {!showDelete && (
-              <button onClick={() => setShowDelete(true)} style={{ background: "#3a1a1a", border: "1px solid #5a2a2a", color: "#e05252", borderRadius: 4, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+              <button onClick={() => setShowDelete(true)} style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#e05252", borderRadius: 4, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                 Delete
               </button>
             )}
@@ -3899,7 +3899,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: "#e05252" }}>Delete this contact?</span>
                 <button onClick={() => onDelete(contact.id)} style={{ background: "#e05252", border: "none", color: "#fff", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Confirm</button>
-                <button onClick={() => setShowDelete(false)} style={{ background: "#2e3a50", border: "1px solid #2e3a55", color: "#8b9ab5", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Cancel</button>
+                <button onClick={() => setShowDelete(false)} style={{ background: "#e2e8f0", border: "1px solid #e2e8f0", color: "#475569", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Cancel</button>
               </div>
             )}
             <button className="overlay-close" onClick={onClose}>✕</button>
@@ -3909,22 +3909,22 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
         <div className="case-overlay-body" style={{ padding: "20px 28px", overflowY: "auto" }}>
           {/* Contact Information */}
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#5a6880", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #2e3a50" }}>Contact Information</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#94a3b8", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>Contact Information</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
-                <label style={{ display: "block", fontSize: 11, color: "#6b7a95", marginBottom: 4 }}>Phone</label>
+                <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Phone</label>
                 <input className="field-input" value={draft.phone} onChange={e => set("phone", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 11, color: "#6b7a95", marginBottom: 4 }}>Fax</label>
+                <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Fax</label>
                 <input className="field-input" value={draft.fax} onChange={e => set("fax", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
-                <label style={{ display: "block", fontSize: 11, color: "#6b7a95", marginBottom: 4 }}>Email</label>
+                <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Email</label>
                 <input className="field-input" value={draft.email} onChange={e => set("email", e.target.value)} onBlur={handleBlur} placeholder="email@example.com" />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
-                <label style={{ display: "block", fontSize: 11, color: "#6b7a95", marginBottom: 4 }}>Address</label>
+                <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Address</label>
                 <textarea className="field-input" rows={2} value={draft.address} onChange={e => set("address", e.target.value)} onBlur={handleBlur} placeholder="Street, City, State ZIP" style={{ resize: "vertical" }} />
               </div>
             </div>
@@ -3933,15 +3933,15 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
           {/* Associated Cases */}
           {(contact.category === "Client" || contact.category === "Attorney" || contact.category === "Court") && (
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#5a6880", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #2e3a50" }}>
-                Associated Cases <span style={{ fontSize: 11, fontWeight: 400, color: "#6b7a95", textTransform: "none", letterSpacing: 0 }}>({assocCases.length})</span>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#94a3b8", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
+                Associated Cases <span style={{ fontSize: 11, fontWeight: 400, color: "#64748b", textTransform: "none", letterSpacing: 0 }}>({assocCases.length})</span>
               </div>
               {assocCases.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#5a6880", fontStyle: "italic" }}>No associated cases found.</div>
+                <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>No associated cases found.</div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                   <thead>
-                    <tr style={{ color: "#5a6880", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <tr style={{ color: "#94a3b8", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Case Number</th>
                       <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Style</th>
                       <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Status</th>
@@ -3949,13 +3949,13 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                   </thead>
                   <tbody>
                     {assocCases.slice(0, 20).map(c => (
-                      <tr key={c.id} style={{ borderTop: "1px solid #202840" }}>
+                      <tr key={c.id} style={{ borderTop: "1px solid #f1f5f9" }}>
                         <td style={{ padding: "7px 8px 7px 0", color: "#5599cc", fontFamily: "monospace", fontSize: 11 }}>{c.caseNum}</td>
-                        <td style={{ padding: "7px 8px 7px 0", color: "#dce4f0" }}>{c.title}</td>
-                        <td style={{ padding: "7px 0", color: c.status === "Active" ? "#4CAE72" : "#8b9ab5", fontWeight: 600 }}>{c.status}</td>
+                        <td style={{ padding: "7px 8px 7px 0", color: "#1e293b" }}>{c.title}</td>
+                        <td style={{ padding: "7px 0", color: c.status === "Active" ? "#4CAE72" : "#475569", fontWeight: 600 }}>{c.status}</td>
                       </tr>
                     ))}
-                    {assocCases.length > 20 && <tr><td colSpan={3} style={{ padding: "6px 0", color: "#5a6880", fontSize: 11 }}>+ {assocCases.length - 20} more cases</td></tr>}
+                    {assocCases.length > 20 && <tr><td colSpan={3} style={{ padding: "6px 0", color: "#94a3b8", fontSize: 11 }}>+ {assocCases.length - 20} more cases</td></tr>}
                   </tbody>
                 </table>
               )}
@@ -3964,8 +3964,8 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
 
           {/* Notes */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#5a6880", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #2e3a50" }}>
-              Notes <span style={{ fontSize: 11, fontWeight: 400, color: "#6b7a95", textTransform: "none", letterSpacing: 0 }}>({(notes || []).length})</span>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#94a3b8", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
+              Notes <span style={{ fontSize: 11, fontWeight: 400, color: "#64748b", textTransform: "none", letterSpacing: 0 }}>({(notes || []).length})</span>
             </div>
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -3989,7 +3989,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               </div>
             </div>
             {(notes || []).length === 0 ? (
-              <div style={{ fontSize: 13, color: "#5a6880", fontStyle: "italic" }}>No notes yet.</div>
+              <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>No notes yet.</div>
             ) : (
               (notes || []).map(note => {
                 const ts = noteTypeStyle(note.type);
@@ -4000,9 +4000,9 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                       <span>{note.authorName}</span>
                       <span>{note.authorRole}</span>
                       <span>{note.createdAt ? new Date(note.createdAt).toLocaleString() : ""}</span>
-                      <span style={{ marginLeft: "auto", cursor: "pointer", color: "#5a6880", fontSize: 11 }} onClick={() => onDeleteNote(note.id, contact.id)}>Delete</span>
+                      <span style={{ marginLeft: "auto", cursor: "pointer", color: "#94a3b8", fontSize: 11 }} onClick={() => onDeleteNote(note.id, contact.id)}>Delete</span>
                     </div>
-                    <div style={{ fontSize: 13, color: "#dce4f0", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{note.body}</div>
+                    <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{note.body}</div>
                   </div>
                 );
               })
@@ -4058,28 +4058,28 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 700, maxWidth: "calc(100vw - 40px)", maxHeight: "90vh", background: "#252c3d", border: "1px solid #3a4a65", borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 16px", borderBottom: "1px solid #2e3a50", flexShrink: 0 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: "#dce4f0" }}>Merge {contacts.length} Contacts</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6b7a95", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }}>✕</button>
+      <div onClick={e => e.stopPropagation()} style={{ width: 700, maxWidth: "calc(100vw - 40px)", maxHeight: "90vh", background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 16px", borderBottom: "1px solid #e2e8f0", flexShrink: 0 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>Merge {contacts.length} Contacts</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }}>✕</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "20px 24px", flex: 1, overflowY: "auto" }}>
 
           {/* Surviving record */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#5a6880", textTransform: "uppercase", marginBottom: 6 }}>Surviving Record</div>
-            <div style={{ fontSize: 12, color: "#6b7a95", marginBottom: 10 }}>Choose which contact's database record is kept. All other records are permanently removed.</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#94a3b8", textTransform: "uppercase", marginBottom: 6 }}>Surviving Record</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>Choose which contact's database record is kept. All other records are permanently removed.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {contacts.map(c => {
                 const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
                 const noteCount = (contactNotes[c.id] || []).length;
                 const isPrimary = primaryId === c.id;
                 return (
-                  <div key={c.id} onClick={() => handleSetPrimary(c.id)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "9px 14px", borderRadius: 5, background: isPrimary ? "#111e2e" : "#1e2535", border: `1px solid ${isPrimary ? "#2a5a8a" : "#252f42"}`, transition: "all 0.15s" }}>
+                  <div key={c.id} onClick={() => handleSetPrimary(c.id)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "9px 14px", borderRadius: 5, background: isPrimary ? "#111e2e" : "#ffffff", border: `1px solid ${isPrimary ? "#2a5a8a" : "#f0f4f8"}`, transition: "all 0.15s" }}>
                     <input type="radio" name="merge-primary" checked={isPrimary} onChange={() => handleSetPrimary(c.id)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0, cursor: "pointer", width: "auto", padding: 0, border: "none", background: "none" }} />
-                    <span style={{ color: isPrimary ? "#dce4f0" : "#8b9ab5", fontWeight: isPrimary ? 600 : 400, flex: 1, fontSize: 14 }}>{c.name}</span>
+                    <span style={{ color: isPrimary ? "#1e293b" : "#475569", fontWeight: isPrimary ? 600 : 400, flex: 1, fontSize: 14 }}>{c.name}</span>
                     <span style={{ padding: "1px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>{c.category}</span>
-                    {noteCount > 0 && <span style={{ fontSize: 11, color: "#6b7a95" }}>{noteCount} note{noteCount !== 1 ? "s" : ""}</span>}
+                    {noteCount > 0 && <span style={{ fontSize: 11, color: "#64748b" }}>{noteCount} note{noteCount !== 1 ? "s" : ""}</span>}
                   </div>
                 );
               })}
@@ -4088,14 +4088,14 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
 
           {/* Field-by-field chooser */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#5a6880", textTransform: "uppercase", marginBottom: 6 }}>Choose Field Values</div>
-            <div style={{ fontSize: 12, color: "#6b7a95", marginBottom: 14 }}>Click a cell to choose that contact's value for each field.</div>
-            <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #2e3a50", borderRadius: 5, overflow: "hidden", tableLayout: "fixed" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#94a3b8", textTransform: "uppercase", marginBottom: 6 }}>Choose Field Values</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>Click a cell to choose that contact's value for each field.</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #e2e8f0", borderRadius: 5, overflow: "hidden", tableLayout: "fixed" }}>
               <thead>
-                <tr style={{ background: "#1e2535", borderBottom: "2px solid #2e3a50" }}>
+                <tr style={{ background: "#ffffff", borderBottom: "2px solid #e2e8f0" }}>
                   <th style={{ width: 90, padding: "9px 10px", textAlign: "left", fontWeight: 400 }}></th>
                   {contacts.map(c => (
-                    <th key={c.id} style={{ padding: "9px 14px", textAlign: "left", fontSize: 13, fontWeight: 700, color: c.id === primaryId ? "#5b8fd4" : "#8b9ab5", borderLeft: "1px solid #2e3a50", wordBreak: "break-word", letterSpacing: "normal", textTransform: "none" }}>
+                    <th key={c.id} style={{ padding: "9px 14px", textAlign: "left", fontSize: 13, fontWeight: 700, color: c.id === primaryId ? "#2563eb" : "#475569", borderLeft: "1px solid #e2e8f0", wordBreak: "break-word", letterSpacing: "normal", textTransform: "none" }}>
                       {c.name}{c.id === primaryId ? " ★" : ""}
                     </th>
                   ))}
@@ -4105,13 +4105,13 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                 {MERGE_FIELDS.map(({ key, label: fLabel }) => {
                   const allSame = contacts.every(c => (c[key] || "") === (contacts[0][key] || ""));
                   return (
-                    <tr key={key} style={{ borderBottom: "1px solid #1e2535" }}>
-                      <td style={{ padding: "11px 10px", background: "#090d18", borderRight: "1px solid #2e3a50", fontSize: 11, fontWeight: 700, color: "#5a6880", textTransform: "uppercase", letterSpacing: "0.06em", verticalAlign: "middle", whiteSpace: "nowrap" }}>
+                    <tr key={key} style={{ borderBottom: "1px solid #ffffff" }}>
+                      <td style={{ padding: "11px 10px", background: "#090d18", borderRight: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", verticalAlign: "middle", whiteSpace: "nowrap" }}>
                         {fLabel}
                       </td>
                       {allSame ? (
                         <td colSpan={contacts.length} style={{ padding: "11px 14px", verticalAlign: "middle" }}>
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 4, background: "#0e1c10", border: "1px solid #2a4a2a", color: "#4CAE72", fontSize: 13 }}>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 4, background: "#0e1c10", border: "1px solid #bbf7d0", color: "#4CAE72", fontSize: 13 }}>
                             <span>✓</span>
                             <span style={{ fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>
                               {contacts[0][key] || <em style={{ color: "#3a5a3a", fontStyle: "italic" }}>empty on all</em>}
@@ -4125,7 +4125,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                           <td
                             key={c.id}
                             onClick={() => setChoices(p => ({ ...p, [key]: c.id }))}
-                            style={{ padding: "11px 14px", borderLeft: "1px solid #202840", cursor: "pointer", background: isChosen ? "#0e1e32" : "transparent", verticalAlign: "middle", transition: "background 0.1s" }}
+                            style={{ padding: "11px 14px", borderLeft: "1px solid #f1f5f9", cursor: "pointer", background: isChosen ? "#0e1e32" : "transparent", verticalAlign: "middle", transition: "background 0.1s" }}
                           >
                             <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                               <input
@@ -4137,9 +4137,9 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                                 style={{ marginTop: 2, flexShrink: 0, cursor: "pointer", width: "auto", padding: 0, border: "none", background: "none" }}
                               />
                               {val ? (
-                                <span style={{ color: isChosen ? "#dce4f0" : "#8b9ab5", fontSize: 13, wordBreak: "break-word", lineHeight: 1.5, fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>{val}</span>
+                                <span style={{ color: isChosen ? "#1e293b" : "#475569", fontSize: 13, wordBreak: "break-word", lineHeight: 1.5, fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>{val}</span>
                               ) : (
-                                <span style={{ color: "#2e3a55", fontSize: 12, fontStyle: "italic", fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>empty</span>
+                                <span style={{ color: "#e2e8f0", fontSize: 12, fontStyle: "italic", fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>empty</span>
                               )}
                             </div>
                           </td>
@@ -4154,7 +4154,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
 
           {/* Notes notice */}
           {totalNotes > 0 && (
-            <div style={{ background: "#111e14", border: "1px solid #2a4a2a", borderRadius: 4, padding: "10px 14px", fontSize: 12, color: "#4CAE72" }}>
+            <div style={{ background: "#111e14", border: "1px solid #bbf7d0", borderRadius: 4, padding: "10px 14px", fontSize: 12, color: "#4CAE72" }}>
               {totalNotes} note{totalNotes !== 1 ? "s" : ""} across all selected contacts will be automatically combined onto the surviving record.
             </div>
           )}
@@ -4165,12 +4165,12 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 24px 20px", borderTop: "1px solid #2e3a50", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 24px 20px", borderTop: "1px solid #e2e8f0", flexShrink: 0 }}>
           <button className="btn btn-outline" onClick={onClose}>Cancel</button>
           <button
             onClick={handleMerge}
             disabled={merging}
-            style={{ background: "#5b8fd4", color: "#0a0f1a", border: "none", borderRadius: 4, padding: "8px 20px", fontWeight: 700, fontSize: 13, cursor: merging ? "not-allowed" : "pointer", opacity: merging ? 0.6 : 1 }}
+            style={{ background: "#2563eb", color: "#0a0f1a", border: "none", borderRadius: 4, padding: "8px 20px", fontWeight: 700, fontSize: 13, cursor: merging ? "not-allowed" : "pointer", opacity: merging ? 0.6 : 1 }}
           >
             {merging ? "Merging…" : `Merge ${contacts.length} Contacts`}
           </button>
@@ -4341,7 +4341,7 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
           {isAppAdmin(currentUser) && !isDeleted && (
             <button
               onClick={toggleMergeMode}
-              style={{ background: mergeMode ? "#5b8fd4" : "#2e3a50", color: mergeMode ? "#0a0f1a" : "#8b9ab5", border: `1px solid ${mergeMode ? "#5b8fd4" : "#2e3a55"}`, borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}
+              style={{ background: mergeMode ? "#2563eb" : "#e2e8f0", color: mergeMode ? "#0a0f1a" : "#475569", border: `1px solid ${mergeMode ? "#2563eb" : "#e2e8f0"}`, borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}
             >
               {mergeMode ? "Cancel Merge" : "Merge Contacts"}
             </button>
@@ -4352,15 +4352,15 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
 
       <div className="content" style={{ paddingTop: 0 }}>
         {/* Category tabs */}
-        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #2e3a50", marginBottom: 20, overflowX: "auto" }}>
+        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #e2e8f0", marginBottom: 20, overflowX: "auto" }}>
           {tabs.map(t => (
             <div
               key={t.id}
               onClick={() => setCategoryFilter(t.id)}
               style={{
                 padding: "10px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
-                borderBottom: categoryFilter === t.id ? `2px solid ${t.red ? "#e05252" : "#5b8fd4"}` : "2px solid transparent",
-                color: categoryFilter === t.id ? (t.red ? "#e05252" : "#5b8fd4") : "#5a6880",
+                borderBottom: categoryFilter === t.id ? `2px solid ${t.red ? "#e05252" : "#2563eb"}` : "2px solid transparent",
+                color: categoryFilter === t.id ? (t.red ? "#e05252" : "#2563eb") : "#94a3b8",
                 transition: "all 0.15s",
               }}
             >
@@ -4373,7 +4373,7 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
         {isDeleted && (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ fontSize: 11, color: "#5a6880", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #2e3a50" }}>
+              <tr style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #e2e8f0" }}>
                 <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Category</th>
                 <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Name</th>
                 <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Deleted</th>
@@ -4383,22 +4383,22 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
             </thead>
             <tbody>
               {(deletedContacts === null) ? (
-                <tr><td colSpan={5} style={{ padding: 20, color: "#5a6880", textAlign: "center" }}>Loading…</td></tr>
+                <tr><td colSpan={5} style={{ padding: 20, color: "#94a3b8", textAlign: "center" }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: 20, color: "#5a6880", textAlign: "center" }}>No deleted contacts.</td></tr>
+                <tr><td colSpan={5} style={{ padding: 20, color: "#94a3b8", textAlign: "center" }}>No deleted contacts.</td></tr>
               ) : filtered.map(c => {
                 const days = daysLeft(c.deletedAt);
                 const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
                 return (
-                  <tr key={c.id} style={{ borderBottom: "1px solid #1e2535" }}>
+                  <tr key={c.id} style={{ borderBottom: "1px solid #ffffff" }}>
                     <td style={{ padding: "10px 12px 10px 0" }}>
                       <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color }}>{c.category}</span>
                     </td>
-                    <td style={{ padding: "10px 12px 10px 0", color: "#dce4f0" }}>{c.name}</td>
-                    <td style={{ padding: "10px 12px 10px 0", color: "#5a6880" }}>{c.deletedAt ? new Date(c.deletedAt).toLocaleDateString() : ""}</td>
-                    <td style={{ padding: "10px 12px 10px 0", color: days <= 7 ? "#e05252" : "#8b9ab5", fontWeight: days <= 7 ? 700 : 400 }}>{days} days</td>
+                    <td style={{ padding: "10px 12px 10px 0", color: "#1e293b" }}>{c.name}</td>
+                    <td style={{ padding: "10px 12px 10px 0", color: "#94a3b8" }}>{c.deletedAt ? new Date(c.deletedAt).toLocaleDateString() : ""}</td>
+                    <td style={{ padding: "10px 12px 10px 0", color: days <= 7 ? "#e05252" : "#475569", fontWeight: days <= 7 ? 700 : 400 }}>{days} days</td>
                     <td style={{ padding: "10px 0", textAlign: "right" }}>
-                      <button onClick={() => handleRestoreContact(c.id)} style={{ background: "#1a3a2a", border: "1px solid #2a5a3a", color: "#4CAE72", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Restore</button>
+                      <button onClick={() => handleRestoreContact(c.id)} style={{ background: "#dcfce7", border: "1px solid #bbf7d0", color: "#4CAE72", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Restore</button>
                     </td>
                   </tr>
                 );
@@ -4411,7 +4411,7 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
         {!isDeleted && (
           <>
             {mergeMode && (
-              <div style={{ position: "sticky", top: 0, zIndex: 12, marginBottom: 0, padding: "10px 14px", background: "#131d13", border: "1px solid #2a4a2a", borderBottom: "none", borderRadius: "4px 4px 0 0", display: "flex", alignItems: "center", gap: 14, fontSize: 13 }}>
+              <div style={{ position: "sticky", top: 0, zIndex: 12, marginBottom: 0, padding: "10px 14px", background: "#131d13", border: "1px solid #bbf7d0", borderBottom: "none", borderRadius: "4px 4px 0 0", display: "flex", alignItems: "center", gap: 14, fontSize: 13 }}>
                 <span style={{ color: "#4CAE72" }}>Select 2 or more contacts to merge.</span>
                 {mergeSelected.size >= 2 && (
                   <button
@@ -4423,30 +4423,30 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
                       }
                       setShowMergeModal(true);
                     }}
-                    style={{ background: "#5b8fd4", color: "#0a0f1a", border: "none", borderRadius: 4, padding: "6px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                    style={{ background: "#2563eb", color: "#0a0f1a", border: "none", borderRadius: 4, padding: "6px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
                   >
                     Merge Selected ({mergeSelected.size})
                   </button>
                 )}
-                <span style={{ color: "#5a6880", fontSize: 12 }}>{mergeSelected.size} selected</span>
+                <span style={{ color: "#94a3b8", fontSize: 12 }}>{mergeSelected.size} selected</span>
               </div>
             )}
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ fontSize: 11, color: "#5a6880", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  {mergeMode && <th style={{ width: 32, padding: "6px 8px 6px 0", position: "sticky", top: mergeMode ? 44 : 0, background: "#1e2330", zIndex: 11, borderBottom: "1px solid #2e3a50" }}></th>}
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#1e2330", zIndex: 11, borderBottom: "1px solid #2e3a50" }}>Category</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#1e2330", zIndex: 11, borderBottom: "1px solid #2e3a50" }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#1e2330", zIndex: 11, borderBottom: "1px solid #2e3a50" }}>Phone</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#1e2330", zIndex: 11, borderBottom: "1px solid #2e3a50" }}>Email</th>
-                  <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#1e2330", zIndex: 11, borderBottom: "1px solid #2e3a50" }}>Cases</th>
+                <tr style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {mergeMode && <th style={{ width: 32, padding: "6px 8px 6px 0", position: "sticky", top: mergeMode ? 44 : 0, background: "#f1f5f9", zIndex: 11, borderBottom: "1px solid #e2e8f0" }}></th>}
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#f1f5f9", zIndex: 11, borderBottom: "1px solid #e2e8f0" }}>Category</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#f1f5f9", zIndex: 11, borderBottom: "1px solid #e2e8f0" }}>Name</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#f1f5f9", zIndex: 11, borderBottom: "1px solid #e2e8f0" }}>Phone</th>
+                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#f1f5f9", zIndex: 11, borderBottom: "1px solid #e2e8f0" }}>Email</th>
+                  <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "#f1f5f9", zIndex: 11, borderBottom: "1px solid #e2e8f0" }}>Cases</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#5a6880", textAlign: "center" }}>Loading contacts…</td></tr>
+                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#94a3b8", textAlign: "center" }}>Loading contacts…</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#5a6880", textAlign: "center" }}>
+                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#94a3b8", textAlign: "center" }}>
                     {search ? "No contacts match your search." : "No contacts in this category yet."}
                   </td></tr>
                 ) : filtered.map(c => {
@@ -4460,8 +4460,8 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
                     <tr
                       key={c.id}
                       onClick={() => mergeMode ? toggleMergeSelect(c.id) : handleSelectContact(c)}
-                      style={{ borderBottom: "1px solid #1e2535", cursor: "pointer", transition: "background 0.1s", background: isChecked ? "#111e10" : "" }}
-                      onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = "#1e2535"; }}
+                      style={{ borderBottom: "1px solid #ffffff", cursor: "pointer", transition: "background 0.1s", background: isChecked ? "#111e10" : "" }}
+                      onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = "#ffffff"; }}
                       onMouseLeave={e => { if (!isChecked) e.currentTarget.style.background = ""; }}
                     >
                       {mergeMode && (
@@ -4474,10 +4474,10 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
                           {c.category}
                         </span>
                       </td>
-                      <td style={{ padding: "10px 12px 10px 0", color: "#dce4f0", fontWeight: 500 }}>{c.name}</td>
-                      <td style={{ padding: "10px 12px 10px 0", color: "#8b9ab5", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "#2e3a55" }}>—</span>}</td>
-                      <td style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12 }}>{c.email || <span style={{ color: "#2e3a55" }}>—</span>}</td>
-                      <td style={{ padding: "10px 0", color: caseCount > 0 ? "#5b8fd4" : "#2e3a55", fontWeight: caseCount > 0 ? 600 : 400 }}>
+                      <td style={{ padding: "10px 12px 10px 0", color: "#1e293b", fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ padding: "10px 12px 10px 0", color: "#475569", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "#e2e8f0" }}>—</span>}</td>
+                      <td style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12 }}>{c.email || <span style={{ color: "#e2e8f0" }}>—</span>}</td>
+                      <td style={{ padding: "10px 0", color: caseCount > 0 ? "#2563eb" : "#e2e8f0", fontWeight: caseCount > 0 ? 600 : 400 }}>
                         {caseCount > 0 ? caseCount : "—"}
                       </td>
                     </tr>
@@ -4599,12 +4599,12 @@ function AddStaffModal({ onSave, onClose }) {
         <div className="modal-sub">New staff can log in immediately using PIN 1234.</div>
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: "#5a6880", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Role(s) *</div>
+          <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Role(s) *</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {STAFF_ROLES.map(r => {
               const checked = form.roles.includes(r);
               return (
-                <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12, color: checked ? "#5b8fd4" : "#6b7a95", userSelect: "none" }}>
+                <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12, color: checked ? "#2563eb" : "#64748b", userSelect: "none" }}>
                   <input type="checkbox" checked={checked} onChange={() => toggleRole(r)} />
                   {r}
                 </label>
@@ -4614,12 +4614,12 @@ function AddStaffModal({ onSave, onClose }) {
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: "#5a6880", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Office(s)</div>
+          <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Office(s)</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {OFFICES.map(o => {
               const checked = form.offices.includes(o);
               return (
-                <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#5b8fd4" : "#6b7a95", userSelect: "none" }}>
+                <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#2563eb" : "#64748b", userSelect: "none" }}>
                   <input type="checkbox" checked={checked} onChange={() => toggleOffice(o)} />
                   {o}
                 </label>
@@ -4757,13 +4757,13 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                       <>
                         <span style={{ fontSize: 11, color: "#e05252" }}>Remove?</span>
                         <button onClick={() => handleDeleteStaff(u.id)} style={{ padding: "2px 8px", background: "#e05252", color: "#fff", border: "none", borderRadius: 3, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Yes</button>
-                        <button onClick={() => setConfirmDeleteId(null)} style={{ padding: "2px 8px", background: "transparent", color: "#6b7a95", border: "1px solid #2e3a55", borderRadius: 3, fontSize: 11, cursor: "pointer" }}>No</button>
+                        <button onClick={() => setConfirmDeleteId(null)} style={{ padding: "2px 8px", background: "transparent", color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 3, fontSize: 11, cursor: "pointer" }}>No</button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#5a6880", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>✎</button>
+                        <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>✎</button>
                         {canAdmin && (
-                          <button onClick={() => setConfirmDeleteId(u.id)} title="Remove staff member" style={{ background: "transparent", border: "none", color: "#2e3a55", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}>✕</button>
+                          <button onClick={() => setConfirmDeleteId(u.id)} title="Remove staff member" style={{ background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}>✕</button>
                         )}
                       </>
                     )}
@@ -4772,7 +4772,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
                   <div style={{ width: 48, height: 48, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{u.initials}</div>
                   <div>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: "#d4e2f4", fontWeight: 600 }}>{u.name}</div>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: "#0f172a", fontWeight: 600 }}>{u.name}</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
                       {(u.roles && u.roles.length ? u.roles : [u.role]).map(r => <Badge key={r} label={r} />)}
                     </div>
@@ -4788,9 +4788,9 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                   <div key={k} className="info-row"><span className="info-key">{k}</span><span className="info-val" style={{ fontSize: 12 }}>{v}</span></div>
                 ))}
                 {canAdmin && (
-                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #2e3a50" }}>
-                    <div style={{ fontSize: 11, color: "#5a6880", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                      Roles <span style={{ fontWeight: 400, color: "#2e3a55" }}>— click to toggle</span>
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                      Roles <span style={{ fontWeight: 400, color: "#e2e8f0" }}>— click to toggle</span>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {STAFF_ROLES.map(r => {
@@ -4799,16 +4799,16 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                           <button
                             key={r}
                             onClick={() => handleToggleRole(u.id, r, u.roles && u.roles.length ? u.roles : [u.role])}
-                            style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#5b8fd455" : "#2e3a50"}`, background: on ? "#2a2010" : "transparent", color: on ? "#5b8fd4" : "#2e3a55", transition: "all 0.15s" }}
+                            style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#2563eb22" : "#e2e8f0"}`, background: on ? "#fef3c7" : "transparent", color: on ? "#2563eb" : "#e2e8f0", transition: "all 0.15s" }}
                           >{r}</button>
                         );
                       })}
                     </div>
                   </div>
                 )}
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #2e3a50" }}>
-                  <div style={{ fontSize: 11, color: "#5a6880", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                    Offices {canAdmin && <span style={{ fontWeight: 400, color: "#2e3a55" }}>— click to toggle</span>}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                    Offices {canAdmin && <span style={{ fontWeight: 400, color: "#e2e8f0" }}>— click to toggle</span>}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {OFFICES.map(o => {
@@ -4817,13 +4817,13 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                         <button
                           key={o}
                           onClick={() => handleToggleOffice(u.id, o)}
-                          style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#5b8fd455" : "#2e3a50"}`, background: on ? "#2a2010" : "transparent", color: on ? "#5b8fd4" : "#2e3a55", transition: "all 0.15s" }}
+                          style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#2563eb22" : "#e2e8f0"}`, background: on ? "#fef3c7" : "transparent", color: on ? "#2563eb" : "#e2e8f0", transition: "all 0.15s" }}
                         >{o}</button>
                       ) : on ? (
-                        <span key={o} style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, background: "#2a2010", color: "#5b8fd4", border: "1px solid #5b8fd455" }}>{o}</span>
+                        <span key={o} style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, background: "#fef3c7", color: "#2563eb", border: "1px solid #2563eb22" }}>{o}</span>
                       ) : null;
                     })}
-                    {!canAdmin && offices.length === 0 && <span style={{ fontSize: 12, color: "#2e3a55", fontStyle: "italic" }}>None assigned</span>}
+                    {!canAdmin && offices.length === 0 && <span style={{ fontSize: 12, color: "#e2e8f0", fontStyle: "italic" }}>None assigned</span>}
                   </div>
                 </div>
               </div>
