@@ -276,8 +276,9 @@ tr:hover td { background: #131d2e; }
 .clickable-row { cursor: pointer; }
 .selected-row td { background: #0f1e30 !important; }
 .selected-row td:first-child { border-left: 3px solid #c9a84c; }
-input, select, textarea { background: #0d1117; border: 1px solid #2a3650; color: #ccd6e8; padding: 8px 12px; border-radius: 5px; font-size: 13.5px; font-family: 'Source Sans 3', sans-serif; width: 100%; }
-input:focus, select:focus, textarea:focus { outline: none; border-color: #c9a84c; }
+input:not([type=radio]):not([type=checkbox]), select, textarea { background: #0d1117; border: 1px solid #2a3650; color: #ccd6e8; padding: 8px 12px; border-radius: 5px; font-size: 13.5px; font-family: 'Source Sans 3', sans-serif; width: 100%; }
+input:not([type=radio]):not([type=checkbox]):focus, select:focus, textarea:focus { outline: none; border-color: #c9a84c; }
+input[type=radio], input[type=checkbox] { width: auto; padding: 0; border: none; background: none; cursor: pointer; }
 label { font-size: 12px; color: #556677; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-group { margin-bottom: 14px; }
@@ -3869,7 +3870,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                 const isPrimary = primaryId === c.id;
                 return (
                   <div key={c.id} onClick={() => handleSetPrimary(c.id)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "9px 14px", borderRadius: 5, background: isPrimary ? "#111e2e" : "#0d1525", border: `1px solid ${isPrimary ? "#2a5a8a" : "#141c2b"}`, transition: "all 0.15s" }}>
-                    <input type="radio" name="merge-primary" checked={isPrimary} onChange={() => handleSetPrimary(c.id)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0, cursor: "pointer" }} />
+                    <input type="radio" name="merge-primary" checked={isPrimary} onChange={() => handleSetPrimary(c.id)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0, cursor: "pointer", width: "auto", padding: 0, border: "none", background: "none" }} />
                     <span style={{ color: isPrimary ? "#ccd6e8" : "#7788aa", fontWeight: isPrimary ? 600 : 400, flex: 1, fontSize: 14 }}>{c.name}</span>
                     <span style={{ padding: "1px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>{c.category}</span>
                     {noteCount > 0 && <span style={{ fontSize: 11, color: "#556677" }}>{noteCount} note{noteCount !== 1 ? "s" : ""}</span>}
@@ -3927,7 +3928,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                                 checked={isChosen}
                                 onChange={() => setChoices(p => ({ ...p, [key]: c.id }))}
                                 onClick={e => e.stopPropagation()}
-                                style={{ marginTop: 2, flexShrink: 0, cursor: "pointer" }}
+                                style={{ marginTop: 2, flexShrink: 0, cursor: "pointer", width: "auto", padding: 0, border: "none", background: "none" }}
                               />
                               {val ? (
                                 <span style={{ color: isChosen ? "#ccd6e8" : "#7788aa", fontSize: 13, wordBreak: "break-word", lineHeight: 1.5, fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>{val}</span>
