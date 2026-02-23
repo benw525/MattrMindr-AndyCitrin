@@ -4,23 +4,42 @@
 A legal practice management app for law firms. Tracks civil litigation cases and matters, manages deadlines, assigns tasks, and generates firm-wide reports.
 
 ## Stack
-- **Frontend**: React 19 (Create React App)
-- **Styling**: CSS-in-JS template literal injected at runtime via `<style>` tag + `App.css`
-- **Data**: Static mock data in `lextrack/src/firmData.js` (729 imported cases/matters)
-- **Persistence**: `localStorage` for user-created cases, tasks, notes, deadlines
+- **Frontend**: React 19 (Create React App), port 5000
+- **Backend**: Node.js + Express 4, port 3001
+- **Database**: PostgreSQL (Replit-provisioned), accessed via `DATABASE_URL`
+- **Auth**: express-session with PIN-based login (demo PIN: `1234`)
+- **Styling**: CSS-in-JS template literal injected at runtime via `<style>` tag
 
 ## Running the App
-Workflow: `cd lextrack && PORT=5000 npm start`
-Login: select any user and use PIN `1234`
+Workflow: `npm start` (root) — runs both Express API and React app via `concurrently`
+Login: select any user and enter PIN `1234`
 
 ## Project Structure
 ```
+server/
+  index.js          — Express entry point, session middleware, CORS
+  db.js             — pg Pool configured from DATABASE_URL
+  schema.js         — Creates all 7 DB tables (run once)
+  seed.js           — Seeds USERS, CASES, DEADLINES from firmData.js
+  middleware/
+    auth.js         — requireAuth middleware
+  routes/
+    auth.js         — POST /api/auth/login, logout, GET /api/auth/me
+    cases.js        — CRUD /api/cases
+    tasks.js        — CRUD /api/tasks (bulk create, complete)
+    deadlines.js    — GET/POST /api/deadlines
+    notes.js        — GET/POST/DELETE /api/notes
+    links.js        — GET/POST/DELETE /api/links
+    activity.js     — GET/POST /api/activity
+
 lextrack/
   src/
-    App.js        — All UI components and business logic (~3,400 lines)
-    firmData.js   — Static data: USERS, CASES, DEADLINES (~1,171 lines)
-    App.css       — Base reset styles
-    index.js      — React entry point
+    App.js          — All UI components and business logic (~3,460 lines)
+    api.js          — Thin fetch wrapper for all API calls
+    firmData.js     — Static reference data: USERS display info (avatars, names)
+    App.css         — Base reset styles
+    index.js        — React entry point
+  package.json      — proxy: http://localhost:3001
 ```
 
 ## Key Features
@@ -34,7 +53,19 @@ lextrack/
 - Staff Directory
 
 ## Architecture Notes
-- Task chains: completing certain tasks auto-generates follow-up tasks (see `TASK_CHAINS`, `DUAL_CHAINS`)
-- Auto-escalation: task priority rises automatically as due date approaches
-- Case overrides: edits to base cases are stored as `_override` entries in `extraCases`
-- Activity logging: tracked per-case in `caseActivity` localStorage key
+- **DB migration path**: All DB access via REST API — swap `DATABASE_URL` to point to Supabase, swap `express-session` for JWT, done.
+- **Standard SQL only**: No Replit-specific extensions — schema is portable.
+- **Task chains**: Completing certain tasks auto-generates follow-up tasks (`TASK_CHAINS`, `DUAL_CHAINS`) — business logic stays client-side for now.
+- **Auto-escalation**: Task priority rises automatically as due date approaches.
+- **Activity logging**: Tracked per-case via `/api/activity`.
+
+## Database Tables
+| Table | Records |
+|-------|---------|
+| users | 6 |
+| cases | 729 |
+| deadlines | 423 |
+| tasks | (user-created) |
+| case_notes | (user-created) |
+| case_links | (user-created) |
+| case_activity | (user-created) |

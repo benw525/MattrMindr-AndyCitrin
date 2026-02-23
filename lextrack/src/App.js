@@ -1,5 +1,14 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
-import { USERS, CASES as BASE_CASES, DEADLINES as BASE_DEADLINES } from "./firmData.js";
+import { USERS } from "./firmData.js";
+import {
+  apiLogin, apiLogout,
+  apiGetCases, apiCreateCase, apiUpdateCase,
+  apiGetTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask,
+  apiGetDeadlines, apiCreateDeadline,
+  apiGetNotes, apiCreateNote, apiDeleteNote,
+  apiGetLinks, apiCreateLink, apiDeleteLink,
+  apiGetActivity, apiCreateActivity,
+} from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
 
@@ -381,86 +390,43 @@ label { font-size: 12px; color: #556677; display: block; margin-bottom: 4px; tex
 .overlay-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
 `;
 
-// ─── localStorage helpers ─────────────────────────────────────────────────────
-const LS_KEYS = {
-  extraCases:     "lextrack_extraCases",
-  extraDeadlines: "lextrack_extraDeadlines",
-  tasks:          "lextrack_tasks",
-  caseNotes:      "lextrack_caseNotes",
-};
-
-const lsLoad = (key, fallback) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    // Deduplicate tasks by ID in case old data had collisions
-    if (key === "lextrack_tasks" && Array.isArray(parsed)) {
-      const seen = new Set();
-      return parsed.filter(t => {
-        if (seen.has(t.id)) return false;
-        seen.add(t.id);
-        return true;
-      });
-    }
-    return parsed;
-  } catch { return fallback; }
-};
-
-const lsSave = (key, value) => {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-};
-
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState("dashboard");
   const [selectedCase, setSelectedCase] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [dataError, setDataError] = useState(null);
 
-  // Persisted state — loaded from localStorage on first render
-  const [extraCases,     setExtraCases]     = useState(() => lsLoad(LS_KEYS.extraCases, []));
-  const [extraDeadlines, setExtraDeadlines] = useState(() => lsLoad(LS_KEYS.extraDeadlines, []));
-  const [tasks,          setTasks]          = useState(() => lsLoad(LS_KEYS.tasks, []));
-  const [caseNotes,      setCaseNotes]      = useState(() => lsLoad(LS_KEYS.caseNotes, {}));
-  const [caseLinks,      setCaseLinks]      = useState(() => lsLoad("lextrack_caseLinks", {}));
-  const [caseActivity,   setCaseActivity]   = useState(() => lsLoad("lextrack_caseActivity", {}));
+  // Server-backed state — loaded from API after login
+  const [allCases,     setAllCases]     = useState([]);
+  const [allDeadlines, setAllDeadlines] = useState([]);
+  const [tasks,        setTasks]        = useState([]);
+  const [caseNotes,    setCaseNotes]    = useState({});
+  const [caseLinks,    setCaseLinks]    = useState({});
+  const [caseActivity, setCaseActivity] = useState({});
 
   const [calcInputs, setCalcInputs] = useState({ ruleId: 1, fromDate: today });
   const [calcResult, setCalcResult] = useState(null);
 
-  // On first mount: repair any duplicate task IDs from old data
+  // Load all data from API when user logs in
   useEffect(() => {
-    setTasks(prev => {
-      const seen = new Set();
-      let repaired = false;
-      const fixed = prev.map(t => {
-        if (seen.has(t.id)) {
-          repaired = true;
-          return { ...t, id: newId() };
-        }
-        seen.add(t.id);
-        return t;
-      });
-      return repaired ? fixed : prev;
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Persist to localStorage whenever data changes
-  useEffect(() => lsSave(LS_KEYS.extraCases,     extraCases),     [extraCases]);
-  useEffect(() => lsSave(LS_KEYS.extraDeadlines, extraDeadlines), [extraDeadlines]);
-  useEffect(() => lsSave(LS_KEYS.tasks,          tasks),          [tasks]);
-  useEffect(() => lsSave(LS_KEYS.caseNotes,   caseNotes),  [caseNotes]);
-  useEffect(() => lsSave("lextrack_caseLinks",    caseLinks),    [caseLinks]);
-  useEffect(() => lsSave("lextrack_caseActivity", caseActivity), [caseActivity]);
-
-  const allCases = useMemo(() => {
-    const overrides = extraCases.filter(c => c._override);
-    const overrideIds = new Set(overrides.map(c => c.id));
-    const base = BASE_CASES.filter(c => !overrideIds.has(c.id));
-    const extras = extraCases.filter(c => !c._override);
-    return [...base, ...overrides, ...extras];
-  }, [extraCases]);
-  const allDeadlines = useMemo(() => [...BASE_DEADLINES, ...extraDeadlines], [extraDeadlines]);
+    if (!currentUser) return;
+    setLoading(true);
+    setDataError(null);
+    Promise.all([
+      apiGetCases(),
+      apiGetTasks(),
+      apiGetDeadlines(),
+    ])
+      .then(([cases, fetchedTasks, deadlines]) => {
+        setAllCases(cases);
+        setTasks(fetchedTasks);
+        setAllDeadlines(deadlines);
+      })
+      .catch(err => setDataError(err.message))
+      .finally(() => setLoading(false));
+  }, [currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -471,92 +437,115 @@ export default function App() {
 
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
 
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: "#080c12", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#c9a84c" }}>LexTrack</div>
+      <div style={{ fontSize: 13, color: "#445566" }}>Loading case data…</div>
+    </div>
+  );
+
+  if (dataError) return (
+    <div style={{ minHeight: "100vh", background: "#080c12", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#c9a84c" }}>LexTrack</div>
+      <div style={{ fontSize: 13, color: "#e05252" }}>Failed to load data: {dataError}</div>
+      <button className="btn btn-outline" onClick={() => setCurrentUser(null)}>Return to Login</button>
+    </div>
+  );
+
   const overdueBadge = allDeadlines.filter(d => daysUntil(d.date) < 0).length + tasks.filter(t => t.status !== "Completed" && daysUntil(t.due) < 0).length;
 
-  const handleAddRecord = (record) => {
-    const id = newId();
-    const full = {
-      writtenDisc: "",
-      partyDepo: "",
-      expertDepo: "",
-      mediation: "",
-      trialDate: "",
-      answerFiled: "",
-      dol: "",
-      judge: "",
-      ...record,
-      id,
-      status: "Active",
-    };
-    setExtraCases(p => [...p, full]);
-    if (record.autoTasks) {
-      setTasks(p => [...p, ...generateDefaultTasks(full, currentUser.id)]);
-    }
-    // Log case creation
-    setCaseActivity(prev => ({
-      ...prev,
-      [id]: [{
-        id: newId(),
+  const handleAddRecord = async (record) => {
+    try {
+      const payload = {
+        writtenDisc: "", partyDepo: "", expertDepo: "", mediation: "",
+        trialDate: "", answerFiled: "", dol: "", judge: "",
+        ...record,
+        status: "Active",
+      };
+      const created = await apiCreateCase(payload);
+      setAllCases(p => [...p, created]);
+
+      if (record.autoTasks) {
+        const defaultTasks = generateDefaultTasks(created, currentUser.id);
+        const savedTasks = await apiCreateTasks(defaultTasks);
+        setTasks(p => [...p, ...savedTasks]);
+      }
+
+      const activityEntry = {
+        caseId: created.id,
         ts: new Date().toISOString(),
         userId: currentUser.id,
         userName: currentUser.name,
         userRole: currentUser.role,
         action: "Case Created",
-        detail: `${recordType(full)} opened by ${currentUser.name}`,
-      }],
-    }));
-    setSelectedCase(full);
-    setView("cases");
-  };
+        detail: `${recordType(created)} opened by ${currentUser.name}`,
+      };
+      await apiCreateActivity(activityEntry);
+      setCaseActivity(prev => ({
+        ...prev,
+        [created.id]: [{ ...activityEntry, id: Date.now() }],
+      }));
 
-  // Update a case — for imported cases, stores an override in extraCases;
-  // for already-extra cases, updates in place.
-  const handleUpdateCase = (updated) => {
-    const isExtra = extraCases.some(c => c.id === updated.id);
-    if (isExtra) {
-      setExtraCases(p => p.map(c => c.id === updated.id ? updated : c));
-    } else {
-      // Base case — store as an override in extraCases with a flag
-      setExtraCases(p => {
-        const existing = p.find(c => c.id === updated.id);
-        if (existing) return p.map(c => c.id === updated.id ? updated : c);
-        return [...p, { ...updated, _override: true }];
-      });
+      setSelectedCase(created);
+      setView("cases");
+    } catch (err) {
+      alert("Failed to create case: " + err.message);
     }
-    setSelectedCase(updated);
   };
 
-  const handleUpdateTask = (taskId, changes) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...changes } : t));
+  const handleUpdateCase = async (updated) => {
+    try {
+      const saved = await apiUpdateCase(updated.id, updated);
+      setAllCases(p => p.map(c => c.id === saved.id ? saved : c));
+      setSelectedCase(saved);
+    } catch (err) {
+      alert("Failed to save case: " + err.message);
+    }
   };
 
-  const handleCompleteTask = (taskId) => {
-    setTasks(prev => {
-      // Find target entirely within the updater to avoid stale closure
-      const target = prev.find(t => t.id === taskId);
-      if (!target) return prev;
+  const handleUpdateTask = async (taskId, changes) => {
+    try {
+      const saved = await apiUpdateTask(taskId, changes);
+      setTasks(prev => prev.map(t => t.id === taskId ? saved : t));
+    } catch (err) {
+      alert("Failed to update task: " + err.message);
+    }
+  };
 
-      const completing = target.status !== "Completed";
+  const handleCompleteTask = async (taskId) => {
+    try {
+      // Optimistically toggle in UI, then confirm with server
+      const target = tasks.find(t => t.id === taskId);
+      if (!target) return;
+
+      const toggled = await apiCompleteTask(taskId);
+      const completing = toggled.status === "Completed";
       const completedDate = today;
 
-      const updated = prev.map(t =>
-        t.id === taskId
-          ? { ...t, status: completing ? "Completed" : "In Progress", completedAt: completing ? completedDate : null }
-          : t
-      );
+      let updatedTasks = tasks.map(t => t.id === taskId ? toggled : t);
 
-      if (!completing) return updated;
+      if (!completing) {
+        setTasks(updatedTasks);
+        return;
+      }
 
-      const spawned = [];
+      const toSpawn = [];
 
-      // Recurring spawn — create a fresh copy due N days from original due date
+      // Recurring spawn
       if (target.recurring && target.recurringDays) {
-        spawned.push({
-          ...target,
-          id: newId(),
-          status: "Not Started",
+        toSpawn.push({
+          caseId: target.caseId,
+          title: target.title,
+          assigned: target.assigned,
           due: addDays(target.due || completedDate, target.recurringDays),
-          completedAt: null,
+          priority: target.priority,
+          autoEscalate: target.autoEscalate,
+          status: "Not Started",
+          notes: target.notes || "",
+          recurring: target.recurring,
+          recurringDays: target.recurringDays,
+          isGenerated: true,
+          isChained: false,
         });
       }
 
@@ -566,8 +555,7 @@ export default function App() {
         const due = chainDef.dueDaysFromCompletion === 0
           ? completedDate
           : addDays(completedDate, chainDef.dueDaysFromCompletion);
-        spawned.push({
-          id: newId(),
+        toSpawn.push({
           caseId: target.caseId,
           title: chainDef.title,
           assigned: target.assigned,
@@ -583,29 +571,24 @@ export default function App() {
         });
       }
 
-      // Dual-condition chain spawn — fires when this completion satisfies the last
-      // required task for a dual-chain rule on this case.
+      // Dual-condition chain spawn
       DUAL_CHAINS.forEach(rule => {
         const { requires, spawn: s } = rule;
-        // Only relevant if this task is one of the required titles
         if (!requires.includes(target.title.trim())) return;
-        // Check that all required tasks are now complete for this case in `updated`
         const allDone = requires.every(reqTitle =>
-          updated.some(t =>
+          updatedTasks.some(t =>
             t.caseId === target.caseId &&
             t.title.trim() === reqTitle &&
             t.status === "Completed"
           )
         );
         if (!allDone) return;
-        // Don't spawn if this task already exists for this case (prevents double-spawn)
-        const alreadyExists = updated.some(t =>
+        const alreadyExists = updatedTasks.some(t =>
           t.caseId === target.caseId && t.title.trim() === s.title
         );
         if (alreadyExists) return;
         const due = addDays(completedDate, s.dueDaysFromCompletion);
-        spawned.push({
-          id: newId(),
+        toSpawn.push({
           caseId: target.caseId,
           title: s.title,
           assigned: target.assigned,
@@ -621,8 +604,15 @@ export default function App() {
         });
       });
 
-      return spawned.length ? [...updated, ...spawned] : updated;
-    });
+      if (toSpawn.length > 0) {
+        const savedSpawned = await apiCreateTasks(toSpawn);
+        updatedTasks = [...updatedTasks, ...savedSpawned];
+      }
+
+      setTasks(updatedTasks);
+    } catch (err) {
+      alert("Failed to complete task: " + err.message);
+    }
   };
 
   return (
@@ -659,30 +649,14 @@ export default function App() {
         <div style={{ padding: "16px 20px", borderTop: "1px solid #1a2235" }}>
           <div style={{ fontSize: 11, color: "#445566", marginBottom: 4 }}>Signed in as</div>
           <div style={{ fontSize: 12, color: "#7788aa", marginBottom: 10 }}>{currentUser.email}</div>
-          <button className="btn btn-outline" style={{ width: "100%", fontSize: 12 }} onClick={() => setCurrentUser(null)}>Sign Out</button>
-          <button
-            className="btn btn-outline"
-            style={{ width: "100%", fontSize: 11, marginTop: 6, color: "#554444", borderColor: "#332222" }}
-            onClick={() => {
-              if (window.confirm("Clear all locally saved cases, tasks, notes, and deadlines? This cannot be undone.\n\nThe original 729 imported cases will remain.")) {
-                Object.values(LS_KEYS).forEach(k => localStorage.removeItem(k));
-                setExtraCases([]);
-                setExtraDeadlines([]);
-                setTasks([]);
-                setCaseNotes({});
-                setSelectedCase(null);
-              }
-            }}
-          >
-            🗑 Clear Local Data
-          </button>
+          <button className="btn btn-outline" style={{ width: "100%", fontSize: 12 }} onClick={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); }}>Sign Out</button>
         </div>
       </aside>
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { setSelectedCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={setSelectedCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} />}
-        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} setExtraDeadlines={setExtraDeadlines} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} />}
-        {view === "tasks" && <TasksView tasks={tasks} setTasks={setTasks} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
+        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} />}
+        {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} />}
         {view === "staff" && <StaffView allCases={allCases} />}
@@ -696,6 +670,23 @@ function LoginScreen({ onLogin }) {
   const [sel, setSel] = useState(null);
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const doLogin = async () => {
+    if (!sel) { setErr("Select a user."); return; }
+    if (!pin) { setErr("Enter your PIN."); return; }
+    setBusy(true);
+    setErr("");
+    try {
+      const user = await apiLogin(sel.id, pin);
+      onLogin(user);
+    } catch (e) {
+      setErr(e.message || "Login failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="login-bg">
       <div className="login-box">
@@ -710,10 +701,12 @@ function LoginScreen({ onLogin }) {
         </div>
         <div className="form-group">
           <label>PIN</label>
-          <input type="password" placeholder="Enter PIN (demo: 1234)" value={pin} onChange={e => setPin(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { if (!sel) { setErr("Select a user."); return; } if (pin !== "1234") { setErr("Incorrect PIN."); return; } onLogin(sel); } }} />
+          <input type="password" placeholder="Enter PIN (demo: 1234)" value={pin} onChange={e => setPin(e.target.value)} onKeyDown={e => e.key === "Enter" && doLogin()} />
         </div>
         {err && <div style={{ color: "#e05252", fontSize: 13, marginBottom: 12 }}>{err}</div>}
-        <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={() => { if (!sel) { setErr("Select a user."); return; } if (pin !== "1234") { setErr("Incorrect PIN."); return; } onLogin(sel); }}>Sign In</button>
+        <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doLogin} disabled={busy}>
+          {busy ? "Signing in…" : "Sign In"}
+        </button>
         <div style={{ marginTop: 20, fontSize: 12, color: "#445566", textAlign: "center" }}>All accounts share PIN 1234 in demo mode</div>
       </div>
     </div>
@@ -978,6 +971,21 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const [sortCol, setSortCol] = useState("title");
   const [sortDir, setSortDir] = useState("asc");
 
+  // Load notes/links/activity from API when a case is opened
+  useEffect(() => {
+    if (!selectedCase) return;
+    const caseId = selectedCase.id;
+    Promise.all([
+      apiGetNotes(caseId),
+      apiGetLinks(caseId),
+      apiGetActivity(caseId),
+    ]).then(([notes, links, activity]) => {
+      setCaseNotes(prev => ({ ...prev, [caseId]: notes }));
+      setCaseLinks(prev => ({ ...prev, [caseId]: links }));
+      setCaseActivity(prev => ({ ...prev, [caseId]: activity }));
+    }).catch(err => console.error("Failed to load case data:", err));
+  }, [selectedCase?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
 
   const filtered = useMemo(() => {
@@ -1098,11 +1106,11 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           onClose={() => setSelectedCase(null)}
           onUpdate={onUpdateCase}
           onCompleteTask={onCompleteTask}
-          onAddNote={(note) => setCaseNotes(prev => ({ ...prev, [selectedCase.id]: [note, ...(prev[selectedCase.id] || [])] }))}
-          onDeleteNote={(noteId) => setCaseNotes(prev => ({ ...prev, [selectedCase.id]: (prev[selectedCase.id] || []).filter(n => n.id !== noteId) }))}
-          onAddLink={(link) => setCaseLinks(prev => ({ ...prev, [selectedCase.id]: [...(prev[selectedCase.id] || []), link] }))}
-          onDeleteLink={(linkId) => setCaseLinks(prev => ({ ...prev, [selectedCase.id]: (prev[selectedCase.id] || []).filter(l => l.id !== linkId) }))}
-          onLogActivity={(entry) => setCaseActivity(prev => ({ ...prev, [selectedCase.id]: [entry, ...(prev[selectedCase.id] || [])] }))}
+          onAddNote={async (note) => { try { const saved = await apiCreateNote(note); setCaseNotes(prev => ({ ...prev, [selectedCase.id]: [saved, ...(prev[selectedCase.id] || [])] })); } catch (err) { alert("Failed to save note: " + err.message); } }}
+          onDeleteNote={async (noteId) => { try { await apiDeleteNote(noteId); setCaseNotes(prev => ({ ...prev, [selectedCase.id]: (prev[selectedCase.id] || []).filter(n => n.id !== noteId) })); } catch (err) { alert("Failed to delete note: " + err.message); } }}
+          onAddLink={async (link) => { try { const saved = await apiCreateLink(link); setCaseLinks(prev => ({ ...prev, [selectedCase.id]: [...(prev[selectedCase.id] || []), saved] })); } catch (err) { alert("Failed to save link: " + err.message); } }}
+          onDeleteLink={async (linkId) => { try { await apiDeleteLink(linkId); setCaseLinks(prev => ({ ...prev, [selectedCase.id]: (prev[selectedCase.id] || []).filter(l => l.id !== linkId) })); } catch (err) { alert("Failed to delete link: " + err.message); } }}
+          onLogActivity={async (entry) => { try { const saved = await apiCreateActivity(entry); setCaseActivity(prev => ({ ...prev, [selectedCase.id]: [saved, ...(prev[selectedCase.id] || [])] })); } catch (err) { console.error("Failed to log activity:", err); } }}
         />
       )}
     </>
@@ -1139,7 +1147,6 @@ const CORE_FIELDS = [
   { key: "paralegal",      label: "Paralegal",       type: "user",   section: "team" },
 ];
 
-const CORE_KEYS = new Set(CORE_FIELDS.map(f => f.key));
 const isAttorney = (user) => user.role === "Shareholder" || user.role === "Associate";
 
 function EditField({ fieldKey, label, type, options, value, onChange, onBlur, onRemove, canRemove, isCustom }) {
@@ -1215,7 +1222,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       onUpdate({ ...draft, _customFields: customFields });
     }, 400);
     return () => clearTimeout(t);
-  }, [draft, customFields]);
+  }, [draft, customFields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Field label lookup for human-readable log entries
   const fieldLabel = (key) => {
@@ -2034,7 +2041,6 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
             {notes.length === 0 && <p style={{ fontSize: 12, color: "#777", fontStyle: "italic" }}>No notes on record for this case.</p>}
             {[...notes].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map(note => {
               const dt = new Date(note.createdAt);
-              const ts = noteTypeStyle(note.type);
               return (
                 <div key={note.id} className="note-block">
                   <div className="note-head">
@@ -2374,7 +2380,7 @@ function ICalManager({ externalEvents, setExternalEvents }) {
 }
 
 // ─── Deadlines View ───────────────────────────────────────────────────────────
-function DeadlinesView({ deadlines, setExtraDeadlines, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser }) {
+function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser }) {
   const [tab, setTab] = useState("calendar");
   const [typeFilter, setTypeFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -2501,7 +2507,7 @@ function DeadlinesView({ deadlines, setExtraDeadlines, allCases, calcInputs, set
                   </select>
                 </div>
               </div>
-              <button className="btn btn-gold" onClick={() => { if (!newDl.title || !newDl.date) return; setExtraDeadlines(p => [...p, { ...newDl, id: newId() }]); setNewDl(prev => ({ ...prev, title: "", date: today, rule: "" })); setTab("calendar"); }}>Add Deadline</button>
+              <button className="btn btn-gold" onClick={() => { if (!newDl.title || !newDl.date) return; onAddDeadline({ ...newDl }); setNewDl(prev => ({ ...prev, title: "", date: today, rule: "" })); setTab("calendar"); }}>Add Deadline</button>
             </div>
           </div>
         )}
@@ -2552,7 +2558,7 @@ function DeadlinesView({ deadlines, setExtraDeadlines, allCases, calcInputs, set
 }
 
 // ─── Tasks View ───────────────────────────────────────────────────────────────
-function TasksView({ tasks, setTasks, allCases, currentUser, onCompleteTask, onUpdateTask }) {
+function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, onUpdateTask }) {
   const [filter, setFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [caseSearch, setCaseSearch] = useState("");
@@ -2657,7 +2663,7 @@ function TasksView({ tasks, setTasks, allCases, currentUser, onCompleteTask, onU
 
               <div className="form-group"><label>Notes</label><textarea rows={2} value={newTask.notes} onChange={e => setNewTask(p => ({ ...p, notes: e.target.value }))} /></div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-gold" disabled={!newTask.title || !newTask.caseId} onClick={() => { setTasks(p => [...p, { ...newTask, id: newId() }]); setShowForm(false); setCaseSearch(""); setNewTask({ ...blank }); }}>Add Task</button>
+                <button className="btn btn-gold" disabled={!newTask.title || !newTask.caseId} onClick={() => { onAddTask({ ...newTask }); setShowForm(false); setCaseSearch(""); setNewTask({ ...blank }); }}>Add Task</button>
                 <button className="btn btn-outline" onClick={() => { setShowForm(false); setCaseSearch(""); }}>Cancel</button>
               </div>
             </div>

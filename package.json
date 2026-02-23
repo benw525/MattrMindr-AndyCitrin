@@ -1,0 +1,14 @@
+{
+  "name": "lextrack-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "concurrently \"npm start --prefix server\" \"cross-env PORT=5000 npm start --prefix lextrack\"",
+    "seed": "npm run seed --prefix server",
+    "schema": "npm run schema --prefix server"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
+  }
+}
