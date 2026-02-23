@@ -450,6 +450,82 @@ label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; tex
 .overlay-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
 `;
 
+// ─── FollowUpPromptModal ──────────────────────────────────────────────────────
+function FollowUpPromptModal({ prompt, onDecide }) {
+  const [step, setStep]       = useState("question");
+  const [days, setDays]       = useState(7);
+  const [escalate, setEscalate] = useState(false);
+
+  if (!prompt) return null;
+
+  const { target } = prompt;
+
+  const handleYes = () => {
+    if (days < 1) return;
+    onDecide(true, days, escalate);
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal" style={{ width: 460 }}>
+        <div className="modal-title" style={{ marginBottom: 6 }}>Follow-up Task Completed</div>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>
+          "{target.title}" has been marked complete.
+        </div>
+
+        {step === "question" ? (
+          <>
+            <p style={{ fontSize: 14, color: "#1e293b", marginBottom: 24, lineHeight: 1.6 }}>
+              Would you like to schedule another follow-up task?
+            </p>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => onDecide(false, null, null)}>
+                No, Continue Workflow
+              </button>
+              <button className="btn btn-primary" onClick={() => setStep("form")}>
+                Yes, Schedule Follow-up
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>
+                Days Until Due
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={days}
+                onChange={e => setDays(Math.max(1, Number(e.target.value)))}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, color: "#1e293b", background: "#fff" }}
+              />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, padding: "12px 14px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <Toggle on={escalate} onChange={() => setEscalate(p => !p)} />
+              <div>
+                <div style={{ fontSize: 13, color: "#1e293b", fontWeight: 600 }}>Auto-Escalate Priority</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Priority rises automatically as due date approaches</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+              Priority: <strong style={{ color: "#1e293b" }}>{target.priority}</strong>
+              {" · "}Assigned to: <strong style={{ color: "#1e293b" }}>{target.assignedRole || "same staff"}</strong>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setStep("question")}>Back</button>
+              <button className="btn btn-primary" onClick={handleYes}>
+                Create Follow-up
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -471,6 +547,8 @@ export default function App() {
 
   const [calcInputs, setCalcInputs] = useState({ ruleId: 1, fromDate: today });
   const [calcResult, setCalcResult] = useState(null);
+  const [followUpPrompt, setFollowUpPrompt] = useState(null);
+  // shape: { target, caseForTask, updatedTasksAfterComplete, pendingChainSpawns, completedDate }
 
   // Load users from API even before login (so login dropdown shows dynamic list)
   useEffect(() => {
@@ -666,7 +744,6 @@ export default function App() {
 
   const handleCompleteTask = async (taskId) => {
     try {
-      // Optimistically toggle in UI, then confirm with server
       const target = tasks.find(t => t.id === taskId);
       if (!target) return;
 
@@ -681,13 +758,15 @@ export default function App() {
         return;
       }
 
-      const toSpawn = [];
       const caseForTask = allCases.find(c => c.id === target.caseId);
       const resolveRole = (role) => role ? (caseForTask?.[role] || 0) : 0;
 
+      const recurringSpawns = [];
+      const chainSpawns = [];
+
       // Recurring spawn
       if (target.recurring && target.recurringDays) {
-        toSpawn.push({
+        recurringSpawns.push({
           caseId: target.caseId,
           title: target.title,
           assigned: target.assignedRole ? resolveRole(target.assignedRole) : target.assigned,
@@ -710,7 +789,7 @@ export default function App() {
         const due = chainDef.dueDaysFromCompletion === 0
           ? completedDate
           : addDays(completedDate, chainDef.dueDaysFromCompletion);
-        toSpawn.push({
+        chainSpawns.push({
           caseId: target.caseId,
           title: chainDef.title,
           assigned: resolveRole(chainDef.assignedRole),
@@ -735,7 +814,7 @@ export default function App() {
             t.caseId === target.caseId && t.title.trim() === def.title
           );
           if (alreadyExists) return;
-          toSpawn.push({
+          chainSpawns.push({
             caseId: target.caseId,
             title: def.title,
             assigned: resolveRole(def.assignedRole),
@@ -770,7 +849,7 @@ export default function App() {
         );
         if (alreadyExists) return;
         const due = addDays(completedDate, s.dueDaysFromCompletion);
-        toSpawn.push({
+        chainSpawns.push({
           caseId: target.caseId,
           title: s.title,
           assigned: resolveRole(s.assignedRole),
@@ -787,8 +866,28 @@ export default function App() {
         });
       });
 
-      if (toSpawn.length > 0) {
-        const savedSpawned = await apiCreateTasks(toSpawn);
+      // Follow-up tasks: always spawn recurring immediately, but hold chain spawns
+      // until user decides whether they want another follow-up
+      if (target.title.trim().startsWith("Follow-up")) {
+        if (recurringSpawns.length > 0) {
+          const savedR = await apiCreateTasks(recurringSpawns);
+          updatedTasks = [...updatedTasks, ...savedR];
+        }
+        setTasks(updatedTasks);
+        setFollowUpPrompt({
+          target,
+          caseForTask,
+          updatedTasksAfterComplete: updatedTasks,
+          pendingChainSpawns: chainSpawns,
+          completedDate,
+        });
+        return;
+      }
+
+      // Normal tasks: spawn everything
+      const allSpawns = [...recurringSpawns, ...chainSpawns];
+      if (allSpawns.length > 0) {
+        const savedSpawned = await apiCreateTasks(allSpawns);
         updatedTasks = [...updatedTasks, ...savedSpawned];
       }
 
@@ -796,6 +895,44 @@ export default function App() {
     } catch (err) {
       alert("Failed to complete task: " + err.message);
     }
+  };
+
+  const handleFollowUpDecision = async (wantsFollowUp, days, escalate) => {
+    const { target, caseForTask, updatedTasksAfterComplete, pendingChainSpawns } = followUpPrompt;
+    const resolveRole = (role) => role ? (caseForTask?.[role] || 0) : 0;
+    let updatedTasks = updatedTasksAfterComplete;
+    try {
+      if (wantsFollowUp) {
+        const newTask = {
+          caseId: target.caseId,
+          title: target.title,
+          assigned: target.assignedRole ? resolveRole(target.assignedRole) : target.assigned,
+          assignedRole: target.assignedRole || null,
+          due: addDays(today, days),
+          priority: target.priority,
+          autoEscalate: escalate,
+          status: "Not Started",
+          notes: `Follow-up rescheduled by user after completing previous "${target.title}".`,
+          recurring: false,
+          recurringDays: null,
+          isGenerated: true,
+          isChained: true,
+        };
+        const saved = await apiCreateTask(newTask);
+        updatedTasks = [...updatedTasks, saved];
+        // Pending chain spawns are NOT created — they will fire when this new follow-up is eventually completed
+      } else {
+        // User is done with follow-ups — release the pending chain tasks
+        if (pendingChainSpawns.length > 0) {
+          const savedChain = await apiCreateTasks(pendingChainSpawns);
+          updatedTasks = [...updatedTasks, ...savedChain];
+        }
+      }
+      setTasks(updatedTasks);
+    } catch (err) {
+      alert("Failed to process follow-up decision: " + err.message);
+    }
+    setFollowUpPrompt(null);
   };
 
   return (
@@ -846,6 +983,11 @@ export default function App() {
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { setSelectedCase(c); setView("cases"); }} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} userOffices={userOffices} setUserOffices={setUserOffices} allUsers={allUsers} setAllUsers={setAllUsers} />}
       </div>
+      <FollowUpPromptModal
+        key={followUpPrompt ? `${followUpPrompt.target.id}-${followUpPrompt.completedDate}` : "none"}
+        prompt={followUpPrompt}
+        onDecide={handleFollowUpDecision}
+      />
     </div>
   );
 }
