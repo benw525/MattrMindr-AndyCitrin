@@ -2211,8 +2211,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const updateCustomDate = (id, val) => {
     const prev = customDates.find(d => d.id === id);
     setCustomDates(p => p.map(d => d.id === id ? { ...d, value: val } : d));
-    if (val && prev && !prev.value && onAddDeadline) {
-      onAddDeadline({ caseId: c.id, title: prev.label, date: val, type: "Filing", rule: "", assigned: currentUser.id });
+    if (val && prev && onAddDeadline) {
+      const alreadyExists = deadlines.some(d => d.title === prev.label);
+      if (!alreadyExists) {
+        onAddDeadline({ caseId: c.id, title: prev.label, date: val, type: "Filing", rule: "", assigned: currentUser.id });
+      }
     }
   };
 
