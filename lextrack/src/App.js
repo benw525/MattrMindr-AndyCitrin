@@ -3069,7 +3069,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
               {!corrLoading && correspondence.length === 0 && (
                 <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic", padding: "20px 0" }}>
-                  No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "#2563eb" }}>case-{c.id}@inbound.yourdomain.com</span> and they will appear here.
+                  No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "#2563eb" }}>case-{c.id}@mail.mattrmindr.com</span> and they will appear here.
                 </div>
               )}
 
