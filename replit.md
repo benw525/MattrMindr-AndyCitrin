@@ -68,7 +68,7 @@ lextrack/
 - Contacts: auto-populated contacts (Clients, Attorneys, Courts + manual Experts/Miscellaneous), with phone/email/fax/address, associated cases, persistent notes, and soft-delete with 30-day recovery
 - AI Search: Natural language search across all case data via OpenAI gpt-5-mini
 - Confidential Cases: access-restricted to assigned team members + App Admin
-- Document Generator: upload .docx templates, define placeholders, auto-fill from case data
+- Document Generator: upload .docx templates, define placeholders, auto-fill from case data; visibility (global/personal); edit restricted to creator + Shareholders
 - Email Correspondence: SendGrid Inbound Parse captures emails to case-{id}@mail.mattrmindr.com
 - Authentication: bcrypt passwords, temp password emails, forgot/reset password flow, forced password change on first login
 

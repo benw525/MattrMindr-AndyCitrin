@@ -173,6 +173,7 @@ async function createSchema() {
         created_by_name TEXT    NOT NULL DEFAULT '',
         placeholders    JSONB   NOT NULL DEFAULT '[]',
         docx_data       BYTEA   NOT NULL,
+        visibility      TEXT    NOT NULL DEFAULT 'global',
         created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );

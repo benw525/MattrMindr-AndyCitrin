@@ -9,6 +9,8 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+const TEMPLATE_FIELDS = "id, name, tags, created_by, created_by_name, placeholders, visibility, created_at, updated_at";
+
 const toFrontend = (row) => ({
   id: row.id,
   name: row.name,
@@ -16,14 +18,21 @@ const toFrontend = (row) => ({
   createdBy: row.created_by,
   createdByName: row.created_by_name,
   placeholders: row.placeholders || [],
+  visibility: row.visibility || "global",
   createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
   updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
 });
 
+const isShareholder = (req) => (req.session.userRoles || [req.session.userRole]).includes("Shareholder");
+const canEditTemplate = (req, template) => {
+  return template.created_by === req.session.userId || isShareholder(req);
+};
+
 router.get("/", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, name, tags, created_by, created_by_name, placeholders, created_at, updated_at FROM doc_templates ORDER BY name"
+      `SELECT ${TEMPLATE_FIELDS} FROM doc_templates WHERE visibility = 'global' OR created_by = $1 ORDER BY name`,
+      [req.session.userId]
     );
     return res.json(rows.map(toFrontend));
   } catch (err) {
@@ -115,9 +124,9 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const modifiedBuffer = zip.generate({ type: "nodebuffer" });
 
     const { rows } = await pool.query(
-      `INSERT INTO doc_templates (name, tags, created_by, created_by_name, placeholders, docx_data)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, name, tags, created_by, created_by_name, placeholders, created_at, updated_at`,
+      `INSERT INTO doc_templates (name, tags, created_by, created_by_name, placeholders, docx_data, visibility)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING ${TEMPLATE_FIELDS}`,
       [
         name.trim(),
         parsedTags,
@@ -125,6 +134,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         req.session.userName,
         JSON.stringify(parsedPlaceholders),
         modifiedBuffer,
+        req.body.visibility === "personal" ? "personal" : "global",
       ]
     );
     return res.status(201).json(toFrontend(rows[0]));
@@ -135,17 +145,24 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
 });
 
 router.put("/:id", requireAuth, async (req, res) => {
-  const { name, tags, placeholders } = req.body;
+  const { name, tags, placeholders, visibility } = req.body;
   try {
+    const { rows: existing } = await pool.query("SELECT created_by FROM doc_templates WHERE id = $1", [req.params.id]);
+    if (existing.length === 0) return res.status(404).json({ error: "Not found" });
+    if (!canEditTemplate(req, existing[0])) return res.status(403).json({ error: "Only the creator or a Shareholder can edit this template" });
+
+    const sets = ["updated_at = NOW()"];
+    const vals = [];
+    let idx = 1;
+    if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name); }
+    if (tags !== undefined) { sets.push(`tags = $${idx++}`); vals.push(Array.isArray(tags) ? tags : JSON.parse(tags || "[]")); }
+    if (placeholders !== undefined) { sets.push(`placeholders = $${idx++}`); vals.push(JSON.stringify(Array.isArray(placeholders) ? placeholders : JSON.parse(placeholders || "[]"))); }
+    if (visibility !== undefined) { sets.push(`visibility = $${idx++}`); vals.push(visibility === "personal" ? "personal" : "global"); }
+    vals.push(req.params.id);
+
     const { rows } = await pool.query(
-      `UPDATE doc_templates SET name=$1, tags=$2, placeholders=$3, updated_at=NOW()
-       WHERE id=$4 RETURNING id, name, tags, created_by, created_by_name, placeholders, created_at, updated_at`,
-      [
-        name || "",
-        Array.isArray(tags) ? tags : JSON.parse(tags || "[]"),
-        JSON.stringify(Array.isArray(placeholders) ? placeholders : JSON.parse(placeholders || "[]")),
-        req.params.id,
-      ]
+      `UPDATE doc_templates SET ${sets.join(", ")} WHERE id = $${idx} RETURNING ${TEMPLATE_FIELDS}`,
+      vals
     );
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     return res.json(toFrontend(rows[0]));
@@ -157,8 +174,10 @@ router.put("/:id", requireAuth, async (req, res) => {
 
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("DELETE FROM doc_templates WHERE id=$1 RETURNING id", [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+    const { rows: existing } = await pool.query("SELECT created_by FROM doc_templates WHERE id = $1", [req.params.id]);
+    if (existing.length === 0) return res.status(404).json({ error: "Not found" });
+    if (!canEditTemplate(req, existing[0])) return res.status(403).json({ error: "Only the creator or a Shareholder can delete this template" });
+    await pool.query("DELETE FROM doc_templates WHERE id=$1", [req.params.id]);
     return res.json({ ok: true });
   } catch (err) {
     console.error("Template delete error:", err);
