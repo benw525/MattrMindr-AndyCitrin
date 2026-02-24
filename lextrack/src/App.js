@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { USERS } from "./firmData.js";
 import {
-  apiLogin, apiLogout,
+  apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword,
   apiGetCases, apiGetDeletedCases, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
   apiGetTasks, apiGetCaseTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline,
@@ -803,6 +803,7 @@ export default function App() {
   const [followUpPrompt,   setFollowUpPrompt]   = useState(null);
   const [pendingTimePrompt, setPendingTimePrompt] = useState(null);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("lextrack-dark") === "1");
+  const [showChangePw, setShowChangePw] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("lextrack-dark", darkMode ? "1" : "0");
@@ -871,6 +872,10 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
+
+  if (currentUser.mustChangePassword) return (
+    <ChangePasswordModal forced currentUser={currentUser} onDone={() => setCurrentUser(prev => ({ ...prev, mustChangePassword: false }))} />
+  );
 
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
@@ -1302,9 +1307,13 @@ export default function App() {
           </button>
           <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Signed in as</div>
           <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 10 }}>{currentUser.email}</div>
+          <button className="btn btn-outline" style={{ width: "100%", fontSize: 12, marginBottom: 6 }} onClick={() => setShowChangePw(true)}>Change Password</button>
           <button className="btn btn-outline" style={{ width: "100%", fontSize: 12 }} onClick={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }}>Sign Out</button>
         </div>
       </aside>
+      {showChangePw && (
+        <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
+      )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} userOffices={userOffices} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} />}
@@ -1336,6 +1345,11 @@ function LoginScreen({ onLogin }) {
   const [password, setPassword] = useState("");
   const [err,      setErr]      = useState("");
   const [busy,     setBusy]     = useState(false);
+  const [view,     setView]     = useState("login");
+  const [resetCode, setResetCode] = useState("");
+  const [newPw,    setNewPw]    = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [msg,      setMsg]      = useState("");
 
   const doLogin = async () => {
     if (!email.trim()) { setErr("Enter your email address."); return; }
@@ -1352,24 +1366,160 @@ function LoginScreen({ onLogin }) {
     }
   };
 
+  const doForgot = async () => {
+    if (!email.trim()) { setErr("Enter your email address first."); return; }
+    setBusy(true); setErr(""); setMsg("");
+    try {
+      const result = await apiForgotPassword(email.trim());
+      setMsg(result.message || "If an account exists, a reset code has been sent.");
+      setView("reset");
+    } catch (e) {
+      setErr(e.message || "Failed to send reset email.");
+    } finally { setBusy(false); }
+  };
+
+  const doReset = async () => {
+    if (!resetCode.trim()) { setErr("Enter the reset code from your email."); return; }
+    if (!newPw || newPw.length < 6) { setErr("Password must be at least 6 characters."); return; }
+    if (newPw !== confirmPw) { setErr("Passwords do not match."); return; }
+    setBusy(true); setErr("");
+    try {
+      await apiResetPassword(email.trim(), resetCode.trim(), newPw);
+      setMsg("Password reset successful. You can now log in.");
+      setView("login"); setPassword(""); setResetCode(""); setNewPw(""); setConfirmPw("");
+    } catch (e) {
+      setErr(e.message || "Reset failed.");
+    } finally { setBusy(false); }
+  };
+
   return (
     <div className="login-bg">
       <div className="login-box">
         <div className="login-title">MattrMindr</div>
         <div className="login-sub">Case Management System</div>
+
+        {view === "login" && (<>
+          <div className="form-group">
+            <label>Email</label>
+            <input type="email" placeholder="your.email@websterhenry.com" value={email} onChange={e => { setEmail(e.target.value); setErr(""); setMsg(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input type="password" placeholder="Enter your password" value={password} onChange={e => { setPassword(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} />
+          </div>
+          {err && <div style={{ color: "#e05252", fontSize: 13, marginBottom: 12 }}>{err}</div>}
+          {msg && <div style={{ color: "#2563eb", fontSize: 13, marginBottom: 12 }}>{msg}</div>}
+          <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doLogin} disabled={busy}>
+            {busy ? "Signing in…" : "Sign In"}
+          </button>
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <span style={{ fontSize: 12, color: "#2563eb", cursor: "pointer" }} onClick={() => { setErr(""); setMsg(""); setView("forgot"); }}>Forgot password?</span>
+          </div>
+        </>)}
+
+        {view === "forgot" && (<>
+          <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Enter your email and we'll send a reset code.</div>
+          <div className="form-group">
+            <label>Email</label>
+            <input type="email" placeholder="your.email@websterhenry.com" value={email} onChange={e => { setEmail(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doForgot()} />
+          </div>
+          {err && <div style={{ color: "#e05252", fontSize: 13, marginBottom: 12 }}>{err}</div>}
+          <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doForgot} disabled={busy}>
+            {busy ? "Sending…" : "Send Reset Code"}
+          </button>
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <span style={{ fontSize: 12, color: "#2563eb", cursor: "pointer" }} onClick={() => { setErr(""); setView("login"); }}>Back to login</span>
+          </div>
+        </>)}
+
+        {view === "reset" && (<>
+          <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Enter the reset code from your email and choose a new password.</div>
+          <div className="form-group">
+            <label>Reset Code</label>
+            <input type="text" placeholder="Enter code from email" value={resetCode} onChange={e => { setResetCode(e.target.value); setErr(""); }} />
+          </div>
+          <div className="form-group">
+            <label>New Password</label>
+            <input type="password" placeholder="At least 6 characters" value={newPw} onChange={e => { setNewPw(e.target.value); setErr(""); }} />
+          </div>
+          <div className="form-group">
+            <label>Confirm Password</label>
+            <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => { setConfirmPw(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doReset()} />
+          </div>
+          {err && <div style={{ color: "#e05252", fontSize: 13, marginBottom: 12 }}>{err}</div>}
+          <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doReset} disabled={busy}>
+            {busy ? "Resetting…" : "Reset Password"}
+          </button>
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <span style={{ fontSize: 12, color: "#2563eb", cursor: "pointer" }} onClick={() => { setErr(""); setView("login"); }}>Back to login</span>
+          </div>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Change Password Modal ──────────────────────────────────────────────────
+function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const doChange = async () => {
+    if (!forced && !currentPw) { setErr("Enter your current password."); return; }
+    if (!newPw || newPw.length < 6) { setErr("New password must be at least 6 characters."); return; }
+    if (newPw !== confirmPw) { setErr("Passwords do not match."); return; }
+    setBusy(true); setErr("");
+    try {
+      await apiChangePassword(forced ? null : currentPw, newPw);
+      if (onDone) onDone();
+      if (onClose) onClose();
+    } catch (e) {
+      setErr(e.message || "Failed to change password.");
+    } finally { setBusy(false); }
+  };
+
+  const content = (
+    <>
+      <div className="login-title" style={{ fontSize: 20 }}>MattrMindr</div>
+      {forced && <div style={{ fontSize: 13, color: "#64748b", margin: "8px 0 16px" }}>You must set a new password before continuing.</div>}
+      {!forced && (
         <div className="form-group">
-          <label>Email</label>
-          <input type="email" placeholder="your.email@websterhenry.com" value={email} onChange={e => { setEmail(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} />
+          <label>Current Password</label>
+          <input type="password" placeholder="Enter current password" value={currentPw} onChange={e => { setCurrentPw(e.target.value); setErr(""); }} />
         </div>
-        <div className="form-group">
-          <label>Password</label>
-          <input type="password" placeholder="Enter your password" value={password} onChange={e => { setPassword(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} />
-        </div>
-        {err && <div style={{ color: "#e05252", fontSize: 13, marginBottom: 12 }}>{err}</div>}
-        <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doLogin} disabled={busy}>
-          {busy ? "Signing in…" : "Sign In"}
-        </button>
-        <div style={{ marginTop: 20, fontSize: 12, color: "#94a3b8", textAlign: "center" }}>All accounts share password 1234 in demo mode</div>
+      )}
+      <div className="form-group">
+        <label>New Password</label>
+        <input type="password" placeholder="At least 6 characters" value={newPw} onChange={e => { setNewPw(e.target.value); setErr(""); }} />
+      </div>
+      <div className="form-group">
+        <label>Confirm New Password</label>
+        <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => { setConfirmPw(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doChange()} />
+      </div>
+      {err && <div style={{ color: "#e05252", fontSize: 13, marginBottom: 12 }}>{err}</div>}
+      <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doChange} disabled={busy}>
+        {busy ? "Saving…" : "Set New Password"}
+      </button>
+    </>
+  );
+
+  if (forced) {
+    return (
+      <div className="login-bg">
+        <div className="login-box">{content}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 400 }}>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 10 }}>Change Password</div>
+        {content}
+        <button className="btn btn-outline" style={{ width: "100%", marginTop: 8 }} onClick={onClose}>Cancel</button>
       </div>
     </div>
   );
@@ -6109,7 +6259,7 @@ function AddStaffModal({ onSave, onClose }) {
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose(null)}>
       <div className="modal">
         <div className="modal-title">Add Staff Member</div>
-        <div className="modal-sub">New staff can log in immediately using password 1234.</div>
+        <div className="modal-sub">A temporary password will be emailed to the new staff member.</div>
 
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Role(s) *</div>
@@ -6633,6 +6783,11 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
     USERS.push(newUser);
     setAllUsers(prev => [...prev, newUser]);
     setUserOffices(prev => ({ ...prev, [saved.id]: saved.offices || [] }));
+    try {
+      await apiSendTempPassword(saved.id);
+    } catch (e) {
+      console.error("Failed to send temp password:", e);
+    }
     return newUser;
   };
 
@@ -6720,6 +6875,9 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                     ) : (
                       <>
                         <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>✎</button>
+                        {canAdmin && (
+                          <button onClick={async () => { if (!window.confirm(`Send a temporary password to ${u.email}?`)) return; try { const r = await apiSendTempPassword(u.id); alert(r.message || "Sent!"); } catch (e) { alert(e.message || "Failed"); } }} title="Send temporary password" style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: "2px 4px" }}>🔑</button>
+                        )}
                         {canAdmin && (
                           <button onClick={() => setConfirmDeleteId(u.id)} title="Remove staff member" style={{ background: "transparent", border: "none", color: "var(--c-border)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}>✕</button>
                         )}

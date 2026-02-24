@@ -18,7 +18,12 @@ async function createSchema() {
         ext         TEXT    NOT NULL DEFAULT '',
         avatar      TEXT    NOT NULL DEFAULT '#4C7AC9',
         offices     TEXT[]  NOT NULL DEFAULT '{}',
-        pin_hash    TEXT    NOT NULL DEFAULT ''
+        pin_hash    TEXT    NOT NULL DEFAULT '',
+        password_hash TEXT  NOT NULL DEFAULT '',
+        must_change_password BOOLEAN NOT NULL DEFAULT TRUE,
+        temp_password TEXT  NOT NULL DEFAULT '',
+        password_reset_token TEXT NOT NULL DEFAULT '',
+        password_reset_expires TIMESTAMPTZ
       );
     `);
 

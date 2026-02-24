@@ -20,6 +20,11 @@ export const apiLogin   = (email, password) => apiFetch("/api/auth/login",  { me
 export const apiLogout  = ()             => apiFetch("/api/auth/logout", { method: "POST" });
 export const apiMe      = ()             => apiFetch("/api/auth/me");
 
+export const apiChangePassword    = (currentPassword, newPassword) => apiFetch("/api/auth/change-password", { method: "POST", body: { currentPassword, newPassword } });
+export const apiForgotPassword    = (email)                        => apiFetch("/api/auth/forgot-password",  { method: "POST", body: { email } });
+export const apiResetPassword     = (email, code, newPassword)     => apiFetch("/api/auth/reset-password",   { method: "POST", body: { email, code, newPassword } });
+export const apiSendTempPassword  = (userId)                       => apiFetch("/api/auth/send-temp-password", { method: "POST", body: { userId } });
+
 // Users
 export const apiGetUsers          = ()              => apiFetch("/api/users");
 export const apiCreateUser        = (data)          => apiFetch("/api/users",              { method: "POST",   body: data });
