@@ -94,9 +94,10 @@ export const apiGetCorrespondence    = (caseId) => apiFetch(`/api/correspondence
 export const apiDeleteCorrespondence = (id)     => apiFetch(`/api/correspondence/${id}`, { method: "DELETE" });
 
 // Templates
-export const apiGetTemplates    = ()         => apiFetch("/api/templates");
-export const apiDeleteTemplate  = (id)       => apiFetch(`/api/templates/${id}`, { method: "DELETE" });
-export const apiUpdateTemplate  = (id, data) => apiFetch(`/api/templates/${id}`, { method: "PUT", body: data });
+export const apiGetTemplates      = ()         => apiFetch("/api/templates");
+export const apiDeleteTemplate    = (id)       => apiFetch(`/api/templates/${id}`, { method: "DELETE" });
+export const apiUpdateTemplate    = (id, data) => apiFetch(`/api/templates/${id}`, { method: "PUT", body: data });
+export const apiGetTemplateSource = (id)       => apiFetch(`/api/templates/${id}/source`);
 
 export async function apiUploadTemplateFile(file) {
   const form = new FormData();

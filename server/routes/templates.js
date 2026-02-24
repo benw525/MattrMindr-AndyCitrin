@@ -144,10 +144,69 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   }
 });
 
-router.put("/:id", requireAuth, async (req, res) => {
-  const { name, tags, placeholders, visibility } = req.body;
+router.get("/:id/source", requireAuth, async (req, res) => {
   try {
-    const { rows: existing } = await pool.query("SELECT created_by FROM doc_templates WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT docx_data, placeholders, created_by FROM doc_templates WHERE id = $1", [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+    if (!canEditTemplate(req, rows[0])) return res.status(403).json({ error: "Permission denied" });
+
+    const oldPlaceholders = rows[0].placeholders || [];
+    const zip = new PizZip(rows[0].docx_data);
+    let xml = "";
+    const xmlFile = zip.file("word/document.xml");
+    if (xmlFile) xml = xmlFile.asText();
+
+    let cleanXml = xml;
+    for (const ph of oldPlaceholders) {
+      const tokenPattern = new RegExp(`\\{\\{${ph.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}\\}`, "g");
+      cleanXml = cleanXml.replace(tokenPattern, (ph.original || ph.token));
+    }
+
+    const cleanZip = new PizZip(rows[0].docx_data);
+    cleanZip.file("word/document.xml", cleanXml);
+    const cleanBuffer = cleanZip.generate({ type: "nodebuffer" });
+
+    const result = await mammoth.extractRawText({ buffer: cleanBuffer });
+    const text = result.value || "";
+
+    const positioned = [];
+    const usedRanges = [];
+    for (const ph of oldPlaceholders) {
+      const orig = ph.original || "";
+      let searchFrom = 0;
+      let idx = -1;
+      while (true) {
+        idx = text.indexOf(orig, searchFrom);
+        if (idx === -1) break;
+        const overlaps = usedRanges.some(r => !(idx + orig.length <= r.start || idx >= r.end));
+        if (!overlaps) break;
+        searchFrom = idx + 1;
+      }
+      if (idx !== -1) {
+        usedRanges.push({ start: idx, end: idx + orig.length });
+        positioned.push({
+          id: Date.now() + Math.random(),
+          label: ph.label,
+          token: ph.token,
+          original: orig,
+          start: idx,
+          end: idx + orig.length,
+          mapping: ph.mapping || "_manual",
+        });
+      }
+    }
+
+    return res.json({ text, placeholders: positioned });
+  } catch (err) {
+    console.error("Template source error:", err);
+    return res.status(500).json({ error: "Failed to load template source" });
+  }
+});
+
+router.put("/:id", requireAuth, async (req, res) => {
+  const { name, tags, placeholders, visibility, reprocessDocx } = req.body;
+  try {
+    const { rows: existing } = await pool.query("SELECT created_by, docx_data, placeholders AS old_placeholders FROM doc_templates WHERE id = $1", [req.params.id]);
     if (existing.length === 0) return res.status(404).json({ error: "Not found" });
     if (!canEditTemplate(req, existing[0])) return res.status(403).json({ error: "Only the creator or a Shareholder can edit this template" });
 
@@ -156,8 +215,46 @@ router.put("/:id", requireAuth, async (req, res) => {
     let idx = 1;
     if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name); }
     if (tags !== undefined) { sets.push(`tags = $${idx++}`); vals.push(Array.isArray(tags) ? tags : JSON.parse(tags || "[]")); }
-    if (placeholders !== undefined) { sets.push(`placeholders = $${idx++}`); vals.push(JSON.stringify(Array.isArray(placeholders) ? placeholders : JSON.parse(placeholders || "[]"))); }
     if (visibility !== undefined) { sets.push(`visibility = $${idx++}`); vals.push(visibility === "personal" ? "personal" : "global"); }
+
+    let parsedNewPhs = [];
+    if (placeholders !== undefined) {
+      parsedNewPhs = Array.isArray(placeholders) ? placeholders : JSON.parse(placeholders || "[]");
+      sets.push(`placeholders = $${idx++}`);
+      vals.push(JSON.stringify(parsedNewPhs));
+    }
+
+    if (reprocessDocx && placeholders !== undefined) {
+      const oldPhs = existing[0].old_placeholders || [];
+      const zip = new PizZip(existing[0].docx_data);
+      const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/header3.xml", "word/footer1.xml", "word/footer2.xml", "word/footer3.xml"];
+
+      for (const xmlPath of xmlFiles) {
+        const file = zip.file(xmlPath);
+        if (!file) continue;
+        let xml = file.asText();
+
+        for (const ph of oldPhs) {
+          const tokenPattern = new RegExp(`\\{\\{${ph.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}\\}`, "g");
+          xml = xml.replace(tokenPattern, (ph.original || ph.token));
+        }
+
+        const sorted = [...parsedNewPhs].sort((a, b) => (b.original || "").length - (a.original || "").length);
+        for (const ph of sorted) {
+          if (!ph.original) continue;
+          const escaped = ph.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const simplePattern = new RegExp(escaped, "g");
+          xml = xml.replace(simplePattern, `{{${ph.token}}}`);
+        }
+
+        zip.file(xmlPath, xml);
+      }
+
+      const newDocxData = zip.generate({ type: "nodebuffer" });
+      sets.push(`docx_data = $${idx++}`);
+      vals.push(newDocxData);
+    }
+
     vals.push(req.params.id);
 
     const { rows } = await pool.query(

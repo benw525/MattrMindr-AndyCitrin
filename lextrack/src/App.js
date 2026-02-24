@@ -13,7 +13,7 @@ import {
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiAiSearch,
   apiGetCorrespondence, apiDeleteCorrespondence,
-  apiGetTemplates, apiDeleteTemplate, apiUpdateTemplate, apiUploadTemplateFile, apiSaveTemplate, apiGenerateDocument,
+  apiGetTemplates, apiDeleteTemplate, apiUpdateTemplate, apiGetTemplateSource, apiUploadTemplateFile, apiSaveTemplate, apiGenerateDocument,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -6560,7 +6560,6 @@ function DocumentsView({ currentUser }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [wizard, setWizard] = useState(null);
-  const [editingTemplate, setEditingTemplate] = useState(null);
 
   useEffect(() => {
     apiGetTemplates().then(t => { setTemplates(t); setLoading(false); }).catch(() => setLoading(false));
@@ -6630,7 +6629,22 @@ function DocumentsView({ currentUser }) {
                 )}
                 <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                   {canEdit && (
-                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setEditingTemplate({ ...t, newTag: "" })}>Edit</button>
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={async () => {
+                      try {
+                        const source = await apiGetTemplateSource(t.id);
+                        setWizard({
+                          step: 2,
+                          editingId: t.id,
+                          text: source.text,
+                          placeholders: source.placeholders,
+                          name: t.name,
+                          tags: [...(t.tags || [])],
+                          newTag: "",
+                          visibility: t.visibility || "global",
+                          file: null,
+                        });
+                      } catch (err) { alert("Failed to load template: " + err.message); }
+                    }}>Edit</button>
                   )}
                   {canEdit && (
                     <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
@@ -6651,13 +6665,14 @@ function DocumentsView({ currentUser }) {
         <div style={{ marginTop: 20 }}>
           {/* Step indicator */}
           <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-            {["Upload", "Select Placeholders", "Map Fields", "Name & Tag"].map((label, i) => (
-              <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: wizard.step === i + 1 ? 700 : 400, color: wizard.step === i + 1 ? "#2563eb" : "#94a3b8", borderBottom: `2px solid ${wizard.step === i + 1 ? "#2563eb" : "var(--c-border)"}` }}>{i + 1}. {label}</div>
-            ))}
+            {(wizard.editingId ? ["Select Placeholders", "Map Fields", "Name & Save"] : ["Upload", "Select Placeholders", "Map Fields", "Name & Tag"]).map((label, i) => {
+              const stepNum = wizard.editingId ? i + 2 : i + 1;
+              return <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: wizard.step === stepNum ? 700 : 400, color: wizard.step === stepNum ? "#2563eb" : "#94a3b8", borderBottom: `2px solid ${wizard.step === stepNum ? "#2563eb" : "var(--c-border)"}` }}>{i + 1}. {label}</div>;
+            })}
           </div>
 
-          {/* Step 1: Upload complete — auto-advance */}
-          {wizard.step === 1 && (() => {
+          {/* Step 1: Upload complete — auto-advance (skip when editing) */}
+          {!wizard.editingId && wizard.step === 1 && (() => {
             setTimeout(() => setWizard(w => w ? { ...w, step: 2 } : w), 300);
             return <div style={{ color: "#94a3b8", fontSize: 13 }}>Document parsed. Loading preview...</div>;
           })()}
@@ -6670,8 +6685,8 @@ function DocumentsView({ currentUser }) {
           {/* Step 2: Select Placeholders */}
           {wizard.step === 2 && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>Step 2: Select Placeholders</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Highlight any text below and click "Make Placeholder" to mark it as a field that changes per case.</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>{wizard.editingId ? "Edit Placeholders" : "Step 2: Select Placeholders"}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>{wizard.editingId ? "Your existing placeholders are shown below. Add new ones, remove existing ones, or continue to the next step." : "Highlight any text below and click \"Make Placeholder\" to mark it as a field that changes per case."}</div>
 
               <div style={{ display: "flex", gap: 20 }}>
                 <div style={{ flex: 2 }}>
@@ -6760,7 +6775,7 @@ function DocumentsView({ currentUser }) {
 
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
                 <button className="btn btn-outline" onClick={() => { setWizard(null); }}>Cancel</button>
-                <button className="btn btn-primary" disabled={wizard.placeholders.length === 0} onClick={() => setWizard(w => ({ ...w, step: 3 }))}>Next: Map Fields</button>
+                <button className="btn btn-primary" disabled={wizard.placeholders.length === 0} onClick={() => setWizard(w => ({ ...w, step: 3 }))}>{wizard.editingId ? "Next: Map Fields" : "Next: Map Fields"}</button>
               </div>
             </div>
           )}
@@ -6803,8 +6818,8 @@ function DocumentsView({ currentUser }) {
           {/* Step 4: Name and Tags */}
           {wizard.step === 4 && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>Step 4: Name & Tag</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Give your template a name and optional tags for easy filtering.</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>{wizard.editingId ? "Review & Save" : "Step 4: Name & Tag"}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>{wizard.editingId ? "Review your changes and save the updated template." : "Give your template a name and optional tags for easy filtering."}</div>
 
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Template Name</label>
@@ -6856,93 +6871,38 @@ function DocumentsView({ currentUser }) {
                 <button className="btn btn-outline" onClick={() => setWizard(w => ({ ...w, step: 3 }))}>Back</button>
                 <button className="btn btn-primary" disabled={!wizard.name?.trim()} onClick={async () => {
                   try {
-                    const docxText = wizard.text;
-                    let modified = docxText;
-                    const sorted = [...wizard.placeholders].sort((a, b) => b.start - a.start);
-                    for (const ph of sorted) {
-                      modified = modified.slice(0, ph.start) + `{{${ph.token}}}` + modified.slice(ph.end);
-                    }
-
-                    const saved = await apiSaveTemplate(wizard.file, wizard.name.trim(), wizard.tags, wizard.placeholders.map(p => ({
+                    const phData = wizard.placeholders.map(p => ({
                       token: p.token, label: p.label, original: p.original, mapping: p.mapping || "_manual",
-                    })), wizard.visibility || "global");
-                    setTemplates(p => [...p, saved]);
+                    }));
+
+                    if (wizard.editingId) {
+                      const updated = await apiUpdateTemplate(wizard.editingId, {
+                        name: wizard.name.trim(),
+                        tags: wizard.tags,
+                        placeholders: phData,
+                        visibility: wizard.visibility || "global",
+                        reprocessDocx: true,
+                      });
+                      setTemplates(p => p.map(t => t.id === updated.id ? updated : t));
+                    } else {
+                      const docxText = wizard.text;
+                      let modified = docxText;
+                      const sorted = [...wizard.placeholders].sort((a, b) => b.start - a.start);
+                      for (const ph of sorted) {
+                        modified = modified.slice(0, ph.start) + `{{${ph.token}}}` + modified.slice(ph.end);
+                      }
+                      const saved = await apiSaveTemplate(wizard.file, wizard.name.trim(), wizard.tags, phData, wizard.visibility || "global");
+                      setTemplates(p => [...p, saved]);
+                    }
                     setWizard(null);
                   } catch (err) { alert("Failed to save template: " + err.message); }
-                }}>Save Template</button>
+                }}>{wizard.editingId ? "Save Changes" : "Save Template"}</button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {editingTemplate && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.35)" }} onClick={() => setEditingTemplate(null)}>
-          <div style={{ background: "var(--c-bg)", borderRadius: 14, width: 440, maxHeight: "80vh", overflow: "auto", padding: 28, boxShadow: "0 8px 30px rgba(0,0,0,.18)" }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 20px", fontSize: 17, color: "var(--c-text)" }}>Edit Template</h3>
-
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Template Name</label>
-            <input
-              value={editingTemplate.name}
-              onChange={e => setEditingTemplate(t => ({ ...t, name: e.target.value }))}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 14, marginBottom: 16, boxSizing: "border-box" }}
-            />
-
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Tags</label>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-              {(editingTemplate.tags || []).map(tag => (
-                <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", cursor: "pointer" }} onClick={() => setEditingTemplate(t => ({ ...t, tags: t.tags.filter(x => x !== tag) }))}>
-                  {tag} &times;
-                </span>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              <input
-                value={editingTemplate.newTag || ""}
-                onChange={e => setEditingTemplate(t => ({ ...t, newTag: e.target.value }))}
-                onKeyDown={e => { if (e.key === "Enter" && editingTemplate.newTag?.trim()) { setEditingTemplate(t => ({ ...t, tags: [...(t.tags || []), t.newTag.trim()], newTag: "" })); e.preventDefault(); } }}
-                placeholder="Add tag..."
-                style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13 }}
-              />
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { if (editingTemplate.newTag?.trim()) setEditingTemplate(t => ({ ...t, tags: [...(t.tags || []), t.newTag.trim()], newTag: "" })); }}>Add</button>
-            </div>
-
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Visibility</label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-              <button
-                onClick={() => setEditingTemplate(t => ({ ...t, visibility: "global" }))}
-                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${editingTemplate.visibility !== "personal" ? "#2563eb" : "var(--c-border)"}`, background: editingTemplate.visibility !== "personal" ? "#eff6ff" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}
-              >
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Everyone</div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>All staff can use this template</div>
-              </button>
-              <button
-                onClick={() => setEditingTemplate(t => ({ ...t, visibility: "personal" }))}
-                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${editingTemplate.visibility === "personal" ? "#2563eb" : "var(--c-border)"}`, background: editingTemplate.visibility === "personal" ? "#eff6ff" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}
-              >
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Only Me</div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Only visible to you</div>
-              </button>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button className="btn btn-outline" onClick={() => setEditingTemplate(null)}>Cancel</button>
-              <button className="btn btn-primary" disabled={!editingTemplate.name?.trim()} onClick={async () => {
-                try {
-                  const updated = await apiUpdateTemplate(editingTemplate.id, {
-                    name: editingTemplate.name.trim(),
-                    tags: editingTemplate.tags,
-                    placeholders: editingTemplate.placeholders,
-                    visibility: editingTemplate.visibility || "global",
-                  });
-                  setTemplates(p => p.map(t => t.id === updated.id ? updated : t));
-                  setEditingTemplate(null);
-                } catch (err) { alert("Failed to update template: " + err.message); }
-              }}>Save Changes</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
