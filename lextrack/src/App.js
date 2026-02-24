@@ -5054,11 +5054,12 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes }) {
   );
 }
 
-const CONTACT_CATEGORIES = ["Client", "Attorney", "Court", "Expert", "Miscellaneous"];
+const CONTACT_CATEGORIES = ["Client", "Attorney", "Adjuster", "Court", "Expert", "Miscellaneous"];
 
 const CONTACT_CAT_STYLE = {
   Client:        { bg: "#dbeafe", color: "#5599cc", border: "#bfdbfe" },
   Attorney:      { bg: "#fef9c3", color: "#2563eb", border: "#fef9c3" },
+  Adjuster:      { bg: "#ffe4e6", color: "#e05252", border: "#fecdd3" },
   Court:         { bg: "#f3e8ff", color: "#9966cc", border: "#f3e8ff" },
   Expert:        { bg: "#dcfce7", color: "#4CAE72", border: "#bbf7d0" },
   Miscellaneous: { bg: "var(--c-hover)", color: "#94a3b8", border: "var(--c-border)" },
