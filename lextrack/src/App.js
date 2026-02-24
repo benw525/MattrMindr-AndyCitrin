@@ -374,10 +374,11 @@ label { font-size: 12px; color: #8A9096; display: block; margin-bottom: 4px; tex
 .info-key { color: #8A9096; flex-shrink: 0; }
 .info-val { color: #1F2428; text-align: right; word-break: break-word; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(3px); }
-.modal { background: #FFFFFF; border: 1px solid #D6D8DB; border-radius: 10px; padding: 28px; width: 620px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.modal { background: #FFFFFF; border: 1px solid #D6D8DB; border-radius: 10px; padding: 28px; width: 620px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+.modal-body { flex: 1; overflow-y: auto; min-height: 0; }
 .modal-title { font-family: 'Playfair Display', serif; font-size: 20px; color: #121A26; font-weight: 600; margin-bottom: 4px; }
 .modal-sub { font-size: 12px; color: #8A9096; margin-bottom: 20px; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #D6D8DB; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #D6D8DB; flex-shrink: 0; position: sticky; bottom: -28px; background: inherit; padding-bottom: 0; z-index: 1; }
 .login-bg { min-height: 100vh; background: #F7F8FA; display: flex; align-items: center; justify-content: center; }
 .login-box { background: #FFFFFF; border: 1px solid #D6D8DB; border-radius: 12px; padding: 44px 40px; width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
 .login-title { font-family: 'Playfair Display', serif; font-size: 26px; color: #121A26; text-align: center; margin-bottom: 6px; }
@@ -6486,8 +6487,8 @@ function GenerateDocumentModal({ caseData, currentUser, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 700, maxHeight: "85vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-        <div style={{ padding: "20px 24px 0", borderBottom: "1px solid var(--c-border)", paddingBottom: 16 }}>
+      <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 700, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ padding: "20px 24px 0", borderBottom: "1px solid var(--c-border)", paddingBottom: 16, flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, margin: 0, color: "var(--c-text-h)" }}>
               {selected ? "Fill in Document Fields" : "Generate Document"}
@@ -6501,7 +6502,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose }) {
           )}
         </div>
 
-        <div style={{ padding: 24 }}>
+        <div style={{ padding: 24, flex: 1, overflowY: "auto", minHeight: 0 }}>
           {loading && <div style={{ color: "#8A9096", fontSize: 13 }}>Loading templates...</div>}
 
           {!loading && !selected && (
@@ -6830,10 +6831,11 @@ function DocumentsView({ currentUser }) {
 
           {/* Step 4: Name and Tags */}
           {wizard.step === 4 && (
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>{wizard.editingId ? "Review & Save" : "Step 4: Name & Tag"}</div>
-              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16 }}>{wizard.editingId ? "Review your changes and save the updated template." : "Give your template a name and optional tags for easy filtering."}</div>
+            <div style={{ display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 260px)" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4, flexShrink: 0 }}>{wizard.editingId ? "Review & Save" : "Step 4: Name & Tag"}</div>
+              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16, flexShrink: 0 }}>{wizard.editingId ? "Review your changes and save the updated template." : "Give your template a name and optional tags for easy filtering."}</div>
 
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Template Name</label>
                 <input value={wizard.name} onChange={e => setWizard(w => ({ ...w, name: e.target.value }))} style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }} />
@@ -6879,8 +6881,9 @@ function DocumentsView({ currentUser }) {
               <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 16 }}>
                 <strong>Summary:</strong> {wizard.placeholders.length} placeholder{wizard.placeholders.length !== 1 ? "s" : ""}, {wizard.placeholders.filter(p => p.mapping && p.mapping !== "_manual").length} auto-filled, {wizard.placeholders.filter(p => !p.mapping || p.mapping === "_manual").length} manual
               </div>
+              </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, flexShrink: 0, paddingTop: 8 }}>
                 <button className="btn btn-outline" onClick={() => setWizard(w => ({ ...w, step: 3 }))}>Back</button>
                 <button className="btn btn-primary" disabled={!wizard.name?.trim()} onClick={async () => {
                   try {
