@@ -1878,7 +1878,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         </td>
                         <td>
                           <div style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</div>
-                          {c.plaintiff && <div style={{ fontSize: 12, color: "#334155", fontWeight: 500, marginTop: 1, whiteSpace: "nowrap" }}>vs. {c.plaintiff}</div>}
+                          {c.plaintiff && <div style={{ fontSize: 12, color: "#334155", fontWeight: 500, marginTop: 1, whiteSpace: "nowrap" }}>{c.plaintiff}</div>}
                         </td>
                         <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--c-text2)" }}>{c.fileNum || "—"}</td>
                         <td style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.client || "—"}</td>
