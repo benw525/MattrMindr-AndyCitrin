@@ -1300,7 +1300,7 @@ export default function App() {
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} userOffices={userOffices} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} userOffices={userOffices} setUserOffices={setUserOffices} allUsers={allUsers} setAllUsers={setAllUsers} />}
@@ -4415,6 +4415,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
           getUserById(c.leadAttorney)?.name || "—",
           c.stage || "—",
         ]),
+        caseIds: rows.map(c => c.id),
         colorCol: 3,
         colorFn: (val) => urgencyColor(parseInt(val)),
         count: rows.length,
@@ -4433,6 +4434,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
           fmt(c.trialDate),
           c.leadAttorney === uid ? "Lead" : "2nd Chair",
         ]),
+        caseIds: rows.map(c => c.id),
         count: rows.length,
       };
     }
@@ -4448,6 +4450,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
           c.mediator || "—",
           getUserById(c.leadAttorney)?.name || "—",
         ]),
+        caseIds: rows.map(c => c.id),
         colorCol: 3,
         colorFn: (val) => urgencyColor(parseInt(val)),
         count: rows.length,
@@ -4477,6 +4480,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
           `${d}d`,
           getUserById(c.leadAttorney)?.name || "—",
         ]),
+        caseIds: rows.map(({ c }) => c.id),
         colorCol: 4,
         colorFn: (val) => urgencyColor(parseInt(val)),
         count: rows.length,
@@ -4484,21 +4488,22 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     }
     case "task_filter": {
       const taskTitle = params.task;
-      if (!taskTitle) return { columns: [], rows: [], count: 0 };
+      if (!taskTitle) return { columns: [], rows: [], count: 0, caseIds: [] };
       const matchingTasks = tasks.filter(t => t.title === taskTitle && t.status !== "Completed");
-      const caseIds = [...new Set(matchingTasks.map(t => t.caseId))];
-      const rows = caseIds.map(cid => {
+      const tfCaseIds = [...new Set(matchingTasks.map(t => t.caseId))];
+      const tfEntries = tfCaseIds.map(cid => {
         const c = allCases.find(x => x.id === cid);
         const t = matchingTasks.find(x => x.caseId === cid);
         if (!c) return null;
-        return [c.caseNum || "—", c.title, c.status, fmt(t?.due), `${daysUntil(t?.due) ?? "—"}d`, getUserById(t?.assigned)?.name || "—", getEffectivePriority(t)];
-      }).filter(Boolean).sort((a, b) => (a[3] || "").localeCompare(b[3] || ""));
+        return { row: [c.caseNum || "—", c.title, c.status, fmt(t?.due), `${daysUntil(t?.due) ?? "—"}d`, getUserById(t?.assigned)?.name || "—", getEffectivePriority(t)], caseId: c.id };
+      }).filter(Boolean).sort((a, b) => (a.row[3] || "").localeCompare(b.row[3] || ""));
       return {
         columns: ["Case Number", "Style", "Status", "Task Due", "Days", "Assigned To", "Priority"],
-        rows,
+        rows: tfEntries.map(e => e.row),
+        caseIds: tfEntries.map(e => e.caseId),
         colorCol: 4,
         colorFn: (val) => urgencyColor(parseInt(val)),
-        count: rows.length,
+        count: tfEntries.length,
       };
     }
     case "no_trial": {
@@ -4513,6 +4518,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
           getUserById(c.leadAttorney)?.name || "—",
           c.fileNum || "—",
         ]),
+        caseIds: rows.map(c => c.id),
         count: rows.length,
       };
     }
@@ -4520,20 +4526,23 @@ function buildReport(id, allCases, tasks, deadlines, params) {
       const overdue = tasks.filter(t => t.status !== "Completed" && daysUntil(t.due) < 0);
       const byCaseId = {};
       overdue.forEach(t => { if (!byCaseId[t.caseId]) byCaseId[t.caseId] = []; byCaseId[t.caseId].push(t); });
-      const rows = [];
+      const otRows = [];
+      const otCaseIds = [];
       Object.entries(byCaseId).sort((a, b) => b[1].length - a[1].length).forEach(([cid, ts]) => {
         const c = allCases.find(x => x.id === Number(cid));
         if (!c) return;
         ts.sort((a, b) => (a.due || "").localeCompare(b.due || "")).forEach(t => {
-          rows.push([c.caseNum || "—", c.title, t.title, fmt(t.due), `${Math.abs(daysUntil(t.due))}d over`, getUserById(t.assigned)?.name || "—", getEffectivePriority(t)]);
+          otRows.push([c.caseNum || "—", c.title, t.title, fmt(t.due), `${Math.abs(daysUntil(t.due))}d over`, getUserById(t.assigned)?.name || "—", getEffectivePriority(t)]);
+          otCaseIds.push(c.id);
         });
       });
       return {
         columns: ["Case Number", "Style", "Task", "Was Due", "Overdue By", "Assigned To", "Priority"],
-        rows,
+        rows: otRows,
+        caseIds: otCaseIds,
         colorCol: 4,
         colorFn: () => "#e05252",
-        count: rows.length,
+        count: otRows.length,
       };
     }
     case "workload": {
@@ -4554,19 +4563,20 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     }
     case "upcoming_deadlines": {
       const win = params.window || 30;
-      const rows = deadlines.filter(d => { const n = daysUntil(d.date); return n !== null && n >= 0 && n <= win; })
+      const udEntries = deadlines.filter(d => { const n = daysUntil(d.date); return n !== null && n >= 0 && n <= win; })
         .sort((a, b) => a.date.localeCompare(b.date))
         .map(d => {
           const c = allCases.find(x => x.id === d.caseId);
           const days = daysUntil(d.date);
-          return [c?.caseNum || "—", c?.title?.slice(0, 50) || `#${d.caseId}`, d.title, d.type || "—", fmt(d.date), `${days}d`, getUserById(d.assigned)?.name || "—"];
+          return { row: [c?.caseNum || "—", c?.title?.slice(0, 50) || `#${d.caseId}`, d.title, d.type || "—", fmt(d.date), `${days}d`, getUserById(d.assigned)?.name || "—"], caseId: d.caseId };
         });
       return {
         columns: ["Case Number", "Style", "Deadline", "Type", "Date", "Days", "Assigned"],
-        rows,
+        rows: udEntries.map(e => e.row),
+        caseIds: udEntries.map(e => e.caseId),
         colorCol: 5,
         colorFn: (val) => urgencyColor(parseInt(val)),
-        count: rows.length,
+        count: udEntries.length,
       };
     }
     case "answer_due": {
@@ -4574,6 +4584,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
       return {
         columns: ["Case Number", "Style", "Answer Filed", "Status", "Stage", "Lead Attorney", "Client"],
         rows: rows.map(c => [c.caseNum || "—", c.title, fmt(c.answerFiled), c.status, c.stage || "—", getUserById(c.leadAttorney)?.name || "—", c.client || "—"]),
+        caseIds: rows.map(c => c.id),
         count: rows.length,
       };
     }
@@ -4582,7 +4593,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
   }
 }
 
-function ReportsView({ allCases, tasks, deadlines, currentUser }) {
+function ReportsView({ allCases, tasks, deadlines, currentUser, onOpenCase }) {
   const [activeReport, setActiveReport] = useState(null);
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
@@ -4726,12 +4737,18 @@ function ReportsView({ allCases, tasks, deadlines, currentUser }) {
                     <tr>{generated.columns.map((col, i) => <th key={i}>{col}</th>)}</tr>
                   </thead>
                   <tbody>
-                    {generated.rows.map((row, ri) => (
-                      <tr key={ri}>
+                    {generated.rows.map((row, ri) => {
+                      const caseId = generated.caseIds?.[ri];
+                      const clickable = caseId && onOpenCase;
+                      const handleRowClick = clickable ? () => {
+                        const c = allCases.find(x => x.id === caseId);
+                        if (c) onOpenCase(c);
+                      } : undefined;
+                      return (
+                      <tr key={ri} onClick={handleRowClick} className={clickable ? "clickable-row" : ""} style={clickable ? { cursor: "pointer" } : undefined}>
                         {row.map((cell, ci) => {
                           const isColored = generated.colorCol === ci && generated.colorFn;
                           const color = isColored ? generated.colorFn(cell) : undefined;
-                          // Style the status/badge columns
                           const isStatus = generated.columns[ci] === "Status" || generated.columns[ci] === "Role" || generated.columns[ci] === "Stage" || generated.columns[ci] === "Priority" || generated.columns[ci] === "Type";
                           return (
                             <td key={ci} style={{ color: color || undefined }}>
@@ -4742,7 +4759,8 @@ function ReportsView({ allCases, tasks, deadlines, currentUser }) {
                           );
                         })}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
