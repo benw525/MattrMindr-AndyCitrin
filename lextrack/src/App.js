@@ -1934,7 +1934,8 @@ const CORE_FIELDS = [
   { key: "fileNum",    label: "File Number",         type: "text",   section: "details" },
   { key: "client",     label: "Client",              type: "text",   section: "details" },
   { key: "insured",    label: "Insured",              type: "text",   section: "details" },
-  { key: "plaintiff",  label: "Plaintiff Attorney",  type: "text",   section: "details" },
+  { key: "plaintiff",  label: "Opposing Counsel",    type: "text",   section: "details" },
+  { key: "expert",     label: "Expert",              type: "text",   section: "details" },
   { key: "claimNum",   label: "Claim Number",        type: "text",   section: "details" },
   { key: "claimSpec",  label: "Claim Specialist",    type: "text",   section: "details" },
   { key: "judge",      label: "Judge",               type: "text",   section: "details" },
@@ -2027,13 +2028,16 @@ function EditField({ fieldKey, label, type, options, value, onChange, onBlur, on
   );
 }
 
-const CONTACT_LINKABLE_KEYS = new Set(["client", "insured", "plaintiff", "claimSpec", "judge", "mediator"]);
+const CONTACT_LINKABLE_KEYS = new Set(["client", "insured", "plaintiff", "claimSpec", "judge", "mediator", "expert"]);
 
 function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddNote, onDeleteNote, onAddLink, onDeleteLink, onLogActivity, userOffices }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const [addingField, setAddingField] = useState(false);
   const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [customDates, setCustomDates] = useState(c._customDates || []);
+  const [addingDate, setAddingDate] = useState(false);
+  const [newDateLabel, setNewDateLabel] = useState("");
   const [showPrint, setShowPrint] = useState(false);
   const [activeTab, setActiveTab] = useState("details"); // "details" | "activity"
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -2070,13 +2074,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     });
   };
 
-  // Auto-save on draft/customFields change (debounced)
+  // Auto-save on draft/customFields/customDates change (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
-      onUpdate({ ...draft, _customFields: customFields });
+      onUpdate({ ...draft, _customFields: customFields, _customDates: customDates });
     }, 400);
     return () => clearTimeout(t);
-  }, [draft, customFields]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draft, customFields, customDates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Field label lookup for human-readable log entries
   const fieldLabel = (key) => {
@@ -2120,7 +2124,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     }
   };
 
-  const detailFields = CORE_FIELDS.filter(f => f.section === "details");
+  const detailFields = CORE_FIELDS.filter(f => f.section === "details" && f.key !== "status" && f.key !== "stage");
   const dateFields   = CORE_FIELDS.filter(f => f.section === "dates");
   const teamFields   = CORE_FIELDS.filter(f => f.section === "team");
 
@@ -2160,6 +2164,25 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     if (oldVal !== field.value) {
       log("Field Updated", `"${field.label}" changed from "${oldVal || "—"}" to "${field.value || "—"}"`);
     }
+  };
+
+  const addCustomDate = () => {
+    if (!newDateLabel.trim()) return;
+    const label = newDateLabel.trim();
+    setCustomDates(p => [...p, { id: newId(), label, value: "" }]);
+    setNewDateLabel("");
+    setAddingDate(false);
+    log("Field Added", `Custom date "${label}" added`);
+  };
+
+  const removeCustomDate = (id) => {
+    const d = customDates.find(d => d.id === id);
+    setCustomDates(p => p.filter(d => d.id !== id));
+    if (d) log("Field Removed", `Custom date "${d.label}" removed`);
+  };
+
+  const updateCustomDate = (id, val) => {
+    setCustomDates(p => p.map(d => d.id === id ? { ...d, value: val } : d));
   };
 
   const handleComplete = (taskId) => {
@@ -2253,12 +2276,25 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
               <Badge label={recordType(draft)} />
-              <Badge label={draft.status} />
               {draft.caseNum && <span style={{ fontSize: 11, color: "#2563eb", fontFamily: "monospace" }}>{draft.caseNum}</span>}
               {editMode
                 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 4, padding: "2px 8px", letterSpacing: "0.03em" }}>EDIT MODE</span>
                 : <span style={{ fontSize: 11, color: "#94a3b8" }}>Auto-saving</span>
               }
+              <select
+                value={draft.status || "Active"}
+                onChange={e => setAndLog("status", e.target.value)}
+                style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                {["Active", "Closed", "Monitoring"].map(o => <option key={o}>{o}</option>)}
+              </select>
+              <select
+                value={draft.stage || "Pleadings"}
+                onChange={e => setAndLog("stage", e.target.value)}
+                style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                {["Pleadings", "Pre-Answer Motions", "Written Discovery", "Depositions", "Expert Discovery", "Pre-Trial", "Trial Set", "Appeal", "Settled", "Closed"].map(o => <option key={o}>{o}</option>)}
+              </select>
             </div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
               {draft.title || "Untitled"}
@@ -2293,7 +2329,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             {/* Two-column: Details + Key Dates */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
 
-              <div className="case-overlay-section">
+              <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
                 <div className="case-overlay-section-title">Case Details</div>
                 {detailFields.map(f => (
                   <EditField
@@ -2310,9 +2346,44 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     onContactClick={!editMode && CONTACT_LINKABLE_KEYS.has(f.key) ? handleContactClick : undefined}
                   />
                 ))}
+                {customFields.map(f => (
+                  <EditField
+                    key={f.id}
+                    fieldKey={f.id}
+                    label={f.label}
+                    type="custom"
+                    value={f.value}
+                    onChange={val => updateCustomField(f.id, val)}
+                    onBlur={() => handleCustomBlur(f.id)}
+                    onRemove={() => canRemove ? removeCustomField(f.id) : alert("Only attorneys can remove fields.")}
+                    canRemove={editMode && canRemove}
+                    isCustom
+                    readOnly={!editMode}
+                  />
+                ))}
+                {editMode && (
+                  <div style={{ marginTop: 6 }}>
+                    {addingField && (
+                      <div className="add-field-row" style={{ marginBottom: 8 }}>
+                        <input
+                          placeholder="Field name (e.g. Policy Limit)"
+                          value={newFieldLabel}
+                          onChange={e => setNewFieldLabel(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && addCustomField()}
+                          style={{ flex: 1 }}
+                          autoFocus
+                        />
+                        <button className="btn btn-gold" style={{ fontSize: 12, whiteSpace: "nowrap" }} onClick={addCustomField}>Add</button>
+                      </div>
+                    )}
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11, width: "100%" }} onClick={() => setAddingField(s => !s)}>
+                      {addingField ? "Cancel" : "+ Add Field"}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <div className="case-overlay-section">
+              <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
                 <div className="case-overlay-section-title">Key Dates</div>
                 {dateFields.map(f => {
                   const days = draft[f.key] ? daysUntil(draft[f.key]) : null;
@@ -2340,6 +2411,56 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </div>
                   );
                 })}
+                {customDates.map(d => {
+                  const days = d.value ? daysUntil(d.value) : null;
+                  return (
+                    <div key={d.id} className="edit-field">
+                      <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span>{d.label}</span>
+                        {editMode && canRemove && (
+                          <button onClick={() => removeCustomDate(d.id)} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
+                        )}
+                      </div>
+                      <div className="edit-field-val" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {editMode ? (
+                          <input
+                            type="date"
+                            value={d.value || ""}
+                            onChange={e => updateCustomDate(d.id, e.target.value)}
+                            style={{ flex: 1 }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: 13, color: "var(--c-text)", padding: "3px 0" }}>{d.value ? fmt(d.value) : "—"}</span>
+                        )}
+                        {d.value && days !== null && (
+                          <span style={{ fontSize: 11, color: urgencyColor(days), whiteSpace: "nowrap", fontWeight: 600 }}>
+                            {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? "Today" : `${days}d`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {editMode && (
+                  <div style={{ marginTop: 6 }}>
+                    {addingDate && (
+                      <div className="add-field-row" style={{ marginBottom: 8 }}>
+                        <input
+                          placeholder="Date label (e.g. Statute of Limitations)"
+                          value={newDateLabel}
+                          onChange={e => setNewDateLabel(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && addCustomDate()}
+                          style={{ flex: 1 }}
+                          autoFocus
+                        />
+                        <button className="btn btn-gold" style={{ fontSize: 12, whiteSpace: "nowrap" }} onClick={addCustomDate}>Add</button>
+                      </div>
+                    )}
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11, width: "100%" }} onClick={() => setAddingDate(s => !s)}>
+                      {addingDate ? "Cancel" : "+ Add Date"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2390,52 +2511,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   onChange={val => setAndLog(f.key, val)}
                   canRemove={false}
                   userList={filteredUsersForTeam}
-                  readOnly={!editMode}
-                />
-              ))}
-            </div>
-
-            {/* Custom Fields */}
-            <div className="case-overlay-section" style={{ maxWidth: 600 }}>
-              <div className="case-overlay-section-title">
-                <span>Additional Fields</span>
-                {editMode && (
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setAddingField(s => !s)}>
-                    {addingField ? "Cancel" : "+ Add Field"}
-                  </button>
-                )}
-              </div>
-              {editMode && addingField && (
-                <div className="add-field-row" style={{ marginBottom: 12 }}>
-                  <input
-                    placeholder="Field name (e.g. Policy Limit, Adjuster Phone)"
-                    value={newFieldLabel}
-                    onChange={e => setNewFieldLabel(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && addCustomField()}
-                    style={{ flex: 1 }}
-                    autoFocus
-                  />
-                  <button className="btn btn-gold" style={{ fontSize: 12, whiteSpace: "nowrap" }} onClick={addCustomField}>Add</button>
-                </div>
-              )}
-              {customFields.length === 0 && !editMode && (
-                <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No additional fields.</div>
-              )}
-              {customFields.length === 0 && editMode && !addingField && (
-                <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No additional fields. Click "+ Add Field" to track anything not listed above.</div>
-              )}
-              {customFields.map(f => (
-                <EditField
-                  key={f.id}
-                  fieldKey={f.id}
-                  label={f.label}
-                  type="custom"
-                  value={f.value}
-                  onChange={val => updateCustomField(f.id, val)}
-                  onBlur={() => handleCustomBlur(f.id)}
-                  onRemove={() => canRemove ? removeCustomField(f.id) : alert("Only attorneys can remove fields.")}
-                  canRemove={editMode && canRemove}
-                  isCustom
                   readOnly={!editMode}
                 />
               ))}
