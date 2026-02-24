@@ -3983,7 +3983,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
   const filteredCases = useMemo(() => { const q = caseSearch.toLowerCase(); return q ? sortedCases.filter(c => (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)) : sortedCases; }, [sortedCases, caseSearch]);
   const officeFilteredUsers = useMemo(() => taskOffice === "All" ? USERS : USERS.filter(u => (userOffices[u.id] || []).includes(taskOffice)), [taskOffice, userOffices]);
 
-  const blank = useMemo(() => ({ caseId: sortedCases[0]?.id || 0, title: "", assigned: currentUser.id, due: addDays(today, 7), priority: "Low", autoEscalate: true, status: "Not Started", notes: "", recurring: false, recurringDays: 30 }), [sortedCases, currentUser.id]);
+  const blank = useMemo(() => ({ caseId: 0, title: "", assigned: currentUser.id, due: addDays(today, 7), priority: "Low", autoEscalate: true, status: "Not Started", notes: "", recurring: false, recurringDays: 30 }), [currentUser.id]);
   const [newTask, setNewTask] = useState({ ...blank });
 
   const filtered = useMemo(() => {
@@ -4031,7 +4031,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                       <button type="button" style={{ border: "none", background: "none", color: "#94a3b8", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewTask(p => ({ ...p, caseId: 0 })); setCaseSearch(""); setCaseDropOpen(true); }}>×</button>
                     </div>
                   ) : (
-                    <div onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setCaseDropOpen(false); }} tabIndex={-1} style={{ outline: "none" }}>
+                    <div onBlur={e => { setTimeout(() => { if (!e.currentTarget.contains(document.activeElement)) setCaseDropOpen(false); }, 150); }} tabIndex={-1} style={{ outline: "none" }}>
                       <input
                         autoFocus={caseDropOpen}
                         placeholder="Search by style or case number…"
@@ -4041,17 +4041,19 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                         autoComplete="off"
                       />
                       {caseDropOpen && (
-                        <div style={{ position: "absolute", zIndex: 200, left: 0, right: 0, maxHeight: 220, overflowY: "auto", border: "1px solid #cbd5e1", borderRadius: 6, background: "var(--c-surface)", boxShadow: "0 6px 20px rgba(0,0,0,0.12)", marginTop: 2 }}>
+                        <div style={{ position: "absolute", zIndex: 200, left: 0, right: 0, maxHeight: 220, overflowY: "auto", border: "1px solid #cbd5e1", borderRadius: 6, background: "#fff", boxShadow: "0 6px 20px rgba(0,0,0,0.18)", marginTop: 2 }}>
                           {filteredCases.length === 0 && <div style={{ padding: "10px 12px", fontSize: 12, color: "#94a3b8" }}>No matches</div>}
                           {filteredCases.map(c => (
                             <div
                               key={c.id}
-                              onMouseDown={e => { e.preventDefault(); setNewTask(p => ({ ...p, caseId: c.id })); setCaseSearch(""); setCaseDropOpen(false); }}
-                              style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                              onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
-                              onMouseLeave={e => e.currentTarget.style.background = ""}
+                              tabIndex={0}
+                              onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setNewTask(p => ({ ...p, caseId: c.id })); setCaseSearch(""); setCaseDropOpen(false); }}
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); setNewTask(p => ({ ...p, caseId: c.id })); setCaseSearch(""); setCaseDropOpen(false); }}
+                              style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff" }}
+                              onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
+                              onMouseLeave={e => e.currentTarget.style.background = "#fff"}
                             >
-                              <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.title}</span>
+                              <span style={{ color: "#1e293b", fontWeight: 500 }}>{c.title}</span>
                               {c.caseNum && <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", flexShrink: 0, marginLeft: 8 }}>{c.caseNum}</span>}
                             </div>
                           ))}
