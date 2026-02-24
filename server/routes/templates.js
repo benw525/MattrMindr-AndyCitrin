@@ -48,16 +48,40 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     return res.status(400).json({ error: "Only .doc and .docx files are supported" });
   }
 
-  try {
-    const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-    const text = result.value || "";
-    const paragraphs = text.split("\n").filter(p => p.trim());
-    const isDoc = fname.endsWith(".doc") && !fname.endsWith(".docx");
+  const isDoc = fname.endsWith(".doc") && !fname.endsWith(".docx");
 
+  try {
+    let text = "";
+    if (isDoc) {
+      try {
+        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+        text = result.value || "";
+      } catch (docErr) {
+        console.error("mammoth .doc parse failed, trying convertToHtml:", docErr.message);
+        try {
+          const htmlResult = await mammoth.convertToHtml({ buffer: req.file.buffer });
+          text = (htmlResult.value || "").replace(/<[^>]+>/g, "");
+        } catch (htmlErr) {
+          console.error("mammoth .doc convertToHtml also failed:", htmlErr.message);
+          return res.status(400).json({
+            error: "This .doc file could not be parsed. Older .doc files (Word 97-2003) may use formatting that isn't supported. Please open it in Word or Google Docs and re-save as .docx, then upload the .docx version."
+          });
+        }
+      }
+    } else {
+      const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+      text = result.value || "";
+    }
+
+    if (!text.trim()) {
+      return res.status(400).json({ error: "The document appears to be empty or its content could not be extracted. If this is a scanned document or image-based PDF saved as .doc, please convert it to a text-based .docx file first." });
+    }
+
+    const paragraphs = text.split("\n").filter(p => p.trim());
     return res.json({ text, paragraphs, isDoc });
   } catch (err) {
     console.error("Template upload/parse error:", err);
-    return res.status(500).json({ error: "Failed to parse document" });
+    return res.status(500).json({ error: "Failed to parse document. Please ensure the file is a valid Word document (.doc or .docx)." });
   }
 });
 
@@ -104,19 +128,26 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
 
     const zip = new PizZip(docxBuffer);
 
-    const sorted = [...parsedPlaceholders].sort((a, b) => (b.original || "").length - (a.original || "").length);
+    const blankFields = parsedPlaceholders.filter(ph => ph.original && /^\[.+\]$/.test(ph.original) && ph.mapping === "_manual");
+    const replacements = parsedPlaceholders.filter(ph => !blankFields.includes(ph));
+    const sortedReplacements = [...replacements].sort((a, b) => (b.original || "").length - (a.original || "").length);
 
     const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/header3.xml", "word/footer1.xml", "word/footer2.xml", "word/footer3.xml"];
     for (const xmlPath of xmlFiles) {
       const file = zip.file(xmlPath);
       if (!file) continue;
       let xml = file.asText();
-      for (const ph of sorted) {
+      for (const ph of sortedReplacements) {
         if (!ph.original) continue;
         const escaped = ph.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const tagPattern = new RegExp(escaped.split("").map(ch => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("(?:<[^>]*>)*"), "g");
         const simplePattern = new RegExp(escaped, "g");
         xml = xml.replace(simplePattern, `{{${ph.token}}}`);
+      }
+      if (blankFields.length > 0 && xmlPath === "word/document.xml") {
+        const blankRuns = blankFields.map(ph =>
+          `<w:p><w:r><w:t>{{${ph.token}}}</w:t></w:r></w:p>`
+        ).join("");
+        xml = xml.replace(/<\/w:body>/, blankRuns + "</w:body>");
       }
       zip.file(xmlPath, xml);
     }
@@ -234,17 +265,32 @@ router.put("/:id", requireAuth, async (req, res) => {
         if (!file) continue;
         let xml = file.asText();
 
+        const oldBlankTokens = oldPhs.filter(ph => ph.original && /^\[.+\]$/.test(ph.original) && ph.mapping === "_manual").map(ph => ph.token);
         for (const ph of oldPhs) {
           const tokenPattern = new RegExp(`\\{\\{${ph.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}\\}`, "g");
-          xml = xml.replace(tokenPattern, (ph.original || ph.token));
+          if (oldBlankTokens.includes(ph.token)) {
+            xml = xml.replace(new RegExp(`<w:p><w:r><w:t>\\{\\{${ph.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}\\}</w:t></w:r></w:p>`, "g"), "");
+            xml = xml.replace(tokenPattern, "");
+          } else {
+            xml = xml.replace(tokenPattern, (ph.original || ph.token));
+          }
         }
 
-        const sorted = [...parsedNewPhs].sort((a, b) => (b.original || "").length - (a.original || "").length);
+        const newBlankFields = parsedNewPhs.filter(ph => ph.original && /^\[.+\]$/.test(ph.original) && ph.mapping === "_manual");
+        const newReplacements = parsedNewPhs.filter(ph => !newBlankFields.includes(ph));
+        const sorted = [...newReplacements].sort((a, b) => (b.original || "").length - (a.original || "").length);
         for (const ph of sorted) {
           if (!ph.original) continue;
           const escaped = ph.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           const simplePattern = new RegExp(escaped, "g");
           xml = xml.replace(simplePattern, `{{${ph.token}}}`);
+        }
+
+        if (newBlankFields.length > 0 && xmlPath === "word/document.xml") {
+          const blankRuns = newBlankFields.map(ph =>
+            `<w:p><w:r><w:t>{{${ph.token}}}</w:t></w:r></w:p>`
+          ).join("");
+          xml = xml.replace(/<\/w:body>/, blankRuns + "</w:body>");
         }
 
         zip.file(xmlPath, xml);

@@ -6714,7 +6714,8 @@ function DocumentsView({ currentUser }) {
                       );
                     })()}
                   </div>
-                  <button className="btn btn-gold" style={{ marginTop: 10, fontSize: 12 }} onClick={() => {
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={() => {
                     const sel = window.getSelection();
                     if (!sel || sel.isCollapsed) return alert("Highlight some text first, then click this button.");
                     const text = sel.toString().trim();
@@ -6756,16 +6757,49 @@ function DocumentsView({ currentUser }) {
                     }));
                     sel.removeAllRanges();
                   }}>Make Placeholder</button>
+                  <button className="btn btn-outline" style={{ fontSize: 12 }} onClick={() => {
+                    const sel = window.getSelection();
+                    const pane = document.getElementById("docPreviewPane");
+                    let insertPos = wizard.text.length;
+                    if (sel && !sel.isCollapsed && pane && pane.contains(sel.anchorNode)) {
+                      const range = sel.getRangeAt(0);
+                      const preRange = document.createRange();
+                      preRange.selectNodeContents(pane);
+                      preRange.setEnd(range.startContainer, range.startOffset);
+                      const preText = preRange.toString();
+                      const sortedPhs = [...wizard.placeholders].sort((a, b) => a.start - b.start);
+                      let offset = 0, visualPos = 0;
+                      for (const ph of sortedPhs) {
+                        if (visualPos + (ph.start - offset) > preText.length) break;
+                        visualPos += (ph.start - offset) + `[${ph.label}]`.length;
+                        offset = ph.end;
+                      }
+                      insertPos = offset + (preText.length - visualPos);
+                    }
+                    const label = prompt("Name this blank field (e.g., 'Settlement Amount', 'Filing Date'):");
+                    if (!label || !label.trim()) return;
+                    const token = label.trim().replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+                    const marker = `[${label.trim()}]`;
+                    const newText = wizard.text.slice(0, insertPos) + marker + wizard.text.slice(insertPos);
+                    const adjusted = wizard.placeholders.map(p => p.start >= insertPos ? { ...p, start: p.start + marker.length, end: p.end + marker.length } : p);
+                    setWizard(w => ({
+                      ...w,
+                      text: newText,
+                      placeholders: [...adjusted, { id: Date.now(), label: label.trim(), token, original: marker, start: insertPos, end: insertPos + marker.length, mapping: "_manual" }],
+                    }));
+                    if (sel) sel.removeAllRanges();
+                  }}>Insert Blank Field</button>
+                  </div>
                 </div>
 
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginBottom: 8 }}>Placeholders ({wizard.placeholders.length})</div>
-                  {wizard.placeholders.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>None yet. Highlight text and click "Make Placeholder".</div>}
+                  {wizard.placeholders.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>None yet. Highlight text and click "Make Placeholder", or click "Insert Blank Field" to add a fill-in field.</div>}
                   {wizard.placeholders.map(ph => (
                     <div key={ph.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--c-border2)", fontSize: 12 }}>
                       <div>
-                        <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{ph.label}</div>
-                        <div style={{ color: "#94a3b8", fontSize: 11 }}>replaces: "{ph.original.substring(0, 40)}{ph.original.length > 40 ? "..." : ""}"</div>
+                        <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{ph.label} {ph.mapping === "_manual" && ph.original?.startsWith("[") && ph.original?.endsWith("]") ? <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 400 }}>(blank field)</span> : ""}</div>
+                        <div style={{ color: "#94a3b8", fontSize: 11 }}>{ph.original?.startsWith("[") && ph.original?.endsWith("]") && ph.mapping === "_manual" ? "user fills in each time" : `replaces: "${ph.original.substring(0, 40)}${ph.original.length > 40 ? "..." : ""}"`}</div>
                       </div>
                       <button onClick={() => setWizard(w => ({ ...w, placeholders: w.placeholders.filter(x => x.id !== ph.id) }))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14 }}>✕</button>
                     </div>
