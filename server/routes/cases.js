@@ -11,6 +11,11 @@ const toFrontend = (row) => ({
   client: row.client,
   insured: row.insured,
   plaintiff: row.plaintiff,
+  defendant: row.defendant,
+  opposingCounsel: row.opposing_counsel,
+  shortCaseNum: row.short_case_num,
+  county: row.county,
+  court: row.court,
   claimNum: row.claim_num,
   fileNum: row.file_num,
   claimSpec: row.claim_spec,
@@ -99,15 +104,17 @@ router.post("/", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `INSERT INTO cases
-        (case_num, title, client, insured, plaintiff, claim_num, file_num, claim_spec,
+        (case_num, title, client, insured, plaintiff, defendant, opposing_counsel, short_case_num, county, court,
+         claim_num, file_num, claim_spec,
          type, status, stage, lead_attorney, second_attorney, paralegal, paralegal2, legal_assistant,
          trial_date, answer_filed, written_disc, party_depo, expert_depo,
          witness_depo, mediation, mediator, judge, dol, custom_fields, offices, expert, custom_dates, billing_parties, case_expenses, hidden_fields, confidential, custom_team)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40)
        RETURNING *`,
       [
         d.caseNum || "", d.title, d.client || "", d.insured || "",
-        d.plaintiff || "", d.claimNum || "", d.fileNum || "", d.claimSpec || "",
+        d.plaintiff || "", d.defendant || "", d.opposingCounsel || "", d.shortCaseNum || "", d.county || "", d.court || "",
+        d.claimNum || "", d.fileNum || "", d.claimSpec || "",
         d.type || "Civil Litigation", d.status || "Active", d.stage || "Pleadings",
         orNull(d.leadAttorney), orNull(d.secondAttorney), orNull(d.paralegal), orNull(d.paralegal2), orNull(d.legalAssistant),
         orNull(d.trialDate), orNull(d.answerFiled), orNull(d.writtenDisc),
@@ -137,16 +144,18 @@ router.put("/:id", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
       `UPDATE cases SET
         case_num=$1, title=$2, client=$3, insured=$4, plaintiff=$5,
-        claim_num=$6, file_num=$7, claim_spec=$8, type=$9, status=$10,
-        stage=$11, lead_attorney=$12, second_attorney=$13, paralegal=$14, paralegal2=$15, legal_assistant=$16,
-        trial_date=$17, answer_filed=$18, written_disc=$19, party_depo=$20,
-        expert_depo=$21, witness_depo=$22, mediation=$23, mediator=$24,
-        judge=$25, dol=$26, custom_fields=$27, offices=$28, expert=$29, custom_dates=$30,
-        billing_parties=$31, case_expenses=$32, hidden_fields=$33, confidential=$34, custom_team=$35
-       WHERE id=$36 AND deleted_at IS NULL RETURNING *`,
+        defendant=$6, opposing_counsel=$7, short_case_num=$8, county=$9, court=$10,
+        claim_num=$11, file_num=$12, claim_spec=$13, type=$14, status=$15,
+        stage=$16, lead_attorney=$17, second_attorney=$18, paralegal=$19, paralegal2=$20, legal_assistant=$21,
+        trial_date=$22, answer_filed=$23, written_disc=$24, party_depo=$25,
+        expert_depo=$26, witness_depo=$27, mediation=$28, mediator=$29,
+        judge=$30, dol=$31, custom_fields=$32, offices=$33, expert=$34, custom_dates=$35,
+        billing_parties=$36, case_expenses=$37, hidden_fields=$38, confidential=$39, custom_team=$40
+       WHERE id=$41 AND deleted_at IS NULL RETURNING *`,
       [
         d.caseNum || "", d.title, d.client || "", d.insured || "",
-        d.plaintiff || "", d.claimNum || "", d.fileNum || "", d.claimSpec || "",
+        d.plaintiff || "", d.defendant || "", d.opposingCounsel || "", d.shortCaseNum || "", d.county || "", d.court || "",
+        d.claimNum || "", d.fileNum || "", d.claimSpec || "",
         d.type || "Civil Litigation", d.status || "Active", d.stage || "Pleadings",
         orNull(d.leadAttorney), orNull(d.secondAttorney), orNull(d.paralegal), orNull(d.paralegal2), orNull(d.legalAssistant),
         orNull(d.trialDate), orNull(d.answerFiled), orNull(d.writtenDisc),

@@ -80,6 +80,11 @@ router.post("/", requireAuth, async (req, res) => {
       if (c.client) parts.push(`Client:${c.client}`);
       if (c.insured) parts.push(`Insured:${c.insured}`);
       if (c.plaintiff) parts.push(`Plaintiff:${c.plaintiff}`);
+      if (c.defendant) parts.push(`Defendant:${c.defendant}`);
+      if (c.opposing_counsel) parts.push(`OpposingCounsel:${c.opposing_counsel}`);
+      if (c.short_case_num) parts.push(`ShortCaseNum:${c.short_case_num}`);
+      if (c.county) parts.push(`County:${c.county}`);
+      if (c.court) parts.push(`Court:${c.court}`);
       if (c.claim_spec) parts.push(`ClaimSpec:${c.claim_spec}`);
       parts.push(`Type:${c.type || "Civil Litigation"}`);
       parts.push(`Status:${c.status}`);

@@ -1386,7 +1386,7 @@ function Toggle({ on, onChange, color = "#2563eb" }) {
 
 // ─── New Case/Matter Modal ────────────────────────────────────────────────────
 function NewCaseModal({ onSave, onClose, userOffices }) {
-  const [form, setForm] = useState({ caseNum: "", title: "", client: "", insured: "", plaintiff: "", claimNum: "", fileNum: "", claimSpec: "", stage: "Pleadings", leadAttorney: 0, secondAttorney: 0, paralegal: 0, paralegal2: 0, legalAssistant: 0, offices: [], answerFiled: "", dol: "", mediator: "", notes: "" });
+  const [form, setForm] = useState({ caseNum: "", title: "", client: "", insured: "", plaintiff: "", defendant: "", opposingCounsel: "", shortCaseNum: "", county: "", court: "", claimNum: "", fileNum: "", claimSpec: "", stage: "Pleadings", leadAttorney: 0, secondAttorney: 0, paralegal: 0, paralegal2: 0, legalAssistant: 0, offices: [], answerFiled: "", dol: "", mediator: "", notes: "" });
   const [autoTasks, setAutoTasks] = useState(true);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const isMatter = !form.caseNum.trim();
@@ -1447,7 +1447,12 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
           <div className="form-group"><label>Insured</label><input value={form.insured} onChange={e => set("insured", e.target.value)} /></div>
         </div>
         <div className="form-row">
-          <div className="form-group"><label>Plaintiff Attorney</label><input value={form.plaintiff} onChange={e => set("plaintiff", e.target.value)} /></div>
+          <div className="form-group"><label>Plaintiff(s)</label><input value={form.plaintiff} onChange={e => set("plaintiff", e.target.value)} /></div>
+          <div className="form-group"><label>Defendant(s)</label><input value={form.defendant} onChange={e => set("defendant", e.target.value)} /></div>
+          <div className="form-group"><label>Opposing Counsel</label><input value={form.opposingCounsel} onChange={e => set("opposingCounsel", e.target.value)} /></div>
+          <div className="form-group"><label>Short Case Number</label><input value={form.shortCaseNum} onChange={e => set("shortCaseNum", e.target.value)} /></div>
+          <div className="form-group"><label>County</label><input value={form.county} onChange={e => set("county", e.target.value)} /></div>
+          <div className="form-group"><label>Court</label><input value={form.court} onChange={e => set("court", e.target.value)} /></div>
           <div className="form-group"><label>Date of Loss</label><input type="date" value={form.dol} onChange={e => set("dol", e.target.value)} /></div>
         </div>
         <div className="form-row">
@@ -1766,7 +1771,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       if (officeFilter !== "All" && !(c.offices || []).includes(officeFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
-        return c.title?.toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q) || (c.client || "").toLowerCase().includes(q) || (c.plaintiff || "").toLowerCase().includes(q) || (c.fileNum || "").toLowerCase().includes(q) || (c.claimNum || "").toLowerCase().includes(q);
+        return c.title?.toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q) || (c.client || "").toLowerCase().includes(q) || (c.plaintiff || "").toLowerCase().includes(q) || (c.defendant || "").toLowerCase().includes(q) || (c.opposingCounsel || "").toLowerCase().includes(q) || (c.county || "").toLowerCase().includes(q) || (c.court || "").toLowerCase().includes(q) || (c.fileNum || "").toLowerCase().includes(q) || (c.claimNum || "").toLowerCase().includes(q);
       }
       return true;
     });
@@ -2048,8 +2053,13 @@ const CORE_FIELDS = [
   { key: "fileNum",    label: "File Number",         type: "text",   section: "details" },
   { key: "client",     label: "Client",              type: "text",   section: "details" },
   { key: "insured",    label: "Insured",              type: "text",   section: "details" },
-  { key: "plaintiff",  label: "Opposing Counsel",    type: "text",   section: "details" },
-  { key: "expert",     label: "Expert",              type: "text",   section: "details" },
+  { key: "plaintiff",        label: "Plaintiff(s)",        type: "text",   section: "details" },
+  { key: "defendant",        label: "Defendant(s)",        type: "text",   section: "details" },
+  { key: "opposingCounsel",  label: "Opposing Counsel",    type: "text",   section: "details" },
+  { key: "shortCaseNum",     label: "Short Case Number",   type: "text",   section: "details" },
+  { key: "county",           label: "County",              type: "text",   section: "details" },
+  { key: "court",            label: "Court",               type: "text",   section: "details" },
+  { key: "expert",           label: "Expert",              type: "text",   section: "details" },
   { key: "claimNum",   label: "Claim Number",        type: "text",   section: "details" },
   { key: "claimSpec",  label: "Claim Specialist",    type: "text",   section: "details" },
   { key: "judge",      label: "Judge",               type: "text",   section: "details" },
@@ -3663,8 +3673,13 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
               {[
                 ["Client", c.client],
                 ["Insured", c.insured],
+                ["Plaintiff(s)", c.plaintiff],
+                ["Defendant(s)", c.defendant],
+                ["Opposing Counsel", c.opposingCounsel],
+                ["Short Case Number", c.shortCaseNum],
+                ["County", c.county],
+                ["Court", c.court],
                 ["Claim Number", c.claimNum],
-                ["Plaintiff Attorney", c.plaintiff],
                 ["Claim Specialist", c.claimSpec],
                 ["Date of Loss", fmt(c.dol)],
                 ["Judge", c.judge],
@@ -6146,7 +6161,12 @@ const CASE_FIELD_MAP = [
   { key: "caseNum", label: "Case Number" },
   { key: "client", label: "Client" },
   { key: "insured", label: "Insured" },
-  { key: "plaintiff", label: "Plaintiff Attorney" },
+  { key: "plaintiff", label: "Plaintiff(s)" },
+  { key: "defendant", label: "Defendant(s)" },
+  { key: "opposingCounsel", label: "Opposing Counsel" },
+  { key: "shortCaseNum", label: "Short Case Number" },
+  { key: "county", label: "County" },
+  { key: "court", label: "Court" },
   { key: "claimNum", label: "Claim Number" },
   { key: "fileNum", label: "File Number" },
   { key: "claimSpec", label: "Claims Specialist" },
