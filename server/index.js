@@ -1,6 +1,7 @@
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
+const path = require("path");
 
 const authRoutes     = require("./routes/auth");
 const usersRoutes    = require("./routes/users");
@@ -20,8 +21,12 @@ const templatesRoutes        = require("./routes/templates");
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
 
+const isProd = process.env.NODE_ENV === "production";
+
+if (isProd) app.set("trust proxy", 1);
+
 app.use(cors({
-  origin: ["http://localhost:5000", "http://0.0.0.0:5000"],
+  origin: isProd ? [] : ["http://localhost:5000", "http://0.0.0.0:5000"],
   credentials: true,
 }));
 
@@ -35,7 +40,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false,
+    secure: isProd,
+    sameSite: isProd ? "lax" : undefined,
     maxAge: 8 * 60 * 60 * 1000,
   },
 }));
@@ -58,6 +64,15 @@ app.use("/api/templates",      templatesRoutes);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`MattrMindr API listening on port ${PORT}`);
+if (isProd) {
+  const buildPath = path.join(__dirname, "..", "lextrack", "build");
+  app.use(express.static(buildPath));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(buildPath, "index.html"));
+  });
+}
+
+const listenPort = isProd ? 5000 : PORT;
+app.listen(listenPort, "0.0.0.0", () => {
+  console.log(`MattrMindr API listening on port ${listenPort}`);
 });
