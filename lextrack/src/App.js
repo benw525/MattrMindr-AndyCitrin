@@ -687,7 +687,12 @@ function TimePromptModal({ pending, onSubmit }) {
           <button
             className="btn btn-outline"
             style={{ flex: 1 }}
-            onClick={() => onSubmit(pending.taskId, null, null, null)}
+            onClick={() => onSubmit(
+              pending.taskId,
+              time.trim() || null,
+              null,
+              task?.assigned > 0 ? task.assigned : null
+            )}
           >Skip</button>
         </div>
       </div>
