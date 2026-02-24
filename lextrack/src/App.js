@@ -612,7 +612,7 @@ function TimePromptModal({ pending, onSubmit }) {
   };
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-overlay">
       <div className="modal" style={{ maxWidth: 430 }}>
         <div className="modal-title" style={{ marginBottom: 6 }}>Log Time</div>
         <p style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 14 }}>
