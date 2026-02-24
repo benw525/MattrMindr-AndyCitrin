@@ -2356,6 +2356,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [corrCopied, setCorrCopied] = useState(false);
   const [showDocGen, setShowDocGen] = useState(false);
+  const [activityFilter, setActivityFilter] = useState("all");
   const canRemove = isAttorney(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -2512,16 +2513,39 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const updateCustomDate = (id, val) => {
     const prev = customDates.find(d => d.id === id);
     setCustomDates(p => p.map(d => d.id === id ? { ...d, value: val } : d));
-    if (val && prev && onAddDeadline) {
+    if (val && prev) {
       const alreadyExists = deadlines.some(d => d.title === prev.label);
       if (!alreadyExists) {
-        onAddDeadline({ caseId: c.id, title: prev.label, date: val, type: "Filing", rule: "", assigned: currentUser.id });
+        handleAddDeadline({ caseId: c.id, title: prev.label, date: val, type: "Filing", rule: "", assigned: currentUser.id });
       }
     }
   };
 
   const handleComplete = (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
     onCompleteTask(taskId);
+    if (task) log("Task Completed", `"${task.title}" marked complete`);
+  };
+
+  const handleAddNote = (note) => {
+    onAddNote(note);
+    const typeLabel = note.type || "General";
+    const preview = (note.body || "").substring(0, 60);
+    log("Note Added", `${typeLabel} note: "${preview}${note.body && note.body.length > 60 ? "..." : ""}"`);
+  };
+
+  const handleDeleteNote = (noteId) => {
+    const note = notes.find(n => n.id === noteId);
+    onDeleteNote(noteId);
+    if (note) {
+      const preview = (note.body || "").substring(0, 60);
+      log("Note Removed", `Note deleted: "${preview}${note.body && note.body.length > 60 ? "..." : ""}"`);
+    }
+  };
+
+  const handleAddDeadline = (dl) => {
+    if (onAddDeadline) onAddDeadline(dl);
+    log("Deadline Added", `"${dl.title}" due ${dl.date}${dl.type ? ` (${dl.type})` : ""}`);
   };
 
   // Wrap link handlers to log
@@ -2544,8 +2568,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
   const actionColor = (action) => {
     if (action.includes("Completed")) return "#4CAE72";
-    if (action.includes("Removed") || action.includes("Reopened")) return "#e05252";
+    if (action.includes("Removed") || action.includes("Reopened") || action.includes("Deleted")) return "#e05252";
     if (action.includes("Added") || action.includes("Created")) return "#3E5C76";
+    if (action.includes("Note") || action.includes("Deadline")) return "#5E81AC";
+    if (action.includes("Billing") || action.includes("Expense")) return "#D08770";
+    if (action.includes("Correspondence")) return "#88C0D0";
     return "#5599cc";
   };
 
@@ -3014,7 +3041,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
               <div className="case-overlay-section">
-                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={onAddNote} onDeleteNote={onDeleteNote} caseRecord={c} />
+                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={handleAddNote} onDeleteNote={handleDeleteNote} caseRecord={c} />
               </div>
             </div>
 
@@ -3063,7 +3090,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <button className="btn btn-outline btn-sm" onClick={() => setShowAddParty(false)}>Cancel</button>
                       <button className="btn btn-sm" style={{ background: "#3E5C76", color: "#fff", border: "1px solid #3E5C76" }} onClick={() => {
                         if (!newPartyForm.name.trim()) return;
-                        setBillingParties(p => [...p, { id: newId(), name: newPartyForm.name.trim(), dob: newPartyForm.dob, collateralSource: newPartyForm.collateralSource, medRows: [{ id: newId(), provider: "", treatmentDates: "", amount: "" }], csRows: [{ id: newId(), insuranceProvider: "", dateRange: "", amount: "" }] }]);
+                        const partyName = newPartyForm.name.trim();
+                        setBillingParties(p => [...p, { id: newId(), name: partyName, dob: newPartyForm.dob, collateralSource: newPartyForm.collateralSource, medRows: [{ id: newId(), provider: "", treatmentDates: "", amount: "" }], csRows: [{ id: newId(), insuranceProvider: "", dateRange: "", amount: "" }] }]);
+                        log("Billing Party Added", `Added billing party "${partyName}"`);
                         setNewPartyForm({ name: "", dob: "", collateralSource: false });
                         setShowAddParty(false);
                       }}>Add Party</button>
@@ -3095,7 +3124,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           {party.dob ? `DOB: ${fmt(party.dob)}` : "No DOB on file"}{party.collateralSource ? " · Collateral Source" : ""}
                         </div>
                       </div>
-                      <button onClick={() => setBillingParties(p => p.filter(pp => pp.id !== party.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 18, lineHeight: 1 }}>✕</button>
+                      <button onClick={() => { log("Billing Party Removed", `Removed billing party "${party.name}"`); setBillingParties(p => p.filter(pp => pp.id !== party.id)); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 18, lineHeight: 1 }}>✕</button>
                     </div>
                     <div style={{ padding: 16 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginBottom: 8 }}>Medical Bills</div>
@@ -3178,7 +3207,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   ))}
                 </div>
                 <div style={{ flex: 1 }} />
-                <button className="btn btn-sm" style={{ background: "#3E5C76", color: "#fff", border: "1px solid #3E5C76", fontSize: 12 }} onClick={() => setCaseExpenses(p => [...p, { id: newId(), serviceProvided: "", dateOfInvoice: "", amount: "", paid: false }])}>+ Add Row</button>
+                <button className="btn btn-sm" style={{ background: "#3E5C76", color: "#fff", border: "1px solid #3E5C76", fontSize: 12 }} onClick={() => { setCaseExpenses(p => [...p, { id: newId(), serviceProvided: "", dateOfInvoice: "", amount: "", paid: false }]); log("Expense Added", "New expense row added"); }}>+ Add Row</button>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
@@ -3197,7 +3226,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <td style={tdStyle}>{cellInput(e.dateOfInvoice, ev => setCaseExpenses(p => p.map(r => r.id === e.id ? { ...r, dateOfInvoice: ev.target.value } : r)), "", "date")}</td>
                       <td style={tdStyle}>{cellInput(e.amount, ev => setCaseExpenses(p => p.map(r => r.id === e.id ? { ...r, amount: ev.target.value } : r)), "0.00", "text", { textAlign: "right" })}</td>
                       <td style={{ ...tdStyle, textAlign: "center" }}><input type="checkbox" checked={!!e.paid} onChange={ev => setCaseExpenses(p => p.map(r => r.id === e.id ? { ...r, paid: ev.target.checked } : r))} /></td>
-                      <td style={tdStyle}><button onClick={() => setCaseExpenses(p => p.filter(r => r.id !== e.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A9096", fontSize: 13, padding: "2px 4px" }}>✕</button></td>
+                      <td style={tdStyle}><button onClick={() => { log("Expense Removed", `Removed expense "${e.serviceProvided || "untitled"}"${e.amount ? ` ($${e.amount})` : ""}`); setCaseExpenses(p => p.filter(r => r.id !== e.id)); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A9096", fontSize: 13, padding: "2px 4px" }}>✕</button></td>
                     </tr>
                   ))}
                   <tr style={{ background: "var(--c-bg2)" }}>
@@ -3325,6 +3354,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 await apiDeleteCorrespondence(email.id);
                                 setCorrespondence(p => p.filter(e => e.id !== email.id));
                                 setExpandedEmail(null);
+                                log("Correspondence Removed", `Deleted email from ${email.fromName || email.fromEmail}: "${email.subject || "(no subject)"}"`)
                               } catch (err) { console.error(err); }
                             }}
                           >Delete</button>
@@ -3381,25 +3411,57 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         )}
 
         {/* ── Activity Tab ── */}
-        {activeTab === "activity" && (
+        {activeTab === "activity" && (() => {
+          const ACTIVITY_FILTERS = [
+            { key: "all", label: "All" },
+            { key: "field", label: "Field Edits" },
+            { key: "note", label: "Notes" },
+            { key: "task", label: "Tasks" },
+            { key: "link", label: "Links" },
+            { key: "deadline", label: "Deadlines" },
+            { key: "billing", label: "Billing" },
+            { key: "expense", label: "Expenses" },
+            { key: "correspondence", label: "Correspondence" },
+          ];
+          const matchFilter = (entry) => {
+            if (activityFilter === "all") return true;
+            const a = (entry.action || "").toLowerCase();
+            if (activityFilter === "field") return a.includes("changed") || a.includes("updated") || a.includes("custom field") || a.includes("custom date") || a.includes("team");
+            if (activityFilter === "note") return a.includes("note");
+            if (activityFilter === "task") return a.includes("task");
+            if (activityFilter === "link") return a.includes("link");
+            if (activityFilter === "deadline") return a.includes("deadline");
+            if (activityFilter === "billing") return a.includes("billing");
+            if (activityFilter === "expense") return a.includes("expense");
+            if (activityFilter === "correspondence") return a.includes("correspondence");
+            return true;
+          };
+          const filtered = activity.filter(matchFilter);
+          return (
           <div className="case-overlay-body">
             <div className="case-overlay-section">
-              <div className="case-overlay-section-title" style={{ marginBottom: 20 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>
                 <span>Case Activity</span>
-                <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>{activity.length} event{activity.length !== 1 ? "s" : ""}</span>
+                <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>{filtered.length} event{filtered.length !== 1 ? "s" : ""}{activityFilter !== "all" ? ` (filtered)` : ""}</span>
               </div>
 
-              {activity.length === 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 16 }}>
+                {ACTIVITY_FILTERS.map(f => (
+                  <button key={f.key} className={`btn btn-sm ${activityFilter === f.key ? "" : "btn-outline"}`} style={activityFilter === f.key ? { background: "#3E5C76", color: "#fff", border: "1px solid #3E5C76", fontSize: 11, padding: "3px 10px" } : { fontSize: 11, padding: "3px 10px" }} onClick={() => setActivityFilter(f.key)}>{f.label}</button>
+                ))}
+              </div>
+
+              {filtered.length === 0 && (
                 <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>
-                  No activity recorded yet. Changes to this case will appear here.
+                  {activity.length === 0 ? "No activity recorded yet. Changes to this case will appear here." : "No matching activity for this filter."}
                 </div>
               )}
 
-              {activity.map((entry, i) => (
+              {filtered.map((entry, i) => (
                 <div key={entry.id} className="activity-entry">
                   <div className="activity-avatar-col">
                     <Avatar userId={entry.userId} size={28} />
-                    {i < activity.length - 1 && <div className="activity-line" />}
+                    {i < filtered.length - 1 && <div className="activity-line" />}
                   </div>
                   <div className="activity-body">
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
@@ -3411,14 +3473,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <span style={{ fontSize: 12, color: "var(--c-text)", fontWeight: 500 }}>{entry.userName}</span>
                       <span style={{ fontSize: 11, color: "#8A9096" }}>{entry.userRole}</span>
                     </div>
-                    <div style={{ fontSize: 13, color: "#1F2428", marginBottom: 4, lineHeight: 1.5 }}>{entry.detail}</div>
+                    <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 4, lineHeight: 1.5 }}>{entry.detail}</div>
                     <div style={{ fontSize: 11, color: "#8A9096" }}>{fmtTs(entry.ts)}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        )}
+          );
+        })()}
 
       </div>
     </>
