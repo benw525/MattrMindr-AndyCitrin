@@ -36,6 +36,8 @@ const toFrontend = (row) => ({
   expert: row.expert || "",
   _customFields: Array.isArray(row.custom_fields) ? row.custom_fields : [],
   _customDates: Array.isArray(row.custom_dates) ? row.custom_dates : [],
+  billingParties: Array.isArray(row.billing_parties) ? row.billing_parties : [],
+  caseExpenses: Array.isArray(row.case_expenses) ? row.case_expenses : [],
   deletedAt: row.deleted_at ? row.deleted_at.toISOString() : null,
 });
 
@@ -85,8 +87,8 @@ router.post("/", requireAuth, async (req, res) => {
         (case_num, title, client, insured, plaintiff, claim_num, file_num, claim_spec,
          type, status, stage, lead_attorney, second_attorney, paralegal, paralegal2, legal_assistant,
          trial_date, answer_filed, written_disc, party_depo, expert_depo,
-         witness_depo, mediation, mediator, judge, dol, custom_fields, offices, expert, custom_dates)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+         witness_depo, mediation, mediator, judge, dol, custom_fields, offices, expert, custom_dates, billing_parties, case_expenses)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
        RETURNING *`,
       [
         d.caseNum || "", d.title, d.client || "", d.insured || "",
@@ -98,6 +100,7 @@ router.post("/", requireAuth, async (req, res) => {
         orNull(d.mediation), d.mediator || "", d.judge || "",
         orNull(d.dol), JSON.stringify(d._customFields || []), d.offices || [],
         d.expert || "", JSON.stringify(d._customDates || []),
+        JSON.stringify(d.billingParties || []), JSON.stringify(d.caseExpenses || []),
       ]
     );
     return res.status(201).json(toFrontend(rows[0]));
@@ -117,8 +120,9 @@ router.put("/:id", requireAuth, async (req, res) => {
         stage=$11, lead_attorney=$12, second_attorney=$13, paralegal=$14, paralegal2=$15, legal_assistant=$16,
         trial_date=$17, answer_filed=$18, written_disc=$19, party_depo=$20,
         expert_depo=$21, witness_depo=$22, mediation=$23, mediator=$24,
-        judge=$25, dol=$26, custom_fields=$27, offices=$28, expert=$29, custom_dates=$30
-       WHERE id=$31 AND deleted_at IS NULL RETURNING *`,
+        judge=$25, dol=$26, custom_fields=$27, offices=$28, expert=$29, custom_dates=$30,
+        billing_parties=$31, case_expenses=$32
+       WHERE id=$33 AND deleted_at IS NULL RETURNING *`,
       [
         d.caseNum || "", d.title, d.client || "", d.insured || "",
         d.plaintiff || "", d.claimNum || "", d.fileNum || "", d.claimSpec || "",
@@ -129,6 +133,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         orNull(d.mediation), d.mediator || "", d.judge || "",
         orNull(d.dol), JSON.stringify(d._customFields || []), d.offices || [],
         d.expert || "", JSON.stringify(d._customDates || []),
+        JSON.stringify(d.billingParties || []), JSON.stringify(d.caseExpenses || []),
         req.params.id,
       ]
     );

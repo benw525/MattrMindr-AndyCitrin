@@ -2039,11 +2039,20 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [addingDate, setAddingDate] = useState(false);
   const [newDateLabel, setNewDateLabel] = useState("");
   const [showPrint, setShowPrint] = useState(false);
-  const [activeTab, setActiveTab] = useState("details"); // "details" | "activity"
+  const [showBillingPrint, setShowBillingPrint] = useState(false);
+  const [activeTab, setActiveTab] = useState("details"); // "details" | "billing" | "expenses" | "activity"
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [allContacts, setAllContacts] = useState([]);
   const [contactPopup, setContactPopup] = useState(null);
+  const [contactEditMode, setContactEditMode] = useState(false);
+  const [contactEditDraft, setContactEditDraft] = useState(null);
+  const [billingParties, setBillingParties] = useState(c.billingParties || []);
+  const [showAddParty, setShowAddParty] = useState(false);
+  const [newPartyForm, setNewPartyForm] = useState({ name: "", dob: "", collateralSource: false });
+  const [caseExpenses, setCaseExpenses] = useState(c.caseExpenses || []);
+  const [expenseServiceFilter, setExpenseServiceFilter] = useState("");
+  const [expensePaidFilter, setExpensePaidFilter] = useState("all");
   const canRemove = isAttorney(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -2074,13 +2083,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     });
   };
 
-  // Auto-save on draft/customFields/customDates change (debounced)
+  // Auto-save on draft/customFields/customDates/billing/expenses change (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
-      onUpdate({ ...draft, _customFields: customFields, _customDates: customDates });
+      onUpdate({ ...draft, _customFields: customFields, _customDates: customDates, billingParties, caseExpenses });
     }, 400);
     return () => clearTimeout(t);
-  }, [draft, customFields, customDates]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draft, customFields, customDates, billingParties, caseExpenses]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Field label lookup for human-readable log entries
   const fieldLabel = (key) => {
@@ -2219,6 +2228,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       {showPrint && (
         <CasePrintView c={draft} notes={notes} tasks={tasks} deadlines={deadlines} links={links} onClose={() => setShowPrint(false)} />
       )}
+      {showBillingPrint && (
+        <BillingPrintView c={draft} billingParties={billingParties} onClose={() => setShowBillingPrint(false)} />
+      )}
       {showDeleteConfirm && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
           <div className="modal-box" style={{ maxWidth: 440 }}>
@@ -2235,9 +2247,41 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         </div>
       )}
       {contactPopup && (
-        <div onClick={e => e.target === e.currentTarget && setContactPopup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.18)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
-          <div className="modal-box" style={{ maxWidth: 380 }}>
-            {(() => {
+        <div onClick={e => e.target === e.currentTarget && (setContactPopup(null), setContactEditMode(false))} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.18)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
+          <div className="modal-box" style={{ maxWidth: 400 }}>
+            {contactEditMode && contactEditDraft ? (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, color: "var(--c-text-h)" }}>Edit Contact</div>
+                  <button onClick={() => setContactEditMode(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: "2px 4px" }}>✕</button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[["Name", "name", "text"], ["Phone", "phone", "text"], ["Email", "email", "text"], ["Fax", "fax", "text"], ["Address", "address", "text"]].map(([lbl, key, type]) => (
+                    <div key={key}>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>{lbl}</div>
+                      <input type={type} value={contactEditDraft[key] || ""} onChange={e => setContactEditDraft(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", boxSizing: "border-box" }} />
+                    </div>
+                  ))}
+                  <div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>Category</div>
+                    <select value={contactEditDraft.category || "Client"} onChange={e => setContactEditDraft(p => ({ ...p, category: e.target.value }))} style={{ width: "100%" }}>
+                      {["Client", "Attorney", "Court", "Expert", "Miscellaneous"].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+                  <button className="btn btn-outline btn-sm" onClick={() => setContactEditMode(false)}>Cancel</button>
+                  <button className="btn btn-sm" style={{ background: "#2563eb", color: "#fff", border: "1px solid #2563eb" }} onClick={async () => {
+                    try {
+                      const saved = await apiUpdateContact(contactEditDraft.id, contactEditDraft);
+                      setAllContacts(p => p.map(ct => ct.id === saved.id ? saved : ct));
+                      setContactPopup(saved);
+                      setContactEditMode(false);
+                    } catch { alert("Failed to save contact."); }
+                  }}>Save</button>
+                </div>
+              </>
+            ) : (() => {
               const cs = CONTACT_CAT_STYLE[contactPopup.category] || CONTACT_CAT_STYLE.Miscellaneous;
               const row = (icon, val) => val ? (
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
@@ -2252,7 +2296,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 6 }}>{contactPopup.name}</div>
                       <span style={{ fontSize: 11, fontWeight: 600, background: cs.bg, color: cs.color, border: `1px solid ${cs.border}`, borderRadius: 4, padding: "2px 8px" }}>{contactPopup.category}</span>
                     </div>
-                    <button onClick={() => setContactPopup(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: "2px 4px" }}>✕</button>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setContactEditDraft({ ...contactPopup }); setContactEditMode(true); }}>✎ Edit</button>
+                      <button onClick={() => setContactPopup(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: "2px 4px" }}>✕</button>
+                    </div>
                   </div>
                   <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 14 }}>
                     {row("📞", contactPopup.phone)}
@@ -2317,6 +2364,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         {/* Tabs */}
         <div className="case-overlay-tabs">
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
+          <div className={`case-overlay-tab ${activeTab === "billing" ? "active" : ""}`} onClick={() => setActiveTab("billing")}>Billing Summary</div>
+          <div className={`case-overlay-tab ${activeTab === "expenses" ? "active" : ""}`} onClick={() => setActiveTab("expenses")}>Case Expenses</div>
           <div className={`case-overlay-tab ${activeTab === "activity" ? "active" : ""}`} onClick={() => setActiveTab("activity")}>
             Activity {activity.length > 0 && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 4 }}>({activity.length})</span>}
           </div>
@@ -2591,6 +2640,191 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
           </div>
         )}
+
+        {/* ── Billing Summary Tab ── */}
+        {activeTab === "billing" && (() => {
+          const fmtAmt = n => n === 0 ? "—" : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const thStyle = { fontSize: 11, fontWeight: 600, color: "#94a3b8", padding: "6px 8px", textAlign: "left", borderBottom: "1px solid var(--c-border)", background: "var(--c-bg2)" };
+          const tdStyle = { padding: "4px 4px", borderBottom: "1px solid var(--c-border2)" };
+          const cellInput = (val, onChange, placeholder, extraStyle) => (
+            <input style={{ width: "100%", boxSizing: "border-box", fontSize: 12, padding: "3px 6px", background: "transparent", border: "1px solid transparent", borderRadius: 4, color: "var(--c-text)", ...extraStyle }} value={val} onChange={onChange} placeholder={placeholder} onFocus={e => e.target.style.borderColor = "#93c5fd"} onBlur={e => e.target.style.borderColor = "transparent"} />
+          );
+          return (
+            <div className="case-overlay-body">
+              {showAddParty && (
+                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAddParty(false)}>
+                  <div className="modal-box" style={{ maxWidth: 360 }}>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 16 }}>Add Party</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>Name</div>
+                        <input value={newPartyForm.name} onChange={e => setNewPartyForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%", boxSizing: "border-box" }} placeholder="Full name" autoFocus />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>Date of Birth</div>
+                        <input type="date" value={newPartyForm.dob} onChange={e => setNewPartyForm(p => ({ ...p, dob: e.target.value }))} style={{ width: "100%", boxSizing: "border-box" }} />
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--c-text)" }}>
+                        <input type="checkbox" checked={newPartyForm.collateralSource} onChange={e => setNewPartyForm(p => ({ ...p, collateralSource: e.target.checked }))} />
+                        Collateral Source
+                      </label>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => setShowAddParty(false)}>Cancel</button>
+                      <button className="btn btn-sm" style={{ background: "#2563eb", color: "#fff", border: "1px solid #2563eb" }} onClick={() => {
+                        if (!newPartyForm.name.trim()) return;
+                        setBillingParties(p => [...p, { id: newId(), name: newPartyForm.name.trim(), dob: newPartyForm.dob, collateralSource: newPartyForm.collateralSource, medRows: [{ id: newId(), provider: "", treatmentDates: "", amount: "" }], csRows: [{ id: newId(), insuranceProvider: "", dateRange: "", amount: "" }] }]);
+                        setNewPartyForm({ name: "", dob: "", collateralSource: false });
+                        setShowAddParty(false);
+                      }}>Add Party</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                <div style={{ fontSize: 13, color: "var(--c-text2)" }}>{billingParties.length} {billingParties.length === 1 ? "party" : "parties"}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-outline btn-sm" onClick={() => setShowBillingPrint(true)}>🖨 Print</button>
+                  <button className="btn btn-sm" style={{ background: "#2563eb", color: "#fff", border: "1px solid #2563eb" }} onClick={() => setShowAddParty(true)}>+ Add Party</button>
+                </div>
+              </div>
+              {billingParties.length === 0 && (
+                <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8", fontSize: 13 }}>No parties added yet. Click "+ Add Party" to begin.</div>
+              )}
+              {billingParties.map(party => {
+                const medTotal = party.medRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                const csTotal = party.csRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                const updMedRow = (rId, key, val) => setBillingParties(p => p.map(pp => pp.id === party.id ? { ...pp, medRows: pp.medRows.map(r => r.id === rId ? { ...r, [key]: val } : r) } : pp));
+                const updCsRow  = (rId, key, val) => setBillingParties(p => p.map(pp => pp.id === party.id ? { ...pp, csRows: pp.csRows.map(r => r.id === rId ? { ...r, [key]: val } : r) } : pp));
+                return (
+                  <div key={party.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 24, overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "var(--c-bg2)", borderBottom: "1px solid var(--c-border)" }}>
+                      <div>
+                        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 600, color: "var(--c-text-h)" }}>{party.name}</div>
+                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                          {party.dob ? `DOB: ${fmt(party.dob)}` : "No DOB on file"}{party.collateralSource ? " · Collateral Source" : ""}
+                        </div>
+                      </div>
+                      <button onClick={() => setBillingParties(p => p.filter(pp => pp.id !== party.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 18, lineHeight: 1 }}>✕</button>
+                    </div>
+                    <div style={{ padding: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginBottom: 8 }}>Medical Bills</div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6 }}>
+                        <thead><tr><th style={thStyle}>Provider</th><th style={thStyle}>Treatment Dates</th><th style={{ ...thStyle, width: 130 }}>Amount</th><th style={{ ...thStyle, width: 32 }} /></tr></thead>
+                        <tbody>
+                          {party.medRows.map(r => (
+                            <tr key={r.id}>
+                              <td style={tdStyle}>{cellInput(r.provider, e => updMedRow(r.id, "provider", e.target.value), "Provider name")}</td>
+                              <td style={tdStyle}>{cellInput(r.treatmentDates, e => updMedRow(r.id, "treatmentDates", e.target.value), "e.g. 1/1/24 – 3/1/24")}</td>
+                              <td style={tdStyle}>{cellInput(r.amount, e => updMedRow(r.id, "amount", e.target.value), "0.00", { textAlign: "right" })}</td>
+                              <td style={tdStyle}><button onClick={() => setBillingParties(p => p.map(pp => pp.id === party.id ? { ...pp, medRows: pp.medRows.filter(mr => mr.id !== r.id) } : pp))} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 13, padding: "2px 4px" }}>✕</button></td>
+                            </tr>
+                          ))}
+                          <tr style={{ background: "var(--c-bg2)" }}>
+                            <td style={{ ...tdStyle, fontSize: 12, fontWeight: 600, color: "var(--c-text2)", padding: "6px 8px" }} colSpan={2}>Total</td>
+                            <td style={{ ...tdStyle, fontSize: 12, fontWeight: 700, color: medTotal > 0 ? "#2563eb" : "var(--c-text2)", textAlign: "right", padding: "6px 8px" }}>{fmtAmt(medTotal)}</td>
+                            <td style={tdStyle} />
+                          </tr>
+                        </tbody>
+                      </table>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, marginBottom: party.collateralSource ? 20 : 0 }} onClick={() => setBillingParties(p => p.map(pp => pp.id === party.id ? { ...pp, medRows: [...pp.medRows, { id: newId(), provider: "", treatmentDates: "", amount: "" }] } : pp))}>+ Add Row</button>
+                      {party.collateralSource && (
+                        <>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginBottom: 8, marginTop: 4 }}>Collateral Source</div>
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6 }}>
+                            <thead><tr><th style={thStyle}>Insurance Provider</th><th style={thStyle}>Date Range</th><th style={{ ...thStyle, width: 130 }}>Amount</th><th style={{ ...thStyle, width: 32 }} /></tr></thead>
+                            <tbody>
+                              {party.csRows.map(r => (
+                                <tr key={r.id}>
+                                  <td style={tdStyle}>{cellInput(r.insuranceProvider, e => updCsRow(r.id, "insuranceProvider", e.target.value), "Insurance provider")}</td>
+                                  <td style={tdStyle}>{cellInput(r.dateRange, e => updCsRow(r.id, "dateRange", e.target.value), "e.g. 1/1/24 – 3/1/24")}</td>
+                                  <td style={tdStyle}>{cellInput(r.amount, e => updCsRow(r.id, "amount", e.target.value), "0.00", { textAlign: "right" })}</td>
+                                  <td style={tdStyle}><button onClick={() => setBillingParties(p => p.map(pp => pp.id === party.id ? { ...pp, csRows: pp.csRows.filter(cr => cr.id !== r.id) } : pp))} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 13, padding: "2px 4px" }}>✕</button></td>
+                                </tr>
+                              ))}
+                              <tr style={{ background: "var(--c-bg2)" }}>
+                                <td style={{ ...tdStyle, fontSize: 12, fontWeight: 600, color: "var(--c-text2)", padding: "6px 8px" }} colSpan={2}>Total</td>
+                                <td style={{ ...tdStyle, fontSize: 12, fontWeight: 700, color: csTotal > 0 ? "#2563eb" : "var(--c-text2)", textAlign: "right", padding: "6px 8px" }}>{fmtAmt(csTotal)}</td>
+                                <td style={tdStyle} />
+                              </tr>
+                            </tbody>
+                          </table>
+                          <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setBillingParties(p => p.map(pp => pp.id === party.id ? { ...pp, csRows: [...pp.csRows, { id: newId(), insuranceProvider: "", dateRange: "", amount: "" }] } : pp))}>+ Add Row</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* ── Case Expenses Tab ── */}
+        {activeTab === "expenses" && (() => {
+          const fmtAmt = n => n === 0 ? "—" : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const serviceOptions = [...new Set(caseExpenses.map(e => e.serviceProvided).filter(Boolean))];
+          const filtered = caseExpenses.filter(e => {
+            const svc = !expenseServiceFilter || e.serviceProvided === expenseServiceFilter;
+            const pd = expensePaidFilter === "all" || (expensePaidFilter === "paid" && e.paid) || (expensePaidFilter === "unpaid" && !e.paid);
+            return svc && pd;
+          });
+          const total = filtered.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+          const thStyle = { fontSize: 11, fontWeight: 600, color: "#94a3b8", padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--c-border)", background: "var(--c-bg2)" };
+          const tdStyle = { padding: "2px 2px", borderBottom: "1px solid var(--c-border2)" };
+          const cellInput = (val, onChange, placeholder, type, extraStyle) => (
+            <input type={type || "text"} style={{ width: "100%", boxSizing: "border-box", fontSize: 12, padding: "4px 6px", background: "transparent", border: "1px solid transparent", borderRadius: 4, color: "var(--c-text)", ...extraStyle }} value={val} onChange={onChange} placeholder={placeholder} onFocus={e => e.target.style.borderColor = "#93c5fd"} onBlur={e => e.target.style.borderColor = "transparent"} />
+          );
+          return (
+            <div className="case-overlay-body">
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+                <select value={expenseServiceFilter} onChange={e => setExpenseServiceFilter(e.target.value)} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", minWidth: 160 }}>
+                  <option value="">All Services</option>
+                  {serviceOptions.map(s => <option key={s}>{s}</option>)}
+                </select>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {[["all", "All"], ["paid", "Paid"], ["unpaid", "Unpaid"]].map(([val, lbl]) => (
+                    <button key={val} className={`btn btn-sm ${expensePaidFilter === val ? "" : "btn-outline"}`} style={expensePaidFilter === val ? { background: "#2563eb", color: "#fff", border: "1px solid #2563eb", fontSize: 11 } : { fontSize: 11 }} onClick={() => setExpensePaidFilter(val)}>{lbl}</button>
+                  ))}
+                </div>
+                <div style={{ flex: 1 }} />
+                <button className="btn btn-sm" style={{ background: "#2563eb", color: "#fff", border: "1px solid #2563eb", fontSize: 12 }} onClick={() => setCaseExpenses(p => [...p, { id: newId(), serviceProvided: "", dateOfInvoice: "", amount: "", paid: false }])}>+ Add Row</button>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Service Provided</th>
+                    <th style={{ ...thStyle, width: 140 }}>Date of Invoice</th>
+                    <th style={{ ...thStyle, width: 120, textAlign: "right" }}>Amount</th>
+                    <th style={{ ...thStyle, width: 56, textAlign: "center" }}>Paid</th>
+                    <th style={{ ...thStyle, width: 32 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(e => (
+                    <tr key={e.id}>
+                      <td style={tdStyle}>{cellInput(e.serviceProvided, ev => setCaseExpenses(p => p.map(r => r.id === e.id ? { ...r, serviceProvided: ev.target.value } : r)), "Service name")}</td>
+                      <td style={tdStyle}>{cellInput(e.dateOfInvoice, ev => setCaseExpenses(p => p.map(r => r.id === e.id ? { ...r, dateOfInvoice: ev.target.value } : r)), "", "date")}</td>
+                      <td style={tdStyle}>{cellInput(e.amount, ev => setCaseExpenses(p => p.map(r => r.id === e.id ? { ...r, amount: ev.target.value } : r)), "0.00", "text", { textAlign: "right" })}</td>
+                      <td style={{ ...tdStyle, textAlign: "center" }}><input type="checkbox" checked={!!e.paid} onChange={ev => setCaseExpenses(p => p.map(r => r.id === e.id ? { ...r, paid: ev.target.checked } : r))} /></td>
+                      <td style={tdStyle}><button onClick={() => setCaseExpenses(p => p.filter(r => r.id !== e.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 13, padding: "2px 4px" }}>✕</button></td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: "var(--c-bg2)" }}>
+                    <td style={{ padding: "8px 10px", fontSize: 12, fontWeight: 600, color: "var(--c-text2)" }} colSpan={2}>
+                      Total{expenseServiceFilter ? ` · ${expenseServiceFilter}` : ""}{expensePaidFilter !== "all" ? ` · ${expensePaidFilter}` : ""}
+                    </td>
+                    <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 700, color: total > 0 ? "#2563eb" : "var(--c-text2)", textAlign: "right" }}>{fmtAmt(total)}</td>
+                    <td colSpan={2} />
+                  </tr>
+                </tbody>
+              </table>
+              {caseExpenses.length === 0 && (
+                <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8", fontSize: 13 }}>No expenses recorded. Click "+ Add Row" to begin.</div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Activity Tab ── */}
         {activeTab === "activity" && (
@@ -2971,6 +3205,64 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Billing Print View ────────────────────────────────────────────────────────
+function BillingPrintView({ c, billingParties, onClose }) {
+  const handlePrint = () => { window.print(); };
+  const fmtAmt = n => n === 0 ? "—" : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = (d) => { if (!d) return ""; const [y, m, dy] = d.split("-"); return `${m}/${dy}/${y}`; };
+  const thS = { padding: "6px 8px", fontWeight: 600, fontSize: 11, background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" };
+  const tdS = { padding: "5px 8px", fontSize: 12, borderBottom: "1px solid #e2e8f0" };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 2000, overflow: "auto", padding: "40px 60px" }}>
+      <style>{`@media print { .no-print { display: none !important; } }`}</style>
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 700 }}>Billing Summary — {c.title}</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn" style={{ background: "#2563eb", color: "#fff", border: "1px solid #2563eb" }} onClick={handlePrint}>Print</button>
+          <button className="btn btn-outline" onClick={onClose}>Close</button>
+        </div>
+      </div>
+      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{c.title}</div>
+      {c.caseNum && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 24 }}>Case No. {c.caseNum}</div>}
+      {billingParties.length === 0 && <p style={{ color: "#94a3b8", fontStyle: "italic" }}>No billing parties on file.</p>}
+      {billingParties.map(party => {
+        const medTotal = party.medRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+        const csTotal = party.csRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+        return (
+          <div key={party.id} style={{ marginBottom: 36, pageBreakInside: "avoid" }}>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, marginBottom: 2 }}>{party.name}</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>{party.dob ? `DOB: ${fmt(party.dob)}` : ""}{party.collateralSource ? " · Collateral Source" : ""}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 6 }}>Medical Bills</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 10 }}>
+              <thead><tr><th style={thS}>Provider</th><th style={thS}>Treatment Dates</th><th style={{ ...thS, textAlign: "right" }}>Amount</th></tr></thead>
+              <tbody>
+                {party.medRows.filter(r => r.provider || r.amount).map(r => (
+                  <tr key={r.id}><td style={tdS}>{r.provider || "—"}</td><td style={tdS}>{r.treatmentDates || "—"}</td><td style={{ ...tdS, textAlign: "right" }}>{r.amount ? fmtAmt(parseFloat(r.amount) || 0) : "—"}</td></tr>
+                ))}
+                <tr style={{ background: "#f8fafc" }}><td style={{ ...tdS, fontWeight: 700 }} colSpan={2}>Total</td><td style={{ ...tdS, fontWeight: 700, textAlign: "right", color: "#2563eb" }}>{fmtAmt(medTotal)}</td></tr>
+              </tbody>
+            </table>
+            {party.collateralSource && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 6 }}>Collateral Source</div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr><th style={thS}>Insurance Provider</th><th style={thS}>Date Range</th><th style={{ ...thS, textAlign: "right" }}>Amount</th></tr></thead>
+                  <tbody>
+                    {party.csRows.filter(r => r.insuranceProvider || r.amount).map(r => (
+                      <tr key={r.id}><td style={tdS}>{r.insuranceProvider || "—"}</td><td style={tdS}>{r.dateRange || "—"}</td><td style={{ ...tdS, textAlign: "right" }}>{r.amount ? fmtAmt(parseFloat(r.amount) || 0) : "—"}</td></tr>
+                    ))}
+                    <tr style={{ background: "#f8fafc" }}><td style={{ ...tdS, fontWeight: 700 }} colSpan={2}>Total</td><td style={{ ...tdS, fontWeight: 700, textAlign: "right", color: "#2563eb" }}>{fmtAmt(csTotal)}</td></tr>
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
