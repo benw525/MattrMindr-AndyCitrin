@@ -12,6 +12,7 @@ import {
   apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact, apiMergeContacts,
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiAiSearch,
+  apiGetCorrespondence, apiDeleteCorrespondence,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -2169,12 +2170,23 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [addingTeamSlot, setAddingTeamSlot] = useState(false);
   const [newTeamRole, setNewTeamRole] = useState("");
   const [newTeamUserId, setNewTeamUserId] = useState(0);
+  const [correspondence, setCorrespondence] = useState([]);
+  const [corrLoading, setCorrLoading] = useState(false);
+  const [expandedEmail, setExpandedEmail] = useState(null);
+  const [corrCopied, setCorrCopied] = useState(false);
   const canRemove = isAttorney(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
   useEffect(() => {
     apiGetContacts().then(setAllContacts).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "correspondence") {
+      setCorrLoading(true);
+      apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
+    }
+  }, [activeTab, c.id]);
 
   const handleContactClick = async (name) => {
     if (!name || !name.trim()) return;
@@ -2502,6 +2514,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
           <div className={`case-overlay-tab ${activeTab === "billing" ? "active" : ""}`} onClick={() => setActiveTab("billing")}>Billing Summary</div>
           <div className={`case-overlay-tab ${activeTab === "expenses" ? "active" : ""}`} onClick={() => setActiveTab("expenses")}>Case Expenses</div>
+          <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
+            Correspondence {correspondence.length > 0 && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 4 }}>({correspondence.length})</span>}
+          </div>
           <div className={`case-overlay-tab ${activeTab === "activity" ? "active" : ""}`} onClick={() => setActiveTab("activity")}>
             Activity {activity.length > 0 && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 4 }}>({activity.length})</span>}
           </div>
@@ -3014,6 +3029,108 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
           );
         })()}
+
+        {/* ── Correspondence Tab ── */}
+        {activeTab === "correspondence" && (
+          <div className="case-overlay-body">
+            <div className="case-overlay-section">
+              <div className="case-overlay-section-title" style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Correspondence</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>
+                    Email: <span style={{ fontFamily: "monospace", color: "#2563eb", cursor: "pointer" }} onClick={() => {
+                      navigator.clipboard.writeText(`case-${c.id}@${window.location.hostname}`);
+                      setCorrCopied(true);
+                      setTimeout(() => setCorrCopied(false), 2000);
+                    }}>{corrCopied ? "Copied!" : `case-${c.id}@${window.location.hostname}`}</span>
+                  </span>
+                </div>
+              </div>
+
+              {corrLoading && <div style={{ fontSize: 13, color: "#94a3b8", padding: "20px 0" }}>Loading correspondence...</div>}
+
+              {!corrLoading && correspondence.length === 0 && (
+                <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic", padding: "20px 0" }}>
+                  No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "#2563eb" }}>case-{c.id}@inbound.yourdomain.com</span> and they will appear here.
+                </div>
+              )}
+
+              {!corrLoading && correspondence.map(email => {
+                const isExpanded = expandedEmail === email.id;
+                const dateStr = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : "";
+                return (
+                  <div key={email.id} style={{ borderBottom: "1px solid var(--c-border2)", padding: "10px 0" }}>
+                    <div
+                      style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }}
+                      onClick={() => setExpandedEmail(isExpanded ? null : email.id)}
+                    >
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                        {(email.fromName || email.fromEmail || "?")[0].toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{email.fromName || email.fromEmail}</div>
+                          <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{dateStr}</div>
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</div>
+                        {!isExpanded && (
+                          <div style={{ fontSize: 12, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+                            {(email.bodyText || "").substring(0, 120)}
+                          </div>
+                        )}
+                        {email.hasAttachments && (
+                          <div style={{ fontSize: 11, color: "#2563eb", marginTop: 2 }}>📎 {email.attachments.length} attachment{email.attachments.length !== 1 ? "s" : ""}</div>
+                        )}
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div style={{ marginTop: 10, marginLeft: 42 }}>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>
+                          <div>From: {email.fromName} &lt;{email.fromEmail}&gt;</div>
+                          {email.toEmails && <div>To: {email.toEmails}</div>}
+                          {email.ccEmails && <div>CC: {email.ccEmails}</div>}
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", background: "var(--c-bg2)", borderRadius: 6, padding: 12, marginTop: 8, maxHeight: 400, overflow: "auto", border: "1px solid var(--c-border)" }}>
+                          {email.bodyText || "(empty)"}
+                        </div>
+                        {email.attachments.length > 0 && (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", marginBottom: 4 }}>Attachments</div>
+                            {email.attachments.map((att, idx) => (
+                              <a
+                                key={idx}
+                                href={`/api/correspondence/attachment/${email.id}/${idx}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2563eb", textDecoration: "none", marginRight: 12, padding: "3px 8px", background: "#eff6ff", borderRadius: 4, border: "1px solid #bfdbfe" }}
+                              >
+                                📎 {att.filename} <span style={{ color: "#94a3b8", fontSize: 10 }}>({(att.size / 1024).toFixed(0)} KB)</span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }}
+                            onClick={async () => {
+                              if (!window.confirm("Delete this email from correspondence?")) return;
+                              try {
+                                await apiDeleteCorrespondence(email.id);
+                                setCorrespondence(p => p.filter(e => e.id !== email.id));
+                                setExpandedEmail(null);
+                              } catch (err) { console.error(err); }
+                            }}
+                          >Delete</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Activity Tab ── */}
         {activeTab === "activity" && (

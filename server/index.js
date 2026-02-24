@@ -11,8 +11,10 @@ const notesRoutes    = require("./routes/notes");
 const linksRoutes    = require("./routes/links");
 const activityRoutes = require("./routes/activity");
 const contactsRoutes     = require("./routes/contacts");
-const contactNotesRoutes = require("./routes/contact-notes");
-const aiSearchRoutes     = require("./routes/ai-search");
+const contactNotesRoutes     = require("./routes/contact-notes");
+const aiSearchRoutes         = require("./routes/ai-search");
+const correspondenceRoutes   = require("./routes/correspondence");
+const inboundEmailRoutes     = require("./routes/inbound-email");
 
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
@@ -23,6 +25,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 
 app.use(session({
   name: "lextrack.sid",
@@ -36,6 +39,8 @@ app.use(session({
   },
 }));
 
+app.use("/api/inbound-email", inboundEmailRoutes);
+
 app.use("/api/auth",      authRoutes);
 app.use("/api/users",     usersRoutes);
 app.use("/api/cases",     casesRoutes);
@@ -47,6 +52,7 @@ app.use("/api/activity",       activityRoutes);
 app.use("/api/contacts",      contactsRoutes);
 app.use("/api/contact-notes", contactNotesRoutes);
 app.use("/api/ai-search",     aiSearchRoutes);
+app.use("/api/correspondence", correspondenceRoutes);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

@@ -138,6 +138,22 @@ async function createSchema() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS case_correspondence (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        from_email      TEXT    NOT NULL DEFAULT '',
+        from_name       TEXT    NOT NULL DEFAULT '',
+        to_emails       TEXT    NOT NULL DEFAULT '',
+        cc_emails       TEXT    NOT NULL DEFAULT '',
+        subject         TEXT    NOT NULL DEFAULT '',
+        body_text       TEXT    NOT NULL DEFAULT '',
+        body_html       TEXT    NOT NULL DEFAULT '',
+        attachments     JSONB   NOT NULL DEFAULT '[]',
+        received_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS contacts (
         id         SERIAL PRIMARY KEY,
         name       TEXT    NOT NULL,

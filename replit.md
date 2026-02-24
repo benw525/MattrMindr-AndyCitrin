@@ -34,6 +34,8 @@ server/
     contacts.js     — CRUD /api/contacts (soft-delete/restore, 30-day retention)
     contact-notes.js — GET/POST/DELETE /api/contact-notes
     ai-search.js    — POST /api/ai-search (OpenAI-powered semantic case search)
+    correspondence.js — GET/DELETE /api/correspondence (per-case email history)
+    inbound-email.js — POST /api/inbound-email (SendGrid Inbound Parse webhook, no auth)
 
 lextrack/
   src/

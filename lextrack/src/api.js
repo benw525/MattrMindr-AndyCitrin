@@ -81,3 +81,7 @@ export const apiAiSearch = (query) => apiFetch("/api/ai-search", { method: "POST
 export const apiGetContactNotes    = (contactId) => apiFetch(`/api/contact-notes/${contactId}`);
 export const apiCreateContactNote  = (data)      => apiFetch("/api/contact-notes",       { method: "POST",   body: data });
 export const apiDeleteContactNote  = (id)        => apiFetch(`/api/contact-notes/${id}`, { method: "DELETE" });
+
+// Correspondence
+export const apiGetCorrespondence    = (caseId) => apiFetch(`/api/correspondence/${caseId}`);
+export const apiDeleteCorrespondence = (id)     => apiFetch(`/api/correspondence/${id}`, { method: "DELETE" });
