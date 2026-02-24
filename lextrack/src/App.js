@@ -2212,7 +2212,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         </div>
       )}
       {contactPopup && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setContactPopup(null)} style={{ zIndex: 1100 }}>
+        <div onClick={e => e.target === e.currentTarget && setContactPopup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.18)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
           <div className="modal-box" style={{ maxWidth: 380 }}>
             {(() => {
               const cs = CONTACT_CAT_STYLE[contactPopup.category] || CONTACT_CAT_STYLE.Miscellaneous;
