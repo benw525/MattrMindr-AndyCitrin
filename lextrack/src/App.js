@@ -3057,10 +3057,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>
                     Email: <span style={{ fontFamily: "monospace", color: "#2563eb", cursor: "pointer" }} onClick={() => {
-                      navigator.clipboard.writeText(`case-${c.id}@${window.location.hostname}`);
+                      navigator.clipboard.writeText(`case-${c.id}@mail.mattrmindr.com`);
                       setCorrCopied(true);
                       setTimeout(() => setCorrCopied(false), 2000);
-                    }}>{corrCopied ? "Copied!" : `case-${c.id}@${window.location.hostname}`}</span>
+                    }}>{corrCopied ? "Copied!" : `case-${c.id}@mail.mattrmindr.com`}</span>
                   </span>
                   <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                     setCorrLoading(true);
