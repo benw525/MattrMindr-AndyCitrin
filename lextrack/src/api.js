@@ -85,3 +85,37 @@ export const apiDeleteContactNote  = (id)        => apiFetch(`/api/contact-notes
 // Correspondence
 export const apiGetCorrespondence    = (caseId) => apiFetch(`/api/correspondence/${caseId}`);
 export const apiDeleteCorrespondence = (id)     => apiFetch(`/api/correspondence/${id}`, { method: "DELETE" });
+
+// Templates
+export const apiGetTemplates    = ()         => apiFetch("/api/templates");
+export const apiDeleteTemplate  = (id)       => apiFetch(`/api/templates/${id}`, { method: "DELETE" });
+export const apiUpdateTemplate  = (id, data) => apiFetch(`/api/templates/${id}`, { method: "PUT", body: data });
+
+export async function apiUploadTemplateFile(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/templates/upload", { method: "POST", credentials: "include", body: form });
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Upload error ${res.status}`); }
+  return res.json();
+}
+
+export async function apiSaveTemplate(file, name, tags, placeholders) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("name", name);
+  form.append("tags", JSON.stringify(tags));
+  form.append("placeholders", JSON.stringify(placeholders));
+  const res = await fetch("/api/templates", { method: "POST", credentials: "include", body: form });
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Save error ${res.status}`); }
+  return res.json();
+}
+
+export async function apiGenerateDocument(templateId, values) {
+  const res = await fetch(`/api/templates/${templateId}/generate`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Generate error ${res.status}`); }
+  return res.blob();
+}

@@ -154,6 +154,20 @@ async function createSchema() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS doc_templates (
+        id              SERIAL PRIMARY KEY,
+        name            TEXT    NOT NULL,
+        tags            TEXT[]  NOT NULL DEFAULT '{}',
+        created_by      INTEGER NOT NULL REFERENCES users(id),
+        created_by_name TEXT    NOT NULL DEFAULT '',
+        placeholders    JSONB   NOT NULL DEFAULT '[]',
+        docx_data       BYTEA   NOT NULL,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS contacts (
         id         SERIAL PRIMARY KEY,
         name       TEXT    NOT NULL,

@@ -15,6 +15,7 @@ const contactNotesRoutes     = require("./routes/contact-notes");
 const aiSearchRoutes         = require("./routes/ai-search");
 const correspondenceRoutes   = require("./routes/correspondence");
 const inboundEmailRoutes     = require("./routes/inbound-email");
+const templatesRoutes        = require("./routes/templates");
 
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
@@ -53,6 +54,7 @@ app.use("/api/contacts",      contactsRoutes);
 app.use("/api/contact-notes", contactNotesRoutes);
 app.use("/api/ai-search",     aiSearchRoutes);
 app.use("/api/correspondence", correspondenceRoutes);
+app.use("/api/templates",      templatesRoutes);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

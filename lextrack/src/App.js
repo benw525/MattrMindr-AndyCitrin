@@ -13,6 +13,7 @@ import {
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiAiSearch,
   apiGetCorrespondence, apiDeleteCorrespondence,
+  apiGetTemplates, apiDeleteTemplate, apiUploadTemplateFile, apiSaveTemplate, apiGenerateDocument,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -1282,6 +1283,7 @@ export default function App() {
             { id: "cases", icon: "⚖️", label: "Cases & Matters" },
             { id: "deadlines", icon: "📅", label: "Deadlines" },
             { id: "tasks", icon: "✅", label: "Tasks", badge: overdueBadge || null },
+            { id: "documents", icon: "📄", label: "Documents" },
             { id: "timelog", icon: "🕐", label: "Time Log" },
             { id: "reports", icon: "📊", label: "Reports" },
             { id: "contacts", icon: "📇", label: "Contacts" },
@@ -1307,6 +1309,7 @@ export default function App() {
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} userOffices={userOffices} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} />}
+        {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} userOffices={userOffices} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} />}
@@ -2174,6 +2177,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [corrLoading, setCorrLoading] = useState(false);
   const [expandedEmail, setExpandedEmail] = useState(null);
   const [corrCopied, setCorrCopied] = useState(false);
+  const [showDocGen, setShowDocGen] = useState(false);
   const canRemove = isAttorney(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -2375,6 +2379,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       {showBillingPrint && (
         <BillingPrintView c={draft} billingParties={billingParties} onClose={() => setShowBillingPrint(false)} />
       )}
+      {showDocGen && (
+        <GenerateDocumentModal caseData={draft} currentUser={currentUser} onClose={() => setShowDocGen(false)} />
+      )}
       {showDeleteConfirm && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
           <div className="modal-box" style={{ maxWidth: 440 }}>
@@ -2502,6 +2509,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               onClick={() => setEditMode(e => !e)}
             >{editMode ? "✓ Done" : "✎ Edit"}</button>
             <button className="btn btn-outline btn-sm" onClick={() => setShowPrint(true)}>🖨 Print</button>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowDocGen(true)}>📄 Generate</button>
             {canDelete && (
               <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
             )}
@@ -6129,6 +6137,446 @@ function AddStaffModal({ onSave, onClose }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const CASE_FIELD_MAP = [
+  { key: "title", label: "Case Title" },
+  { key: "caseNum", label: "Case Number" },
+  { key: "client", label: "Client" },
+  { key: "insured", label: "Insured" },
+  { key: "plaintiff", label: "Plaintiff Attorney" },
+  { key: "claimNum", label: "Claim Number" },
+  { key: "fileNum", label: "File Number" },
+  { key: "claimSpec", label: "Claims Specialist" },
+  { key: "type", label: "Case Type" },
+  { key: "status", label: "Status" },
+  { key: "stage", label: "Stage" },
+  { key: "judge", label: "Judge" },
+  { key: "mediator", label: "Mediator" },
+  { key: "expert", label: "Expert" },
+  { key: "trialDate", label: "Trial Date" },
+  { key: "answerFiled", label: "Answer Filed" },
+  { key: "writtenDisc", label: "Written Discovery" },
+  { key: "partyDepo", label: "Party Depositions" },
+  { key: "mediation", label: "Mediation Date" },
+  { key: "dol", label: "Date of Loss" },
+  { key: "_leadAttorneyName", label: "Lead Attorney Name" },
+  { key: "_secondAttorneyName", label: "2nd Attorney Name" },
+  { key: "_paralegalName", label: "Paralegal 1 Name" },
+  { key: "_paralegal2Name", label: "Paralegal 2 Name" },
+  { key: "_legalAssistantName", label: "Legal Assistant Name" },
+  { key: "_todayDate", label: "Today's Date" },
+];
+
+function getCaseFieldValue(c, key) {
+  if (key === "_todayDate") return new Date().toLocaleDateString();
+  if (key === "_leadAttorneyName") return USERS.find(u => u.id === c.leadAttorney)?.name || "";
+  if (key === "_secondAttorneyName") return USERS.find(u => u.id === c.secondAttorney)?.name || "";
+  if (key === "_paralegalName") return USERS.find(u => u.id === c.paralegal)?.name || "";
+  if (key === "_paralegal2Name") return USERS.find(u => u.id === c.paralegal2)?.name || "";
+  if (key === "_legalAssistantName") return USERS.find(u => u.id === c.legalAssistant)?.name || "";
+  return c[key] || "";
+}
+
+function GenerateDocumentModal({ caseData, currentUser, onClose }) {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [values, setValues] = useState({});
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    apiGetTemplates().then(t => { setTemplates(t); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const allTags = [...new Set(templates.flatMap(t => t.tags))].sort();
+  const filtered = templates.filter(t => {
+    if (filter === "mine" && t.createdBy !== currentUser.id) return false;
+    if (filter === "other" && t.createdBy === currentUser.id) return false;
+    if (tagFilter && !t.tags.includes(tagFilter)) return false;
+    if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const handleSelect = (tmpl) => {
+    setSelected(tmpl);
+    const v = {};
+    for (const ph of tmpl.placeholders) {
+      if (ph.mapping && ph.mapping !== "_manual") {
+        v[ph.token] = getCaseFieldValue(caseData, ph.mapping);
+      } else {
+        v[ph.token] = "";
+      }
+    }
+    setValues(v);
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const blob = await apiGenerateDocument(selected.id, values);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selected.name} - ${caseData.title || "Document"}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      onClose();
+    } catch (err) {
+      alert("Failed to generate document: " + err.message);
+    }
+    setGenerating(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 700, maxHeight: "85vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ padding: "20px 24px 0", borderBottom: "1px solid var(--c-border)", paddingBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, margin: 0, color: "var(--c-text-h)" }}>
+              {selected ? "Fill in Document Fields" : "Generate Document"}
+            </h2>
+            <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--c-text2)" }}>✕</button>
+          </div>
+          {selected && (
+            <div style={{ fontSize: 12, color: "#2563eb", marginTop: 4, cursor: "pointer" }} onClick={() => { setSelected(null); setValues({}); }}>
+              ← Back to template list
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: 24 }}>
+          {loading && <div style={{ color: "#94a3b8", fontSize: 13 }}>Loading templates...</div>}
+
+          {!loading && !selected && (
+            <>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                <input placeholder="Search templates..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 150, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
+                <select value={filter} onChange={e => setFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
+                  <option value="all">All Templates</option>
+                  <option value="mine">My Templates</option>
+                  <option value="other">Others' Templates</option>
+                </select>
+                {allTags.length > 0 && (
+                  <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
+                    <option value="">All Tags</option>
+                    {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
+              </div>
+              {filtered.length === 0 && <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic", padding: "20px 0" }}>No templates found. Upload templates from the Documents view first.</div>}
+              {filtered.map(t => (
+                <div key={t.id} onClick={() => handleSelect(t)} style={{ padding: "12px 14px", borderRadius: 8, border: "1px solid var(--c-border)", marginBottom: 8, cursor: "pointer", background: "var(--c-bg2)", transition: "border-color 0.15s" }} onMouseOver={e => e.currentTarget.style.borderColor = "#2563eb"} onMouseOut={e => e.currentTarget.style.borderColor = ""}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)" }}>{t.name}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>by {t.createdByName} · {t.placeholders.length} field{t.placeholders.length !== 1 ? "s" : ""}</div>
+                  {t.tags.length > 0 && (
+                    <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                      {t.tags.map(tag => <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" }}>{tag}</span>)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+
+          {!loading && selected && (
+            <>
+              <div style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 16 }}>
+                Template: <strong>{selected.name}</strong> · Fill in any fields below, then generate.
+              </div>
+              {selected.placeholders.map(ph => (
+                <div key={ph.token} style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>
+                    {ph.label}
+                    {ph.mapping && ph.mapping !== "_manual" && <span style={{ fontWeight: 400, color: "#2563eb", marginLeft: 6, fontSize: 10 }}>auto-filled from {CASE_FIELD_MAP.find(f => f.key === ph.mapping)?.label || ph.mapping}</span>}
+                  </label>
+                  <input
+                    value={values[ph.token] || ""}
+                    onChange={e => setValues(v => ({ ...v, [ph.token]: e.target.value }))}
+                    style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }}
+                  />
+                </div>
+              ))}
+              <button
+                className="btn btn-primary"
+                style={{ width: "100%", padding: "10px", fontSize: 14, marginTop: 8 }}
+                disabled={generating}
+                onClick={handleGenerate}
+              >{generating ? "Generating..." : "Generate & Download"}</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentsView({ currentUser }) {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [wizard, setWizard] = useState(null);
+
+  useEffect(() => {
+    apiGetTemplates().then(t => { setTemplates(t); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const allTags = [...new Set(templates.flatMap(t => t.tags))].sort();
+  const [filter, setFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("");
+  const [search, setSearch] = useState("");
+
+  const filtered = templates.filter(t => {
+    if (filter === "mine" && t.createdBy !== currentUser.id) return false;
+    if (tagFilter && !t.tags.includes(tagFilter)) return false;
+    if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  return (
+    <div className="view-content" style={{ padding: 32 }}>
+      <div className="topbar-row">
+        <div><div className="topbar-title">Document Templates</div><div className="topbar-subtitle">{templates.length} template{templates.length !== 1 ? "s" : ""}</div></div>
+        <button className="btn btn-primary" onClick={() => document.getElementById("docUploadInput").click()}>+ New Template</button>
+        <input id="docUploadInput" type="file" accept=".docx" style={{ display: "none" }} onChange={async e => {
+          const file = e.target.files[0]; if (!file) return; e.target.value = "";
+          try {
+            const parsed = await apiUploadTemplateFile(file);
+            setWizard({ step: 1, file, text: parsed.text, paragraphs: parsed.paragraphs, placeholders: [], name: file.name.replace(/\.docx$/i, ""), tags: [], newTag: "" });
+          } catch (err) { alert("Failed to parse document: " + err.message); }
+        }} />
+      </div>
+
+      {!wizard && (
+        <>
+          <div style={{ display: "flex", gap: 8, margin: "20px 0", flexWrap: "wrap" }}>
+            <input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 150, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
+            <select value={filter} onChange={e => setFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
+              <option value="all">All</option>
+              <option value="mine">My Templates</option>
+            </select>
+            {allTags.length > 0 && (
+              <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
+                <option value="">All Tags</option>
+                {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
+          </div>
+
+          {loading && <div style={{ color: "#94a3b8", fontSize: 13, padding: 20 }}>Loading...</div>}
+          {!loading && filtered.length === 0 && <div style={{ color: "#94a3b8", fontSize: 13, fontStyle: "italic", padding: 20 }}>No templates yet. Click "+ New Template" to upload a .docx file and create your first template.</div>}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+            {filtered.map(t => (
+              <div key={t.id} style={{ padding: 16, borderRadius: 10, border: "1px solid var(--c-border)", background: "var(--c-bg2)" }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--c-text)", marginBottom: 4 }}>{t.name}</div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>by {t.createdByName} · {t.placeholders.length} field{t.placeholders.length !== 1 ? "s" : ""}</div>
+                {t.tags.length > 0 && (
+                  <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+                    {t.tags.map(tag => <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" }}>{tag}</span>)}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                  {(t.createdBy === currentUser.id || isAppAdmin(currentUser)) && (
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
+                      if (!window.confirm(`Delete template "${t.name}"?`)) return;
+                      try { await apiDeleteTemplate(t.id); setTemplates(p => p.filter(x => x.id !== t.id)); } catch (err) { alert(err.message); }
+                    }}>Delete</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── Template Creation Wizard ── */}
+      {wizard && (
+        <div style={{ marginTop: 20 }}>
+          {/* Step indicator */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
+            {["Upload", "Select Placeholders", "Map Fields", "Name & Tag"].map((label, i) => (
+              <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: wizard.step === i + 1 ? 700 : 400, color: wizard.step === i + 1 ? "#2563eb" : "#94a3b8", borderBottom: `2px solid ${wizard.step === i + 1 ? "#2563eb" : "var(--c-border)"}` }}>{i + 1}. {label}</div>
+            ))}
+          </div>
+
+          {/* Step 1: Upload complete — auto-advance */}
+          {wizard.step === 1 && (() => {
+            setTimeout(() => setWizard(w => w ? { ...w, step: 2 } : w), 300);
+            return <div style={{ color: "#94a3b8", fontSize: 13 }}>Document parsed. Loading preview...</div>;
+          })()}
+
+          {/* Step 2: Select Placeholders */}
+          {wizard.step === 2 && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>Step 2: Select Placeholders</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Highlight any text below and click "Make Placeholder" to mark it as a field that changes per case.</div>
+
+              <div style={{ display: "flex", gap: 20 }}>
+                <div style={{ flex: 2 }}>
+                  <div
+                    id="docPreviewPane"
+                    style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 20, maxHeight: 500, overflow: "auto", fontSize: 13, lineHeight: 1.8, color: "var(--c-text)", whiteSpace: "pre-wrap", userSelect: "text" }}
+                  >
+                    {(() => {
+                      let displayText = wizard.text;
+                      const sorted = [...wizard.placeholders].sort((a, b) => b.start - a.start);
+                      const parts = [];
+                      let lastEnd = displayText.length;
+                      for (const ph of sorted) {
+                        if (ph.start < lastEnd) {
+                          parts.unshift({ text: displayText.slice(ph.end, lastEnd), type: "text" });
+                          parts.unshift({ text: `[${ph.label}]`, type: "placeholder", id: ph.id });
+                          lastEnd = ph.start;
+                        }
+                      }
+                      parts.unshift({ text: displayText.slice(0, lastEnd), type: "text" });
+                      return parts.map((p, i) =>
+                        p.type === "placeholder"
+                          ? <span key={i} style={{ background: "#dbeafe", color: "#1e40af", padding: "1px 4px", borderRadius: 3, fontWeight: 600, cursor: "pointer" }} title="Click to remove" onClick={() => setWizard(w => ({ ...w, placeholders: w.placeholders.filter(x => x.id !== p.id) }))}>{p.text}</span>
+                          : <span key={i}>{p.text}</span>
+                      );
+                    })()}
+                  </div>
+                  <button className="btn btn-gold" style={{ marginTop: 10, fontSize: 12 }} onClick={() => {
+                    const sel = window.getSelection();
+                    if (!sel || sel.isCollapsed) return alert("Highlight some text first, then click this button.");
+                    const text = sel.toString().trim();
+                    if (!text) return;
+                    const pane = document.getElementById("docPreviewPane");
+                    if (!pane || !pane.contains(sel.anchorNode)) return alert("Please select text from the document preview.");
+                    const fullText = wizard.text;
+                    const idx = fullText.indexOf(text);
+                    if (idx === -1) return alert("Could not locate the selected text. Try selecting a more unique phrase.");
+                    const overlap = wizard.placeholders.some(p => !(idx + text.length <= p.start || idx >= p.end));
+                    if (overlap) return alert("This selection overlaps with an existing placeholder.");
+                    const label = prompt("Name this placeholder (e.g., 'Client Name', 'Settlement Amount'):");
+                    if (!label || !label.trim()) return;
+                    const token = label.trim().replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+                    setWizard(w => ({
+                      ...w,
+                      placeholders: [...w.placeholders, { id: Date.now(), label: label.trim(), token, original: text, start: idx, end: idx + text.length }],
+                    }));
+                    sel.removeAllRanges();
+                  }}>Make Placeholder</button>
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginBottom: 8 }}>Placeholders ({wizard.placeholders.length})</div>
+                  {wizard.placeholders.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>None yet. Highlight text and click "Make Placeholder".</div>}
+                  {wizard.placeholders.map(ph => (
+                    <div key={ph.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--c-border2)", fontSize: 12 }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{ph.label}</div>
+                        <div style={{ color: "#94a3b8", fontSize: 11 }}>replaces: "{ph.original.substring(0, 40)}{ph.original.length > 40 ? "..." : ""}"</div>
+                      </div>
+                      <button onClick={() => setWizard(w => ({ ...w, placeholders: w.placeholders.filter(x => x.id !== ph.id) }))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+                <button className="btn btn-outline" onClick={() => { setWizard(null); }}>Cancel</button>
+                <button className="btn btn-primary" disabled={wizard.placeholders.length === 0} onClick={() => setWizard(w => ({ ...w, step: 3 }))}>Next: Map Fields</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Map to case fields */}
+          {wizard.step === 3 && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>Step 3: Map Fields</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>For each placeholder, choose whether it auto-fills from case data or is entered manually each time.</div>
+
+              {wizard.placeholders.map(ph => (
+                <div key={ph.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--c-border2)" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{ph.label}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>replaces: "{ph.original.substring(0, 50)}{ph.original.length > 50 ? "..." : ""}"</div>
+                  </div>
+                  <select
+                    value={ph.mapping || "_manual"}
+                    onChange={e => setWizard(w => ({
+                      ...w,
+                      placeholders: w.placeholders.map(p => p.id === ph.id ? { ...p, mapping: e.target.value } : p),
+                    }))}
+                    style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", minWidth: 180 }}
+                  >
+                    <option value="_manual">Ask me each time</option>
+                    {CASE_FIELD_MAP.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+                  </select>
+                </div>
+              ))}
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+                <button className="btn btn-outline" onClick={() => setWizard(w => ({ ...w, step: 2 }))}>Back</button>
+                <button className="btn btn-primary" onClick={() => setWizard(w => ({ ...w, step: 4 }))}>Next: Name & Tag</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Name and Tags */}
+          {wizard.step === 4 && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>Step 4: Name & Tag</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Give your template a name and optional tags for easy filtering.</div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Template Name</label>
+                <input value={wizard.name} onChange={e => setWizard(w => ({ ...w, name: e.target.value }))} style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }} />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Tags</label>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                  {wizard.tags.map(tag => (
+                    <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
+                      {tag} ✕
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input placeholder="Add a tag (e.g., Discovery, Motions)" value={wizard.newTag || ""} onChange={e => setWizard(w => ({ ...w, newTag: e.target.value }))}
+                    onKeyDown={e => { if (e.key === "Enter" && wizard.newTag?.trim()) { setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); } }}
+                    style={{ flex: 1, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { if (wizard.newTag?.trim()) setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); }}>Add Tag</button>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 16 }}>
+                <strong>Summary:</strong> {wizard.placeholders.length} placeholder{wizard.placeholders.length !== 1 ? "s" : ""}, {wizard.placeholders.filter(p => p.mapping && p.mapping !== "_manual").length} auto-filled, {wizard.placeholders.filter(p => !p.mapping || p.mapping === "_manual").length} manual
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+                <button className="btn btn-outline" onClick={() => setWizard(w => ({ ...w, step: 3 }))}>Back</button>
+                <button className="btn btn-primary" disabled={!wizard.name?.trim()} onClick={async () => {
+                  try {
+                    const docxText = wizard.text;
+                    let modified = docxText;
+                    const sorted = [...wizard.placeholders].sort((a, b) => b.start - a.start);
+                    for (const ph of sorted) {
+                      modified = modified.slice(0, ph.start) + `{{${ph.token}}}` + modified.slice(ph.end);
+                    }
+
+                    const saved = await apiSaveTemplate(wizard.file, wizard.name.trim(), wizard.tags, wizard.placeholders.map(p => ({
+                      token: p.token, label: p.label, original: p.original, mapping: p.mapping || "_manual",
+                    })));
+                    setTemplates(p => [...p, saved]);
+                    setWizard(null);
+                  } catch (err) { alert("Failed to save template: " + err.message); }
+                }}>Save Template</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -10,11 +10,14 @@
   "dependencies": {
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
+    "docxtemplater": "^3.68.2",
     "drizzle-zod": "^0.8.3",
+    "mammoth": "^1.11.0",
     "multer": "^2.0.2",
     "openai": "^6.24.0",
     "p-limit": "^7.3.0",
     "p-retry": "^7.1.1",
+    "pizzip": "^3.2.0",
     "zod": "^4.3.6",
     "zod-validation-error": "^5.0.0"
   },
