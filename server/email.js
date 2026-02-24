@@ -47,16 +47,16 @@ async function sendTempPasswordEmail(toEmail, userName, tempPassword) {
   await sendEmail({
     to: toEmail,
     subject: "MattrMindr — Your Temporary Password",
-    text: `Hi ${userName},\n\nYour MattrMindr account is ready. Here is your temporary password:\n\n${tempPassword}\n\nPlease log in and you will be prompted to set a new password.\n\nThank you,\nMattrMindr`,
+    text: `Hi ${userName},\n\nLog in to mattrmindr.com with this temporary password:\n\n${tempPassword}\n\nAfter your first login, you will be required to change your password.\n\nThank you,\nMattrMindr`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 500px; margin: 0 auto; padding: 30px;">
         <h2 style="color: #1e3a5f; font-family: 'Playfair Display', Georgia, serif;">MattrMindr</h2>
         <p>Hi ${userName},</p>
-        <p>Your MattrMindr account is ready. Here is your temporary password:</p>
+        <p>Log in to <a href="https://mattrmindr.com" style="color: #2563eb;">mattrmindr.com</a> with this temporary password:</p>
         <div style="background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; text-align: center; margin: 20px 0;">
           <span style="font-family: monospace; font-size: 22px; letter-spacing: 2px; color: #1e3a5f; font-weight: bold;">${tempPassword}</span>
         </div>
-        <p>Please log in and you will be prompted to set a new password.</p>
+        <p>After your first login, you will be required to change your password.</p>
         <p style="color: #94a3b8; font-size: 13px; margin-top: 30px;">Thank you,<br>MattrMindr</p>
       </div>
     `,
