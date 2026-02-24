@@ -1959,10 +1959,23 @@ const CORE_FIELDS = [
 
 const isAttorney = (user) => hasRole(user, "Attorney") || hasRole(user, "Associate") || hasRole(user, "Shareholder");
 
-function EditField({ fieldKey, label, type, options, value, onChange, onBlur, onRemove, canRemove, isCustom, userList }) {
+function EditField({ fieldKey, label, type, options, value, onChange, onBlur, onRemove, canRemove, isCustom, userList, readOnly }) {
   const displayVal = type === "date" ? (value || "") : (value ?? "");
   const userVal = type === "user" ? (value || "") : undefined;
   const availableUsers = userList || USERS;
+
+  if (readOnly) {
+    let display = "—";
+    if (type === "user") display = getUserById(Number(value))?.name || "—";
+    else if (type === "date") display = value ? fmt(value) : "—";
+    else display = value || "—";
+    return (
+      <div className="edit-field">
+        <div className="edit-field-key">{label}</div>
+        <div className="edit-field-val" style={{ color: "var(--c-text)", fontSize: 13, padding: "3px 0", fontWeight: 400 }}>{display}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="edit-field">
@@ -2011,6 +2024,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [showPrint, setShowPrint] = useState(false);
   const [activeTab, setActiveTab] = useState("details"); // "details" | "activity"
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const canRemove = isAttorney(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -2180,13 +2194,21 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <Badge label={recordType(draft)} />
               <Badge label={draft.status} />
               {draft.caseNum && <span style={{ fontSize: 11, color: "#2563eb", fontFamily: "monospace" }}>{draft.caseNum}</span>}
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>Auto-saving</span>
+              {editMode
+                ? <span style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 4, padding: "2px 8px", letterSpacing: "0.03em" }}>EDIT MODE</span>
+                : <span style={{ fontSize: 11, color: "#94a3b8" }}>Auto-saving</span>
+              }
             </div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
               {draft.title || "Untitled"}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexShrink: 0, alignItems: "flex-start" }}>
+            <button
+              className={`btn btn-sm ${editMode ? "" : "btn-outline"}`}
+              style={editMode ? { background: "#2563eb", color: "#fff", border: "1px solid #2563eb" } : {}}
+              onClick={() => setEditMode(e => !e)}
+            >{editMode ? "✓ Done" : "✎ Edit"}</button>
             <button className="btn btn-outline btn-sm" onClick={() => setShowPrint(true)}>🖨 Print</button>
             {canDelete && (
               <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
@@ -2223,6 +2245,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     onChange={val => f.type === "select" || f.type === "user" ? setAndLog(f.key, val) : set(f.key, val)}
                     onBlur={() => (f.type === "text") && handleBlur(f.key)}
                     canRemove={false}
+                    readOnly={!editMode}
                   />
                 ))}
               </div>
@@ -2235,13 +2258,17 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div key={f.key} className="edit-field">
                       <div className="edit-field-key">{f.label}</div>
                       <div className="edit-field-val" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <input
-                          type="date"
-                          value={draft[f.key] || ""}
-                          onChange={e => set(f.key, e.target.value)}
-                          onBlur={() => handleBlur(f.key)}
-                          style={{ flex: 1 }}
-                        />
+                        {editMode ? (
+                          <input
+                            type="date"
+                            value={draft[f.key] || ""}
+                            onChange={e => set(f.key, e.target.value)}
+                            onBlur={() => handleBlur(f.key)}
+                            style={{ flex: 1 }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: 13, color: "var(--c-text)", padding: "3px 0" }}>{draft[f.key] ? fmt(draft[f.key]) : "—"}</span>
+                        )}
                         {draft[f.key] && days !== null && (
                           <span style={{ fontSize: 11, color: urgencyColor(days), whiteSpace: "nowrap", fontWeight: 600 }}>
                             {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? "Today" : `${days}d`}
@@ -2257,30 +2284,36 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             {/* Offices */}
             <div className="case-overlay-section" style={{ maxWidth: 500 }}>
               <div className="case-overlay-section-title">Office(s)</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 4 }}>
-                {OFFICES.map(o => {
-                  const checked = (draft.offices || []).includes(o);
-                  return (
-                    <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#2563eb" : "var(--c-text2)", userSelect: "none" }}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const curr = draft.offices || [];
-                          setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
-                        }}
-                      />
-                      {o}
-                    </label>
-                  );
-                })}
-              </div>
+              {editMode ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 4 }}>
+                  {OFFICES.map(o => {
+                    const checked = (draft.offices || []).includes(o);
+                    return (
+                      <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#2563eb" : "var(--c-text2)", userSelect: "none" }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const curr = draft.offices || [];
+                            setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
+                          }}
+                        />
+                        {o}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: "var(--c-text)", paddingTop: 4 }}>
+                  {(draft.offices || []).length > 0 ? (draft.offices || []).join(", ") : "—"}
+                </div>
+              )}
             </div>
 
             {/* Team */}
             <div className="case-overlay-section" style={{ maxWidth: 500 }}>
               <div className="case-overlay-section-title">Team</div>
-              {(draft.offices || []).length > 0 && filteredUsersForTeam.length < USERS.length && (
+              {editMode && (draft.offices || []).length > 0 && filteredUsersForTeam.length < USERS.length && (
                 <div style={{ fontSize: 11, color: "#2563eb", marginBottom: 8, fontStyle: "italic" }}>
                   Showing {filteredUsersForTeam.length} staff in selected office(s)
                 </div>
@@ -2295,6 +2328,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   onChange={val => setAndLog(f.key, val)}
                   canRemove={false}
                   userList={filteredUsersForTeam}
+                  readOnly={!editMode}
                 />
               ))}
             </div>
@@ -2303,11 +2337,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div className="case-overlay-section" style={{ maxWidth: 600 }}>
               <div className="case-overlay-section-title">
                 <span>Additional Fields</span>
-                <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setAddingField(s => !s)}>
-                  {addingField ? "Cancel" : "+ Add Field"}
-                </button>
+                {editMode && (
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setAddingField(s => !s)}>
+                    {addingField ? "Cancel" : "+ Add Field"}
+                  </button>
+                )}
               </div>
-              {addingField && (
+              {editMode && addingField && (
                 <div className="add-field-row" style={{ marginBottom: 12 }}>
                   <input
                     placeholder="Field name (e.g. Policy Limit, Adjuster Phone)"
@@ -2320,7 +2356,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <button className="btn btn-gold" style={{ fontSize: 12, whiteSpace: "nowrap" }} onClick={addCustomField}>Add</button>
                 </div>
               )}
-              {customFields.length === 0 && !addingField && (
+              {customFields.length === 0 && !editMode && (
+                <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No additional fields.</div>
+              )}
+              {customFields.length === 0 && editMode && !addingField && (
                 <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No additional fields. Click "+ Add Field" to track anything not listed above.</div>
               )}
               {customFields.map(f => (
@@ -2333,8 +2372,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   onChange={val => updateCustomField(f.id, val)}
                   onBlur={() => handleCustomBlur(f.id)}
                   onRemove={() => canRemove ? removeCustomField(f.id) : alert("Only attorneys can remove fields.")}
-                  canRemove={canRemove}
+                  canRemove={editMode && canRemove}
                   isCustom
+                  readOnly={!editMode}
                 />
               ))}
             </div>
