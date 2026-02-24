@@ -167,7 +167,7 @@ ${caseSummaries.join("\n")}`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0.1,
-      max_tokens: 4096,
+      max_completion_tokens: 4096,
     });
 
     const raw = (completion.choices[0]?.message?.content || "[]").trim();

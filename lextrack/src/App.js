@@ -2386,7 +2386,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div>
                     <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>Category</div>
                     <select value={contactEditDraft.category || "Client"} onChange={e => setContactEditDraft(p => ({ ...p, category: e.target.value }))} style={{ width: "100%", background: "#1e2a38", border: "1px solid #3d4f63", borderRadius: 5, color: "#e2e8f0", padding: "5px 8px", fontSize: 13 }}>
-                      {["Client", "Attorney", "Court", "Expert", "Miscellaneous"].map(o => <option key={o}>{o}</option>)}
+                      {CONTACT_CATEGORIES.map(o => <option key={o}>{o}</option>)}
                     </select>
                   </div>
                 </div>
