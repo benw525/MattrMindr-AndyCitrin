@@ -39,6 +39,7 @@ export const apiRestoreCase     = (id)       => apiFetch(`/api/cases/${id}/resto
 
 // Tasks
 export const apiGetTasks             = ()                       => apiFetch("/api/tasks");
+export const apiGetCaseTasks         = (caseId)                 => apiFetch(`/api/tasks?caseId=${caseId}`);
 export const apiCreateTask           = (data)                   => apiFetch("/api/tasks",                  { method: "POST", body: data });
 export const apiCreateTasks          = (arr)                    => apiFetch("/api/tasks/bulk",             { method: "POST", body: arr });
 export const apiUpdateTask           = (id, data)               => apiFetch(`/api/tasks/${id}`,            { method: "PUT",  body: data });

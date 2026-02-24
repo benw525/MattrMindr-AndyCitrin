@@ -30,13 +30,14 @@ const orNull = (val) => (val && String(val).trim() && String(val) !== "0") ? val
 router.get("/", requireAuth, async (req, res) => {
   try {
     const { caseId } = req.query;
-    let query = "SELECT * FROM tasks";
-    const params = [];
+    let query, params;
     if (caseId) {
-      query += " WHERE case_id = $1";
-      params.push(caseId);
+      query = "SELECT * FROM tasks WHERE case_id = $1 ORDER BY created_at";
+      params = [caseId];
+    } else {
+      query = "SELECT * FROM tasks WHERE assigned = $1 ORDER BY created_at";
+      params = [req.session.userId];
     }
-    query += " ORDER BY created_at";
     const { rows } = await pool.query(query, params);
     return res.json(rows.map(toFrontend));
   } catch (err) {

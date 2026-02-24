@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, Fragment } from "react";
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { USERS } from "./firmData.js";
 import {
   apiLogin, apiLogout,
   apiGetCases, apiGetDeletedCases, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
-  apiGetTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
+  apiGetTasks, apiGetCaseTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline,
   apiGetUsers, apiCreateUser, apiDeleteUser, apiUpdateUserOffices, apiUpdateUserRoles, apiUpdateUser,
   apiGetNotes, apiCreateNote, apiDeleteNote,
@@ -851,6 +851,22 @@ export default function App() {
     return () => document.head.removeChild(style);
   }, []);
 
+  const handleSelectCase = useCallback(async (c) => {
+    setSelectedCase(c);
+    if (c) {
+      try {
+        const caseTasks = await apiGetCaseTasks(c.id);
+        setTasks(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const incoming = caseTasks.filter(t => !existingIds.has(t.id));
+          return incoming.length > 0 ? [...prev, ...incoming] : prev;
+        });
+      } catch (err) {
+        console.error("Failed to load case tasks:", err);
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
 
   if (loading) return (
@@ -1279,13 +1295,13 @@ export default function App() {
         </div>
       </aside>
       <div className="main">
-        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { setSelectedCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={setSelectedCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} userOffices={userOffices} />}
+        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} userOffices={userOffices} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} />}
-        {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { setSelectedCase(c); setView("cases"); }} />}
+        {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} userOffices={userOffices} setUserOffices={setUserOffices} allUsers={allUsers} setAllUsers={setAllUsers} />}
       </div>
       <FollowUpPromptModal
@@ -1523,7 +1539,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
   const activeCases = allCases.filter(c => c.status === "Active");
   const upcomingDl = deadlines.filter(d => { const n = daysUntil(d.date); return n !== null && n >= 0 && n <= 30; }).sort((a, b) => new Date(a.date) - new Date(b.date));
   const trialSoon = allCases.filter(c => c.trialDate && daysUntil(c.trialDate) >= 0 && daysUntil(c.trialDate) <= 90).sort((a, b) => new Date(a.trialDate) - new Date(b.trialDate));
-  const myTasks = tasks.filter(t => Number(t.assigned) === Number(currentUser.id) && t.status !== "Completed");
+  const myTasks = tasks.filter(t => t.assigned === currentUser.id && t.status !== "Completed");
 
   return (
     <>
