@@ -1520,9 +1520,9 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
 
   return (
     <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ maxWidth: 420, padding: "32px 36px", borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", background: "var(--c-bg)", position: "relative", width: "90%" }} onClick={e => e.stopPropagation()}>
+      <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", lineHeight: 1 }}>✕</button>
-        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 16 }}>Change Password</div>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#1e3a5f", marginBottom: 16 }}>Change Password</div>
         {content}
         <button className="btn btn-outline" style={{ width: "100%", marginTop: 10 }} onClick={onClose}>Cancel</button>
       </div>
