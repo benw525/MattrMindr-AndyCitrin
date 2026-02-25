@@ -9,7 +9,7 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const TEMPLATE_FIELDS = "id, name, tags, created_by, created_by_name, placeholders, visibility, created_at, updated_at";
+const TEMPLATE_FIELDS = "id, name, tags, created_by, created_by_name, placeholders, visibility, category, sub_type, created_at, updated_at";
 
 const toFrontend = (row) => ({
   id: row.id,
@@ -19,6 +19,8 @@ const toFrontend = (row) => ({
   createdByName: row.created_by_name,
   placeholders: row.placeholders || [],
   visibility: row.visibility || "global",
+  category: row.category || "General",
+  subType: row.sub_type || "",
   createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
   updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
 });
@@ -27,6 +29,66 @@ const isShareholder = (req) => (req.session.userRoles || [req.session.userRole])
 const canEditTemplate = (req, template) => {
   return template.created_by === req.session.userId || isShareholder(req);
 };
+
+function extractAngleBracketPlaceholders(text) {
+  const regex = /<<([A-Za-z0-9_]+)>>/g;
+  const found = [];
+  const seen = new Set();
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const token = match[1];
+    if (!seen.has(token)) {
+      seen.add(token);
+      const label = token.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      found.push({ token, label });
+    }
+  }
+  return found;
+}
+
+function scanDocxForPlaceholders(buffer) {
+  try {
+    const zip = new PizZip(buffer);
+    const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/header3.xml", "word/footer1.xml", "word/footer2.xml", "word/footer3.xml"];
+    let allText = "";
+    for (const xmlPath of xmlFiles) {
+      const file = zip.file(xmlPath);
+      if (!file) continue;
+      allText += " " + file.asText();
+    }
+    return extractAngleBracketPlaceholders(allText);
+  } catch (err) {
+    console.error("scanDocxForPlaceholders error:", err.message);
+    return [];
+  }
+}
+
+function mergeAngleBracketRuns(xml) {
+  let prev = "";
+  while (prev !== xml) {
+    prev = xml;
+    xml = xml.replace(/(&lt;)(<\/w:t><\/w:r><w:r(?:\s[^>]*)?>?<w:t(?:\s[^>]*)?>)(&lt;)/g, "$1$3");
+    xml = xml.replace(/(&lt;&lt;[A-Za-z0-9_]*)(<\/w:t><\/w:r><w:r(?:\s[^>]*)?>?<w:t(?:\s[^>]*)?>)([A-Za-z0-9_]*&gt;)/g, "$1$3");
+    xml = xml.replace(/(&gt;)(<\/w:t><\/w:r><w:r(?:\s[^>]*)?>?<w:t(?:\s[^>]*)?>)(&gt;)/g, "$1$3");
+    xml = xml.replace(/(<<[A-Za-z0-9_]*)(<\/w:t><\/w:r><w:r(?:\s[^>]*)?>?<w:t(?:\s[^>]*)?>)([A-Za-z0-9_]*>>)/g, "$1$3");
+  }
+  return xml;
+}
+
+function convertAngleBracketsInDocx(buffer) {
+  const zip = new PizZip(buffer);
+  const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/header3.xml", "word/footer1.xml", "word/footer2.xml", "word/footer3.xml"];
+  for (const xmlPath of xmlFiles) {
+    const file = zip.file(xmlPath);
+    if (!file) continue;
+    let xml = file.asText();
+    xml = mergeAngleBracketRuns(xml);
+    xml = xml.replace(/&lt;&lt;([A-Za-z0-9_]+)&gt;&gt;/g, "{{$1}}");
+    xml = xml.replace(/<<([A-Za-z0-9_]+)>>/g, "{{$1}}");
+    zip.file(xmlPath, xml);
+  }
+  return zip.generate({ type: "nodebuffer" });
+}
 
 router.get("/", requireAuth, async (req, res) => {
   try {
@@ -77,8 +139,12 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "The document appears to be empty or its content could not be extracted. If this is a scanned document or image-based PDF saved as .doc, please convert it to a text-based .docx file first." });
     }
 
+    const detectedPlaceholders = isDoc
+      ? extractAngleBracketPlaceholders(text)
+      : scanDocxForPlaceholders(req.file.buffer);
+
     const paragraphs = text.split("\n").filter(p => p.trim());
-    return res.json({ text, paragraphs, isDoc });
+    return res.json({ text, paragraphs, isDoc, detectedPlaceholders });
   } catch (err) {
     console.error("Template upload/parse error:", err);
     return res.status(500).json({ error: "Failed to parse document. Please ensure the file is a valid Word document (.doc or .docx)." });
@@ -92,7 +158,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     return res.status(400).json({ error: "Only .doc and .docx files are supported" });
   }
 
-  const { name, tags, placeholders } = req.body;
+  const { name, tags, placeholders, category, subType } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: "Template name is required" });
 
   let parsedTags = [];
@@ -126,38 +192,49 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
       docxBuffer = newZip.generate({ type: "nodebuffer" });
     }
 
-    const zip = new PizZip(docxBuffer);
+    docxBuffer = convertAngleBracketsInDocx(docxBuffer);
 
-    const sorted = [...parsedPlaceholders].sort((a, b) => (b.original || "").length - (a.original || "").length);
-
-    const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/header3.xml", "word/footer1.xml", "word/footer2.xml", "word/footer3.xml"];
-    for (const xmlPath of xmlFiles) {
-      const file = zip.file(xmlPath);
-      if (!file) continue;
-      let xml = file.asText();
-      for (const ph of sorted) {
-        if (!ph.original) continue;
-        const escaped = ph.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const simplePattern = new RegExp(escaped, "g");
-        xml = xml.replace(simplePattern, `{{${ph.token}}}`);
+    const manualPhs = parsedPlaceholders.filter(ph => ph.original);
+    if (manualPhs.length > 0) {
+      const zip = new PizZip(docxBuffer);
+      const sorted = [...manualPhs].sort((a, b) => (b.original || "").length - (a.original || "").length);
+      const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/header3.xml", "word/footer1.xml", "word/footer2.xml", "word/footer3.xml"];
+      for (const xmlPath of xmlFiles) {
+        const file = zip.file(xmlPath);
+        if (!file) continue;
+        let xml = file.asText();
+        for (const ph of sorted) {
+          if (!ph.original) continue;
+          const escaped = ph.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const simplePattern = new RegExp(escaped, "g");
+          xml = xml.replace(simplePattern, `{{${ph.token}}}`);
+        }
+        zip.file(xmlPath, xml);
       }
-      zip.file(xmlPath, xml);
+      docxBuffer = zip.generate({ type: "nodebuffer" });
     }
 
-    const modifiedBuffer = zip.generate({ type: "nodebuffer" });
+    const storedPlaceholders = parsedPlaceholders.map(ph => ({
+      token: ph.token,
+      label: ph.label,
+      ...(ph.original ? { original: ph.original } : {}),
+      ...(ph.mapping && ph.mapping !== "_manual" ? { mapping: ph.mapping } : {}),
+    }));
 
     const { rows } = await pool.query(
-      `INSERT INTO doc_templates (name, tags, created_by, created_by_name, placeholders, docx_data, visibility)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO doc_templates (name, tags, created_by, created_by_name, placeholders, docx_data, visibility, category, sub_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING ${TEMPLATE_FIELDS}`,
       [
         name.trim(),
         parsedTags,
         req.session.userId,
         req.session.userName,
-        JSON.stringify(parsedPlaceholders),
-        modifiedBuffer,
+        JSON.stringify(storedPlaceholders),
+        docxBuffer,
         req.body.visibility === "personal" ? "personal" : "global",
+        category || "General",
+        subType || "",
       ]
     );
     return res.status(201).json(toFrontend(rows[0]));
@@ -182,7 +259,7 @@ router.get("/:id/source", requireAuth, async (req, res) => {
     let cleanXml = xml;
     for (const ph of oldPlaceholders) {
       const tokenPattern = new RegExp(`\\{\\{${ph.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}\\}`, "g");
-      cleanXml = cleanXml.replace(tokenPattern, (ph.original || ph.token));
+      cleanXml = cleanXml.replace(tokenPattern, (ph.original || `<<${ph.token}>>`));
     }
 
     const cleanZip = new PizZip(rows[0].docx_data);
@@ -195,26 +272,26 @@ router.get("/:id/source", requireAuth, async (req, res) => {
     const positioned = [];
     const usedRanges = [];
     for (const ph of oldPlaceholders) {
-      const orig = ph.original || "";
+      const searchText = ph.original || `<<${ph.token}>>`;
       let searchFrom = 0;
       let idx = -1;
       while (true) {
-        idx = text.indexOf(orig, searchFrom);
+        idx = text.indexOf(searchText, searchFrom);
         if (idx === -1) break;
-        const overlaps = usedRanges.some(r => !(idx + orig.length <= r.start || idx >= r.end));
+        const overlaps = usedRanges.some(r => !(idx + searchText.length <= r.start || idx >= r.end));
         if (!overlaps) break;
         searchFrom = idx + 1;
       }
       if (idx !== -1) {
-        usedRanges.push({ start: idx, end: idx + orig.length });
+        usedRanges.push({ start: idx, end: idx + searchText.length });
         positioned.push({
           id: Date.now() + Math.random(),
           label: ph.label,
           token: ph.token,
-          original: orig,
+          original: ph.original || "",
           start: idx,
-          end: idx + orig.length,
-          mapping: ph.mapping || "_manual",
+          end: idx + searchText.length,
+          autoDetected: !ph.original,
         });
       }
     }
@@ -227,7 +304,7 @@ router.get("/:id/source", requireAuth, async (req, res) => {
 });
 
 router.put("/:id", requireAuth, async (req, res) => {
-  const { name, tags, placeholders, visibility, reprocessDocx } = req.body;
+  const { name, tags, placeholders, visibility, reprocessDocx, category, subType } = req.body;
   try {
     const { rows: existing } = await pool.query("SELECT created_by, docx_data, placeholders AS old_placeholders FROM doc_templates WHERE id = $1", [req.params.id]);
     if (existing.length === 0) return res.status(404).json({ error: "Not found" });
@@ -239,12 +316,20 @@ router.put("/:id", requireAuth, async (req, res) => {
     if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name); }
     if (tags !== undefined) { sets.push(`tags = $${idx++}`); vals.push(Array.isArray(tags) ? tags : JSON.parse(tags || "[]")); }
     if (visibility !== undefined) { sets.push(`visibility = $${idx++}`); vals.push(visibility === "personal" ? "personal" : "global"); }
+    if (category !== undefined) { sets.push(`category = $${idx++}`); vals.push(category); }
+    if (subType !== undefined) { sets.push(`sub_type = $${idx++}`); vals.push(subType); }
 
     let parsedNewPhs = [];
     if (placeholders !== undefined) {
       parsedNewPhs = Array.isArray(placeholders) ? placeholders : JSON.parse(placeholders || "[]");
+      const storedPhs = parsedNewPhs.map(ph => ({
+        token: ph.token,
+        label: ph.label,
+        ...(ph.original ? { original: ph.original } : {}),
+        ...(ph.mapping && ph.mapping !== "_manual" ? { mapping: ph.mapping } : {}),
+      }));
       sets.push(`placeholders = $${idx++}`);
-      vals.push(JSON.stringify(parsedNewPhs));
+      vals.push(JSON.stringify(storedPhs));
     }
 
     if (reprocessDocx && placeholders !== undefined) {
@@ -259,10 +344,14 @@ router.put("/:id", requireAuth, async (req, res) => {
 
         for (const ph of oldPhs) {
           const tokenPattern = new RegExp(`\\{\\{${ph.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}\\}`, "g");
-          xml = xml.replace(tokenPattern, (ph.original || ph.token));
+          xml = xml.replace(tokenPattern, (ph.original || `<<${ph.token}>>`));
         }
 
-        const sorted = [...parsedNewPhs].sort((a, b) => (b.original || "").length - (a.original || "").length);
+        xml = xml.replace(/&lt;&lt;([A-Za-z0-9_]+)&gt;&gt;/g, "{{$1}}");
+        xml = xml.replace(/<<([A-Za-z0-9_]+)>>/g, "{{$1}}");
+
+        const manualPhs = parsedNewPhs.filter(ph => ph.original);
+        const sorted = [...manualPhs].sort((a, b) => (b.original || "").length - (a.original || "").length);
         for (const ph of sorted) {
           if (!ph.original) continue;
           const escaped = ph.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -314,6 +403,24 @@ router.post("/:id/generate", requireAuth, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: "Template not found" });
 
     const template = rows[0];
+    const phs = template.placeholders || [];
+
+    const resolvedValues = {};
+    for (const ph of phs) {
+      const val = values[ph.token];
+      if (val === undefined || val === null || val === "") {
+        resolvedValues[ph.token] = `<<${ph.token}>>`;
+      } else {
+        resolvedValues[ph.token] = val;
+      }
+    }
+
+    for (const [k, v] of Object.entries(values)) {
+      if (!(k in resolvedValues)) {
+        resolvedValues[k] = v || `<<${k}>>`;
+      }
+    }
+
     const zip = new PizZip(template.docx_data);
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
@@ -321,7 +428,7 @@ router.post("/:id/generate", requireAuth, async (req, res) => {
       delimiters: { start: "{{", end: "}}" },
     });
 
-    doc.render(values);
+    doc.render(resolvedValues);
 
     const output = doc.getZip().generate({
       type: "nodebuffer",

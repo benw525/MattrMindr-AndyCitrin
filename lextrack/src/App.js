@@ -2682,7 +2682,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <BillingPrintView c={draft} billingParties={billingParties} onClose={() => setShowBillingPrint(false)} />
       )}
       {showDocGen && (
-        <GenerateDocumentModal caseData={draft} currentUser={currentUser} onClose={() => setShowDocGen(false)} parties={parties} />
+        <GenerateDocumentModal caseData={draft} currentUser={currentUser} onClose={() => setShowDocGen(false)} parties={parties} insurance={insurance} experts={experts} />
       )}
       {showDeleteConfirm && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
@@ -3264,7 +3264,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{displayName}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                             <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: typeColor.bg, color: "#1F2428", letterSpacing: "0.02em" }}>{party.partyType}</span>
-                            {d.representedBy && <span style={{ fontSize: 11, color: "#8A9096" }}>· Rep: {d.representedBy}</span>}
+                            {d.isOurClient && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "#d4edda", color: "#1F2428", letterSpacing: "0.02em" }}>OUR CLIENT</span>}
+                            {d.isProSe && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "#fff3cd", color: "#1F2428", letterSpacing: "0.02em" }}>PRO SE</span>}
+                            {d.representedBy && !d.isProSe && <span style={{ fontSize: 11, color: "#8A9096" }}>· Rep: {d.representedBy}</span>}
                           </div>
                         </div>
                       </div>
@@ -3273,6 +3275,27 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
                     {isExp && (
                       <div style={{ padding: "12px 14px", borderTop: "1px solid var(--c-border)" }}>
+                        <div style={{ display: "flex", gap: 20, marginBottom: 12, padding: "8px 0", borderBottom: "1px solid var(--c-border)" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--c-text2)", cursor: "pointer" }}>
+                            <input type="checkbox" checked={!!d.isOurClient} onChange={async e => {
+                              const checked = e.target.checked;
+                              if (checked) {
+                                setParties(prev => prev.map(x => ({
+                                  ...x,
+                                  data: { ...x.data, isOurClient: x.id === party.id }
+                                })));
+                                const otherClients = parties.filter(p => p.id !== party.id && p.data?.isOurClient);
+                                for (const oc of otherClients) {
+                                  try { await apiUpdateParty(oc.id, { data: { ...oc.data, isOurClient: false } }); } catch (err) { console.error(err); }
+                                }
+                              }
+                              updateField("isOurClient", checked);
+                            }} /> Our Client
+                          </label>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--c-text2)", cursor: "pointer" }}>
+                            <input type="checkbox" checked={!!d.isProSe} onChange={e => updateField("isProSe", e.target.checked)} /> Pro Se
+                          </label>
+                        </div>
                         {party.entityKind === "individual" ? (
                           <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -3371,8 +3394,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <button className="btn btn-outline btn-sm" style={{ fontSize: 11, marginBottom: 12 }} onClick={() => updateField("otherContacts", [...(d.otherContacts || []), { name: "", phone: "", relationship: "" }])}>+ Add Contact</button>
 
                         {/* Represented By */}
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginTop: 4, marginBottom: 6 }}>Represented By</div>
-                        <input style={{ ...inputStyle, maxWidth: 350, marginBottom: 12 }} value={d.representedBy || ""} placeholder="Attorney / firm name" onChange={e => updateField("representedBy", e.target.value)} />
+                        {!d.isProSe && (<>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginTop: 4, marginBottom: 6 }}>Represented By</div>
+                          <input style={{ ...inputStyle, maxWidth: 350, marginBottom: 12 }} value={d.representedBy || ""} placeholder="Attorney / firm name" onChange={e => updateField("representedBy", e.target.value)} />
+                        </>)}
 
                         {/* Notes */}
                         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginTop: 4, marginBottom: 6 }}>Notes</div>
@@ -7420,6 +7445,7 @@ function AddStaffModal({ onSave, onClose }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 const CASE_FIELD_MAP = [
   { key: "title", label: "Case Title" },
   { key: "caseNum", label: "Case Number" },
@@ -7454,7 +7480,7 @@ const CASE_FIELD_MAP = [
   { key: "_todayDate", label: "Today's Date" },
 ];
 
-function buildPartyFieldMap(parties) {
+function buildPartyFieldMap(parties) { // eslint-disable-line no-unused-vars
   const map = [];
   const grouped = {};
   for (const p of parties) {
@@ -7541,24 +7567,137 @@ function getCaseFieldValue(c, key, parties) {
   return c[key] || "";
 }
 
-function GenerateDocumentModal({ caseData, currentUser, onClose, parties }) {
+const TEMPLATE_CATEGORIES = ["Pleadings", "Letters", "Subpoenas", "Reports", "General"];
+const LETTER_SUB_TYPES = ["Client", "Insurance", "Attorney", "Other"];
+const CATEGORY_COLORS = { Pleadings: "#dbeafe", Letters: "#fef3c7", Subpoenas: "#fce7f3", Reports: "#d1fae5", General: "#E4E7EB" };
+
+function getPlaceholderSuggestions(token, caseData, parties, insurance, experts) {
+  const key = token.toLowerCase();
+  const suggestions = [];
+  const allParties = parties || [];
+  const ourClient = allParties.find(p => p.data?.isOurClient);
+
+  if (/^(defendant|def_name|def$)/.test(key)) {
+    allParties.filter(p => /defendant/i.test(p.partyType)).forEach(p => {
+      const d = p.data || {};
+      const name = p.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
+      if (name) suggestions.push({ label: `${p.partyType}: ${name}`, value: name });
+    });
+    if (!suggestions.length && caseData.defendant) suggestions.push({ label: "Defendant", value: caseData.defendant });
+  } else if (/^(plaintiff|pl_name|pl$)/.test(key)) {
+    allParties.filter(p => /plaintiff/i.test(p.partyType)).forEach(p => {
+      const d = p.data || {};
+      const name = p.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
+      if (name) suggestions.push({ label: `${p.partyType}: ${name}`, value: name });
+    });
+    if (!suggestions.length && caseData.plaintiff) suggestions.push({ label: "Plaintiff", value: caseData.plaintiff });
+  } else if (/^(client|client_name|our_client)/.test(key)) {
+    if (ourClient) {
+      const d = ourClient.data || {};
+      const name = ourClient.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
+      if (name) suggestions.push({ label: "Our Client", value: name });
+    }
+    if (!suggestions.length && caseData.client) suggestions.push({ label: "Client", value: caseData.client });
+  } else if (/^(client_address|our_client_address)/.test(key)) {
+    if (ourClient) {
+      const d = ourClient.data || {};
+      const addr = [d.address, d.city, d.state, d.zip].filter(Boolean).join(", ");
+      if (addr) suggestions.push({ label: "Our Client Address", value: addr });
+    }
+  } else if (/^(case_number|case_no|civil_action|cause_no|case_num)/.test(key)) {
+    if (caseData.caseNum) suggestions.push({ label: "Case Number", value: caseData.caseNum });
+    if (caseData.shortCaseNum) suggestions.push({ label: "Short Case Number", value: caseData.shortCaseNum });
+  } else if (/^(court$|court_name)/.test(key)) {
+    if (caseData.court) suggestions.push({ label: "Court", value: caseData.court });
+  } else if (/^(judge|judge_name)/.test(key)) {
+    if (caseData.judge) suggestions.push({ label: "Judge", value: caseData.judge });
+  } else if (/^(county|county_name)/.test(key)) {
+    if (caseData.county) suggestions.push({ label: "County", value: caseData.county });
+  } else if (/^(date|today|todays_date|current_date)/.test(key)) {
+    suggestions.push({ label: "Today", value: new Date().toLocaleDateString() });
+  } else if (/^(lead_attorney|attorney_name|attorney$|counsel$)/.test(key)) {
+    const lead = USERS.find(u => u.id === caseData.leadAttorney);
+    if (lead) suggestions.push({ label: "Lead Attorney", value: lead.name });
+    const second = USERS.find(u => u.id === caseData.secondAttorney);
+    if (second) suggestions.push({ label: "2nd Attorney", value: second.name });
+  } else if (/^(opposing_counsel|opp_counsel)/.test(key)) {
+    if (caseData.opposingCounsel) suggestions.push({ label: "Opposing Counsel", value: caseData.opposingCounsel });
+  } else if (/^(case_title|case_name|title$|style)/.test(key)) {
+    if (caseData.title) suggestions.push({ label: "Case Title", value: caseData.title });
+  } else if (/^(insured|insured_name)/.test(key)) {
+    if (caseData.insured) suggestions.push({ label: "Insured", value: caseData.insured });
+  } else if (/^(claim_number|claim_no|claim_num)/.test(key)) {
+    if (caseData.claimNum) suggestions.push({ label: "Claim Number", value: caseData.claimNum });
+  } else if (/^(file_number|file_no|file_num)/.test(key)) {
+    if (caseData.fileNum) suggestions.push({ label: "File Number", value: caseData.fileNum });
+  } else if (/^(trial_date)/.test(key)) {
+    if (caseData.trialDate) suggestions.push({ label: "Trial Date", value: caseData.trialDate });
+  } else if (/^(date_of_loss|dol$)/.test(key)) {
+    if (caseData.dol) suggestions.push({ label: "Date of Loss", value: caseData.dol });
+  } else if (/^(mediator|mediator_name)/.test(key)) {
+    if (caseData.mediator) suggestions.push({ label: "Mediator", value: caseData.mediator });
+  } else if (/^(expert|expert_name)/.test(key)) {
+    (experts || []).forEach(ex => {
+      const name = ex.data?.name || "";
+      if (name) suggestions.push({ label: `Expert: ${name}`, value: name });
+    });
+    if (!suggestions.length && caseData.expert) suggestions.push({ label: "Expert", value: caseData.expert });
+  } else if (/^(paralegal|paralegal_name)/.test(key)) {
+    const para = USERS.find(u => u.id === caseData.paralegal);
+    if (para) suggestions.push({ label: "Paralegal", value: para.name });
+  } else if (/^(legal_assistant|la_name)/.test(key)) {
+    const la = USERS.find(u => u.id === caseData.legalAssistant);
+    if (la) suggestions.push({ label: "Legal Assistant", value: la.name });
+  } else if (/defendant.*address/.test(key)) {
+    allParties.filter(p => /defendant/i.test(p.partyType)).forEach(p => {
+      const d = p.data || {};
+      const addr = [d.address, d.city, d.state, d.zip].filter(Boolean).join(", ");
+      const name = p.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.lastName].filter(Boolean).join(" ");
+      if (addr) suggestions.push({ label: `${name} Address`, value: addr });
+    });
+  } else if (/plaintiff.*address/.test(key)) {
+    allParties.filter(p => /plaintiff/i.test(p.partyType)).forEach(p => {
+      const d = p.data || {};
+      const addr = [d.address, d.city, d.state, d.zip].filter(Boolean).join(", ");
+      const name = p.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.lastName].filter(Boolean).join(" ");
+      if (addr) suggestions.push({ label: `${name} Address`, value: addr });
+    });
+  } else if (/^(adjuster|adjuster_name|insurance_adjuster)/.test(key)) {
+    (insurance || []).forEach(ins => {
+      const d = ins.data || {};
+      if (d.adjusterName) suggestions.push({ label: `${d.company || "Policy"} Adjuster`, value: d.adjusterName });
+    });
+  } else if (/^(insurance_company|carrier)/.test(key)) {
+    (insurance || []).forEach(ins => {
+      const d = ins.data || {};
+      if (d.company) suggestions.push({ label: `Insurance: ${d.company}`, value: d.company });
+    });
+  }
+  return suggestions;
+}
+
+function GenerateDocumentModal({ caseData, currentUser, onClose, parties, insurance, experts }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [catFilter, setCatFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [values, setValues] = useState({});
   const [generating, setGenerating] = useState(false);
+  const [includeCoS, setIncludeCoS] = useState(true);
 
   useEffect(() => {
     apiGetTemplates().then(t => { setTemplates(t); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
   const allTags = [...new Set(templates.flatMap(t => t.tags))].sort();
+  const allCategories = [...new Set(templates.map(t => t.category || "General"))].sort();
   const filtered = templates.filter(t => {
     if (filter === "mine" && t.createdBy !== currentUser.id) return false;
     if (filter === "other" && t.createdBy === currentUser.id) return false;
+    if (catFilter && (t.category || "General") !== catFilter) return false;
     if (tagFilter && !t.tags.includes(tagFilter)) return false;
     if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -7571,10 +7710,42 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties }) {
       if (ph.mapping && ph.mapping !== "_manual") {
         v[ph.token] = getCaseFieldValue(caseData, ph.mapping, parties || []);
       } else {
-        v[ph.token] = "";
+        const sugs = getPlaceholderSuggestions(ph.token, caseData, parties, insurance, experts);
+        v[ph.token] = sugs.length === 1 ? sugs[0].value : "";
+      }
+    }
+    if (tmpl.category === "Letters" && tmpl.subType) {
+      const ourClient = (parties || []).find(p => p.data?.isOurClient);
+      if (tmpl.subType === "Client" && ourClient) {
+        const d = ourClient.data || {};
+        const name = ourClient.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
+        const addr = [d.address, d.city, d.state, d.zip].filter(Boolean).join(", ");
+        for (const ph of tmpl.placeholders) {
+          const k = ph.token.toLowerCase();
+          if (/addressee|recipient|to_name/.test(k) && name) v[ph.token] = v[ph.token] || name;
+          if (/address|to_address/.test(k) && addr) v[ph.token] = v[ph.token] || addr;
+        }
+      } else if (tmpl.subType === "Insurance") {
+        const ins = (insurance || [])[0];
+        if (ins) {
+          const d = ins.data || {};
+          for (const ph of tmpl.placeholders) {
+            const k = ph.token.toLowerCase();
+            if (/addressee|recipient|to_name|adjuster/.test(k) && d.adjusterName) v[ph.token] = v[ph.token] || d.adjusterName;
+            if (/company|carrier/.test(k) && d.company) v[ph.token] = v[ph.token] || d.company;
+          }
+        }
+      } else if (tmpl.subType === "Attorney") {
+        if (caseData.opposingCounsel) {
+          for (const ph of tmpl.placeholders) {
+            const k = ph.token.toLowerCase();
+            if (/addressee|recipient|to_name|attorney/.test(k)) v[ph.token] = v[ph.token] || caseData.opposingCounsel;
+          }
+        }
       }
     }
     setValues(v);
+    setIncludeCoS(tmpl.category === "Pleadings");
   };
 
   const handleGenerate = async () => {
@@ -7598,7 +7769,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 700, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+      <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 750, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ padding: "20px 24px 0", borderBottom: "1px solid var(--c-border)", paddingBottom: 16, flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, margin: 0, color: "var(--c-text-h)" }}>
@@ -7625,6 +7796,12 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties }) {
                   <option value="mine">My Templates</option>
                   <option value="other">Others' Templates</option>
                 </select>
+                {allCategories.length > 1 && (
+                  <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
+                    <option value="">All Categories</option>
+                    {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                )}
                 {allTags.length > 0 && (
                   <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
                     <option value="">All Tags</option>
@@ -7635,7 +7812,10 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties }) {
               {filtered.length === 0 && <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>No templates found. Upload templates from the Documents view first.</div>}
               {filtered.map(t => (
                 <div key={t.id} onClick={() => handleSelect(t)} style={{ padding: "12px 14px", borderRadius: 8, border: "1px solid var(--c-border)", marginBottom: 8, cursor: "pointer", background: "var(--c-bg2)", transition: "border-color 0.15s" }} onMouseOver={e => e.currentTarget.style.borderColor = "#1E2A3A"} onMouseOut={e => e.currentTarget.style.borderColor = ""}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)" }}>{t.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)" }}>{t.name}</div>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: CATEGORY_COLORS[t.category] || "#E4E7EB", color: "#1F2428" }}>{t.category || "General"}{t.subType ? ` — ${t.subType}` : ""}</span>
+                  </div>
                   <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>by {t.createdByName} · {t.placeholders.length} field{t.placeholders.length !== 1 ? "s" : ""}</div>
                   {t.tags.length > 0 && (
                     <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
@@ -7649,22 +7829,42 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties }) {
 
           {!loading && selected && (
             <>
-              <div style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 16 }}>
-                Template: <strong>{selected.name}</strong> · Fill in any fields below, then generate.
+              <div style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>Template: <strong>{selected.name}</strong></span>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: CATEGORY_COLORS[selected.category] || "#E4E7EB", color: "#1F2428" }}>{selected.category || "General"}</span>
               </div>
-              {selected.placeholders.map(ph => (
-                <div key={ph.token} style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>
-                    {ph.label}
-                    {ph.mapping && ph.mapping !== "_manual" && <span style={{ fontWeight: 400, color: "#1E2A3A", marginLeft: 6, fontSize: 10 }}>auto-filled from {[...CASE_FIELD_MAP, ...buildPartyFieldMap(parties || [])].find(f => f.key === ph.mapping)?.label || ph.mapping}</span>}
-                  </label>
-                  <input
-                    value={values[ph.token] || ""}
-                    onChange={e => setValues(v => ({ ...v, [ph.token]: e.target.value }))}
-                    style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }}
-                  />
-                </div>
-              ))}
+              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16 }}>Fill in fields below. Empty fields will appear as {"<<PLACEHOLDER>>"} in the document.</div>
+              {selected.placeholders.map(ph => {
+                const sugs = getPlaceholderSuggestions(ph.token, caseData, parties, insurance, experts);
+                return (
+                  <div key={ph.token} style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>
+                      {ph.label}
+                    </label>
+                    {sugs.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+                        {sugs.map((s, i) => (
+                          <button key={i} onClick={() => setValues(v => ({ ...v, [ph.token]: s.value }))}
+                            style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px solid var(--c-border)", background: values[ph.token] === s.value ? "#1E2A3A" : "var(--c-bg2)", color: values[ph.token] === s.value ? "#fff" : "var(--c-text)", cursor: "pointer" }}
+                          >{s.label}</button>
+                        ))}
+                      </div>
+                    )}
+                    <input
+                      value={values[ph.token] || ""}
+                      onChange={e => setValues(v => ({ ...v, [ph.token]: e.target.value }))}
+                      style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }}
+                      placeholder={`Leave empty for <<${ph.token}>>`}
+                    />
+                  </div>
+                );
+              })}
+              {selected.category === "Pleadings" && (
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--c-text2)", padding: "12px 0", borderTop: "1px solid var(--c-border)", marginTop: 8, cursor: "pointer" }}>
+                  <input type="checkbox" checked={includeCoS} onChange={e => setIncludeCoS(e.target.checked)} />
+                  Include Certificate of Service
+                </label>
+              )}
               <button
                 className="btn btn-primary"
                 style={{ width: "100%", padding: "10px", fontSize: 14, marginTop: 8 }}
@@ -7689,12 +7889,15 @@ function DocumentsView({ currentUser }) {
   }, []);
 
   const allTags = [...new Set(templates.flatMap(t => t.tags))].sort();
+  const allCategories = [...new Set(templates.map(t => t.category || "General"))].sort();
   const [filter, setFilter] = useState("all");
+  const [catFilter, setCatFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [search, setSearch] = useState("");
 
   const filtered = templates.filter(t => {
     if (filter === "mine" && t.createdBy !== currentUser.id) return false;
+    if (catFilter && (t.category || "General") !== catFilter) return false;
     if (tagFilter && !t.tags.includes(tagFilter)) return false;
     if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -7709,7 +7912,13 @@ function DocumentsView({ currentUser }) {
           const file = e.target.files[0]; if (!file) return; e.target.value = "";
           try {
             const parsed = await apiUploadTemplateFile(file);
-            setWizard({ step: 1, file, text: parsed.text, paragraphs: parsed.paragraphs, placeholders: [], name: file.name.replace(/\.(docx?|doc)$/i, ""), tags: [], newTag: "", isDoc: parsed.isDoc });
+            const detected = (parsed.detectedPlaceholders || []).map(ph => ({
+              ...ph, id: Date.now() + Math.random(), autoDetected: true,
+              start: parsed.text.indexOf(`<<${ph.token}>>`),
+              end: parsed.text.indexOf(`<<${ph.token}>>`) + `<<${ph.token}>>`.length,
+              original: "",
+            }));
+            setWizard({ step: 1, file, text: parsed.text, paragraphs: parsed.paragraphs, placeholders: detected, name: file.name.replace(/\.(docx?|doc)$/i, ""), tags: [], newTag: "", isDoc: parsed.isDoc, category: "General", subType: "" });
           } catch (err) { alert("Failed to parse document: " + err.message); }
         }} />
       </div>
@@ -7722,6 +7931,12 @@ function DocumentsView({ currentUser }) {
               <option value="all">All</option>
               <option value="mine">My Templates</option>
             </select>
+            {allCategories.length > 1 && (
+              <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
+                <option value="">All Categories</option>
+                {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
             {allTags.length > 0 && (
               <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
                 <option value="">All Tags</option>
@@ -7739,7 +7954,10 @@ function DocumentsView({ currentUser }) {
               return (
               <div key={t.id} style={{ padding: 16, borderRadius: 10, border: "1px solid var(--c-border)", background: "var(--c-bg2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "var(--c-text)" }}>{t.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "var(--c-text)" }}>{t.name}</div>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: CATEGORY_COLORS[t.category] || "#E4E7EB", color: "#1F2428" }}>{t.category || "General"}{t.subType ? ` — ${t.subType}` : ""}</span>
+                  </div>
                   <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: t.visibility === "personal" ? "#fef3c7" : "#ecfdf5", color: "#1F2428", flexShrink: 0, marginLeft: 8 }}>
                     {t.visibility === "personal" ? "Personal" : "Global"}
                   </span>
@@ -7764,6 +7982,8 @@ function DocumentsView({ currentUser }) {
                           tags: [...(t.tags || [])],
                           newTag: "",
                           visibility: t.visibility || "global",
+                          category: t.category || "General",
+                          subType: t.subType || "",
                           file: null,
                         });
                       } catch (err) { alert("Failed to load template: " + err.message); }
@@ -7786,30 +8006,109 @@ function DocumentsView({ currentUser }) {
       {/* ── Template Creation Wizard ── */}
       {wizard && (
         <div style={{ marginTop: 20 }}>
-          {/* Step indicator */}
           <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-            {(wizard.editingId ? ["Select Placeholders", "Map Fields", "Name & Save"] : ["Upload", "Select Placeholders", "Map Fields", "Name & Tag"]).map((label, i) => {
+            {(wizard.editingId ? ["Placeholders", "Review & Save"] : ["Name & Category", "Placeholders", "Review & Save"]).map((label, i) => {
               const stepNum = wizard.editingId ? i + 2 : i + 1;
               return <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: wizard.step === stepNum ? 700 : 400, color: wizard.step === stepNum ? "#1E2A3A" : "#8A9096", borderBottom: `2px solid ${wizard.step === stepNum ? "#1E2A3A" : "var(--c-border)"}` }}>{i + 1}. {label}</div>;
             })}
           </div>
 
-          {/* Step 1: Upload complete — auto-advance (skip when editing) */}
-          {!wizard.editingId && wizard.step === 1 && (() => {
-            setTimeout(() => setWizard(w => w ? { ...w, step: 2 } : w), 300);
-            return <div style={{ color: "#8A9096", fontSize: 13 }}>Document parsed. Loading preview...</div>;
-          })()}
-          {wizard.isDoc && wizard.step >= 2 && (
+          {wizard.isDoc && wizard.step >= 1 && (
             <div style={{ background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, padding: "8px 14px", marginBottom: 12, fontSize: 12, color: "#92400e" }}>
               This .doc file has been converted to .docx format. The text content is preserved, but some formatting may be simplified. For best results, use .docx files.
+            </div>
+          )}
+
+          {/* Step 1: Name, Category, Tags (new templates only) */}
+          {!wizard.editingId && wizard.step === 1 && (
+            <div style={{ display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 260px)" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4, flexShrink: 0 }}>Step 1: Name & Category</div>
+              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16, flexShrink: 0 }}>Name your template and choose a category.</div>
+
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Template Name</label>
+                  <input value={wizard.name} onChange={e => setWizard(w => ({ ...w, name: e.target.value }))} style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }} autoFocus />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Category</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {TEMPLATE_CATEGORIES.map(cat => (
+                      <button key={cat} onClick={() => setWizard(w => ({ ...w, category: cat, subType: cat !== "Letters" ? "" : w.subType }))}
+                        style={{ padding: "8px 16px", borderRadius: 8, border: `2px solid ${wizard.category === cat ? "#1E2A3A" : "var(--c-border)"}`, background: wizard.category === cat ? CATEGORY_COLORS[cat] : "var(--c-bg2)", cursor: "pointer", fontSize: 13, fontWeight: wizard.category === cat ? 700 : 400, color: "var(--c-text)" }}
+                      >{cat}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {wizard.category === "Letters" && (
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Letter Type</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {LETTER_SUB_TYPES.map(st => (
+                        <button key={st} onClick={() => setWizard(w => ({ ...w, subType: st }))}
+                          style={{ padding: "6px 14px", borderRadius: 6, border: `2px solid ${wizard.subType === st ? "#1E2A3A" : "var(--c-border)"}`, background: wizard.subType === st ? "#fef3c7" : "var(--c-bg2)", cursor: "pointer", fontSize: 12, fontWeight: wizard.subType === st ? 700 : 400, color: "var(--c-text)" }}
+                        >{st}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Tags</label>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                    {wizard.tags.map(tag => (
+                      <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#E4E7EB", color: "#1F2428", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
+                        {tag} ✕
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input placeholder="Add a tag (e.g., Discovery, Motions)" value={wizard.newTag || ""} onChange={e => setWizard(w => ({ ...w, newTag: e.target.value }))}
+                      onKeyDown={e => { if (e.key === "Enter" && wizard.newTag?.trim()) { setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); } }}
+                      style={{ flex: 1, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { if (wizard.newTag?.trim()) setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); }}>Add Tag</button>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Visibility</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setWizard(w => ({ ...w, visibility: "global" }))}
+                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${(wizard.visibility || "global") === "global" ? "#1E2A3A" : "var(--c-border)"}`, background: (wizard.visibility || "global") === "global" ? "#E4E7EB" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Everyone</div>
+                      <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>All staff can use this template</div>
+                    </button>
+                    <button onClick={() => setWizard(w => ({ ...w, visibility: "personal" }))}
+                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${wizard.visibility === "personal" ? "#1E2A3A" : "var(--c-border)"}`, background: wizard.visibility === "personal" ? "#E4E7EB" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Only Me</div>
+                      <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>Only visible to you</div>
+                    </button>
+                  </div>
+                </div>
+
+                {wizard.placeholders.length > 0 && (
+                  <div style={{ background: "#d1fae5", border: "1px solid #10b981", borderRadius: 6, padding: "8px 14px", fontSize: 12, color: "#065f46" }}>
+                    {wizard.placeholders.length} placeholder{wizard.placeholders.length !== 1 ? "s" : ""} auto-detected from {"<<"} {">> markers in your document."}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, flexShrink: 0, paddingTop: 8 }}>
+                <button className="btn btn-outline" onClick={() => setWizard(null)}>Cancel</button>
+                <button className="btn btn-primary" disabled={!wizard.name?.trim()} onClick={() => setWizard(w => ({ ...w, step: 2 }))}>Next: Placeholders</button>
+              </div>
             </div>
           )}
 
           {/* Step 2: Select Placeholders */}
           {wizard.step === 2 && (
             <div style={{ display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 260px)" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4, flexShrink: 0 }}>{wizard.editingId ? "Edit Placeholders" : "Step 2: Select Placeholders"}</div>
-              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16, flexShrink: 0 }}>{wizard.editingId ? "Your existing placeholders are shown below. Add new ones, remove existing ones, or continue to the next step." : "Highlight any text below and click \"Make Placeholder\" to mark it as a field that changes per case."}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4, flexShrink: 0 }}>{wizard.editingId ? "Edit Placeholders" : "Step 2: Placeholders"}</div>
+              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16, flexShrink: 0 }}>
+                {wizard.editingId ? "Your existing placeholders are shown below. Add new ones or remove existing ones." : "Auto-detected placeholders are shown. You can also highlight text and click \"Make Placeholder\" to add more."}
+              </div>
 
               <div style={{ display: "flex", gap: 20, flex: 1, minHeight: 0, overflow: "hidden" }}>
                 <div style={{ flex: 2, display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -7819,7 +8118,8 @@ function DocumentsView({ currentUser }) {
                   >
                     {(() => {
                       let displayText = wizard.text;
-                      const sorted = [...wizard.placeholders].sort((a, b) => b.start - a.start);
+                      const manualPhs = wizard.placeholders.filter(p => !p.autoDetected && p.start >= 0);
+                      const sorted = [...manualPhs].sort((a, b) => b.start - a.start);
                       const parts = [];
                       let lastEnd = displayText.length;
                       for (const ph of sorted) {
@@ -7852,13 +8152,13 @@ function DocumentsView({ currentUser }) {
                     preRange.setEnd(range.startContainer, range.startOffset);
                     const preText = preRange.toString();
                     let idx = -1;
-                    const sortedPhs = [...wizard.placeholders].sort((a, b) => a.start - b.start);
+                    const manualPhs = wizard.placeholders.filter(p => !p.autoDetected && p.start >= 0);
+                    const sortedPhs = [...manualPhs].sort((a, b) => a.start - b.start);
                     let offset = 0;
                     let visualPos = 0;
                     for (const ph of sortedPhs) {
                       if (visualPos + (ph.start - offset) > preText.length) break;
                       const labelLen = `[${ph.label}]`.length;
-                      const origLen = ph.end - ph.start;
                       visualPos += (ph.start - offset);
                       visualPos += labelLen;
                       offset = ph.end;
@@ -7869,14 +8169,14 @@ function DocumentsView({ currentUser }) {
                     idx = fullText.indexOf(text, searchStart);
                     if (idx === -1) idx = fullText.indexOf(text);
                     if (idx === -1) return alert("Could not locate the selected text. Try selecting a more unique phrase.");
-                    const overlap = wizard.placeholders.some(p => !(idx + text.length <= p.start || idx >= p.end));
+                    const overlap = manualPhs.some(p => !(idx + text.length <= p.start || idx >= p.end));
                     if (overlap) return alert("This selection overlaps with an existing placeholder.");
                     const label = prompt("Name this placeholder (e.g., 'Client Name', 'Settlement Amount'):");
                     if (!label || !label.trim()) return;
                     const token = label.trim().replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
                     setWizard(w => ({
                       ...w,
-                      placeholders: [...w.placeholders, { id: Date.now(), label: label.trim(), token, original: text, start: idx, end: idx + text.length }],
+                      placeholders: [...w.placeholders, { id: Date.now(), label: label.trim(), token, original: text, start: idx, end: idx + text.length, autoDetected: false }],
                     }));
                     sel.removeAllRanges();
                   }}>Make Placeholder</button>
@@ -7885,12 +8185,16 @@ function DocumentsView({ currentUser }) {
 
                 <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginBottom: 8 }}>Placeholders ({wizard.placeholders.length})</div>
-                  {wizard.placeholders.length === 0 && <div style={{ fontSize: 12, color: "#8A9096", fontStyle: "italic" }}>None yet. Highlight text and click "Make Placeholder".</div>}
+                  {wizard.placeholders.length === 0 && <div style={{ fontSize: 12, color: "#8A9096", fontStyle: "italic" }}>None yet. Use {"<<NAME>>"} markers in your document or highlight text to add placeholders.</div>}
                   {wizard.placeholders.map(ph => (
                     <div key={ph.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--c-border2)", fontSize: 12 }}>
                       <div>
-                        <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{ph.label}</div>
-                        <div style={{ color: "#8A9096", fontSize: 11 }}>replaces: "{ph.original.substring(0, 40)}{ph.original.length > 40 ? "..." : ""}"</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontWeight: 600, color: "var(--c-text)" }}>{ph.label}</span>
+                          {ph.autoDetected && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#d1fae5", color: "#065f46" }}>auto</span>}
+                        </div>
+                        {ph.original && <div style={{ color: "#8A9096", fontSize: 11 }}>replaces: "{(ph.original || "").substring(0, 40)}{(ph.original || "").length > 40 ? "..." : ""}"</div>}
+                        {!ph.original && ph.autoDetected && <div style={{ color: "#8A9096", fontSize: 11 }}>{"<<"}{ph.token}{">>"}</div>}
                       </div>
                       <button onClick={() => setWizard(w => ({ ...w, placeholders: w.placeholders.filter(x => x.id !== ph.id) }))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14 }}>✕</button>
                     </div>
@@ -7899,139 +8203,113 @@ function DocumentsView({ currentUser }) {
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, flexShrink: 0, paddingTop: 8 }}>
-                <button className="btn btn-outline" onClick={() => { setWizard(null); }}>Cancel</button>
-                <button className="btn btn-primary" disabled={wizard.placeholders.length === 0} onClick={() => setWizard(w => ({ ...w, step: 3 }))}>{wizard.editingId ? "Next: Map Fields" : "Next: Map Fields"}</button>
+                <button className="btn btn-outline" onClick={() => { if (wizard.editingId) { setWizard(null); } else { setWizard(w => ({ ...w, step: 1 })); } }}>{wizard.editingId ? "Cancel" : "Back"}</button>
+                <button className="btn btn-primary" onClick={() => setWizard(w => ({ ...w, step: 3 }))}>Next: Review & Save</button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Map to case fields */}
+          {/* Step 3: Review & Save */}
           {wizard.step === 3 && (
             <div style={{ display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 260px)" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4, flexShrink: 0 }}>Step 3: Map Fields</div>
-              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16, flexShrink: 0 }}>For each placeholder, choose whether it auto-fills from case data or is entered manually each time.</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4, flexShrink: 0 }}>Review & Save</div>
+              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16, flexShrink: 0 }}>Review your template settings and placeholders, then save.</div>
 
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid var(--c-border)", borderRadius: 8, padding: "4px 0" }}>
-              {wizard.placeholders.map(ph => (
-                <div key={ph.id} style={{ display: "flex", gap: 16, alignItems: "center", padding: "12px 16px", borderBottom: "1px solid var(--c-border2)" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)", marginBottom: 2 }}>{ph.label}</div>
-                    <div style={{ fontSize: 12, color: "#8A9096", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>replaces: "{ph.original.substring(0, 60)}{ph.original.length > 60 ? "..." : ""}"</div>
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                {wizard.editingId && (
+                  <>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Template Name</label>
+                      <input value={wizard.name} onChange={e => setWizard(w => ({ ...w, name: e.target.value }))} style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Category</label>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {TEMPLATE_CATEGORIES.map(cat => (
+                          <button key={cat} onClick={() => setWizard(w => ({ ...w, category: cat, subType: cat !== "Letters" ? "" : w.subType }))}
+                            style={{ padding: "6px 14px", borderRadius: 6, border: `2px solid ${wizard.category === cat ? "#1E2A3A" : "var(--c-border)"}`, background: wizard.category === cat ? CATEGORY_COLORS[cat] : "var(--c-bg2)", cursor: "pointer", fontSize: 12, fontWeight: wizard.category === cat ? 700 : 400, color: "var(--c-text)" }}
+                          >{cat}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {wizard.category === "Letters" && (
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Letter Type</label>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {LETTER_SUB_TYPES.map(st => (
+                            <button key={st} onClick={() => setWizard(w => ({ ...w, subType: st }))}
+                              style={{ padding: "4px 12px", borderRadius: 6, border: `2px solid ${wizard.subType === st ? "#1E2A3A" : "var(--c-border)"}`, background: wizard.subType === st ? "#fef3c7" : "var(--c-bg2)", cursor: "pointer", fontSize: 12, fontWeight: wizard.subType === st ? 700 : 400, color: "var(--c-text)" }}
+                            >{st}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Tags</label>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                        {wizard.tags.map(tag => (
+                          <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#E4E7EB", color: "#1F2428", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
+                            {tag} ✕
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input placeholder="Add a tag" value={wizard.newTag || ""} onChange={e => setWizard(w => ({ ...w, newTag: e.target.value }))}
+                          onKeyDown={e => { if (e.key === "Enter" && wizard.newTag?.trim()) { setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); } }}
+                          style={{ flex: 1, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { if (wizard.newTag?.trim()) setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); }}>Add Tag</button>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Visibility</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setWizard(w => ({ ...w, visibility: "global" }))}
+                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${(wizard.visibility || "global") === "global" ? "#1E2A3A" : "var(--c-border)"}`, background: (wizard.visibility || "global") === "global" ? "#E4E7EB" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Everyone</div>
+                          <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>All staff can use this template</div>
+                        </button>
+                        <button onClick={() => setWizard(w => ({ ...w, visibility: "personal" }))}
+                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${wizard.visibility === "personal" ? "#1E2A3A" : "var(--c-border)"}`, background: wizard.visibility === "personal" ? "#E4E7EB" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Only Me</div>
+                          <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>Only visible to you</div>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", marginBottom: 8 }}>Summary</div>
+                  <div style={{ fontSize: 12, color: "var(--c-text2)", lineHeight: 1.8 }}>
+                    <div><strong>Name:</strong> {wizard.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><strong>Category:</strong> <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 4, background: CATEGORY_COLORS[wizard.category] || "#E4E7EB", color: "#1F2428" }}>{wizard.category || "General"}{wizard.subType ? ` — ${wizard.subType}` : ""}</span></div>
+                    <div><strong>Placeholders:</strong> {wizard.placeholders.length} ({wizard.placeholders.filter(p => p.autoDetected).length} auto-detected, {wizard.placeholders.filter(p => !p.autoDetected).length} manual)</div>
+                    {wizard.tags.length > 0 && <div><strong>Tags:</strong> {wizard.tags.join(", ")}</div>}
+                    <div><strong>Visibility:</strong> {(wizard.visibility || "global") === "global" ? "Everyone" : "Only Me"}</div>
                   </div>
-                  <select
-                    value={ph.mapping || "_manual"}
-                    onChange={e => setWizard(w => ({
-                      ...w,
-                      placeholders: w.placeholders.map(p => p.id === ph.id ? { ...p, mapping: e.target.value } : p),
-                    }))}
-                    style={{ fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", minWidth: 220, flexShrink: 0 }}
-                  >
-                    <option value="_manual">Ask me each time</option>
-                    <optgroup label="Case Fields">
-                      {CASE_FIELD_MAP.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
-                    </optgroup>
-                    <optgroup label="Party Fields">
-                      {[
-                        { key: "_party_plaintiff_1_full_name", label: "Plaintiff #1 — Full Name" },
-                        { key: "_party_plaintiff_1_first_name", label: "Plaintiff #1 — First Name" },
-                        { key: "_party_plaintiff_1_last_name", label: "Plaintiff #1 — Last Name" },
-                        { key: "_party_plaintiff_1_address", label: "Plaintiff #1 — Address" },
-                        { key: "_party_plaintiff_1_full_address", label: "Plaintiff #1 — Full Address" },
-                        { key: "_party_plaintiff_1_email", label: "Plaintiff #1 — Email" },
-                        { key: "_party_plaintiff_1_phone", label: "Plaintiff #1 — Phone" },
-                        { key: "_party_plaintiff_1_entity_name", label: "Plaintiff #1 — Entity Name" },
-                        { key: "_party_plaintiff_2_full_name", label: "Plaintiff #2 — Full Name" },
-                        { key: "_party_plaintiff_2_entity_name", label: "Plaintiff #2 — Entity Name" },
-                        { key: "_party_defendant_1_full_name", label: "Defendant #1 — Full Name" },
-                        { key: "_party_defendant_1_first_name", label: "Defendant #1 — First Name" },
-                        { key: "_party_defendant_1_last_name", label: "Defendant #1 — Last Name" },
-                        { key: "_party_defendant_1_address", label: "Defendant #1 — Address" },
-                        { key: "_party_defendant_1_full_address", label: "Defendant #1 — Full Address" },
-                        { key: "_party_defendant_1_email", label: "Defendant #1 — Email" },
-                        { key: "_party_defendant_1_phone", label: "Defendant #1 — Phone" },
-                        { key: "_party_defendant_1_entity_name", label: "Defendant #1 — Entity Name" },
-                        { key: "_party_defendant_2_full_name", label: "Defendant #2 — Full Name" },
-                        { key: "_party_defendant_2_entity_name", label: "Defendant #2 — Entity Name" },
-                        { key: "_party_cross_defendant_1_full_name", label: "Cross-Defendant #1 — Full Name" },
-                        { key: "_party_cross_defendant_1_entity_name", label: "Cross-Defendant #1 — Entity Name" },
-                        { key: "_party_third_party_defendant_1_full_name", label: "Third-Party Defendant #1 — Full Name" },
-                        { key: "_party_third_party_plaintiff_1_full_name", label: "Third-Party Plaintiff #1 — Full Name" },
-                        { key: "_party_intervenor_1_full_name", label: "Intervenor #1 — Full Name" },
-                        { key: "_party_garnishee_1_full_name", label: "Garnishee #1 — Full Name" },
-                      ].map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
-                    </optgroup>
-                  </select>
+                  {wizard.placeholders.length > 0 && (
+                    <div style={{ marginTop: 12, borderTop: "1px solid var(--c-border)", paddingTop: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", marginBottom: 4 }}>Placeholder List:</div>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {wizard.placeholders.map(ph => (
+                          <span key={ph.id} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: ph.autoDetected ? "#d1fae5" : "#E4E7EB", color: "#1F2428" }}>{ph.label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, flexShrink: 0, paddingTop: 8 }}>
                 <button className="btn btn-outline" onClick={() => setWizard(w => ({ ...w, step: 2 }))}>Back</button>
-                <button className="btn btn-primary" onClick={() => setWizard(w => ({ ...w, step: 4 }))}>Next: Name & Tag</button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Name and Tags */}
-          {wizard.step === 4 && (
-            <div style={{ display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 260px)" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4, flexShrink: 0 }}>{wizard.editingId ? "Review & Save" : "Step 4: Name & Tag"}</div>
-              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16, flexShrink: 0 }}>{wizard.editingId ? "Review your changes and save the updated template." : "Give your template a name and optional tags for easy filtering."}</div>
-
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Template Name</label>
-                <input value={wizard.name} onChange={e => setWizard(w => ({ ...w, name: e.target.value }))} style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", boxSizing: "border-box" }} />
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Tags</label>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-                  {wizard.tags.map(tag => (
-                    <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#E4E7EB", color: "#1F2428", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
-                      {tag} ✕
-                    </span>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input placeholder="Add a tag (e.g., Discovery, Motions)" value={wizard.newTag || ""} onChange={e => setWizard(w => ({ ...w, newTag: e.target.value }))}
-                    onKeyDown={e => { if (e.key === "Enter" && wizard.newTag?.trim()) { setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); } }}
-                    style={{ flex: 1, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { if (wizard.newTag?.trim()) setWizard(w => ({ ...w, tags: [...w.tags, w.newTag.trim()], newTag: "" })); }}>Add Tag</button>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Visibility</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={() => setWizard(w => ({ ...w, visibility: "global" }))}
-                    style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${(wizard.visibility || "global") === "global" ? "#1E2A3A" : "var(--c-border)"}`, background: (wizard.visibility || "global") === "global" ? "#E4E7EB" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Everyone</div>
-                    <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>All staff can use this template</div>
-                  </button>
-                  <button
-                    onClick={() => setWizard(w => ({ ...w, visibility: "personal" }))}
-                    style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${wizard.visibility === "personal" ? "#1E2A3A" : "var(--c-border)"}`, background: wizard.visibility === "personal" ? "#E4E7EB" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Only Me</div>
-                    <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>Only visible to you</div>
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 16 }}>
-                <strong>Summary:</strong> {wizard.placeholders.length} placeholder{wizard.placeholders.length !== 1 ? "s" : ""}, {wizard.placeholders.filter(p => p.mapping && p.mapping !== "_manual").length} auto-filled, {wizard.placeholders.filter(p => !p.mapping || p.mapping === "_manual").length} manual
-              </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, flexShrink: 0, paddingTop: 8 }}>
-                <button className="btn btn-outline" onClick={() => setWizard(w => ({ ...w, step: 3 }))}>Back</button>
                 <button className="btn btn-primary" disabled={!wizard.name?.trim()} onClick={async () => {
                   try {
                     const phData = wizard.placeholders.map(p => ({
-                      token: p.token, label: p.label, original: p.original, mapping: p.mapping || "_manual",
+                      token: p.token, label: p.label, original: p.original || "",
                     }));
 
                     if (wizard.editingId) {
@@ -8040,17 +8318,13 @@ function DocumentsView({ currentUser }) {
                         tags: wizard.tags,
                         placeholders: phData,
                         visibility: wizard.visibility || "global",
+                        category: wizard.category || "General",
+                        subType: wizard.subType || "",
                         reprocessDocx: true,
                       });
                       setTemplates(p => p.map(t => t.id === updated.id ? updated : t));
                     } else {
-                      const docxText = wizard.text;
-                      let modified = docxText;
-                      const sorted = [...wizard.placeholders].sort((a, b) => b.start - a.start);
-                      for (const ph of sorted) {
-                        modified = modified.slice(0, ph.start) + `{{${ph.token}}}` + modified.slice(ph.end);
-                      }
-                      const saved = await apiSaveTemplate(wizard.file, wizard.name.trim(), wizard.tags, phData, wizard.visibility || "global");
+                      const saved = await apiSaveTemplate(wizard.file, wizard.name.trim(), wizard.tags, phData, wizard.visibility || "global", wizard.category || "General", wizard.subType || "");
                       setTemplates(p => [...p, saved]);
                     }
                     setWizard(null);

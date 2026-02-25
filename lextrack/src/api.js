@@ -113,13 +113,15 @@ export async function apiUploadTemplateFile(file) {
   return res.json();
 }
 
-export async function apiSaveTemplate(file, name, tags, placeholders, visibility) {
+export async function apiSaveTemplate(file, name, tags, placeholders, visibility, category, subType) {
   const form = new FormData();
   form.append("file", file);
   form.append("name", name);
   form.append("tags", JSON.stringify(tags));
   form.append("placeholders", JSON.stringify(placeholders));
   form.append("visibility", visibility || "global");
+  form.append("category", category || "General");
+  form.append("subType", subType || "");
   const res = await fetch("/api/templates", { method: "POST", credentials: "include", body: form });
   if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Save error ${res.status}`); }
   return res.json();
