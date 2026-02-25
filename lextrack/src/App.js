@@ -2779,6 +2779,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [medPartyDob, setMedPartyDob] = useState("");
   const [expandedMedEntry, setExpandedMedEntry] = useState(null);
   const [showMedPrint, setShowMedPrint] = useState(null);
+  const [showCompletedOverlay, setShowCompletedOverlay] = useState(false);
   const [medFilters, setMedFilters] = useState({});
   const [expenseServiceFilter, setExpenseServiceFilter] = useState("");
   const [expensePaidFilter, setExpensePaidFilter] = useState("all");
@@ -3505,22 +3506,26 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div className="case-overlay-section">
                 <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
                 {tasks.length === 0 && <div style={{ fontSize: 12, color: "#8A9096" }}>No tasks yet.</div>}
-                {tasks.map(t => {
-                  const done = t.status === "Completed"; const days = daysUntil(t.due);
+                {tasks.filter(t => t.status !== "Completed").sort((a, b) => {
+                  const da = a.due ? new Date(a.due) : new Date("9999-12-31");
+                  const db = b.due ? new Date(b.due) : new Date("9999-12-31");
+                  return da - db;
+                }).map(t => {
+                  const days = daysUntil(t.due);
                   const assignee = getUserById(t.assigned);
                   return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border2)", opacity: done ? 0.45 : 1 }}>
-                      <div className={`checkbox ${done ? "done" : ""}`} style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)}>{done && "✓"}</div>
+                    <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border2)" }}>
+                      <div className="checkbox" style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: "var(--c-text)", textDecoration: done ? "line-through" : "none", lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 13, color: "var(--c-text)", lineHeight: 1.3 }}>
                           {t.title}
                           {t.recurring && <span className="rec-badge">🔁</span>}
                           {t.isChained && <span className="chain-badge">⛓</span>}
                         </div>
                         <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                           <Badge label={getEffectivePriority(t)} />
-                          <span style={{ fontSize: 10, color: days < 0 && !done ? "#e05252" : "#8A9096" }}>
-                            {fmt(t.due)}{days < 0 && !done ? ` (${Math.abs(days)}d over)` : ""}
+                          <span style={{ fontSize: 10, color: days < 0 ? "#e05252" : "#8A9096" }}>
+                            {fmt(t.due)}{days < 0 ? ` (${Math.abs(days)}d over)` : ""}
                           </span>
                           {assignee && (
                             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -3533,6 +3538,46 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </div>
                   );
                 })}
+                {tasks.filter(t => t.status === "Completed").length > 0 && (
+                  <>
+                    <div
+                      onClick={() => setShowCompletedOverlay(!showCompletedOverlay)}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", cursor: "pointer", borderBottom: "1px solid var(--c-border2)" }}
+                    >
+                      <span style={{ fontSize: 12, color: "#8A9096" }}>{showCompletedOverlay ? "▼" : "▶"}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text2)" }}>Completed</span>
+                      <Badge label={`${tasks.filter(t => t.status === "Completed").length}`} />
+                    </div>
+                    {showCompletedOverlay && tasks.filter(t => t.status === "Completed").sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0)).map(t => {
+                      const assignee = getUserById(t.assigned);
+                      return (
+                        <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border2)", opacity: 0.45 }}>
+                          <div className="checkbox done" style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)}>✓</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, color: "var(--c-text)", textDecoration: "line-through", lineHeight: 1.3 }}>
+                              {t.title}
+                              {t.recurring && <span className="rec-badge">🔁</span>}
+                              {t.isChained && <span className="chain-badge">⛓</span>}
+                            </div>
+                            <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                              <Badge label={getEffectivePriority(t)} />
+                              <span style={{ fontSize: 10, color: "#8A9096" }}>
+                                {fmt(t.due)}
+                              </span>
+                              {assignee && (
+                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <Avatar userId={assignee.id} size={16} />
+                                  <span style={{ fontSize: 10, color: "#8A9096" }}>{assignee.name}</span>
+                                </span>
+                              )}
+                              {t.completedAt && <span style={{ fontSize: 10, color: "#2F7A5F" }}>completed {fmt(t.completedAt)}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
 
               <div className="case-overlay-section">
