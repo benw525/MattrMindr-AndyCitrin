@@ -2985,58 +2985,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         {activeTab === "details" && (
           <div className="case-overlay-body">
 
-            {/* Case Info fields */}
-            <div className="case-overlay-section" style={{ maxWidth: 500 }}>
-              <div className="case-overlay-section-title">Case Info</div>
-              {infoFields.filter(f => !hiddenFields.includes(f.key)).map(f => (
-                <EditField
-                  key={f.key}
-                  fieldKey={f.key}
-                  label={f.label}
-                  type={f.type}
-                  options={f.options}
-                  value={draft[f.key]}
-                  onChange={val => f.type === "select" || f.type === "user" ? setAndLog(f.key, val) : set(f.key, val)}
-                  onBlur={() => (f.type === "text") && handleBlur(f.key)}
-                  canRemove={editMode && canRemove}
-                  onRemove={() => setHiddenFields(p => [...p, f.key])}
-                  readOnly={!editMode}
-                  onContactClick={!editMode && CONTACT_LINKABLE_KEYS.has(f.key) ? handleContactClick : undefined}
-                />
-              ))}
-            </div>
+            {/* Two-column: Parties + Case Info */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
 
-            {/* Offices */}
-            <div className="case-overlay-section" style={{ maxWidth: 500 }}>
-              <div className="case-overlay-section-title">Office(s)</div>
-              {editMode ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 4 }}>
-                  {OFFICES.map(o => {
-                    const checked = (draft.offices || []).includes(o);
-                    return (
-                      <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#1E2A3A" : "var(--c-text2)", userSelect: "none" }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            const curr = draft.offices || [];
-                            setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
-                          }}
-                        />
-                        {o}
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: "var(--c-text)", paddingTop: 4 }}>
-                  {(draft.offices || []).length > 0 ? (draft.offices || []).join(", ") : "—"}
-                </div>
-              )}
-            </div>
-
-            {/* Parties */}
-            <div className="case-overlay-section">
+              {/* Left column: Parties */}
+              <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
               <div className="case-overlay-section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>Parties ({parties.length})</span>
                 <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={() => setAddingParty(true)}>+ Add Party</button>
@@ -3255,7 +3208,60 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                 );
               })}
+              </div>
+
+              {/* Right column: Case Info + Offices */}
+              <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
+                <div className="case-overlay-section-title">Case Info</div>
+                {infoFields.filter(f => !hiddenFields.includes(f.key)).map(f => (
+                  <EditField
+                    key={f.key}
+                    fieldKey={f.key}
+                    label={f.label}
+                    type={f.type}
+                    options={f.options}
+                    value={draft[f.key]}
+                    onChange={val => f.type === "select" || f.type === "user" ? setAndLog(f.key, val) : set(f.key, val)}
+                    onBlur={() => (f.type === "text") && handleBlur(f.key)}
+                    canRemove={editMode && canRemove}
+                    onRemove={() => setHiddenFields(p => [...p, f.key])}
+                    readOnly={!editMode}
+                    onContactClick={!editMode && CONTACT_LINKABLE_KEYS.has(f.key) ? handleContactClick : undefined}
+                  />
+                ))}
+
+                <div style={{ marginTop: 16 }}>
+                  <div className="case-overlay-section-title">Office(s)</div>
+                  {editMode ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 4 }}>
+                      {OFFICES.map(o => {
+                        const checked = (draft.offices || []).includes(o);
+                        return (
+                          <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#1E2A3A" : "var(--c-text2)", userSelect: "none" }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                const curr = draft.offices || [];
+                                setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
+                              }}
+                            />
+                            {o}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: "var(--c-text)", paddingTop: 4 }}>
+                      {(draft.offices || []).length > 0 ? (draft.offices || []).join(", ") : "—"}
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
+
+            <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
             {/* Team */}
             <div className="case-overlay-section" style={{ maxWidth: 500 }}>
