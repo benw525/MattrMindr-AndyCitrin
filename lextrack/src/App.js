@@ -2223,14 +2223,14 @@ const CORE_FIELDS = [
   { key: "title",      label: "Style / Title",      type: "text",   section: "details" },
   { key: "caseNum",    label: "Case Number",         type: "text",   section: "details" },
   { key: "fileNum",    label: "File Number",         type: "text",   section: "details" },
-  { key: "client",     label: "Client",              type: "text",   section: "details" },
-  { key: "insured",    label: "Insured",              type: "text",   section: "details" },
+  { key: "client",     label: "Client",              type: "text",   section: "info" },
+  { key: "insured",    label: "Insured",              type: "text",   section: "info" },
   { key: "plaintiff",        label: "Plaintiff(s)",        type: "text",   section: "details" },
   { key: "defendant",        label: "Defendant(s)",        type: "text",   section: "details" },
   { key: "opposingCounsel",  label: "Opposing Counsel",    type: "text",   section: "details" },
-  { key: "shortCaseNum",     label: "Short Case Number",   type: "text",   section: "details" },
-  { key: "county",           label: "County",              type: "text",   section: "details" },
-  { key: "court",            label: "Court",               type: "text",   section: "details" },
+  { key: "shortCaseNum",     label: "Short Case Number",   type: "text",   section: "info" },
+  { key: "county",           label: "County",              type: "text",   section: "info" },
+  { key: "court",            label: "Court",               type: "text",   section: "info" },
   { key: "expert",           label: "Expert",              type: "text",   section: "details" },
   { key: "claimNum",   label: "Claim Number",        type: "text",   section: "details" },
   { key: "claimSpec",  label: "Claim Specialist",    type: "text",   section: "details" },
@@ -2458,6 +2458,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   };
 
   const detailFields = CORE_FIELDS.filter(f => f.section === "details" && f.key !== "status" && f.key !== "stage");
+  const infoFields   = CORE_FIELDS.filter(f => f.section === "info");
   const dateFields   = CORE_FIELDS.filter(f => f.section === "dates");
   const teamFields   = CORE_FIELDS.filter(f => f.section === "team");
 
@@ -2877,6 +2878,107 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
             </div>
 
+            <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
+
+            {/* Three-column: Deadlines | Tasks | Notes */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 32px" }}>
+              <div className="case-overlay-section">
+                <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
+                {deadlines.length === 0 && <div style={{ fontSize: 12, color: "#8A9096" }}>None on record.</div>}
+                {[...deadlines].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(d => {
+                  const days = daysUntil(d.date); const col = urgencyColor(days);
+                  return (
+                    <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--c-border2)" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, color: "var(--c-text)" }}>{d.title}</div>
+                        {d.type && <div style={{ fontSize: 10, color: "#8A9096" }}>{d.type}</div>}
+                      </div>
+                      <div style={{ fontSize: 12, color: col, whiteSpace: "nowrap", textAlign: "right" }}>
+                        <div>{fmt(d.date)}</div>
+                        {days !== null && <div style={{ fontSize: 10 }}>{days < 0 ? `${Math.abs(days)}d over` : `${days}d`}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="case-overlay-section">
+                <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
+                {tasks.length === 0 && <div style={{ fontSize: 12, color: "#8A9096" }}>No tasks yet.</div>}
+                {tasks.map(t => {
+                  const done = t.status === "Completed"; const days = daysUntil(t.due);
+                  const assignee = getUserById(t.assigned);
+                  return (
+                    <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border2)", opacity: done ? 0.45 : 1 }}>
+                      <div className={`checkbox ${done ? "done" : ""}`} style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)}>{done && "✓"}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: "var(--c-text)", textDecoration: done ? "line-through" : "none", lineHeight: 1.3 }}>
+                          {t.title}
+                          {t.recurring && <span className="rec-badge">🔁</span>}
+                          {t.isChained && <span className="chain-badge">⛓</span>}
+                        </div>
+                        <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                          <Badge label={getEffectivePriority(t)} />
+                          <span style={{ fontSize: 10, color: days < 0 && !done ? "#e05252" : "#8A9096" }}>
+                            {fmt(t.due)}{days < 0 && !done ? ` (${Math.abs(days)}d over)` : ""}
+                          </span>
+                          {assignee && (
+                            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <Avatar userId={assignee.id} size={16} />
+                              <span style={{ fontSize: 10, color: "#8A9096" }}>{assignee.name}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="case-overlay-section">
+                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={handleAddNote} onDeleteNote={handleDeleteNote} caseRecord={c} />
+              </div>
+            </div>
+
+            {/* File Links */}
+            <div style={{ borderTop: "1px solid var(--c-border)", marginTop: 8, paddingTop: 28 }}>
+              <CaseFileLinks
+                caseId={c.id}
+                links={links}
+                currentUser={currentUser}
+                onAddLink={handleAddLink}
+                onDeleteLink={handleDeleteLink}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── Details Tab ── */}
+        {activeTab === "details" && (
+          <div className="case-overlay-body">
+
+            {/* Case Info fields */}
+            <div className="case-overlay-section" style={{ maxWidth: 500 }}>
+              <div className="case-overlay-section-title">Case Info</div>
+              {infoFields.filter(f => !hiddenFields.includes(f.key)).map(f => (
+                <EditField
+                  key={f.key}
+                  fieldKey={f.key}
+                  label={f.label}
+                  type={f.type}
+                  options={f.options}
+                  value={draft[f.key]}
+                  onChange={val => f.type === "select" || f.type === "user" ? setAndLog(f.key, val) : set(f.key, val)}
+                  onBlur={() => (f.type === "text") && handleBlur(f.key)}
+                  canRemove={editMode && canRemove}
+                  onRemove={() => setHiddenFields(p => [...p, f.key])}
+                  readOnly={!editMode}
+                  onContactClick={!editMode && CONTACT_LINKABLE_KEYS.has(f.key) ? handleContactClick : undefined}
+                />
+              ))}
+            </div>
+
             {/* Offices */}
             <div className="case-overlay-section" style={{ maxWidth: 500 }}>
               <div className="case-overlay-section-title">Office(s)</div>
@@ -2988,91 +3090,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               )}
             </div>
 
-            <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
-
-            {/* Three-column: Deadlines | Tasks | Notes */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 32px" }}>
-              <div className="case-overlay-section">
-                <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
-                {deadlines.length === 0 && <div style={{ fontSize: 12, color: "#8A9096" }}>None on record.</div>}
-                {[...deadlines].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(d => {
-                  const days = daysUntil(d.date); const col = urgencyColor(days);
-                  return (
-                    <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--c-border2)" }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, color: "var(--c-text)" }}>{d.title}</div>
-                        {d.type && <div style={{ fontSize: 10, color: "#8A9096" }}>{d.type}</div>}
-                      </div>
-                      <div style={{ fontSize: 12, color: col, whiteSpace: "nowrap", textAlign: "right" }}>
-                        <div>{fmt(d.date)}</div>
-                        {days !== null && <div style={{ fontSize: 10 }}>{days < 0 ? `${Math.abs(days)}d over` : `${days}d`}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="case-overlay-section">
-                <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
-                {tasks.length === 0 && <div style={{ fontSize: 12, color: "#8A9096" }}>No tasks yet.</div>}
-                {tasks.map(t => {
-                  const done = t.status === "Completed"; const days = daysUntil(t.due);
-                  const assignee = getUserById(t.assigned);
-                  return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border2)", opacity: done ? 0.45 : 1 }}>
-                      <div className={`checkbox ${done ? "done" : ""}`} style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)}>{done && "✓"}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: "var(--c-text)", textDecoration: done ? "line-through" : "none", lineHeight: 1.3 }}>
-                          {t.title}
-                          {t.recurring && <span className="rec-badge">🔁</span>}
-                          {t.isChained && <span className="chain-badge">⛓</span>}
-                        </div>
-                        <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                          <Badge label={getEffectivePriority(t)} />
-                          <span style={{ fontSize: 10, color: days < 0 && !done ? "#e05252" : "#8A9096" }}>
-                            {fmt(t.due)}{days < 0 && !done ? ` (${Math.abs(days)}d over)` : ""}
-                          </span>
-                          {assignee && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              <Avatar userId={assignee.id} size={16} />
-                              <span style={{ fontSize: 10, color: "#8A9096" }}>{assignee.name}</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="case-overlay-section">
-                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={handleAddNote} onDeleteNote={handleDeleteNote} caseRecord={c} />
-              </div>
-            </div>
-
-            {/* File Links */}
-            <div style={{ borderTop: "1px solid var(--c-border)", marginTop: 8, paddingTop: 28 }}>
-              <CaseFileLinks
-                caseId={c.id}
-                links={links}
-                currentUser={currentUser}
-                onAddLink={handleAddLink}
-                onDeleteLink={handleDeleteLink}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* ── Details Tab ── */}
-        {activeTab === "details" && (
-          <div className="case-overlay-body">
-            <div className="case-overlay-section">
-              <div className="case-overlay-section-title">Details</div>
-              <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>
-                No additional details yet.
-              </div>
-            </div>
           </div>
         )}
 
