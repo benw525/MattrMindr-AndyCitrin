@@ -61,8 +61,10 @@ const canAccessCase = (row, req) => {
 };
 
 const requirePD = (req, res, next) => {
-  if (req.session.userRole !== "Public Defender") {
-    return res.status(403).json({ error: "Public Defender only" });
+  const roles = req.session.userRoles || [req.session.userRole];
+  const allowed = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender"];
+  if (!allowed.some(r => roles.includes(r))) {
+    return res.status(403).json({ error: "Public Defender leadership only" });
   }
   next();
 };

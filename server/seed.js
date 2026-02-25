@@ -20,15 +20,18 @@ async function seed() {
     await client.query("BEGIN");
 
     console.log(`Seeding ${USERS.length} users...`);
+    const bcrypt = require("bcryptjs");
+    const defaultHash = await bcrypt.hash("1234", 10);
     for (const u of USERS) {
       await client.query(
-        `INSERT INTO users (id, name, role, email, initials, phone, cell, avatar)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        `INSERT INTO users (id, name, role, roles, email, initials, phone, cell, avatar, password_hash, offices)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (id) DO UPDATE SET
-           name=$2, role=$3, email=$4, initials=$5, phone=$6, cell=$7, avatar=$8`,
-        [u.id, u.name, u.role, u.email, u.initials, u.phone || "", u.cell || "", u.avatar || "#4C7AC9"]
+           name=$2, role=$3, roles=$4, email=$5, initials=$6, phone=$7, cell=$8, avatar=$9, offices=$11`,
+        [u.id, u.name, u.role, [u.role], u.email, u.initials, u.phone || "", u.cell || "", u.avatar || "#4C7AC9", defaultHash, ["Mobile"]]
       );
     }
+    console.log(`${USERS.length} users seeded.`);
 
     console.log(`Seeding ${CASES.length} cases...`);
     for (const c of CASES) {

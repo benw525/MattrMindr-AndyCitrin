@@ -111,13 +111,27 @@ lextrack/
 
 ## Staff Roles
 - Public Defender
-- Assistant Public Defender
-- Investigator
-- Legal Assistant
+- Chief Deputy Public Defender
+- Deputy Public Defender
+- Senior Trial Attorney
+- Trial Attorney
+- Office Administrator
+- Administrative Assistant
+- IT Specialist
+- Trial Coordinator Supervisor
 - Trial Coordinator
+- Chief Social Worker
 - Social Worker
-- Admin
+- Client Advocate
+- Investigator
+- Paralegal
 - App Admin
+
+## User Data
+- 61 staff members seeded from the actual Mobile County Public Defender's Office team roster
+- Users stored in `lextrack/src/firmData.js` and seeded to DB via `server/seed.js`
+- Default password for all seeded users: `1234`
+- All users assigned to "Mobile" office
 
 ## Team Assignment Fields
 - Assigned Attorney (replaces leadAttorney)
@@ -133,7 +147,7 @@ lextrack/
 - Admin (App Admin role) can send temp passwords to any user via Staff Directory
 - Forgot Password: sends reset code via email, valid for 1 hour
 - New users automatically receive temp password email on creation
-- Access control: `requirePD` middleware (Public Defender role required for admin actions)
+- Access control: `requirePD` middleware (Public Defender, Chief Deputy, or Deputy Public Defender required for admin actions)
 
 ## Architecture Notes
 - **DB migration path**: All DB access via REST API — swap `DATABASE_URL` to point to Supabase, swap `express-session` for JWT, done.

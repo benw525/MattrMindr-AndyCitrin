@@ -26,7 +26,7 @@ const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Di
 
 const OFFICES = ["Mobile"];
 
-const STAFF_ROLES = ["Public Defender","Assistant Public Defender","Investigator","Legal Assistant","Trial Coordinator","Social Worker","Admin","App Admin"];
+const STAFF_ROLES = ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","Trial Attorney","Office Administrator","Administrative Assistant","IT Specialist","Trial Coordinator Supervisor","Trial Coordinator","Chief Social Worker","Social Worker","Client Advocate","Investigator","Paralegal","App Admin"];
 const hasRole = (user, role) => (user?.roles || (user?.role ? [user.role] : [])).includes(role);
 const isAppAdmin = (user) => hasRole(user, "App Admin");
 const AVATAR_PALETTE = ["#C9A84C","#4C7AC9","#4CAE72","#C94C4C","#9B4CC9","#4CC9C9","#C97B4C","#4C9BC9","#7BC94C","#C94C8C","#884CC9","#4CC96A","#C9C94C","#4C6AC9","#C94C6A","#4CAEC9","#6AC94C","#C9844C","#4CC9A8","#5884C9"];
@@ -547,9 +547,9 @@ body.dark-body { background: #0E1116; }
 
 
 // ─── TimePromptModal ──────────────────────────────────────────────────────────
-const ATTY_PARA_ROLES = ["Public Defender", "Assistant Public Defender", "Trial Coordinator"];
+const ATTY_PARA_ROLES = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "Trial Attorney", "Trial Coordinator"];
 const isAttyPara  = (u) => ATTY_PARA_ROLES.some(r => hasRole(u, r));
-const isLegalAsst = (u) => hasRole(u, "Legal Assistant");
+const isSupportStaff = (u) => u && !isAttyPara(u);
 
 function TimePromptModal({ pending, onSubmit }) {
   const [time, setTime]           = useState("");
@@ -562,7 +562,7 @@ function TimePromptModal({ pending, onSubmit }) {
   const { task, completingUser, caseForTask } = pending;
 
   const showClaimPrompt  = isAttyPara(completingUser)  && task?.assigned > 0 && task.assigned !== completingUser?.id;
-  const showAssignPrompt = isLegalAsst(completingUser);
+  const showAssignPrompt = isSupportStaff(completingUser);
 
   const caseTeamIds   = caseForTask ? [caseForTask.assignedAttorney, caseForTask.secondAttorney, caseForTask.trialCoordinator, caseForTask.investigator, caseForTask.socialWorker].filter(id => id > 0) : [];
   const caseTeamUsers = USERS.filter(u => caseTeamIds.includes(u.id) && isAttyPara(u));
@@ -614,7 +614,7 @@ function TimePromptModal({ pending, onSubmit }) {
           </div>
         )}
 
-        {/* Legal Assistant: assign credit to attorney/trial coordinator? */}
+        {/* Support staff: assign credit to attorney/trial coordinator? */}
         {showAssignPrompt && (
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--c-border)" }}>
             <p style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10 }}>
@@ -1361,7 +1361,7 @@ function LoginScreen({ onLogin }) {
         {view === "login" && (<>
           <div className="form-group">
             <label>Email</label>
-            <input type="email" placeholder="your.email@mcpdo.gov" value={email} onChange={e => { setEmail(e.target.value); setErr(""); setMsg(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} />
+            <input type="email" placeholder="your.email@mobiledefender.org" value={email} onChange={e => { setEmail(e.target.value); setErr(""); setMsg(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} />
           </div>
           <div className="form-group">
             <label>Password</label>
@@ -1381,7 +1381,7 @@ function LoginScreen({ onLogin }) {
           <div style={{ fontSize: 13, color: "#8A9096", marginBottom: 16 }}>Enter your email and we'll send a reset code.</div>
           <div className="form-group">
             <label>Email</label>
-            <input type="email" placeholder="your.email@mcpdo.gov" value={email} onChange={e => { setEmail(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doForgot()} />
+            <input type="email" placeholder="your.email@mobiledefender.org" value={email} onChange={e => { setEmail(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doForgot()} />
           </div>
           {err && <div style={{ color: "#e05252", fontSize: 13, marginBottom: 12 }}>{err}</div>}
           <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={doForgot} disabled={busy}>
@@ -2311,7 +2311,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const officeAttorneys = useMemo(() => {
     return USERS
       .filter(u => {
-        if (!hasRole(u, "Public Defender") && !hasRole(u, "Assistant Public Defender")) return false;
+        if (!["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","Trial Attorney"].some(r => hasRole(u, r))) return false;
         if (officeFilter === "All") return true;
         const uOff = userOffices[u.id] || [];
         return uOff.includes(officeFilter);
@@ -2653,7 +2653,7 @@ const CORE_FIELDS = [
   { key: "socialWorker",     label: "Social Worker",        type: "user",   section: "team" },
 ];
 
-const isAttorney = (user) => hasRole(user, "Public Defender") || hasRole(user, "Assistant Public Defender");
+const isAttorney = (user) => hasRole(user, "Public Defender") || hasRole(user, "Chief Deputy Public Defender") || hasRole(user, "Deputy Public Defender") || hasRole(user, "Senior Trial Attorney") || hasRole(user, "Trial Attorney");
 
 function EditField({ fieldKey, label, type, options, value, onChange, onBlur, onRemove, canRemove, isCustom, userList, readOnly, onContactClick }) {
   const displayVal = type === "date" ? (value || "") : (value ?? "");
@@ -4805,7 +4805,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
   const [assignId, setAssignId] = useState(0);
   const [showAllAssign, setShowAllAssign] = useState(false);
 
-  const currentIsLegalAsst = isLegalAsst(currentUser);
+  const currentIsSupportStaff = isSupportStaff(currentUser);
 
   const caseTeamIds   = caseRecord ? [caseRecord.assignedAttorney, caseRecord.secondAttorney, caseRecord.trialCoordinator, caseRecord.investigator, caseRecord.socialWorker].filter(id => id > 0) : [];
   const caseTeamUsers = USERS.filter(u => caseTeamIds.includes(u.id) && isAttyPara(u));
@@ -4823,7 +4823,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
       authorRole: currentUser.role,
       createdAt: new Date().toISOString(),
       timeLogged: form.time.trim() || null,
-      timeLogUser: (currentIsLegalAsst && assignId > 0) ? assignId : null,
+      timeLogUser: (currentIsSupportStaff && assignId > 0) ? assignId : null,
     });
     setForm({ type: "General", body: "", time: "" });
     setAssignId(0);
@@ -4875,7 +4875,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
               onChange={e => setForm(p => ({ ...p, time: e.target.value }))}
             />
           </div>
-          {currentIsLegalAsst && (
+          {currentIsSupportStaff && (
             <div className="form-group" style={{ marginBottom: 10 }}>
               <label>Assign Time Credit To <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>(optional)</span></label>
               <select value={assignId} onChange={e => setAssignId(Number(e.target.value))}>
@@ -7012,7 +7012,7 @@ function NewContactModal({ onSave, onClose }) {
   );
 }
 
-const ATTORNEY_STAFF_TYPES = ["Legal Assistant", "Trial Coordinator", "Receptionist", "Other"];
+const ATTORNEY_STAFF_TYPES = ["Paralegal", "Trial Coordinator", "Administrative Assistant", "Other"];
 const COURT_STAFF_TYPES = ["Judicial Assistant", "Clerk", "Court Reporter", "Bailiff", "Other"];
 
 function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, onUpdate, onDelete, onAddNote, onDeleteNote }) {
@@ -8688,7 +8688,7 @@ function DocumentsView({ currentUser }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
             {filtered.map(t => {
-              const canEdit = t.createdBy === currentUser.id || hasRole(currentUser, "Public Defender");
+              const canEdit = t.createdBy === currentUser.id || hasRole(currentUser, "Public Defender") || hasRole(currentUser, "Chief Deputy Public Defender") || hasRole(currentUser, "Deputy Public Defender");
               return (
               <div key={t.id} style={{ padding: 16, borderRadius: 10, border: "1px solid var(--c-border)", background: "var(--c-bg2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
