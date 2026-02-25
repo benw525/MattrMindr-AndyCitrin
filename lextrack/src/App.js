@@ -2405,7 +2405,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [contactEditDraft, setContactEditDraft] = useState(null);
   const [billingParties, setBillingParties] = useState(c.billingParties || []);
   const [showAddParty, setShowAddParty] = useState(false);
-  const [newPartyForm, setNewPartyForm] = useState({ name: "", dob: "", collateralSource: false });
+  const [newPartyForm, setNewPartyForm] = useState({ name: "", dob: "", collateralSource: false, partyId: "" });
   const [caseExpenses, setCaseExpenses] = useState(c.caseExpenses || []);
   const [medicalSummary, setMedicalSummary] = useState(c.medicalSummary || []);
   const [showAddMedParty, setShowAddMedParty] = useState(false);
@@ -2850,61 +2850,49 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         </div>
       )}
       {contactPopup && (
-        <div onClick={e => e.target === e.currentTarget && (setContactPopup(null), setContactEditMode(false))} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
-          <div style={{ background: "#2b3544", borderRadius: 10, padding: "20px 24px", maxWidth: 360, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.45)", display: "inline-flex", flexDirection: "column" }}>
+        <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && (setContactPopup(null), setContactEditMode(false))}>
+          <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => { setContactPopup(null); setContactEditMode(false); }} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
             {contactEditMode && contactEditDraft ? (
               <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, color: "#F7F8FA" }}>Edit Contact</div>
-                  <button onClick={() => setContactEditMode(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {[["Name", "name"], ["Phone", "phone"], ["Email", "email"], ["Fax", "fax"], ["Address", "address"]].map(([lbl, key]) => (
-                    <div key={key}>
-                      <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 3 }}>{lbl}</div>
-                      <input value={contactEditDraft[key] || ""} onChange={e => setContactEditDraft(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", boxSizing: "border-box", background: "#1e2a38", border: "1px solid #3d4f63", borderRadius: 5, color: "#D6D8DB", padding: "5px 8px", fontSize: 13 }} />
-                    </div>
-                  ))}
-                  <div>
-                    <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 3 }}>Category</div>
-                    <select value={contactEditDraft.category || "Client"} onChange={e => setContactEditDraft(p => ({ ...p, category: e.target.value }))} style={{ width: "100%", background: "#1e2a38", border: "1px solid #3d4f63", borderRadius: 5, color: "#D6D8DB", padding: "5px 8px", fontSize: 13 }}>
-                      {CONTACT_CATEGORIES.map(o => <option key={o}>{o}</option>)}
-                    </select>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#1e3a5f", marginBottom: 16 }}>Edit Contact</div>
+                {[["Name", "name"], ["Phone", "phone"], ["Email", "email"], ["Fax", "fax"], ["Address", "address"]].map(([lbl, key]) => (
+                  <div className="form-group" key={key}>
+                    <label>{lbl}</label>
+                    <input value={contactEditDraft[key] || ""} onChange={e => setContactEditDraft(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%" }} />
                   </div>
+                ))}
+                <div className="form-group">
+                  <label>Category</label>
+                  <select value={contactEditDraft.category || "Client"} onChange={e => setContactEditDraft(p => ({ ...p, category: e.target.value }))} style={{ width: "100%" }}>
+                    {CONTACT_CATEGORIES.map(o => <option key={o}>{o}</option>)}
+                  </select>
                 </div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
-                  <button className="btn btn-outline btn-sm" style={{ borderColor: "#4a5568", color: "#D6D8DB" }} onClick={() => setContactEditMode(false)}>Cancel</button>
-                  <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A" }} onClick={async () => {
-                    try {
-                      const saved = await apiUpdateContact(contactEditDraft.id, contactEditDraft);
-                      setAllContacts(p => p.map(ct => ct.id === saved.id ? saved : ct));
-                      setContactPopup(saved);
-                      setContactEditMode(false);
-                    } catch { alert("Failed to save contact."); }
-                  }}>Save</button>
-                </div>
+                <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={async () => {
+                  try {
+                    const saved = await apiUpdateContact(contactEditDraft.id, contactEditDraft);
+                    setAllContacts(p => p.map(ct => ct.id === saved.id ? saved : ct));
+                    setContactPopup(saved);
+                    setContactEditMode(false);
+                  } catch { alert("Failed to save contact."); }
+                }}>Save</button>
+                <button className="btn btn-outline" style={{ width: "100%", marginTop: 10 }} onClick={() => setContactEditMode(false)}>Cancel</button>
               </>
             ) : (() => {
               const cs = CONTACT_CAT_STYLE[contactPopup.category] || CONTACT_CAT_STYLE.Miscellaneous;
               const row = (icon, val) => val ? (
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: "#8A9096", width: 16, flexShrink: 0 }}>{icon}</span>
-                  <span style={{ fontSize: 13, color: "#D6D8DB" }}>{val}</span>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+                  <span style={{ fontSize: 14, color: "#8A9096", width: 18, flexShrink: 0 }}>{icon}</span>
+                  <span style={{ fontSize: 13, color: "var(--c-text)" }}>{val}</span>
                 </div>
               ) : null;
               return (
                 <>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
-                    <div>
-                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "#F7F8FA", marginBottom: 6 }}>{contactPopup.name}</div>
-                      <span style={{ fontSize: 11, fontWeight: 600, background: cs.bg, color: "#1F2428", borderRadius: 4, padding: "2px 8px" }}>{contactPopup.category}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <button onClick={() => { setContactEditDraft({ ...contactPopup }); setContactEditMode(true); }} style={{ fontSize: 11, padding: "3px 10px", background: "transparent", border: "1px solid #4a5568", borderRadius: 5, color: "#8A9096", cursor: "pointer" }}>✎ Edit</button>
-                      <button onClick={() => setContactPopup(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
-                    </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 600, color: "#1e3a5f", marginBottom: 6 }}>{contactPopup.name}</div>
+                    <span style={{ fontSize: 11, fontWeight: 600, background: cs.bg, color: "#1F2428", borderRadius: 4, padding: "2px 8px" }}>{contactPopup.category}</span>
                   </div>
-                  <div style={{ borderTop: "1px solid #3d4f63", paddingTop: 14 }}>
+                  <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 14 }}>
                     {row("📞", contactPopup.phone)}
                     {row("✉️", contactPopup.email)}
                     {row("📠", contactPopup.fax)}
@@ -2913,6 +2901,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div style={{ fontSize: 12, color: "#8A9096", fontStyle: "italic" }}>No contact details on file.</div>
                     )}
                   </div>
+                  <button className="btn btn-gold" style={{ width: "100%", padding: 10, marginTop: 16 }} onClick={() => { setContactEditDraft({ ...contactPopup }); setContactEditMode(true); }}>Edit Contact</button>
                 </>
               );
             })()}
@@ -3896,52 +3885,49 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           return (
             <div className="case-overlay-body">
               {showAddMedParty && (
-                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAddMedParty(false)}>
-                  <div className="modal-box" style={{ maxWidth: 380 }}>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 16 }}>Add Party to Medical Summary</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 3 }}>Select Party</div>
-                        <select value={medPartySelect} onChange={e => {
-                          setMedPartySelect(e.target.value);
-                          const p = parties.find(x => String(x.id) === e.target.value);
-                          setMedPartyDob(p?.data?.dob || "");
-                        }} style={{ width: "100%", boxSizing: "border-box", fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
-                          <option value="">— Select a party —</option>
-                          {parties.filter(p => !medicalSummary.some(ms => ms.partyId === p.id)).map(p => {
-                            const n = p.entityKind === "corporation" ? (p.data?.entityName || "Unnamed") : [p.data?.firstName, p.data?.middleName, p.data?.lastName].filter(Boolean).join(" ") || "Unnamed";
-                            return <option key={p.id} value={p.id}>{n} ({p.partyType})</option>;
-                          })}
-                        </select>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 3 }}>Date of Birth</div>
-                        <input type="date" value={medPartyDob} onChange={e => setMedPartyDob(e.target.value)} style={{ width: "100%", boxSizing: "border-box", fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
-                      </div>
+                <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && (setShowAddMedParty(false), setMedPartySelect(""), setMedPartyDob(""))}>
+                  <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => { setShowAddMedParty(false); setMedPartySelect(""); setMedPartyDob(""); }} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#1e3a5f", marginBottom: 16 }}>Add Party to Medical Summary</div>
+                    <div className="form-group">
+                      <label>Select Party</label>
+                      <select value={medPartySelect} onChange={e => {
+                        setMedPartySelect(e.target.value);
+                        const p = parties.find(x => String(x.id) === e.target.value);
+                        setMedPartyDob(p?.data?.dob || "");
+                      }} style={{ width: "100%" }}>
+                        <option value="">— Select a party —</option>
+                        {parties.filter(p => !medicalSummary.some(ms => ms.partyId === p.id)).map(p => {
+                          const n = p.entityKind === "corporation" ? (p.data?.entityName || "Unnamed") : [p.data?.firstName, p.data?.middleName, p.data?.lastName].filter(Boolean).join(" ") || "Unnamed";
+                          return <option key={p.id} value={p.id}>{n} ({p.partyType})</option>;
+                        })}
+                      </select>
                     </div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => { setShowAddMedParty(false); setMedPartySelect(""); setMedPartyDob(""); }}>Cancel</button>
-                      <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A" }} disabled={!medPartySelect} onClick={async () => {
-                        const p = parties.find(x => String(x.id) === medPartySelect);
-                        if (!p) return;
-                        const n = p.entityKind === "corporation" ? (p.data?.entityName || "Unnamed") : [p.data?.firstName, p.data?.middleName, p.data?.lastName].filter(Boolean).join(" ") || "Unnamed";
-                        if (medPartyDob && !p.data?.dob) {
-                          try {
-                            await apiUpdateParty(p.id, { data: { ...p.data, dob: medPartyDob } });
-                            setParties(prev => prev.map(x => x.id === p.id ? { ...x, data: { ...x.data, dob: medPartyDob } } : x));
-                          } catch (err) { console.error("Failed to update party DOB:", err); }
-                          const bp = billingParties.find(b => b.name.toLowerCase() === n.toLowerCase());
-                          if (bp && !bp.dob) {
-                            setBillingParties(prev => prev.map(b => b.id === bp.id ? { ...b, dob: medPartyDob } : b));
-                          }
+                    <div className="form-group">
+                      <label>Date of Birth</label>
+                      <input type="date" value={medPartyDob} onChange={e => setMedPartyDob(e.target.value)} style={{ width: "100%" }} />
+                    </div>
+                    <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} disabled={!medPartySelect} onClick={async () => {
+                      const p = parties.find(x => String(x.id) === medPartySelect);
+                      if (!p) return;
+                      const n = p.entityKind === "corporation" ? (p.data?.entityName || "Unnamed") : [p.data?.firstName, p.data?.middleName, p.data?.lastName].filter(Boolean).join(" ") || "Unnamed";
+                      if (medPartyDob && !p.data?.dob) {
+                        try {
+                          await apiUpdateParty(p.id, { data: { ...p.data, dob: medPartyDob } });
+                          setParties(prev => prev.map(x => x.id === p.id ? { ...x, data: { ...x.data, dob: medPartyDob } } : x));
+                        } catch (err) { console.error("Failed to update party DOB:", err); }
+                        const bp = billingParties.find(b => b.name.toLowerCase() === n.toLowerCase());
+                        if (bp && !bp.dob) {
+                          setBillingParties(prev => prev.map(b => b.id === bp.id ? { ...b, dob: medPartyDob } : b));
                         }
-                        setMedicalSummary(prev => [...prev, { id: newId(), partyId: p.id, name: n, dob: medPartyDob || p.data?.dob || "", entries: [] }]);
-                        log("Medical Summary Party Added", `Added ${n} to medical summary`);
-                        setShowAddMedParty(false);
-                        setMedPartySelect("");
-                        setMedPartyDob("");
-                      }}>Add Party</button>
-                    </div>
+                      }
+                      setMedicalSummary(prev => [...prev, { id: newId(), partyId: p.id, name: n, dob: medPartyDob || p.data?.dob || "", entries: [] }]);
+                      log("Medical Summary Party Added", `Added ${n} to medical summary`);
+                      setShowAddMedParty(false);
+                      setMedPartySelect("");
+                      setMedPartyDob("");
+                    }}>Add Party</button>
+                    <button className="btn btn-outline" style={{ width: "100%", marginTop: 10 }} onClick={() => { setShowAddMedParty(false); setMedPartySelect(""); setMedPartyDob(""); }}>Cancel</button>
                   </div>
                 </div>
               )}
@@ -4086,34 +4072,48 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           return (
             <div className="case-overlay-body">
               {showAddParty && (
-                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAddParty(false)}>
-                  <div className="modal-box" style={{ maxWidth: 360 }}>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 16 }}>Add Party</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 3 }}>Name</div>
-                        <input value={newPartyForm.name} onChange={e => setNewPartyForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%", boxSizing: "border-box" }} placeholder="Full name" autoFocus />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 3 }}>Date of Birth</div>
-                        <input type="date" value={newPartyForm.dob} onChange={e => setNewPartyForm(p => ({ ...p, dob: e.target.value }))} style={{ width: "100%", boxSizing: "border-box" }} />
-                      </div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--c-text)" }}>
-                        <input type="checkbox" checked={newPartyForm.collateralSource} onChange={e => setNewPartyForm(p => ({ ...p, collateralSource: e.target.checked }))} />
-                        Collateral Source
-                      </label>
+                <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && setShowAddParty(false)}>
+                  <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setShowAddParty(false)} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#1e3a5f", marginBottom: 16 }}>Add Party to Billing Summary</div>
+                    <div className="form-group">
+                      <label>Select Party</label>
+                      <select value={newPartyForm.partyId || ""} onChange={e => {
+                        const pid = e.target.value;
+                        if (!pid) { setNewPartyForm({ name: "", dob: "", collateralSource: false, partyId: "" }); return; }
+                        const p = parties.find(x => String(x.id) === pid);
+                        if (p) {
+                          const n = p.entityKind === "corporation" ? (p.data?.entityName || "Unnamed") : [p.data?.firstName, p.data?.middleName, p.data?.lastName].filter(Boolean).join(" ") || "Unnamed";
+                          setNewPartyForm(prev => ({ ...prev, partyId: pid, name: n, dob: p.data?.dob || prev.dob }));
+                        }
+                      }} style={{ width: "100%" }}>
+                        <option value="">— Select a party —</option>
+                        {parties.filter(p => !billingParties.some(bp => {
+                          const n = p.entityKind === "corporation" ? (p.data?.entityName || "Unnamed") : [p.data?.firstName, p.data?.middleName, p.data?.lastName].filter(Boolean).join(" ") || "Unnamed";
+                          return bp.name.toLowerCase() === n.toLowerCase();
+                        })).map(p => {
+                          const n = p.entityKind === "corporation" ? (p.data?.entityName || "Unnamed") : [p.data?.firstName, p.data?.middleName, p.data?.lastName].filter(Boolean).join(" ") || "Unnamed";
+                          return <option key={p.id} value={p.id}>{n} ({p.partyType})</option>;
+                        })}
+                      </select>
                     </div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => setShowAddParty(false)}>Cancel</button>
-                      <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A" }} onClick={() => {
-                        if (!newPartyForm.name.trim()) return;
-                        const partyName = newPartyForm.name.trim();
-                        setBillingParties(p => [...p, { id: newId(), name: partyName, dob: newPartyForm.dob, collateralSource: newPartyForm.collateralSource, medRows: [{ id: newId(), provider: "", treatmentDates: "", amount: "" }], csRows: [{ id: newId(), insuranceProvider: "", dateRange: "", amount: "" }] }]);
-                        log("Billing Party Added", `Added billing party "${partyName}"`);
-                        setNewPartyForm({ name: "", dob: "", collateralSource: false });
-                        setShowAddParty(false);
-                      }}>Add Party</button>
+                    <div className="form-group">
+                      <label>Date of Birth</label>
+                      <input type="date" value={newPartyForm.dob} onChange={e => setNewPartyForm(p => ({ ...p, dob: e.target.value }))} style={{ width: "100%" }} />
                     </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--c-text)", marginBottom: 16 }}>
+                      <input type="checkbox" checked={newPartyForm.collateralSource} onChange={e => setNewPartyForm(p => ({ ...p, collateralSource: e.target.checked }))} />
+                      Collateral Source
+                    </label>
+                    <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} disabled={!newPartyForm.name} onClick={() => {
+                      if (!newPartyForm.name.trim()) return;
+                      const partyName = newPartyForm.name.trim();
+                      setBillingParties(p => [...p, { id: newId(), name: partyName, dob: newPartyForm.dob, collateralSource: newPartyForm.collateralSource, medRows: [{ id: newId(), provider: "", treatmentDates: "", amount: "" }], csRows: [{ id: newId(), insuranceProvider: "", dateRange: "", amount: "" }] }]);
+                      log("Billing Party Added", `Added billing party "${partyName}"`);
+                      setNewPartyForm({ name: "", dob: "", collateralSource: false, partyId: "" });
+                      setShowAddParty(false);
+                    }}>Add Party</button>
+                    <button className="btn btn-outline" style={{ width: "100%", marginTop: 10 }} onClick={() => setShowAddParty(false)}>Cancel</button>
                   </div>
                 </div>
               )}
