@@ -146,7 +146,7 @@ router.post("/", requireAuth, async (req, res) => {
       parts.push(`Type:${c.type || "Civil Litigation"}`);
       parts.push(`Status:${c.status}`);
       if (c.stage) parts.push(`Stage:${c.stage}`);
-      if (c.offices && c.offices.length) parts.push(`Offices:${c.offices.join(",")}`);
+      if (c.court_division) parts.push(`Division:${c.court_division}`);
       if (c.lead_attorney && usersMap[c.lead_attorney]) parts.push(`LeadAtty:${usersMap[c.lead_attorney]}`);
       if (c.second_attorney && usersMap[c.second_attorney]) parts.push(`2ndAtty:${usersMap[c.second_attorney]}`);
       if (c.trial_coordinator && usersMap[c.trial_coordinator]) parts.push(`TrialCoordinator:${usersMap[c.trial_coordinator]}`);

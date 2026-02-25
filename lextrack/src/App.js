@@ -5,7 +5,7 @@ import {
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
   apiGetTasks, apiGetCaseTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline, apiUpdateDeadline,
-  apiGetUsers, apiCreateUser, apiDeleteUser, apiGetDeletedUsers, apiRestoreUser, apiUpdateUserOffices, apiUpdateUserRoles, apiUpdateUser,
+  apiGetUsers, apiCreateUser, apiDeleteUser, apiGetDeletedUsers, apiRestoreUser, apiUpdateUserRoles, apiUpdateUser,
   apiGetNotes, apiCreateNote, apiUpdateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
   apiGetActivity, apiGetRecentActivity, apiCreateActivity,
@@ -24,7 +24,6 @@ import {
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
 
-const OFFICES = ["Mobile"];
 
 const STAFF_ROLES = ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","Trial Attorney","Office Administrator","Administrative Assistant","IT Specialist","Trial Coordinator Supervisor","Trial Coordinator","Chief Social Worker","Social Worker","Client Advocate","Investigator","Paralegal","App Admin"];
 const hasRole = (user, role) => (user?.roles || (user?.role ? [user.role] : [])).includes(role);
@@ -758,7 +757,6 @@ export default function App() {
   const [caseActivity, setCaseActivity] = useState({});
   const [allCorrespondence, setAllCorrespondence] = useState([]);
   const [deletedCases, setDeletedCases] = useState(null); // null = not yet loaded
-  const [userOffices,  setUserOffices]  = useState({}); // { [userId]: string[] }
   const [allUsers,     setAllUsers]     = useState(USERS);
 
   const [calcInputs, setCalcInputs] = useState({ ruleId: 1, fromDate: today });
@@ -801,9 +799,6 @@ export default function App() {
         const allU = [...users, ...(deletedUsersResult || []).map(u => ({ ...u, deletedAt: u.deletedAt || u.deleted_at }))];
         USERS.splice(0, USERS.length, ...users);
         setAllUsers(allU);
-        const offMap = {};
-        allU.forEach(u => { offMap[u.id] = u.offices || []; });
-        setUserOffices(offMap);
       })
       .catch(err => setDataError(err.message))
       .finally(() => setLoading(false));
@@ -1271,15 +1266,15 @@ export default function App() {
         <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
       )}
       <div className="main">
-        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} userOffices={userOffices} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} />}
+        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} />}
-        {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} userOffices={userOffices} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} userOffices={userOffices} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} />}
-        {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} userOffices={userOffices} />}
+        {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} />}
+        {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} />}
-        {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} userOffices={userOffices} setUserOffices={setUserOffices} allUsers={allUsers} setAllUsers={setAllUsers} />}
+        {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} />}
       </div>
       <FollowUpPromptModal
         key={followUpPrompt ? `${followUpPrompt.target.id}-${followUpPrompt.completedDate}` : "none"}
@@ -1501,8 +1496,8 @@ function Toggle({ on, onChange, color = "#1E2A3A" }) {
 }
 
 // ─── New Case/Matter Modal ────────────────────────────────────────────────────
-function NewCaseModal({ onSave, onClose, userOffices }) {
-  const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "", court: "", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, offices: [], arrestDate: "", notes: "" });
+function NewCaseModal({ onSave, onClose }) {
+  const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "", court: "", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, arrestDate: "", notes: "" });
   const [autoTasks, setAutoTasks] = useState(true);
   const [conflicts, setConflicts] = useState(null);
   const [conflictChecking, setConflictChecking] = useState(false);
@@ -1519,19 +1514,6 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
   };
   const isMatter = !form.caseNum.trim();
 
-  const filteredUsers = useMemo(() => {
-    if (!form.offices.length) return USERS;
-    return USERS.filter(u => {
-      const uOff = (userOffices || {})[u.id] || [];
-      return uOff.length === 0 || uOff.some(o => form.offices.includes(o));
-    });
-  }, [form.offices, userOffices]);
-
-  const toggleOffice = (o) => {
-    const curr = form.offices;
-    set("offices", curr.includes(o) ? curr.filter(x => x !== o) : [...curr, o]);
-  };
-
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
@@ -1542,27 +1524,6 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
           <Badge label={isMatter ? "Matter" : "Case"} />
           <Badge label="Active" />
-        </div>
-
-        {/* Office assignment */}
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, color: "#8A9096", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Office(s)</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {OFFICES.map(o => {
-              const checked = form.offices.includes(o);
-              return (
-                <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#1E2A3A" : "#8A9096", userSelect: "none" }}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleOffice(o)} />
-                  {o}
-                </label>
-              );
-            })}
-          </div>
-          {form.offices.length > 0 && filteredUsers.length < USERS.length && (
-            <div style={{ fontSize: 11, color: "#1E2A3A", marginTop: 6, fontStyle: "italic" }}>
-              Team dropdowns showing {filteredUsers.length} staff in selected office(s)
-            </div>
-          )}
         </div>
 
         <div className="form-row">
@@ -1625,13 +1586,13 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
           <div className="form-group"><label>Assigned Attorney</label>
             <select value={form.assignedAttorney} onChange={e => set("assignedAttorney", Number(e.target.value))}>
               <option value={0}>— Select —</option>
-              {filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+              {USERS.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
             </select>
           </div>
           <div className="form-group"><label>2nd Attorney</label>
             <select value={form.secondAttorney} onChange={e => set("secondAttorney", Number(e.target.value))}>
               <option value={0}>— None —</option>
-              {filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
         </div>
@@ -1639,13 +1600,13 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
           <div className="form-group"><label>Trial Coordinator</label>
             <select value={form.trialCoordinator} onChange={e => set("trialCoordinator", Number(e.target.value))}>
               <option value={0}>— None —</option>
-              {filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
           <div className="form-group"><label>Investigator</label>
             <select value={form.investigator} onChange={e => set("investigator", Number(e.target.value))}>
               <option value={0}>— None —</option>
-              {filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
         </div>
@@ -1653,7 +1614,7 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
           <div className="form-group"><label>Social Worker</label>
             <select value={form.socialWorker} onChange={e => set("socialWorker", Number(e.target.value))}>
               <option value={0}>— None —</option>
-              {filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
           <div className="form-group" />
@@ -1900,7 +1861,7 @@ function RecentActivityWidget({ currentUser }) {
   );
 }
 
-function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, userOffices }) {
+function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask }) {
   const [showModal, setShowModal] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null);
@@ -2141,7 +2102,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
 
   return (
     <>
-      {showModal && <NewCaseModal onSave={onAddRecord} onClose={() => setShowModal(false)} userOffices={userOffices} />}
+      {showModal && <NewCaseModal onSave={onAddRecord} onClose={() => setShowModal(false)} />}
       {showCustomize && <CustomizeDashboardModal layout={layout} setLayout={setLayout} userId={currentUser.id} onClose={() => setShowCustomize(false)} />}
       <div className="topbar">
         <div>
@@ -2183,14 +2144,14 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
 // ─── Cases View ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, userOffices, onAddDeadline, onUpdateDeadline }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline }) {
   const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [attyFilter, setAttyFilter] = useState("All");
-  const [officeFilter, setOfficeFilter] = useState(() => { const uo = (userOffices || {})[currentUser.id] || []; return uo.length > 0 ? uo[0] : "All"; });
+  const [divisionFilter, setDivisionFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
   const [sortCol, setSortCol] = useState("title");
   const [sortDir, setSortDir] = useState("asc");
@@ -2278,7 +2239,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       if (typeFilter === "Case" && !isFiled(c)) return false;
       if (typeFilter === "Matter" && isFiled(c)) return false;
       if (attyFilter !== "All" && c.assignedAttorney !== Number(attyFilter) && c.secondAttorney !== Number(attyFilter)) return false;
-      if (officeFilter !== "All" && !(c.offices || []).includes(officeFilter)) return false;
+      if (divisionFilter !== "All" && c.courtDivision !== divisionFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         return c.title?.toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q) || (c.defendantName || "").toLowerCase().includes(q) || (c.prosecutor || "").toLowerCase().includes(q) || (c.county || "").toLowerCase().includes(q) || (c.court || "").toLowerCase().includes(q) || (c.chargeDescription || "").toLowerCase().includes(q);
@@ -2297,38 +2258,26 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       return (sortDir === "asc" ? 1 : -1) * av.localeCompare(bv);
     });
     return list;
-  }, [allCases, statusFilter, typeFilter, attyFilter, officeFilter, search, sortCol, sortDir]);
+  }, [allCases, statusFilter, typeFilter, attyFilter, divisionFilter, search, sortCol, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => setPage(1), [search, statusFilter, typeFilter, attyFilter, officeFilter, sortCol]);
+  useEffect(() => setPage(1), [search, statusFilter, typeFilter, attyFilter, divisionFilter, sortCol]);
 
   const caseTasks = useMemo(() => selectedCase ? tasks.filter(t => t.caseId === selectedCase.id) : [], [tasks, selectedCase]);
   const caseDeadlines = useMemo(() => selectedCase ? deadlines.filter(d => d.caseId === selectedCase.id) : [], [deadlines, selectedCase]);
   const notes = selectedCase ? (caseNotes[selectedCase.id] || []) : [];
   const [showPrint, setShowPrint] = useState(false);
 
-  const officeAttorneys = useMemo(() => {
+  const allAttorneys = useMemo(() => {
     return USERS
-      .filter(u => {
-        if (!["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","Trial Attorney"].some(r => hasRole(u, r))) return false;
-        if (officeFilter === "All") return true;
-        const uOff = userOffices[u.id] || [];
-        return uOff.includes(officeFilter);
-      })
+      .filter(u => ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","Trial Attorney"].some(r => hasRole(u, r)))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [officeFilter, userOffices]);
-
-  // Reset attorney filter when the selected attorney is no longer in the office-filtered list
-  useEffect(() => {
-    if (attyFilter !== "All" && !officeAttorneys.some(u => u.id === Number(attyFilter))) {
-      setAttyFilter("All");
-    }
-  }, [officeAttorneys, attyFilter]);
+  }, []);
 
   return (
     <>
-      {showModal && <NewCaseModal onSave={onAddRecord} onClose={() => setShowModal(false)} userOffices={userOffices} />}
+      {showModal && <NewCaseModal onSave={onAddRecord} onClose={() => setShowModal(false)} />}
       {showPrint && selectedCase && (
         <CasePrintView c={selectedCase} notes={notes} tasks={caseTasks} deadlines={caseDeadlines} links={caseLinks[selectedCase.id] || []} onClose={() => setShowPrint(false)} />
       )}
@@ -2338,13 +2287,15 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           <div className="topbar-subtitle">{filtered.length} of {allCases.length} · {allCases.filter(c => isFiled(c) && c.status === "Active").length} active cases · {allCases.filter(c => !isFiled(c) && c.status === "Active").length} active matters</div>
         </div>
         <div className="topbar-actions">
-          <select style={{ width: 140 }} value={officeFilter} onChange={e => setOfficeFilter(e.target.value)}>
-            <option value="All">All Offices</option>
-            {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
+          <select style={{ width: 160 }} value={divisionFilter} onChange={e => setDivisionFilter(e.target.value)}>
+            <option value="All">All Divisions</option>
+            <option value="Circuit Court">Circuit</option>
+            <option value="District Court">District</option>
+            <option value="Juvenile Court">Juvenile</option>
           </select>
           <select style={{ width: 160 }} value={attyFilter} onChange={e => setAttyFilter(e.target.value)}>
             <option value="All">All Attorneys</option>
-            {officeAttorneys.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {allAttorneys.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
           <button className="btn btn-gold" onClick={() => setShowModal(true)}>+ New Case / Matter</button>
@@ -2416,7 +2367,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <div style={{ fontSize: 11, color: "#8A9096", marginTop: 4, display: "flex", gap: 12 }}>
                           {c.defendantName && <span>Defendant: {c.defendantName}</span>}
                           {c.stage && <span>Stage: {c.stage}</span>}
-                          {(c.offices || []).length > 0 && <span>Office: {c.offices.join(", ")}</span>}
+                          {c.courtDivision && <span>Division: {c.courtDivision}</span>}
                         </div>
                       </div>
                       <div style={{ fontSize: 11, color: "#b8860b", fontWeight: 500, flexShrink: 0 }}>View →</div>
@@ -2596,7 +2547,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           notes={notes}
           links={caseLinks[selectedCase.id] || []}
           activity={caseActivity[selectedCase.id] || []}
-          userOffices={userOffices}
           onClose={() => setSelectedCase(null)}
           onUpdate={onUpdateCase}
           onDeleteCase={handleDeleteFromOverlay}
@@ -2728,7 +2678,7 @@ const CONTACT_LINKABLE_KEYS = new Set(["defendantName", "prosecutor", "judge"]);
 const KEY_DATE_FIELDS = ["arrestDate", "arraignmentDate", "nextCourtDate", "trialDate", "sentencingDate", "dispositionDate"];
 const KEY_DATE_TYPES = { arrestDate: "Other", arraignmentDate: "Hearing", nextCourtDate: "Hearing", trialDate: "Hearing", sentencingDate: "Hearing", dispositionDate: "Other" };
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddNote, onDeleteNote, onAddLink, onDeleteLink, onLogActivity, userOffices, onAddDeadline, onUpdateDeadline }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddNote, onDeleteNote, onAddLink, onDeleteLink, onLogActivity, onAddDeadline, onUpdateDeadline }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -2780,7 +2730,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [newMiscContactType, setNewMiscContactType] = useState("Other");
   const miscContactTimers = useRef({});
   const miscContactPendingData = useRef({});
-  const [showOfficePopup, setShowOfficePopup] = useState(false);
   const [showTeamPopup, setShowTeamPopup] = useState(false);
   const [showDocGen, setShowDocGen] = useState(false);
   const [activityFilter, setActivityFilter] = useState("all");
@@ -2941,14 +2890,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const dateFields   = CORE_FIELDS.filter(f => f.section === "dates");
   const teamFields   = CORE_FIELDS.filter(f => f.section === "team");
 
-  const filteredUsersForTeam = useMemo(() => {
-    const caseOffices = draft.offices || [];
-    if (caseOffices.length === 0) return USERS;
-    return USERS.filter(u => {
-      const uOff = (userOffices || {})[u.id] || [];
-      return uOff.length === 0 || uOff.some(o => caseOffices.includes(o));
-    });
-  }, [draft.offices, userOffices]);
+  const filteredUsersForTeam = USERS;
 
   const addCustomField = () => {
     if (!newFieldLabel.trim()) return;
@@ -3084,35 +3026,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
         </div>
       )}
-      {showOfficePopup && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowOfficePopup(false)}>
-          <div style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 340, maxWidth: 420, boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Office(s)</div>
-              <button onClick={() => setShowOfficePopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {OFFICES.map(o => {
-                const checked = (draft.offices || []).includes(o);
-                return (
-                  <label key={o} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: checked ? "var(--c-text-h)" : "var(--c-text2)", userSelect: "none", padding: "6px 10px", borderRadius: 6, background: checked ? "var(--c-bg2)" : "transparent", border: `1px solid ${checked ? "var(--c-border)" : "transparent"}` }}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        const curr = draft.offices || [];
-                        setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
-                      }}
-                      style={{ accentColor: "#1E2A3A" }}
-                    />
-                    {o}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
       {showTeamPopup && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowTeamPopup(false)}>
           <div style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 380, maxWidth: 500, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
@@ -3120,11 +3033,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Team</div>
               <button onClick={() => setShowTeamPopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
             </div>
-            {(draft.offices || []).length > 0 && filteredUsersForTeam.length < USERS.length && (
-              <div style={{ fontSize: 11, color: "#1E2A3A", marginBottom: 12, fontStyle: "italic" }}>
-                Showing {filteredUsersForTeam.length} staff in selected office(s)
-              </div>
-            )}
             {teamFields.map(f => (
               <EditField
                 key={f.key}
@@ -3287,7 +3195,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexShrink: 0, alignItems: "center" }}>
-            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowOfficePopup(true)}>📍 Office ({(draft.offices || []).length})</button>
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowTeamPopup(true)}>👥 Team</button>
             <button
               className={`btn btn-sm ${editMode ? "" : "btn-outline"}`}
@@ -5667,12 +5574,11 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
 }
 
 // ─── Tasks View ───────────────────────────────────────────────────────────────
-function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, onUpdateTask, userOffices }) {
+function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, onUpdateTask }) {
   const [filter, setFilter] = useState("Open");
   const [showForm, setShowForm] = useState(false);
   const [caseSearch, setCaseSearch] = useState("");
   const [caseDropOpen, setCaseDropOpen] = useState(false);
-  const [taskOffice, setTaskOffice] = useState(() => { const uo = (userOffices || {})[currentUser.id] || []; return uo.length > 0 ? uo[0] : "All"; });
   const [sortCol, setSortCol] = useState("due");
   const [sortDir, setSortDir] = useState("asc");
   const [expandedTask, setExpandedTask] = useState(null);
@@ -5681,8 +5587,6 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 
   const sortedCases = useMemo(() => [...allCases].filter(c => c.status === "Active").sort((a, b) => (a.title || "").localeCompare(b.title || "")), [allCases]);
   const filteredCases = useMemo(() => { const q = caseSearch.toLowerCase(); return q ? sortedCases.filter(c => (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)) : sortedCases; }, [sortedCases, caseSearch]);
-  const officeFilteredUsers = useMemo(() => taskOffice === "All" ? USERS : USERS.filter(u => (userOffices[u.id] || []).includes(taskOffice)), [taskOffice, userOffices]);
-
   const blank = useMemo(() => ({ caseId: 0, title: "", assigned: currentUser.id, due: addDays(today, 7), priority: "Low", autoEscalate: true, status: "Not Started", notes: "", recurring: false, recurringDays: 30, escalateMediumDays: 30, escalateHighDays: 14, escalateUrgentDays: 7 }), [currentUser.id]);
   const [newTask, setNewTask] = useState({ ...blank });
 
@@ -5764,15 +5668,9 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                 </div>
               </div>
               <div className="form-row">
-                <div className="form-group"><label>Office</label>
-                  <select value={taskOffice} onChange={e => { const o = e.target.value; setTaskOffice(o); const newFiltered = o === "All" ? USERS : USERS.filter(u => (userOffices[u.id] || []).includes(o)); if (!newFiltered.find(u => u.id === newTask.assigned)) setNewTask(p => ({ ...p, assigned: newFiltered[0]?.id || p.assigned })); }}>
-                    <option value="All">All Offices</option>
-                    {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
                 <div className="form-group"><label>Assigned To</label>
                   <select value={newTask.assigned} onChange={e => setNewTask(p => ({ ...p, assigned: Number(e.target.value) }))}>
-                    {officeFilteredUsers.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
+                    {USERS.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
                   </select>
                 </div>
                 <div className="form-group"><label>Due Date</label><input type="date" value={newTask.due} onChange={e => setNewTask(p => ({ ...p, due: e.target.value }))} /></div>
@@ -5956,7 +5854,7 @@ const REPORT_DEFS = [
     icon: "⚖️",
     title: "Cases by Trial Date",
     desc: "All active cases with a trial date set, sorted soonest first. Includes judge, lead attorney, and stage.",
-    params: ["office"],
+    params: ["courtDivision"],
   },
   {
     id: "attorney",
@@ -5970,21 +5868,21 @@ const REPORT_DEFS = [
     icon: "🤝",
     title: "Next Court Date Report",
     desc: "Active cases with a next court date, sorted soonest first. Includes judge and days remaining.",
-    params: ["office"],
+    params: ["courtDivision"],
   },
   {
     id: "discovery",
     icon: "🔍",
     title: "Cases by Upcoming Dates",
     desc: "Cases with arraignment or next court date deadlines within the specified window.",
-    params: ["window", "office"],
+    params: ["window", "courtDivision"],
   },
   {
     id: "task_filter",
     icon: "✅",
     title: "Cases with Specific Open Task",
     desc: "Select an incomplete task type from the list and see all cases that have that task open.",
-    params: ["task", "office"],
+    params: ["task", "courtDivision"],
   },
   {
     id: "no_trial",
@@ -5998,7 +5896,7 @@ const REPORT_DEFS = [
     icon: "🔴",
     title: "Overdue Tasks by Case",
     desc: "All cases that have at least one overdue task, with a breakdown of each overdue item.",
-    params: ["office"],
+    params: ["courtDivision"],
   },
   {
     id: "workload",
@@ -6012,23 +5910,23 @@ const REPORT_DEFS = [
     icon: "📅",
     title: "Upcoming Deadlines by Window",
     desc: "All deadlines falling within a chosen time window — 7, 14, 30, 60, or 90 days.",
-    params: ["window", "office"],
+    params: ["window", "courtDivision"],
   },
   {
     id: "answer_due",
     icon: "📝",
     title: "Cases by Arrest Date",
     desc: "Cases sorted by arrest date. Useful for tracking case timelines and reviewing recent arrests.",
-    params: ["office"],
+    params: ["courtDivision"],
   },
 ];
 
 function buildReport(id, allCases, tasks, deadlines, params) {
-  const office = params.office || null;
-  const filteredCases = office ? allCases.filter(c => (c.offices || []).includes(office)) : allCases;
-  const filteredDeadlines = office ? deadlines.filter(d => {
+  const courtDivision = params.courtDivision || null;
+  const filteredCases = courtDivision ? allCases.filter(c => c.courtDivision === courtDivision) : allCases;
+  const filteredDeadlines = courtDivision ? deadlines.filter(d => {
     const c = allCases.find(x => x.id === d.caseId);
-    return c && (c.offices || []).includes(office);
+    return c && c.courtDivision === courtDivision;
   }) : deadlines;
   const activeCases = filteredCases.filter(c => c.status === "Active");
   allCases = filteredCases;
@@ -6225,7 +6123,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
   }
 }
 
-function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, userOffices, onAddDeadline, onUpdateDeadline }) {
+function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline }) {
   const [activeReport, setActiveReport] = useState(null);
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
@@ -6319,12 +6217,12 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                     </select>
                   </div>
                 )}
-                {def?.params.includes("office") && (
+                {def?.params.includes("courtDivision") && (
                   <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
-                    <label>Office</label>
-                    <select value={params.office || ""} onChange={e => setParams(p => ({ ...p, office: e.target.value || null }))}>
-                      <option value="">All Offices</option>
-                      {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
+                    <label>Court Division</label>
+                    <select value={params.courtDivision || ""} onChange={e => setParams(p => ({ ...p, courtDivision: e.target.value || null }))}>
+                      <option value="">All Divisions</option>
+                      {["Circuit", "District", "Juvenile"].map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                 )}
@@ -6351,7 +6249,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                   {generated.params.attorney ? ` · ${getUserById(generated.params.attorney)?.name}` : ""}
                   {generated.params.window ? ` · Next ${generated.params.window} days` : ""}
                   {generated.params.task ? ` · Task: "${generated.params.task}"` : ""}
-                  {generated.params.office ? ` · Office: ${generated.params.office}` : ""}
+                  {generated.params.courtDivision ? ` · Division: ${generated.params.courtDivision}` : ""}
                   {" · "}Generated {generated.generatedAt}
                 </div>
               </div>
@@ -6436,7 +6334,6 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             notes={notes}
             links={caseLinks[selectedCase.id] || []}
             activity={caseActivity[selectedCase.id] || []}
-            userOffices={userOffices}
             onClose={() => setSelectedCase(null)}
             onUpdate={onUpdateCase}
             onDeleteCase={(id) => { onDeleteCase(id); setSelectedCase(null); }}
@@ -6457,7 +6354,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
 
 // ─── Staff View ───────────────────────────────────────────────────────────────
 // ─── Time Log View ────────────────────────────────────────────────────────────
-function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence = [], allUsers = [], userOffices = {} }) {
+function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence = [], allUsers = [] }) {
   const thisMonth = today.slice(0, 7);
   const [fromDate, setFromDate] = useState(thisMonth + "-01");
   const [toDate,   setToDate]   = useState(today);
@@ -6760,7 +6657,6 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
           caseNotes={caseNotes}
           correspondence={correspondence}
           allUsers={allUsers}
-          userOffices={userOffices}
           onSave={handleAddEntry}
           onClose={() => setShowAddForm(false)}
         />
@@ -6769,7 +6665,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
   );
 }
 
-function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspondence, allUsers, userOffices, onSave, onClose }) {
+function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspondence, allUsers, onSave, onClose }) {
   const [caseId, setCaseId] = useState(null);
   const [date, setDate] = useState(today);
   const [detail, setDetail] = useState("");
@@ -6803,13 +6699,9 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
     return ids;
   }, [tasks, caseNotes, correspondence, currentUser.id, allUsers]);
 
-  const myOffices = useMemo(() => (userOffices[currentUser.id] || []), [userOffices, currentUser.id]);
-
   const filteredCases = useMemo(() => {
     let cases = allCases.filter(c => c.status !== "Closed" || todayCaseIds.has(c.id));
-    if (caseFilter === "myOffice" && myOffices.length > 0) {
-      cases = cases.filter(c => (c.offices || []).some(o => myOffices.includes(o)));
-    } else if (caseFilter === "myMatters") {
+    if (caseFilter === "myMatters") {
       cases = cases.filter(c => [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(currentUser.id));
     }
     if (caseSearch) {
@@ -6821,7 +6713,7 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
     todayGroup.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
     otherGroup.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
     return { todayGroup, otherGroup };
-  }, [allCases, caseFilter, caseSearch, todayCaseIds, currentUser.id, myOffices]);
+  }, [allCases, caseFilter, caseSearch, todayCaseIds, currentUser.id]);
 
   const selectedCase = allCases.find(c => c.id === caseId);
 
@@ -6847,7 +6739,6 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
                 {[
                   { key: "all", label: "All Cases" },
                   { key: "myMatters", label: "My Matters" },
-                  ...(myOffices.length > 0 ? [{ key: "myOffice", label: "My Office" }] : []),
                 ].map(f => (
                   <button key={f.key}
                     className={`btn btn-sm ${caseFilter === f.key ? "btn-primary" : "btn-outline"}`}
@@ -7913,10 +7804,9 @@ function EditContactModal({ user, onSave, onClose }) {
 }
 
 function AddStaffModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ name: "", roles: ["Attorney"], email: "", phone: "", cell: "", ext: "", offices: [] });
+  const [form, setForm] = useState({ name: "", roles: ["Trial Attorney"], email: "", phone: "", cell: "", ext: "" });
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const toggleOffice = o => { const c = form.offices; set("offices", c.includes(o) ? c.filter(x => x !== o) : [...c, o]); };
   const toggleRole = r => {
     const c = form.roles;
     const next = c.includes(r) ? c.filter(x => x !== r) : [...c, r];
@@ -7955,21 +7845,6 @@ function AddStaffModal({ onSave, onClose }) {
                 <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12, color: checked ? "#1E2A3A" : "#8A9096", userSelect: "none" }}>
                   <input type="checkbox" checked={checked} onChange={() => toggleRole(r)} />
                   {r}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: "#8A9096", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Office(s)</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {OFFICES.map(o => {
-              const checked = form.offices.includes(o);
-              return (
-                <label key={o} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: checked ? "#1E2A3A" : "#8A9096", userSelect: "none" }}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleOffice(o)} />
-                  {o}
                 </label>
               );
             })}
@@ -9147,8 +9022,7 @@ function DocumentsView({ currentUser }) {
   );
 }
 
-function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUserOffices, allUsers, setAllUsers }) {
-  const [officeFilter, setOfficeFilter] = useState(() => { const uo = (userOffices || {})[currentUser.id] || []; return uo.length > 0 ? uo[0] : "All"; });
+function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUsers }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
@@ -9156,29 +9030,15 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
 
   const activeUsers = allUsers.filter(u => !u.deletedAt);
   const deletedUsers = allUsers.filter(u => u.deletedAt);
-  const filteredStaff = officeFilter === "All"
-    ? activeUsers
-    : activeUsers.filter(u => (userOffices[u.id] || []).includes(officeFilter));
+  const filteredStaff = activeUsers;
   const [showDeletedStaff, setShowDeletedStaff] = useState(false);
   const [expandedStaffId, setExpandedStaffId] = useState(null);
-
-  const handleToggleOffice = async (userId, office) => {
-    const current = userOffices[userId] || [];
-    const next = current.includes(office) ? current.filter(o => o !== office) : [...current, office];
-    try {
-      await apiUpdateUserOffices(userId, next);
-      setUserOffices(prev => ({ ...prev, [userId]: next }));
-    } catch (err) {
-      alert("Failed to update office: " + err.message);
-    }
-  };
 
   const handleAddStaff = async (formData) => {
     const saved = await apiCreateUser(formData);
     const newUser = { ...saved, offices: saved.offices || [] };
     USERS.push(newUser);
     setAllUsers(prev => [...prev, newUser]);
-    setUserOffices(prev => ({ ...prev, [saved.id]: saved.offices || [] }));
     try {
       await apiSendTempPassword(saved.id);
     } catch (e) {
@@ -9255,10 +9115,6 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
           <div className="topbar-subtitle">{filteredStaff.length} of {activeUsers.length} team members</div>
         </div>
         <div className="topbar-actions">
-          <select style={{ width: 140 }} value={officeFilter} onChange={e => setOfficeFilter(e.target.value)}>
-            <option value="All">All Offices</option>
-            {OFFICES.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
           {canAdmin && (
             <button className="btn btn-gold" onClick={() => setShowAddModal(true)}>+ Add Staff</button>
           )}
@@ -9268,7 +9124,6 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 16 }}>
           {filteredStaff.map(u => {
             const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.trialCoordinator === u.id || c.investigator === u.id || c.socialWorker === u.id);
-            const offices = userOffices[u.id] || [];
             const isConfirming = confirmDeleteId === u.id;
             const isExpanded = expandedStaffId === u.id;
             return (
@@ -9334,26 +9189,6 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                         </div>
                       </div>
                     )}
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--c-border)" }} onClick={e => e.stopPropagation()}>
-                      <div style={{ fontSize: 11, color: "#8A9096", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                        Offices {canAdmin && <span style={{ fontWeight: 400, color: "var(--c-border)" }}>— click to toggle</span>}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {OFFICES.map(o => {
-                          const on = offices.includes(o);
-                          return canAdmin ? (
-                            <button
-                              key={o}
-                              onClick={() => handleToggleOffice(u.id, o)}
-                              style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "none", background: on ? "#fef3c7" : "transparent", color: on ? "#1F2428" : "var(--c-border)", transition: "all 0.15s" }}
-                            >{o}</button>
-                          ) : on ? (
-                            <span key={o} style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, background: "#fef3c7", color: "#1F2428" }}>{o}</span>
-                          ) : null;
-                        })}
-                        {!canAdmin && offices.length === 0 && <span style={{ fontSize: 12, color: "var(--c-border)", fontStyle: "italic" }}>None assigned</span>}
-                      </div>
-                    </div>
                   </>
                 )}
               </div>

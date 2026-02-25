@@ -107,7 +107,7 @@ lextrack/
 - Billing Summary (removed)
 - Medical Summary (removed)
 - Case Expenses (removed)
-- Multi-office support (simplified to single Mobile office)
+- Multi-office filtering (replaced with Court Division filtering: Circuit, District, Juvenile)
 
 ## Staff Roles
 - Public Defender
