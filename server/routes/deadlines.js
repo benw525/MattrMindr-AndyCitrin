@@ -39,4 +39,28 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
+router.put("/:id", requireAuth, async (req, res) => {
+  const { date, title, type, rule, assigned } = req.body;
+  try {
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    if (date !== undefined) { sets.push(`date = $${idx++}`); vals.push(date); }
+    if (title !== undefined) { sets.push(`title = $${idx++}`); vals.push(title); }
+    if (type !== undefined) { sets.push(`type = $${idx++}`); vals.push(type); }
+    if (rule !== undefined) { sets.push(`rule = $${idx++}`); vals.push(rule); }
+    if (assigned !== undefined) { sets.push(`assigned = $${idx++}`); vals.push(assigned); }
+    if (sets.length === 0) return res.json({ ok: true });
+    vals.push(req.params.id);
+    const { rows } = await pool.query(
+      `UPDATE deadlines SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`, vals
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+    return res.json(toFrontend(rows[0]));
+  } catch (err) {
+    console.error("Deadline update error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

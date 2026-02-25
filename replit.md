@@ -35,7 +35,7 @@ server/
     auth.js         — login, logout, me, change-password, forgot-password, reset-password, send-temp-password
     cases.js        — CRUD /api/cases
     tasks.js        — CRUD /api/tasks (bulk create, complete)
-    deadlines.js    — GET/POST /api/deadlines
+    deadlines.js    — GET/POST/PUT /api/deadlines (key dates auto-sync to deadlines)
     notes.js        — GET/POST/DELETE /api/notes
     links.js        — GET/POST/DELETE /api/links
     activity.js     — GET /api/activity (recent across all cases), GET/POST /api/activity/:caseId
