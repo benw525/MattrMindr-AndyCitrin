@@ -114,7 +114,7 @@ lextrack/
 - Assistant Public Defender
 - Investigator
 - Legal Assistant
-- Paralegal
+- Trial Coordinator
 - Social Worker
 - Admin
 - App Admin
@@ -122,7 +122,7 @@ lextrack/
 ## Team Assignment Fields
 - Assigned Attorney (replaces leadAttorney)
 - 2nd Attorney
-- Paralegal
+- Trial Coordinator (DB column: paralegal)
 - Investigator
 - Social Worker
 

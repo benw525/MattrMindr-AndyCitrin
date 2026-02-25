@@ -26,7 +26,7 @@ const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Di
 
 const OFFICES = ["Mobile"];
 
-const STAFF_ROLES = ["Public Defender","Assistant Public Defender","Investigator","Legal Assistant","Paralegal","Social Worker","Admin","App Admin"];
+const STAFF_ROLES = ["Public Defender","Assistant Public Defender","Investigator","Legal Assistant","Trial Coordinator","Social Worker","Admin","App Admin"];
 const hasRole = (user, role) => (user?.roles || (user?.role ? [user.role] : [])).includes(role);
 const isAppAdmin = (user) => hasRole(user, "App Admin");
 const AVATAR_PALETTE = ["#C9A84C","#4C7AC9","#4CAE72","#C94C4C","#9B4CC9","#4CC9C9","#C97B4C","#4C9BC9","#7BC94C","#C94C8C","#884CC9","#4CC96A","#C9C94C","#4C6AC9","#C94C6A","#4CAEC9","#6AC94C","#C9844C","#4CC9A8","#5884C9"];
@@ -547,7 +547,7 @@ body.dark-body { background: #0E1116; }
 
 
 // ─── TimePromptModal ──────────────────────────────────────────────────────────
-const ATTY_PARA_ROLES = ["Public Defender", "Assistant Public Defender", "Paralegal"];
+const ATTY_PARA_ROLES = ["Public Defender", "Assistant Public Defender", "Trial Coordinator"];
 const isAttyPara  = (u) => ATTY_PARA_ROLES.some(r => hasRole(u, r));
 const isLegalAsst = (u) => hasRole(u, "Legal Assistant");
 
@@ -592,7 +592,7 @@ function TimePromptModal({ pending, onSubmit }) {
           autoFocus
         />
 
-        {/* Attorney / Paralegal: claim for own time log? */}
+        {/* Attorney / Trial Coordinator: claim for own time log? */}
         {showClaimPrompt && (
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--c-border)" }}>
             <p style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10 }}>
@@ -1636,7 +1636,7 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
           </div>
         </div>
         <div className="form-row">
-          <div className="form-group"><label>Paralegal</label>
+          <div className="form-group"><label>Trial Coordinator</label>
             <select value={form.paralegal} onChange={e => set("paralegal", Number(e.target.value))}>
               <option value={0}>— None —</option>
               {filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -2648,7 +2648,7 @@ const CORE_FIELDS = [
   // Team section
   { key: "assignedAttorney", label: "Assigned Attorney",    type: "user",   section: "team" },
   { key: "secondAttorney",   label: "2nd Attorney",         type: "user",   section: "team" },
-  { key: "paralegal",        label: "Paralegal",            type: "user",   section: "team" },
+  { key: "paralegal",        label: "Trial Coordinator",     type: "user",   section: "team" },
   { key: "investigator",     label: "Investigator",         type: "user",   section: "team" },
   { key: "socialWorker",     label: "Social Worker",        type: "user",   section: "team" },
 ];
@@ -5075,7 +5075,7 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
                 ["Bond Amount", c.bondAmount],
                 ["Assigned Attorney", lead?.name],
                 ["2nd Attorney", second?.name],
-                ["Paralegal", para?.name],
+                ["Trial Coordinator", para?.name],
                 ["Investigator", inv?.name],
                 ["Social Worker", sw?.name],
                 ...(c._customTeam || []).map(m => [m.role, USERS.find(u => u.id === m.userId)?.name]),
@@ -7012,7 +7012,7 @@ function NewContactModal({ onSave, onClose }) {
   );
 }
 
-const ATTORNEY_STAFF_TYPES = ["Legal Assistant", "Paralegal", "Receptionist", "Other"];
+const ATTORNEY_STAFF_TYPES = ["Legal Assistant", "Trial Coordinator", "Receptionist", "Other"];
 const COURT_STAFF_TYPES = ["Judicial Assistant", "Clerk", "Court Reporter", "Bailiff", "Other"];
 
 function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, onUpdate, onDelete, onAddNote, onDeleteNote }) {
@@ -8023,7 +8023,7 @@ const CASE_FIELD_MAP = [
   { key: "dispositionDate", label: "Disposition Date" },
   { key: "_assignedAttorneyName", label: "Assigned Attorney Name" },
   { key: "_secondAttorneyName", label: "2nd Attorney Name" },
-  { key: "_paralegalName", label: "Paralegal Name" },
+  { key: "_paralegalName", label: "Trial Coordinator Name" },
   { key: "_investigatorName", label: "Investigator Name" },
   { key: "_socialWorkerName", label: "Social Worker Name" },
   { key: "_todayDate", label: "Today's Date" },
@@ -8198,7 +8198,7 @@ function getPlaceholderSuggestions(token, caseData, parties, experts) {
     if (!suggestions.length && caseData.expert) suggestions.push({ label: "Expert", value: caseData.expert });
   } else if (/^(paralegal|paralegal_name)/.test(key)) {
     const para = USERS.find(u => u.id === caseData.paralegal);
-    if (para) suggestions.push({ label: "Paralegal", value: para.name });
+    if (para) suggestions.push({ label: "Trial Coordinator", value: para.name });
   } else if (/^(investigator|investigator_name)/.test(key)) {
     const inv = USERS.find(u => u.id === caseData.investigator);
     if (inv) suggestions.push({ label: "Investigator", value: inv.name });
@@ -8311,7 +8311,7 @@ function buildAllCaseFields(caseData, parties, experts) {
   const sw = USERS.find(u => u.id === caseData.socialWorker);
   if (lead) { add("Staff", "Assigned Attorney", lead.name); add("Staff", "Assigned Attorney Email", lead.email); add("Staff", "Assigned Attorney Phone", lead.phone); }
   if (second) { add("Staff", "2nd Attorney", second.name); add("Staff", "2nd Attorney Email", second.email); add("Staff", "2nd Attorney Phone", second.phone); }
-  if (para) { add("Staff", "Paralegal", para.name); add("Staff", "Paralegal Email", para.email); add("Staff", "Paralegal Phone", para.phone); }
+  if (para) { add("Staff", "Trial Coordinator", para.name); add("Staff", "Trial Coordinator Email", para.email); add("Staff", "Trial Coordinator Phone", para.phone); }
   if (inv) { add("Staff", "Investigator", inv.name); add("Staff", "Investigator Email", inv.email); add("Staff", "Investigator Phone", inv.phone); }
   if (sw) { add("Staff", "Social Worker", sw.name); add("Staff", "Social Worker Email", sw.email); add("Staff", "Social Worker Phone", sw.phone); }
   add("Staff", "Office", "Mobile County Public Defender's Office");

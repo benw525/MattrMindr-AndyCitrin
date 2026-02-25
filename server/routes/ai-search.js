@@ -149,7 +149,7 @@ router.post("/", requireAuth, async (req, res) => {
       if (c.offices && c.offices.length) parts.push(`Offices:${c.offices.join(",")}`);
       if (c.lead_attorney && usersMap[c.lead_attorney]) parts.push(`LeadAtty:${usersMap[c.lead_attorney]}`);
       if (c.second_attorney && usersMap[c.second_attorney]) parts.push(`2ndAtty:${usersMap[c.second_attorney]}`);
-      if (c.paralegal && usersMap[c.paralegal]) parts.push(`Paralegal:${usersMap[c.paralegal]}`);
+      if (c.paralegal && usersMap[c.paralegal]) parts.push(`TrialCoordinator:${usersMap[c.paralegal]}`);
       if (c.judge) parts.push(`Judge:${c.judge}`);
       if (c.mediator) parts.push(`Mediator:${c.mediator}`);
       if (c.expert) parts.push(`Expert:${c.expert}`);
