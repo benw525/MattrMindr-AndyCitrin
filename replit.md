@@ -48,6 +48,7 @@ server/
     templates.js    — CRUD /api/templates, document generation with docxtemplater
     parties.js      — CRUD /api/parties (case parties: individuals & corporations)
     insurance.js    — CRUD /api/insurance (case insurance policies with coverage tracking)
+    experts.js      — CRUD /api/experts (case experts with contact card integration)
 
 lextrack/
   src/
@@ -71,7 +72,8 @@ lextrack/
 - Contacts: auto-populated contacts (Clients, Attorneys, Courts + manual Experts/Miscellaneous), with phone/email/fax/address, associated cases, persistent notes, and soft-delete with 30-day recovery. Category-specific fields: Attorney→Firm, Adjuster/Expert→Company, Court→County. Attorney and Court contacts support Staff accordion (debounced auto-save, accordion UI like case parties). Attorney staff types: Legal Assistant, Paralegal, Receptionist, Other. Court staff types: Judicial Assistant, Clerk, Court Reporter, Bailiff, Other. Staff fields: name (single), phone, email.
 - AI Search: Natural language search across all case data via OpenAI gpt-5-mini
 - Confidential Cases: access-restricted to assigned team members + App Admin
-- Case Parties: accordion-style party management on Details tab; Individual (name/address/phones/other contacts/email/represented-by) and Corporation (entity name/type/registered agent/POC) types; any party type selectable; integrated with document generator placeholders
+- Case Parties: accordion-style party management on Details tab; Individual (name/address/phones/other contacts/email/represented-by/notes) and Corporation (entity name/type/registered agent/POC/notes) types; any party type selectable; integrated with document generator placeholders
+- Case Experts: accordion-style expert management on Details tab (right column); Types: Treating Physician, Retained, Rebuttal; auto-links to Expert contact cards by name (creates new if not found); syncs phone/email/fax/address/company to contact card; case-specific fields: assigned party, testimony type (Deposition/Live/Both), notes
 - Document Generator: upload .docx templates, define placeholders, auto-fill from case data + party data; visibility (global/personal); full re-edit of placeholders (add/remove/modify fields) restricted to creator + Shareholders
 - Email Correspondence: SendGrid Inbound Parse captures emails to case-{id}@mail.mattrmindr.com
 - Authentication: bcrypt passwords, temp password emails, forgot/reset password flow, forced password change on first login
@@ -132,3 +134,4 @@ lextrack/
 | doc_templates | Document templates (.docx with placeholders) |
 | case_parties | Per-case parties (individuals & corporations, JSONB data) |
 | case_insurance | Per-case insurance policies with coverage tracking (JSONB data) |
+| case_experts | Per-case experts with contact card links (JSONB data) |

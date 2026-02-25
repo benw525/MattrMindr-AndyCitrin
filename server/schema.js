@@ -243,6 +243,16 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_experts (
+        id          SERIAL PRIMARY KEY,
+        case_id     INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        expert_type TEXT    NOT NULL DEFAULT 'Treating Physician',
+        data        JSONB   NOT NULL DEFAULT '{}',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

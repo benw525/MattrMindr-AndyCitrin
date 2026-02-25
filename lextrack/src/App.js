@@ -16,6 +16,7 @@ import {
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
   apiGetParties, apiCreateParty, apiUpdateParty, apiDeleteParty,
   apiGetInsurance, apiCreateInsurance, apiUpdateInsurance, apiDeleteInsurance,
+  apiGetExperts, apiCreateExpert, apiUpdateExpert, apiDeleteExpert,
   apiGetTemplates, apiDeleteTemplate, apiUpdateTemplate, apiGetTemplateSource, apiUploadTemplateFile, apiSaveTemplate, apiGenerateDocument,
 } from "./api.js";
 
@@ -2398,6 +2399,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [newInsuranceType, setNewInsuranceType] = useState("Liability");
   const insuranceTimers = useRef({});
   const insurancePendingData = useRef({});
+  const [experts, setExperts] = useState([]);
+  const [expertsLoading, setExpertsLoading] = useState(false);
+  const [expandedExpert, setExpandedExpert] = useState(null);
+  const [addingExpert, setAddingExpert] = useState(false);
+  const [newExpertType, setNewExpertType] = useState("Treating Physician");
+  const expertTimers = useRef({});
+  const expertPendingData = useRef({});
   const [showOfficePopup, setShowOfficePopup] = useState(false);
   const [showTeamPopup, setShowTeamPopup] = useState(false);
   const [showDocGen, setShowDocGen] = useState(false);
@@ -2419,11 +2427,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       apiGetParties(c.id).then(setParties).catch(() => {}).finally(() => setPartiesLoading(false));
       setInsuranceLoading(true);
       apiGetInsurance(c.id).then(setInsurance).catch(() => {}).finally(() => setInsuranceLoading(false));
+      setExpertsLoading(true);
+      apiGetExperts(c.id).then(setExperts).catch(() => {}).finally(() => setExpertsLoading(false));
     }
     const timersRef = partyTimers.current;
     const pendingRef = partyPendingData.current;
     const insTimersRef = insuranceTimers.current;
     const insPendingRef = insurancePendingData.current;
+    const expTimersRef = expertTimers.current;
+    const expPendingRef = expertPendingData.current;
     return () => {
       Object.entries(timersRef).forEach(([key, timer]) => {
         clearTimeout(timer);
@@ -2443,6 +2455,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         }
       });
       insuranceTimers.current = {};
+      Object.entries(expTimersRef).forEach(([key, timer]) => {
+        clearTimeout(timer);
+        const pendingData = expPendingRef[key];
+        if (pendingData) {
+          apiUpdateExpert(parseInt(key), { data: pendingData }).catch(() => {});
+          delete expPendingRef[key];
+        }
+      });
+      expertTimers.current = {};
     };
   }, [activeTab, c.id]);
 
@@ -3353,6 +3374,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginTop: 4, marginBottom: 6 }}>Represented By</div>
                         <input style={{ ...inputStyle, maxWidth: 350, marginBottom: 12 }} value={d.representedBy || ""} placeholder="Attorney / firm name" onChange={e => updateField("representedBy", e.target.value)} />
 
+                        {/* Notes */}
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginTop: 4, marginBottom: 6 }}>Notes</div>
+                        <textarea
+                          style={{ ...inputStyle, minHeight: 60, resize: "vertical", fontFamily: "inherit", marginBottom: 12 }}
+                          value={d.notes || ""}
+                          placeholder="Notes about this party..."
+                          onChange={e => updateField("notes", e.target.value)}
+                        />
+
                         {/* Delete */}
                         <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 10, display: "flex", justifyContent: "flex-end" }}>
                           <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
@@ -3584,8 +3614,203 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               })}
             </div>
 
-              {/* Right column: TBD */}
-              <div />
+              {/* Right column: Experts */}
+              <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
+              <div className="case-overlay-section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Experts ({experts.length})</span>
+                <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={() => setAddingExpert(true)}>+ Add Expert</button>
+              </div>
+
+              {addingExpert && (
+                <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16, marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>New Expert</div>
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 }}>Expert Type</label>
+                    <select value={newExpertType} onChange={e => setNewExpertType(e.target.value)} style={{ width: "100%", fontSize: 13, padding: "6px 8px" }}>
+                      {["Treating Physician", "Retained", "Rebuttal"].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button className="btn btn-outline btn-sm" onClick={() => { setAddingExpert(false); setNewExpertType("Treating Physician"); }}>Cancel</button>
+                    <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A" }} onClick={async () => {
+                      try {
+                        const saved = await apiCreateExpert({ caseId: c.id, expertType: newExpertType, data: {} });
+                        setExperts(p => [...p, saved]);
+                        setAddingExpert(false);
+                        setExpandedExpert(saved.id);
+                        log("Expert Added", `Added ${newExpertType} expert`);
+                        setNewExpertType("Treating Physician");
+                      } catch (err) { alert("Failed to add expert: " + err.message); }
+                    }}>Add</button>
+                  </div>
+                </div>
+              )}
+
+              {expertsLoading && <div style={{ fontSize: 13, color: "#8A9096", padding: "12px 0" }}>Loading experts...</div>}
+
+              {!expertsLoading && experts.length === 0 && !addingExpert && (
+                <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "12px 0" }}>No experts added yet.</div>
+              )}
+
+              {!expertsLoading && experts.map(exp => {
+                const isExp = expandedExpert === exp.id;
+                const d = exp.data || {};
+                const displayName = d.fullName || "Unnamed Expert";
+                const EXPERT_TYPE_COLORS = {
+                  "Treating Physician": { bg: "#E6F5ED", text: "#2F6A3A" },
+                  "Retained": { bg: "#E8F0FD", text: "#1A5FA0" },
+                  "Rebuttal": { bg: "#FDF0E6", text: "#8A5A1E" },
+                };
+                const typeColor = EXPERT_TYPE_COLORS[exp.expertType] || { bg: "#EDEFF2", text: "#5D6268" };
+
+                const updateField = (field, value) => {
+                  const newData = { ...(expertPendingData.current[exp.id] || d), [field]: value };
+                  expertPendingData.current[exp.id] = newData;
+                  setExperts(p => p.map(x => x.id === exp.id ? { ...x, data: newData } : x));
+                  const timerKey = `${exp.id}`;
+                  if (expertTimers.current[timerKey]) clearTimeout(expertTimers.current[timerKey]);
+                  expertTimers.current[timerKey] = setTimeout(async () => {
+                    const dataToSave = expertPendingData.current[exp.id];
+                    delete expertPendingData.current[exp.id];
+                    try { await apiUpdateExpert(exp.id, { data: dataToSave }); } catch (err) { console.error(err); }
+                  }, 600);
+                };
+
+                const handleNameBlur = async () => {
+                  const name = (d.fullName || "").trim();
+                  if (!name || d.contactId) return;
+                  const match = allContacts.find(ct => ct.category === "Expert" && ct.name.toLowerCase() === name.toLowerCase() && !ct.deletedAt);
+                  if (match) {
+                    updateField("contactId", match.id);
+                    updateField("phone", match.phone || d.phone || "");
+                    updateField("email", match.email || d.email || "");
+                    updateField("fax", match.fax || d.fax || "");
+                    updateField("address", match.address || d.address || "");
+                    updateField("company", match.company || d.company || "");
+                  } else if (name) {
+                    try {
+                      const created = await apiCreateContact({ name, category: "Expert", phone: d.phone || "", email: d.email || "", fax: d.fax || "", address: d.address || "", company: d.company || "" });
+                      updateField("contactId", created.id);
+                      setAllContacts(prev => [...prev, created]);
+                    } catch (err) { console.error("Failed to create expert contact:", err); }
+                  }
+                };
+
+                const syncContactFromExpert = async (field, value) => {
+                  updateField(field, value);
+                  if (d.contactId) {
+                    const contactField = field;
+                    try {
+                      await apiUpdateContact(d.contactId, { [contactField]: value });
+                      setAllContacts(prev => prev.map(ct => ct.id === d.contactId ? { ...ct, [contactField]: value } : ct));
+                    } catch (err) { console.error(err); }
+                  }
+                };
+
+                const inputStyle = { width: "100%", fontSize: 13, padding: "5px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" };
+                const labelStyle = { fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 3 };
+                const fieldGroup = { marginBottom: 10 };
+
+                const partyOptions = parties.map(p => {
+                  const pd = p.data || {};
+                  const pName = p.entityKind === "corporation" ? (pd.entityName || "Unnamed Entity") : [pd.firstName, pd.lastName].filter(Boolean).join(" ") || "Unnamed Party";
+                  return { value: `${p.partyType}: ${pName}`, label: `${p.partyType}: ${pName}` };
+                });
+
+                return (
+                  <div key={exp.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
+                    <div
+                      onClick={() => setExpandedExpert(isExp ? null : exp.id)}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", cursor: "pointer", background: isExp ? "var(--c-bg2)" : "transparent" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 14 }}>🩺</span>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{displayName}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: typeColor.bg, color: "#1F2428", letterSpacing: "0.02em" }}>{exp.expertType}</span>
+                            {d.company && <span style={{ fontSize: 11, color: "#8A9096" }}>· {d.company}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 12, color: "#8A9096" }}>{isExp ? "▲" : "▼"}</span>
+                    </div>
+
+                    {isExp && (
+                      <div style={{ padding: "12px 14px", borderTop: "1px solid var(--c-border)" }}>
+                        <div style={fieldGroup}>
+                          <label style={labelStyle}>Full Name</label>
+                          <input
+                            style={{ ...inputStyle, fontWeight: 600 }}
+                            value={d.fullName || ""}
+                            placeholder="Enter expert's full name"
+                            onChange={e => { updateField("fullName", e.target.value); if (d.contactId) updateField("contactId", null); }}
+                            onBlur={handleNameBlur}
+                          />
+                          {d.contactId && <div style={{ fontSize: 10, color: "#2F7A5F", marginTop: 2 }}>Linked to contact card</div>}
+                        </div>
+                        <div style={fieldGroup}>
+                          <label style={labelStyle}>Company / Practice</label>
+                          <input style={inputStyle} value={d.company || ""} placeholder="Company or practice name" onChange={e => syncContactFromExpert("company", e.target.value)} />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                          <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={d.phone || ""} onChange={e => syncContactFromExpert("phone", e.target.value)} /></div>
+                          <div><label style={labelStyle}>Fax</label><input style={inputStyle} value={d.fax || ""} onChange={e => syncContactFromExpert("fax", e.target.value)} /></div>
+                        </div>
+                        <div style={fieldGroup}>
+                          <label style={labelStyle}>Email</label>
+                          <input style={inputStyle} value={d.email || ""} onChange={e => syncContactFromExpert("email", e.target.value)} />
+                        </div>
+                        <div style={fieldGroup}>
+                          <label style={labelStyle}>Address</label>
+                          <input style={inputStyle} value={d.address || ""} onChange={e => syncContactFromExpert("address", e.target.value)} />
+                        </div>
+
+                        <div style={{ borderTop: "1px solid var(--c-border)", margin: "10px 0", paddingTop: 10 }}>
+                          <div style={fieldGroup}>
+                            <label style={labelStyle}>Assigned Party</label>
+                            <select style={inputStyle} value={d.assignedParty || ""} onChange={e => updateField("assignedParty", e.target.value)}>
+                              <option value="">— None —</option>
+                              {partyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                          </div>
+                          <div style={fieldGroup}>
+                            <label style={labelStyle}>Testimony</label>
+                            <select style={inputStyle} value={d.testimony || ""} onChange={e => updateField("testimony", e.target.value)}>
+                              <option value="">— Select —</option>
+                              <option value="Deposition">Deposition</option>
+                              <option value="Live Testimony">Live Testimony</option>
+                              <option value="Both">Both</option>
+                            </select>
+                          </div>
+                          <div style={fieldGroup}>
+                            <label style={labelStyle}>Notes</label>
+                            <textarea
+                              style={{ ...inputStyle, minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+                              value={d.notes || ""}
+                              placeholder="Notes about this expert..."
+                              onChange={e => updateField("notes", e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                          <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
+                            if (!window.confirm(`Remove ${displayName} (${exp.expertType}) from this case?`)) return;
+                            try {
+                              await apiDeleteExpert(exp.id);
+                              setExperts(p => p.filter(x => x.id !== exp.id));
+                              setExpandedExpert(null);
+                              log("Expert Removed", `Removed ${exp.expertType}: ${displayName}`);
+                            } catch (err) { alert("Failed: " + err.message); }
+                          }}>Remove Expert</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              </div>
 
             </div>
 

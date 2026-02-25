@@ -146,3 +146,9 @@ export const apiGetInsurance    = (caseId) => apiFetch(`/api/insurance/${caseId}
 export const apiCreateInsurance = (data)   => apiFetch("/api/insurance",       { method: "POST",   body: data });
 export const apiUpdateInsurance = (id, data) => apiFetch(`/api/insurance/${id}`, { method: "PUT",    body: data });
 export const apiDeleteInsurance = (id)     => apiFetch(`/api/insurance/${id}`, { method: "DELETE" });
+
+// Experts
+export const apiGetExperts    = (caseId) => apiFetch(`/api/experts/${caseId}`);
+export const apiCreateExpert  = (data)   => apiFetch("/api/experts",       { method: "POST",   body: data });
+export const apiUpdateExpert  = (id, data) => apiFetch(`/api/experts/${id}`, { method: "PUT",    body: data });
+export const apiDeleteExpert  = (id)     => apiFetch(`/api/experts/${id}`, { method: "DELETE" });
