@@ -2338,7 +2338,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [newDateLabel, setNewDateLabel] = useState("");
   const [showPrint, setShowPrint] = useState(false);
   const [showBillingPrint, setShowBillingPrint] = useState(false);
-  const [activeTab, setActiveTab] = useState("details"); // "details" | "billing" | "expenses" | "activity"
+  const [activeTab, setActiveTab] = useState("overview"); // "overview" | "details" | "billing" | "expenses" | "correspondence" | "activity"
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [allContacts, setAllContacts] = useState([]);
@@ -2729,6 +2729,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
         {/* Tabs */}
         <div className="case-overlay-tabs">
+          <div className={`case-overlay-tab ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}>Overview</div>
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
           <div className={`case-overlay-tab ${activeTab === "billing" ? "active" : ""}`} onClick={() => setActiveTab("billing")}>Billing Summary</div>
           <div className={`case-overlay-tab ${activeTab === "expenses" ? "active" : ""}`} onClick={() => setActiveTab("expenses")}>Case Expenses</div>
@@ -2740,8 +2741,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
         </div>
 
-        {/* ── Details Tab ── */}
-        {activeTab === "details" && (
+        {/* ── Overview Tab ── */}
+        {activeTab === "overview" && (
           <div className="case-overlay-body">
 
             {/* Two-column: Details + Key Dates */}
@@ -3059,6 +3060,18 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 onAddLink={handleAddLink}
                 onDeleteLink={handleDeleteLink}
               />
+            </div>
+          </div>
+        )}
+
+        {/* ── Details Tab ── */}
+        {activeTab === "details" && (
+          <div className="case-overlay-body">
+            <div className="case-overlay-section">
+              <div className="case-overlay-section-title">Details</div>
+              <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>
+                No additional details yet.
+              </div>
             </div>
           </div>
         )}
