@@ -1749,10 +1749,12 @@ function EscalateBox({ on, onChange, basePriority, mediumDays, highDays, urgentD
 function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, userOffices }) {
   const [showModal, setShowModal] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null);
+  const [showCompleted, setShowCompleted] = useState(false);
   const activeCases = allCases.filter(c => c.status === "Active");
   const upcomingDl = deadlines.filter(d => { const n = daysUntil(d.date); return n !== null && n >= 0 && n <= 30; }).sort((a, b) => new Date(a.date) - new Date(b.date));
   const trialSoon = allCases.filter(c => c.trialDate && daysUntil(c.trialDate) >= 0 && daysUntil(c.trialDate) <= 90).sort((a, b) => new Date(a.trialDate) - new Date(b.trialDate));
   const myTasks = tasks.filter(t => t.assigned === currentUser.id && t.status !== "Completed");
+  const myCompleted = tasks.filter(t => t.assigned === currentUser.id && t.status === "Completed").sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
 
   return (
     <>
@@ -1824,9 +1826,10 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
             })}
           </div>
         </div>
-        {myTasks.length > 0 && (
+        {(myTasks.length > 0 || myCompleted.length > 0) && (
           <div className="card">
             <div className="card-header"><div className="card-title">My Tasks</div><Badge label={`${myTasks.length} open`} /></div>
+            {myTasks.length === 0 && <div className="empty" style={{ padding: "12px 16px", fontSize: 13, color: "#8A9096" }}>No open tasks</div>}
             {myTasks.slice(0, 10).map(t => {
               const days = daysUntil(t.due);
               const cs = allCases.find(c => c.id === t.caseId);
@@ -1871,6 +1874,37 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                 </div>
               );
             })}
+            {myCompleted.length > 0 && (
+              <>
+                <div
+                  onClick={() => setShowCompleted(!showCompleted)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", cursor: "pointer", borderTop: "1px solid var(--c-border)", background: showCompleted ? "var(--c-bg2)" : "transparent" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: "#8A9096" }}>{showCompleted ? "▼" : "▶"}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text2)" }}>Completed</span>
+                    <Badge label={`${myCompleted.length}`} />
+                  </div>
+                </div>
+                {showCompleted && myCompleted.slice(0, 20).map(t => {
+                  const cs = allCases.find(c => c.id === t.caseId);
+                  return (
+                    <div key={t.id} className="deadline-item" style={{ padding: "8px 16px", opacity: 0.7 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, background: "#2F7A5F", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <span style={{ color: "#fff", fontSize: 10, lineHeight: 1 }}>✓</span>
+                        </div>
+                        <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
+                          <div className="dl-title" style={{ textDecoration: "line-through", color: "var(--c-text2)" }}>{t.title}</div>
+                          <div className="dl-case">{cs?.title?.slice(0, 45) || `#${t.caseId}`}</div>
+                        </div>
+                        <div style={{ fontSize: 11, color: "#8A9096", flexShrink: 0 }}>{t.completedAt ? fmt(t.completedAt) : ""}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         )}
       </div>
