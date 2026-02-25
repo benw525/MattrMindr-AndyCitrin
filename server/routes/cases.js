@@ -18,7 +18,7 @@ const toFrontend = (row) => ({
   court: row.court,
   claimNum: row.claim_num,
   fileNum: row.file_num,
-  claimSpec: row.claim_spec,
+  adjuster: row.adjuster,
   type: row.type,
   status: row.status,
   stage: row.stage,
@@ -110,7 +110,7 @@ router.post("/", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO cases
         (case_num, title, client, insured, plaintiff, defendant, opposing_counsel, short_case_num, county, court,
-         claim_num, file_num, claim_spec,
+         claim_num, file_num, adjuster,
          type, status, stage, lead_attorney, second_attorney, paralegal, paralegal2, legal_assistant,
          trial_date, answer_filed, written_disc, party_depo, expert_depo,
          witness_depo, mediation, mediator, judge, dol, custom_fields, offices, expert, custom_dates, billing_parties, case_expenses, hidden_fields, confidential, custom_team, medical_summary)
@@ -119,7 +119,7 @@ router.post("/", requireAuth, async (req, res) => {
       [
         d.caseNum || "", d.title, d.client || "", d.insured || "",
         d.plaintiff || "", d.defendant || "", d.opposingCounsel || "", d.shortCaseNum || "", d.county || "", d.court || "",
-        d.claimNum || "", d.fileNum || "", d.claimSpec || "",
+        d.claimNum || "", d.fileNum || "", d.adjuster || "",
         d.type || "Civil Litigation", d.status || "Active", d.stage || "Pleadings",
         orNull(d.leadAttorney), orNull(d.secondAttorney), orNull(d.paralegal), orNull(d.paralegal2), orNull(d.legalAssistant),
         orNull(d.trialDate), orNull(d.answerFiled), orNull(d.writtenDisc),
@@ -151,7 +151,7 @@ router.put("/:id", requireAuth, async (req, res) => {
       `UPDATE cases SET
         case_num=$1, title=$2, client=$3, insured=$4, plaintiff=$5,
         defendant=$6, opposing_counsel=$7, short_case_num=$8, county=$9, court=$10,
-        claim_num=$11, file_num=$12, claim_spec=$13, type=$14, status=$15,
+        claim_num=$11, file_num=$12, adjuster=$13, type=$14, status=$15,
         stage=$16, lead_attorney=$17, second_attorney=$18, paralegal=$19, paralegal2=$20, legal_assistant=$21,
         trial_date=$22, answer_filed=$23, written_disc=$24, party_depo=$25,
         expert_depo=$26, witness_depo=$27, mediation=$28, mediator=$29,
@@ -161,7 +161,7 @@ router.put("/:id", requireAuth, async (req, res) => {
       [
         d.caseNum || "", d.title, d.client || "", d.insured || "",
         d.plaintiff || "", d.defendant || "", d.opposingCounsel || "", d.shortCaseNum || "", d.county || "", d.court || "",
-        d.claimNum || "", d.fileNum || "", d.claimSpec || "",
+        d.claimNum || "", d.fileNum || "", d.adjuster || "",
         d.type || "Civil Litigation", d.status || "Active", d.stage || "Pleadings",
         orNull(d.leadAttorney), orNull(d.secondAttorney), orNull(d.paralegal), orNull(d.paralegal2), orNull(d.legalAssistant),
         orNull(d.trialDate), orNull(d.answerFiled), orNull(d.writtenDisc),

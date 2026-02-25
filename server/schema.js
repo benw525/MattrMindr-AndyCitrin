@@ -43,7 +43,7 @@ async function createSchema() {
         court           TEXT    NOT NULL DEFAULT '',
         claim_num       TEXT    NOT NULL DEFAULT '',
         file_num        TEXT    NOT NULL DEFAULT '',
-        claim_spec      TEXT    NOT NULL DEFAULT '',
+        adjuster        TEXT    NOT NULL DEFAULT '',
         type            TEXT    NOT NULL DEFAULT 'Civil Litigation',
         status          TEXT    NOT NULL DEFAULT 'Active',
         stage           TEXT    NOT NULL DEFAULT 'Pleadings',

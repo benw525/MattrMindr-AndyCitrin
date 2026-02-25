@@ -37,20 +37,20 @@ async function seed() {
     for (const c of CASES) {
       await client.query(
         `INSERT INTO cases
-          (id, case_num, title, client, insured, plaintiff, claim_num, file_num, claim_spec,
+          (id, case_num, title, client, insured, plaintiff, claim_num, file_num, adjuster,
            type, status, stage, lead_attorney, second_attorney, paralegal,
            trial_date, answer_filed, written_disc, party_depo, expert_depo,
            witness_depo, mediation, mediator, judge, dol)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
          ON CONFLICT (id) DO UPDATE SET
            case_num=$2, title=$3, client=$4, insured=$5, plaintiff=$6,
-           claim_num=$7, file_num=$8, claim_spec=$9, type=$10, status=$11, stage=$12,
+           claim_num=$7, file_num=$8, adjuster=$9, type=$10, status=$11, stage=$12,
            lead_attorney=$13, second_attorney=$14, paralegal=$15,
            trial_date=$16, answer_filed=$17, written_disc=$18, party_depo=$19,
            expert_depo=$20, witness_depo=$21, mediation=$22, mediator=$23, judge=$24, dol=$25`,
         [
           c.id, c.caseNum || "", c.title, c.client || "", c.insured || "",
-          c.plaintiff || "", c.claimNum || "", c.fileNum || "", c.claimSpec || "",
+          c.plaintiff || "", c.claimNum || "", c.fileNum || "", c.adjuster || c.claimSpec || "",
           c.type || "Civil Litigation", c.status || "Active", c.stage || "Pleadings",
           orNull(c.leadAttorney), orNull(c.secondAttorney), orNull(c.paralegal),
           orNull(c.trialDate), orNull(c.answerFiled), orNull(c.writtenDisc),

@@ -142,7 +142,7 @@ router.post("/", requireAuth, async (req, res) => {
       if (c.short_case_num) parts.push(`ShortCaseNum:${c.short_case_num}`);
       if (c.county) parts.push(`County:${c.county}`);
       if (c.court) parts.push(`Court:${c.court}`);
-      if (c.claim_spec) parts.push(`ClaimSpec:${c.claim_spec}`);
+      if (c.adjuster) parts.push(`Adjuster:${c.adjuster}`);
       parts.push(`Type:${c.type || "Civil Litigation"}`);
       parts.push(`Status:${c.status}`);
       if (c.stage) parts.push(`Stage:${c.stage}`);

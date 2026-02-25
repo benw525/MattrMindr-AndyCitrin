@@ -202,7 +202,7 @@ const generateDefaultTasks = (caseObj, userId) => {
     { title: "Complete Written Discovery",               assignedRole: "secondAttorney", priority: "Medium", dueDays: 30, notes: "" },
     { title: "Complete Medical Record Summary",          assignedRole: "paralegal",      priority: "Medium", dueDays: 30, notes: "" },
     { title: "Submit ILP",                               assignedRole: "leadAttorney",   priority: "Medium", dueDays: 60, notes: "" },
-    { title: "Call claim specialist with status update", assignedRole: "leadAttorney",   priority: "Medium", dueDays: 30, notes: "Introduce firm and confirm coverage.", recurring: true, recurringDays: 30 },
+    { title: "Call adjuster with status update", assignedRole: "leadAttorney",   priority: "Medium", dueDays: 30, notes: "Introduce firm and confirm coverage.", recurring: true, recurringDays: 30 },
   ];
   const ids = base.map(() => newId());
   return base.map((t, i) => ({
@@ -1575,7 +1575,7 @@ function Toggle({ on, onChange, color = "#1E2A3A" }) {
 
 // ─── New Case/Matter Modal ────────────────────────────────────────────────────
 function NewCaseModal({ onSave, onClose, userOffices }) {
-  const [form, setForm] = useState({ caseNum: "", title: "", client: "", insured: "", plaintiff: "", defendant: "", opposingCounsel: "", shortCaseNum: "", county: "", court: "", claimNum: "", fileNum: "", claimSpec: "", stage: "Pleadings", leadAttorney: 0, secondAttorney: 0, paralegal: 0, paralegal2: 0, legalAssistant: 0, offices: [], answerFiled: "", dol: "", mediator: "", notes: "" });
+  const [form, setForm] = useState({ caseNum: "", title: "", client: "", insured: "", plaintiff: "", defendant: "", opposingCounsel: "", shortCaseNum: "", county: "", court: "", claimNum: "", fileNum: "", adjuster: "", stage: "Pleadings", leadAttorney: 0, secondAttorney: 0, paralegal: 0, paralegal2: 0, legalAssistant: 0, offices: [], answerFiled: "", dol: "", mediator: "", notes: "" });
   const [autoTasks, setAutoTasks] = useState(true);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const isMatter = !form.caseNum.trim();
@@ -1646,7 +1646,7 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
         </div>
         <div className="form-row">
           <div className="form-group"><label>Claim Number</label><input value={form.claimNum} onChange={e => set("claimNum", e.target.value)} /></div>
-          <div className="form-group"><label>Claim Specialist</label><input value={form.claimSpec} onChange={e => set("claimSpec", e.target.value)} /></div>
+          <div className="form-group"><label>Adjuster</label><input value={form.adjuster} onChange={e => set("adjuster", e.target.value)} /></div>
         </div>
         <div className="form-row">
           <div className="form-group"><label>Lead Attorney</label>
@@ -1690,7 +1690,7 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}>✅ Auto-generate opening tasks</div>
-              <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>Open file, ack. letter, calendar answer deadline, subpoena police file, send written discovery, investigate scene, written discovery, medical record summary, ILP, claim specialist call (recurring)</div>
+              <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>Open file, ack. letter, calendar answer deadline, subpoena police file, send written discovery, investigate scene, written discovery, medical record summary, ILP, adjuster call (recurring)</div>
             </div>
             <Toggle on={autoTasks} onChange={() => setAutoTasks(p => !p)} />
           </div>
@@ -2659,7 +2659,7 @@ const CORE_FIELDS = [
   { key: "court",            label: "Court",               type: "text",   section: "info" },
   { key: "expert",           label: "Expert",              type: "text",   section: "details" },
   { key: "claimNum",   label: "Claim Number",        type: "text",   section: "details" },
-  { key: "claimSpec",  label: "Claim Specialist",    type: "text",   section: "details" },
+  { key: "adjuster",  label: "Adjuster",    type: "text",   section: "details" },
   { key: "judge",      label: "Judge",               type: "text",   section: "details" },
   { key: "mediator",   label: "Mediator",            type: "text",   section: "details" },
   { key: "status",     label: "Status",              type: "select", section: "details", options: ["Active", "Closed", "Monitoring"] },
@@ -2749,7 +2749,7 @@ function EditField({ fieldKey, label, type, options, value, onChange, onBlur, on
   );
 }
 
-const CONTACT_LINKABLE_KEYS = new Set(["client", "insured", "plaintiff", "claimSpec", "judge", "mediator", "expert", "opposingCounsel"]);
+const CONTACT_LINKABLE_KEYS = new Set(["client", "insured", "plaintiff", "adjuster", "judge", "mediator", "expert", "opposingCounsel"]);
 
 const KEY_DATE_FIELDS = ["dol", "answerFiled", "writtenDisc", "partyDepo", "mediation", "trialDate"];
 const KEY_DATE_TYPES = { dol: "Other", answerFiled: "Filing", writtenDisc: "Discovery", partyDepo: "Discovery", mediation: "Hearing", trialDate: "Hearing" };
@@ -5383,7 +5383,7 @@ const NOTE_TYPES = [
   { label: "General",          color: "var(--c-text2)", bg: "var(--c-card)" },
   { label: "Attorney Note",    color: "#1E2A3A", bg: "#fef3c7" },
   { label: "Client Contact",   color: "#5599cc", bg: "#E4E7EB" },
-  { label: "Claim Specialist", color: "#44bbaa", bg: "#ccfbf1" },
+  { label: "Adjuster", color: "#44bbaa", bg: "#ccfbf1" },
   { label: "Mediation",        color: "#a066cc", bg: "#fdf4ff" },
   { label: "Court / Hearing",  color: "#e07a30", bg: "#fff7ed" },
   { label: "Investigation",    color: "#4CAE72", bg: "#dcfce7" },
@@ -5758,7 +5758,7 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
                 ["County", c.county],
                 ["Court", c.court],
                 ["Claim Number", c.claimNum],
-                ["Claim Specialist", c.claimSpec],
+                ["Adjuster", c.adjuster],
                 ["Date of Loss", fmt(c.dol)],
                 ["Judge", c.judge],
                 ["Mediator", c.mediator],
@@ -8694,7 +8694,7 @@ const CASE_FIELD_MAP = [
   { key: "court", label: "Court" },
   { key: "claimNum", label: "Claim Number" },
   { key: "fileNum", label: "File Number" },
-  { key: "claimSpec", label: "Claims Specialist" },
+  { key: "adjuster", label: "Adjuster" },
   { key: "type", label: "Case Type" },
   { key: "status", label: "Status" },
   { key: "stage", label: "Stage" },
