@@ -60,6 +60,7 @@ export const USERS = [
   { id: 59, name: "Wayne Washington",       role: "Investigator",                 email: "wayne.washington@mobiledefender.org",       initials: "WW",  phone: "",               cell: "", ext: "", avatar: "#4CC9A8" },
   { id: 60, name: "Shelby Populus",          role: "Paralegal",                    email: "shelby.populus@mobiledefender.org",         initials: "SP",  phone: "(251) 319-6102", cell: "", ext: "", avatar: "#5884C9" },
   { id: 61, name: "Mark Stephens",           role: "Paralegal",                    email: "mark.stephens@mobiledefender.org",          initials: "MS",  phone: "(251) 319-6101", cell: "", ext: "", avatar: "#C9A84C" },
+  { id: 62, name: "Admin",                   role: "App Admin",                    email: "admin@mobiledefender.org",                   initials: "AD",  phone: "",               cell: "", ext: "", avatar: "#C9A84C" },
 ];
 
 export const CASES = [];
