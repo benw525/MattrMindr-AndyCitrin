@@ -3973,9 +3973,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 const dateTo = mf.dateTo || "";
                 const setMF = (key, val) => setMedFilters(prev => ({ ...prev, [mp.id]: { ...prev[mp.id], [key]: val } }));
                 const filtered = entries.filter(e => {
+                  if (expandedMedEntry === e.id) return true;
                   if (provFilter && e.provider !== provFilter) return false;
-                  if (dateFrom && e.dateOfService < dateFrom) return false;
-                  if (dateTo && e.dateOfService > dateTo) return false;
+                  if (dateFrom && e.dateOfService && e.dateOfService < dateFrom) return false;
+                  if (dateTo && e.dateOfService && e.dateOfService > dateTo) return false;
                   return true;
                 });
                 const updEntry = (eId, key, val) => setMedicalSummary(prev => prev.map(m => m.id === mp.id ? { ...m, entries: m.entries.map(e => e.id === eId ? { ...e, [key]: val } : e) } : m));
