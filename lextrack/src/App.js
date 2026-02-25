@@ -1885,7 +1885,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [attyFilter, setAttyFilter] = useState("All");
-  const [officeFilter, setOfficeFilter] = useState("All");
+  const [officeFilter, setOfficeFilter] = useState(() => { const uo = (userOffices || {})[currentUser.id] || []; return uo.length > 0 ? uo[0] : "All"; });
   const [showModal, setShowModal] = useState(false);
   const [sortCol, setSortCol] = useState("title");
   const [sortDir, setSortDir] = useState("asc");
@@ -4894,7 +4894,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
   const [showForm, setShowForm] = useState(false);
   const [caseSearch, setCaseSearch] = useState("");
   const [caseDropOpen, setCaseDropOpen] = useState(false);
-  const [taskOffice, setTaskOffice] = useState("All");
+  const [taskOffice, setTaskOffice] = useState(() => { const uo = (userOffices || {})[currentUser.id] || []; return uo.length > 0 ? uo[0] : "All"; });
   const [sortCol, setSortCol] = useState("due");
   const [sortDir, setSortDir] = useState("asc");
   const [expandedTask, setExpandedTask] = useState(null);
@@ -5897,8 +5897,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
                           fontSize: 11,
                           fontWeight: 600,
                           background: r.type === "Task Completed" ? "#dcfce7" : "#E4E7EB",
-                          color:      r.type === "Task Completed" ? "#4CAE72"  : "#5599cc",
-                          border:     `1px solid ${r.type === "Task Completed" ? "#bbf7d0" : "#E4E7EB"}`,
+                          color: "#1F2428",
                         }}>{r.type}</span>
                       </td>
                       <td>
@@ -7628,7 +7627,7 @@ function DocumentsView({ currentUser }) {
 }
 
 function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUserOffices, allUsers, setAllUsers }) {
-  const [officeFilter, setOfficeFilter] = useState("All");
+  const [officeFilter, setOfficeFilter] = useState(() => { const uo = (userOffices || {})[currentUser.id] || []; return uo.length > 0 ? uo[0] : "All"; });
   const [showAddModal, setShowAddModal] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
