@@ -2678,6 +2678,122 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
         </div>
       )}
+      {showOfficePopup && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowOfficePopup(false)}>
+          <div style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 340, maxWidth: 420, boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Office(s)</div>
+              <button onClick={() => setShowOfficePopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {OFFICES.map(o => {
+                const checked = (draft.offices || []).includes(o);
+                return (
+                  <label key={o} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: checked ? "var(--c-text-h)" : "var(--c-text2)", userSelect: "none", padding: "6px 10px", borderRadius: 6, background: checked ? "var(--c-bg2)" : "transparent", border: `1px solid ${checked ? "var(--c-border)" : "transparent"}` }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        const curr = draft.offices || [];
+                        setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
+                      }}
+                      style={{ accentColor: "#1E2A3A" }}
+                    />
+                    {o}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+      {showTeamPopup && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowTeamPopup(false)}>
+          <div style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 380, maxWidth: 500, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Team</div>
+              <button onClick={() => setShowTeamPopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
+            </div>
+            {editMode && (draft.offices || []).length > 0 && filteredUsersForTeam.length < USERS.length && (
+              <div style={{ fontSize: 11, color: "#1E2A3A", marginBottom: 12, fontStyle: "italic" }}>
+                Showing {filteredUsersForTeam.length} staff in selected office(s)
+              </div>
+            )}
+            {teamFields.map(f => (
+              <EditField
+                key={f.key}
+                fieldKey={f.key}
+                label={f.label}
+                type={f.type}
+                value={draft[f.key]}
+                onChange={val => setAndLog(f.key, val)}
+                canRemove={false}
+                userList={filteredUsersForTeam}
+                readOnly={!editMode}
+              />
+            ))}
+            {customTeam.map(m => (
+              <div key={m.id} className="edit-field">
+                <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>{m.role}</span>
+                  {editMode && canRemove && (
+                    <button onClick={() => setCustomTeam(p => p.filter(t => t.id !== m.id))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
+                  )}
+                </div>
+                {editMode ? (
+                  <select
+                    value={m.userId || 0}
+                    onChange={e => setCustomTeam(p => p.map(t => t.id === m.id ? { ...t, userId: parseInt(e.target.value) } : t))}
+                    className="edit-field-value"
+                  >
+                    <option value={0}>— None —</option>
+                    {filteredUsersForTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                ) : (
+                  <div className="edit-field-value">{USERS.find(u => u.id === m.userId)?.name || "—"}</div>
+                )}
+              </div>
+            ))}
+            {editMode && (
+              <div style={{ marginTop: 10 }}>
+                {addingTeamSlot && (
+                  <div style={{ marginBottom: 8 }}>
+                    <input
+                      placeholder="Role (e.g. Co-Counsel, Investigator)"
+                      value={newTeamRole}
+                      onChange={e => setNewTeamRole(e.target.value)}
+                      style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", marginBottom: 6, boxSizing: "border-box" }}
+                      autoFocus
+                    />
+                    <select
+                      value={newTeamUserId}
+                      onChange={e => setNewTeamUserId(parseInt(e.target.value))}
+                      style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", marginBottom: 6 }}
+                    >
+                      <option value={0}>Select staff member</option>
+                      {filteredUsersForTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                    <button
+                      className="btn btn-gold"
+                      style={{ fontSize: 12, width: "100%" }}
+                      disabled={!newTeamRole.trim() || !newTeamUserId}
+                      onClick={() => {
+                        setCustomTeam(p => [...p, { id: Date.now(), role: newTeamRole.trim(), userId: newTeamUserId }]);
+                        setNewTeamRole("");
+                        setNewTeamUserId(0);
+                        setAddingTeamSlot(false);
+                      }}
+                    >Add to Team</button>
+                  </div>
+                )}
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, width: "100%" }} onClick={() => setAddingTeamSlot(s => !s)}>
+                  {addingTeamSlot ? "Cancel" : "+ Add Team Slot"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {contactPopup && (
         <div onClick={e => e.target === e.currentTarget && (setContactPopup(null), setContactEditMode(false))} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
           <div style={{ background: "#2b3544", borderRadius: 10, padding: "20px 24px", maxWidth: 360, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.45)", display: "inline-flex", flexDirection: "column" }}>
@@ -2783,19 +2899,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               {draft.title || "Untitled"}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexShrink: 0, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", gap: 10, flexShrink: 0, alignItems: "center" }}>
+            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowOfficePopup(true)}>📍 Office ({(draft.offices || []).length})</button>
+            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowTeamPopup(true)}>👥 Team</button>
             <button
               className={`btn btn-sm ${editMode ? "" : "btn-outline"}`}
-              style={editMode ? { background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A" } : {}}
+              style={editMode ? { background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A", lineHeight: "20px" } : { lineHeight: "20px" }}
               onClick={() => setEditMode(e => !e)}
             >{editMode ? "✓ Done" : "✎ Edit"}</button>
-            <button className="btn btn-outline btn-sm" onClick={() => setShowPrint(true)}>🖨 Print</button>
-            <button className="btn btn-outline btn-sm" onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); }}>📄 Generate</button>
+            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowPrint(true)}>🖨 Print</button>
+            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); }}>📄 Generate</button>
             {canDelete && (
-              <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
+              <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5", lineHeight: "20px" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
             )}
-            <button className="btn btn-outline btn-sm" onClick={() => setShowOfficePopup(true)}>📍 Office ({(draft.offices || []).length})</button>
-            <button className="btn btn-outline btn-sm" onClick={() => setShowTeamPopup(true)}>👥 Team</button>
             <button className="btn btn-outline btn-sm" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={onClose}>✕</button>
           </div>
         </div>
@@ -3473,125 +3589,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               })}
             </div>
 
-            {/* Office Popup */}
-            {showOfficePopup && (
-              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowOfficePopup(false)}>
-                <div style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 340, maxWidth: 420, boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Office(s)</div>
-                    <button onClick={() => setShowOfficePopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {OFFICES.map(o => {
-                      const checked = (draft.offices || []).includes(o);
-                      return (
-                        <label key={o} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: checked ? "var(--c-text-h)" : "var(--c-text2)", userSelect: "none", padding: "6px 10px", borderRadius: 6, background: checked ? "var(--c-bg2)" : "transparent", border: `1px solid ${checked ? "var(--c-border)" : "transparent"}` }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const curr = draft.offices || [];
-                              setAndLog("offices", checked ? curr.filter(x => x !== o) : [...curr, o]);
-                            }}
-                            style={{ accentColor: "#1E2A3A" }}
-                          />
-                          {o}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Team Popup */}
-            {showTeamPopup && (
-              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowTeamPopup(false)}>
-                <div style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 380, maxWidth: 500, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Team</div>
-                    <button onClick={() => setShowTeamPopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
-                  </div>
-                  {editMode && (draft.offices || []).length > 0 && filteredUsersForTeam.length < USERS.length && (
-                    <div style={{ fontSize: 11, color: "#1E2A3A", marginBottom: 12, fontStyle: "italic" }}>
-                      Showing {filteredUsersForTeam.length} staff in selected office(s)
-                    </div>
-                  )}
-                  {teamFields.map(f => (
-                    <EditField
-                      key={f.key}
-                      fieldKey={f.key}
-                      label={f.label}
-                      type={f.type}
-                      value={draft[f.key]}
-                      onChange={val => setAndLog(f.key, val)}
-                      canRemove={false}
-                      userList={filteredUsersForTeam}
-                      readOnly={!editMode}
-                    />
-                  ))}
-                  {customTeam.map(m => (
-                    <div key={m.id} className="edit-field">
-                      <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span>{m.role}</span>
-                        {editMode && canRemove && (
-                          <button onClick={() => setCustomTeam(p => p.filter(t => t.id !== m.id))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
-                        )}
-                      </div>
-                      {editMode ? (
-                        <select
-                          value={m.userId || 0}
-                          onChange={e => setCustomTeam(p => p.map(t => t.id === m.id ? { ...t, userId: parseInt(e.target.value) } : t))}
-                          className="edit-field-value"
-                        >
-                          <option value={0}>— None —</option>
-                          {filteredUsersForTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                      ) : (
-                        <div className="edit-field-value">{USERS.find(u => u.id === m.userId)?.name || "—"}</div>
-                      )}
-                    </div>
-                  ))}
-                  {editMode && (
-                    <div style={{ marginTop: 10 }}>
-                      {addingTeamSlot && (
-                        <div style={{ marginBottom: 8 }}>
-                          <input
-                            placeholder="Role (e.g. Co-Counsel, Investigator)"
-                            value={newTeamRole}
-                            onChange={e => setNewTeamRole(e.target.value)}
-                            style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", marginBottom: 6, boxSizing: "border-box" }}
-                            autoFocus
-                          />
-                          <select
-                            value={newTeamUserId}
-                            onChange={e => setNewTeamUserId(parseInt(e.target.value))}
-                            style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", marginBottom: 6 }}
-                          >
-                            <option value={0}>Select staff member</option>
-                            {filteredUsersForTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                          </select>
-                          <button
-                            className="btn btn-gold"
-                            style={{ fontSize: 12, width: "100%" }}
-                            disabled={!newTeamRole.trim() || !newTeamUserId}
-                            onClick={() => {
-                              setCustomTeam(p => [...p, { id: Date.now(), role: newTeamRole.trim(), userId: newTeamUserId }]);
-                              setNewTeamRole("");
-                              setNewTeamUserId(0);
-                              setAddingTeamSlot(false);
-                            }}
-                          >Add to Team</button>
-                        </div>
-                      )}
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, width: "100%" }} onClick={() => setAddingTeamSlot(s => !s)}>
-                        {addingTeamSlot ? "Cancel" : "+ Add Team Slot"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
           </div>
         )}
