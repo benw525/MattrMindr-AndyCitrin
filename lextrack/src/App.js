@@ -68,10 +68,13 @@ const getEffectivePriority = (task) => {
   if (!task.autoEscalate || task.status === "Completed") return task.priority;
   const days = daysUntil(task.due);
   if (days === null) return task.priority;
+  const urgentDays = task.escalateUrgentDays ?? 7;
+  const highDays = task.escalateHighDays ?? 14;
+  const mediumDays = task.escalateMediumDays ?? 30;
   let escalated = task.priority;
-  if (days <= 7) escalated = "Urgent";
-  else if (days <= 14) escalated = (escalated === "Low" || escalated === "Medium") ? "High" : escalated;
-  else if (days <= 30) escalated = escalated === "Low" ? "Medium" : escalated;
+  if (days <= urgentDays) escalated = "Urgent";
+  else if (days <= highDays) escalated = (escalated === "Low" || escalated === "Medium") ? "High" : escalated;
+  else if (days <= mediumDays) escalated = escalated === "Low" ? "Medium" : escalated;
   return RANK_PRIORITY[Math.max(PRIORITY_RANK[task.priority] || 0, PRIORITY_RANK[escalated] || 0)];
 };
 
@@ -244,7 +247,7 @@ const statusBadgeStyle = (status) => {
 const Badge = ({ label }) => {
   if (!label) return null;
   const s = statusBadgeStyle(label);
-  return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{label}</span>;
+  return <span style={{ background: s.bg, color: "#1F2428", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{label}</span>;
 };
 
 const getUserById = (id) => USERS.find(u => u.id === id);
@@ -1108,6 +1111,9 @@ export default function App() {
           due: addDays(target.due || completedDate, target.recurringDays),
           priority: target.priority,
           autoEscalate: target.autoEscalate,
+          escalateMediumDays: target.escalateMediumDays,
+          escalateHighDays: target.escalateHighDays,
+          escalateUrgentDays: target.escalateUrgentDays,
           status: "Not Started",
           notes: target.notes || "",
           recurring: target.recurring,
@@ -1693,7 +1699,10 @@ function NewCaseModal({ onSave, onClose, userOffices }) {
 }
 
 // ─── Auto-escalate preview box ────────────────────────────────────────────────
-function EscalateBox({ on, onChange, basePriority }) {
+function EscalateBox({ on, onChange, basePriority, mediumDays, highDays, urgentDays, onChangeDays }) {
+  const md = mediumDays ?? 30;
+  const hd = highDays ?? 14;
+  const ud = urgentDays ?? 7;
   return (
     <div style={{ background: on ? "#E4E7EB" : "var(--c-bg)", border: `1px solid ${on ? "#1E2A3A22" : "#D6D8DB"}`, borderRadius: 7, padding: "12px 14px", transition: "all 0.2s" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: on ? 10 : 0 }}>
@@ -1703,16 +1712,26 @@ function EscalateBox({ on, onChange, basePriority }) {
       {on && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
           {[
-            { label: "30+ days", result: basePriority, note: "Base" },
-            { label: "14–30 days", result: basePriority === "Low" ? "Medium" : basePriority, note: "↑ if Low" },
-            { label: "7–14 days", result: (basePriority === "Low" || basePriority === "Medium") ? "High" : basePriority, note: "↑ if <High" },
-            { label: "≤7 days", result: "Urgent", note: "Always" },
-          ].map(({ label, result, note }) => {
+            { label: `${md}+ days`, result: basePriority, note: "Base", field: null },
+            { label: `${ud + 1}–${md} days`, result: basePriority === "Low" ? "Medium" : basePriority, note: "↑ if Low", field: "medium", days: md },
+            { label: `${ud + 1}–${hd} days`, result: (basePriority === "Low" || basePriority === "Medium") ? "High" : basePriority, note: "↑ if <High", field: "high", days: hd },
+            { label: `≤${ud} days`, result: "Urgent", note: "Always", field: "urgent", days: ud },
+          ].map(({ label, result, note, field, days }) => {
             const s = statusBadgeStyle(result);
             return (
-              <div key={label} style={{ background: "var(--c-bg)", border: `1px solid ${s.border}`, borderRadius: 5, padding: "7px 8px", textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "#8A9096", marginBottom: 4 }}>{label}</div>
-                <div style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, display: "inline-block" }}>{result}</div>
+              <div key={label} style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 5, padding: "7px 8px", textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "#8A9096", marginBottom: 4 }}>{field ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                    ≤ <input
+                      type="number"
+                      min={1}
+                      value={days}
+                      onChange={e => onChangeDays && onChangeDays(field, parseInt(e.target.value) || 1)}
+                      style={{ width: 36, fontSize: 10, padding: "1px 3px", border: "1px solid var(--c-border)", borderRadius: 3, textAlign: "center", background: "var(--c-card)", color: "var(--c-text)" }}
+                    /> days
+                  </span>
+                ) : label}</div>
+                <div style={{ background: s.bg, color: "#1F2428", fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 3, display: "inline-block" }}>{result}</div>
                 <div style={{ fontSize: 10, color: "#8A9096", marginTop: 3 }}>{note}</div>
               </div>
             );
@@ -2684,7 +2703,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
                     <div>
                       <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "#F7F8FA", marginBottom: 6 }}>{contactPopup.name}</div>
-                      <span style={{ fontSize: 11, fontWeight: 600, background: cs.bg, color: cs.color, border: `1px solid ${cs.border}`, borderRadius: 4, padding: "2px 8px" }}>{contactPopup.category}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, background: cs.bg, color: "#1F2428", borderRadius: 4, padding: "2px 8px" }}>{contactPopup.category}</span>
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <button onClick={() => { setContactEditDraft({ ...contactPopup }); setContactEditMode(true); }} style={{ fontSize: 11, padding: "3px 10px", background: "transparent", border: "1px solid #4a5568", borderRadius: 5, color: "#8A9096", cursor: "pointer" }}>✎ Edit</button>
@@ -4886,7 +4905,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
   const filteredCases = useMemo(() => { const q = caseSearch.toLowerCase(); return q ? sortedCases.filter(c => (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)) : sortedCases; }, [sortedCases, caseSearch]);
   const officeFilteredUsers = useMemo(() => taskOffice === "All" ? USERS : USERS.filter(u => (userOffices[u.id] || []).includes(taskOffice)), [taskOffice, userOffices]);
 
-  const blank = useMemo(() => ({ caseId: 0, title: "", assigned: currentUser.id, due: addDays(today, 7), priority: "Low", autoEscalate: true, status: "Not Started", notes: "", recurring: false, recurringDays: 30 }), [currentUser.id]);
+  const blank = useMemo(() => ({ caseId: 0, title: "", assigned: currentUser.id, due: addDays(today, 7), priority: "Low", autoEscalate: true, status: "Not Started", notes: "", recurring: false, recurringDays: 30, escalateMediumDays: 30, escalateHighDays: 14, escalateUrgentDays: 7 }), [currentUser.id]);
   const [newTask, setNewTask] = useState({ ...blank });
 
   const filtered = useMemo(() => {
@@ -5013,7 +5032,18 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 
               {/* Auto-escalate */}
               <div className="form-group">
-                <EscalateBox on={newTask.autoEscalate} onChange={() => setNewTask(p => ({ ...p, autoEscalate: !p.autoEscalate }))} basePriority={newTask.priority} />
+                <EscalateBox
+                  on={newTask.autoEscalate}
+                  onChange={() => setNewTask(p => ({ ...p, autoEscalate: !p.autoEscalate }))}
+                  basePriority={newTask.priority}
+                  mediumDays={newTask.escalateMediumDays}
+                  highDays={newTask.escalateHighDays}
+                  urgentDays={newTask.escalateUrgentDays}
+                  onChangeDays={(field, val) => setNewTask(p => ({
+                    ...p,
+                    ...(field === "medium" ? { escalateMediumDays: val } : field === "high" ? { escalateHighDays: val } : { escalateUrgentDays: val }),
+                  }))}
+                />
               </div>
 
               <div className="form-group"><label>Notes</label><textarea rows={2} value={newTask.notes} onChange={e => setNewTask(p => ({ ...p, notes: e.target.value }))} /></div>
@@ -5108,6 +5138,23 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                                 onClick={() => setExpandedTask(null)}
                               >Done</button>
                             </div>
+                            {t.autoEscalate && (
+                              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 11, color: "#8A9096" }}>Escalation thresholds:</span>
+                                <label style={{ fontSize: 11, color: "#8A9096", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                  Medium ≤
+                                  <input type="number" min={1} value={t.escalateMediumDays ?? 30} onChange={e => onUpdateTask(t.id, { escalateMediumDays: parseInt(e.target.value) || 30 })} style={{ width: 40, fontSize: 11, padding: "2px 4px", border: "1px solid #D6D8DB", borderRadius: 3, textAlign: "center" }} />d
+                                </label>
+                                <label style={{ fontSize: 11, color: "#8A9096", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                  High ≤
+                                  <input type="number" min={1} value={t.escalateHighDays ?? 14} onChange={e => onUpdateTask(t.id, { escalateHighDays: parseInt(e.target.value) || 14 })} style={{ width: 40, fontSize: 11, padding: "2px 4px", border: "1px solid #D6D8DB", borderRadius: 3, textAlign: "center" }} />d
+                                </label>
+                                <label style={{ fontSize: 11, color: "#8A9096", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                  Urgent ≤
+                                  <input type="number" min={1} value={t.escalateUrgentDays ?? 7} onChange={e => onUpdateTask(t.id, { escalateUrgentDays: parseInt(e.target.value) || 7 })} style={{ width: 40, fontSize: 11, padding: "2px 4px", border: "1px solid #D6D8DB", borderRadius: 3, textAlign: "center" }} />d
+                                </label>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )}

@@ -92,7 +92,7 @@ lextrack/
 - **DB migration path**: All DB access via REST API — swap `DATABASE_URL` to point to Supabase, swap `express-session` for JWT, done.
 - **Standard SQL only**: No Replit-specific extensions — schema is portable.
 - **Task chains**: Completing certain tasks auto-generates follow-up tasks (`TASK_CHAINS`, `DUAL_CHAINS`) — business logic stays client-side for now.
-- **Auto-escalation**: Task priority rises automatically as due date approaches.
+- **Auto-escalation**: Task priority rises automatically as due date approaches. Thresholds are customizable per-task (default: Medium ≤30d, High ≤14d, Urgent ≤7d). Stored in `escalate_medium_days`, `escalate_high_days`, `escalate_urgent_days` columns.
 - **Activity logging**: Tracked per-case via `/api/activity`.
 
 ## Color Palette

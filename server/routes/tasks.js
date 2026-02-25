@@ -17,6 +17,9 @@ const toFrontend = (row) => ({
   notes: row.notes,
   recurring: row.recurring,
   recurringDays: row.recurring_days,
+  escalateMediumDays: row.escalate_medium_days ?? 30,
+  escalateHighDays: row.escalate_high_days ?? 14,
+  escalateUrgentDays: row.escalate_urgent_days ?? 7,
   isGenerated: row.is_generated,
   isChained: row.is_chained,
   completedAt: row.completed_at ? row.completed_at.toISOString().split("T")[0] : null,
@@ -52,14 +55,16 @@ router.post("/", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO tasks
         (case_id, title, assigned, assigned_role, due, priority, auto_escalate, status,
-         notes, recurring, recurring_days, is_generated, is_chained)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+         notes, recurring, recurring_days, is_generated, is_chained,
+         escalate_medium_days, escalate_high_days, escalate_urgent_days)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
       [
         d.caseId, d.title, orNull(d.assigned), d.assignedRole || null,
         d.due || null, d.priority || "Medium",
         d.autoEscalate !== false, d.status || "Not Started",
         d.notes || "", d.recurring || false,
         d.recurringDays || null, d.isGenerated || false, d.isChained || false,
+        d.escalateMediumDays ?? 30, d.escalateHighDays ?? 14, d.escalateUrgentDays ?? 7,
       ]
     );
     return res.status(201).json(toFrontend(rows[0]));
@@ -82,14 +87,16 @@ router.post("/bulk", requireAuth, async (req, res) => {
       const { rows } = await client.query(
         `INSERT INTO tasks
           (case_id, title, assigned, assigned_role, due, priority, auto_escalate, status,
-           notes, recurring, recurring_days, is_generated, is_chained)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+           notes, recurring, recurring_days, is_generated, is_chained,
+           escalate_medium_days, escalate_high_days, escalate_urgent_days)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
         [
           d.caseId, d.title, orNull(d.assigned), d.assignedRole || null,
           d.due || null, d.priority || "Medium",
           d.autoEscalate !== false, d.status || "Not Started",
           d.notes || "", d.recurring || false,
           d.recurringDays || null, d.isGenerated || false, d.isChained || false,
+          d.escalateMediumDays ?? 30, d.escalateHighDays ?? 14, d.escalateUrgentDays ?? 7,
         ]
       );
       created.push(toFrontend(rows[0]));
@@ -134,6 +141,7 @@ router.put("/:id", requireAuth, async (req, res) => {
       due: "due", priority: "priority",
       autoEscalate: "auto_escalate", status: "status", notes: "notes",
       recurring: "recurring", recurringDays: "recurring_days",
+      escalateMediumDays: "escalate_medium_days", escalateHighDays: "escalate_high_days", escalateUrgentDays: "escalate_urgent_days",
       completedAt: "completed_at",
     };
     for (const [jsKey, dbCol] of Object.entries(map)) {
