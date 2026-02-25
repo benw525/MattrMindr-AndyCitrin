@@ -1316,7 +1316,7 @@ export default function App() {
             { id: "cases", icon: "⚖️", label: "Cases & Matters" },
             { id: "deadlines", icon: "📅", label: "Deadlines" },
             { id: "tasks", icon: "✅", label: "Tasks", badge: overdueBadge || null },
-            { id: "documents", icon: "📄", label: "Documents" },
+            { id: "documents", icon: "📄", label: "Templates" },
             { id: "timelog", icon: "🕐", label: "Time Log" },
             { id: "reports", icon: "📊", label: "Reports" },
             { id: "contacts", icon: "📇", label: "Contacts" },
