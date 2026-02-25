@@ -8082,6 +8082,16 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, insura
 
           {!loading && !selected && (
             <>
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Document Type</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {["", ...allCategories].map(cat => (
+                    <button key={cat || "_all"} onClick={() => setCatFilter(cat)}
+                      style={{ fontSize: 12, padding: "7px 14px", borderRadius: 6, border: catFilter === cat ? "2px solid #1E2A3A" : "1px solid var(--c-border)", background: catFilter === cat ? "#1E2A3A" : "var(--c-bg2)", color: catFilter === cat ? "#fff" : "var(--c-text)", cursor: "pointer", fontWeight: catFilter === cat ? 600 : 400, transition: "all 0.15s" }}
+                    >{cat || "All Types"}</button>
+                  ))}
+                </div>
+              </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                 <input placeholder="Search templates..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 150, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }} />
                 <select value={filter} onChange={e => setFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
@@ -8089,12 +8099,6 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, insura
                   <option value="mine">My Templates</option>
                   <option value="other">Others' Templates</option>
                 </select>
-                {allCategories.length > 1 && (
-                  <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
-                    <option value="">All Categories</option>
-                    {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                )}
                 {allTags.length > 0 && (
                   <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)" }}>
                     <option value="">All Tags</option>
@@ -8102,7 +8106,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, insura
                   </select>
                 )}
               </div>
-              {filtered.length === 0 && <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>No templates found. Upload templates from the Documents view first.</div>}
+              {filtered.length === 0 && <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>No templates found{catFilter ? ` for "${catFilter}"` : ""}. Upload templates from the Documents view first.</div>}
               {filtered.map(t => (
                 <div key={t.id} onClick={() => handleSelect(t)} style={{ padding: "12px 14px", borderRadius: 8, border: "1px solid var(--c-border)", marginBottom: 8, cursor: "pointer", background: "var(--c-bg2)", transition: "border-color 0.15s" }} onMouseOver={e => e.currentTarget.style.borderColor = "#1E2A3A"} onMouseOut={e => e.currentTarget.style.borderColor = ""}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
