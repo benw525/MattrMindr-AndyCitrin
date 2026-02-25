@@ -119,6 +119,88 @@ router.post("/:id/restore", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/case-counts/batch", requireAuth, async (req, res) => {
+  try {
+    const expertCounts = await pool.query(
+      `SELECT c.id AS contact_id, COUNT(DISTINCT ce.case_id) AS cnt
+       FROM contacts c
+       JOIN case_experts ce ON (ce.data->>'fullName' ILIKE c.name OR ce.data->>'contactId' = c.id::text)
+       JOIN cases cs ON cs.id = ce.case_id AND cs.deleted_at IS NULL
+       WHERE c.category = 'Expert' AND c.deleted_at IS NULL
+       GROUP BY c.id`
+    );
+    const adjusterCounts = await pool.query(
+      `SELECT c.id AS contact_id, COUNT(DISTINCT ci.case_id) AS cnt
+       FROM contacts c
+       JOIN case_insurance ci ON ci.data->>'adjusterName' ILIKE c.name
+       JOIN cases cs ON cs.id = ci.case_id AND cs.deleted_at IS NULL
+       WHERE c.category = 'Adjuster' AND c.deleted_at IS NULL
+       GROUP BY c.id`
+    );
+    const miscCounts = await pool.query(
+      `SELECT c.id AS contact_id, COUNT(DISTINCT mc.case_id) AS cnt
+       FROM contacts c
+       JOIN case_misc_contacts mc ON (mc.data->>'name' ILIKE c.name OR mc.data->>'contactId' = c.id::text)
+       JOIN cases cs ON cs.id = mc.case_id AND cs.deleted_at IS NULL
+       WHERE c.category = 'Miscellaneous' AND c.deleted_at IS NULL
+       GROUP BY c.id`
+    );
+    const counts = {};
+    [...expertCounts.rows, ...adjusterCounts.rows, ...miscCounts.rows].forEach(r => {
+      counts[r.contact_id] = Number(r.cnt);
+    });
+    return res.json(counts);
+  } catch (err) {
+    console.error("Case counts error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/:id/associated-cases", requireAuth, async (req, res) => {
+  try {
+    const { rows: contactRows } = await pool.query("SELECT * FROM contacts WHERE id = $1", [req.params.id]);
+    if (!contactRows.length) return res.status(404).json({ error: "Not found" });
+    const contact = contactRows[0];
+    let caseIds = [];
+    if (contact.category === "Expert") {
+      const { rows } = await pool.query(
+        `SELECT DISTINCT ce.case_id FROM case_experts ce
+         JOIN cases c ON c.id = ce.case_id AND c.deleted_at IS NULL
+         WHERE ce.data->>'fullName' ILIKE $1 OR ce.data->>'contactId' = $2`,
+        [contact.name, String(contact.id)]
+      );
+      caseIds = rows.map(r => r.case_id);
+    } else if (contact.category === "Adjuster") {
+      const { rows } = await pool.query(
+        `SELECT DISTINCT ci.case_id FROM case_insurance ci
+         JOIN cases c ON c.id = ci.case_id AND c.deleted_at IS NULL
+         WHERE ci.data->>'adjusterName' ILIKE $1`,
+        [contact.name]
+      );
+      caseIds = rows.map(r => r.case_id);
+    } else if (contact.category === "Miscellaneous") {
+      const { rows } = await pool.query(
+        `SELECT DISTINCT mc.case_id FROM case_misc_contacts mc
+         JOIN cases c ON c.id = mc.case_id AND c.deleted_at IS NULL
+         WHERE mc.data->>'name' ILIKE $1 OR mc.data->>'contactId' = $2`,
+        [contact.name, String(contact.id)]
+      );
+      caseIds = rows.map(r => r.case_id);
+    } else {
+      return res.json([]);
+    }
+    if (caseIds.length === 0) return res.json([]);
+    const { rows: cases } = await pool.query(
+      `SELECT id, case_num, title, status FROM cases WHERE id = ANY($1::int[]) AND deleted_at IS NULL ORDER BY case_num`,
+      [caseIds]
+    );
+    return res.json(cases.map(c => ({ id: c.id, caseNum: c.case_num, title: c.title, status: c.status })));
+  } catch (err) {
+    console.error("Associated cases error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/merge", requireAuth, requireShareholder, async (req, res) => {
   const { primaryId, mergeIds, fields } = req.body;
   if (!primaryId || !Array.isArray(mergeIds) || mergeIds.length === 0) {

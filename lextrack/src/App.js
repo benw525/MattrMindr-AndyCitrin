@@ -9,7 +9,7 @@ import {
   apiGetNotes, apiCreateNote, apiUpdateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
   apiGetActivity, apiGetRecentActivity, apiCreateActivity,
-  apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact, apiMergeContacts,
+  apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact, apiMergeContacts, apiGetContactCases, apiGetContactCaseCounts,
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiGetContactStaff, apiCreateContactStaff, apiUpdateContactStaff, apiDeleteContactStaff,
   apiAiSearch,
@@ -4447,6 +4447,34 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   }, 600);
                 };
 
+                const handleMiscNameBlur = async () => {
+                  const name = (miscContactPendingData.current[mc.id]?.name || d.name || "").trim();
+                  if (!name) return;
+                  const existing = allContacts.find(c => c.category === "Miscellaneous" && c.name.toLowerCase() === name.toLowerCase());
+                  if (existing) {
+                    updateField("contactId", existing.id);
+                  } else {
+                    try {
+                      const created = await apiCreateContact({ name, category: "Miscellaneous", phone: d.phone || "", email: d.email || "", address: d.address || "", company: d.company || "" });
+                      setAllContacts(p => [...p, created]);
+                      updateField("contactId", created.id);
+                    } catch (err) { console.error("Failed to create misc contact card:", err); }
+                  }
+                };
+
+                const syncMiscContactCard = async (field, value) => {
+                  updateField(field, value);
+                  const cId = miscContactPendingData.current[mc.id]?.contactId || d.contactId;
+                  if (cId) {
+                    const contact = allContacts.find(c => c.id === cId);
+                    if (contact) {
+                      const updated = { ...contact, [field]: value };
+                      setAllContacts(p => p.map(c => c.id === cId ? updated : c));
+                      try { await apiUpdateContact(cId, updated); } catch {}
+                    }
+                  }
+                };
+
                 const inputStyle = { width: "100%", fontSize: 13, padding: "5px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" };
                 const labelStyle = { fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 3 };
                 const fieldGroup = { marginBottom: 10 };
@@ -4494,19 +4522,20 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div style={{ padding: "12px 14px", borderTop: "1px solid var(--c-border)" }}>
                         <div style={fieldGroup}>
                           <label style={labelStyle}>Name</label>
-                          <input style={{ ...inputStyle, fontWeight: 600 }} value={d.name || ""} placeholder="Full name" onChange={e => updateField("name", e.target.value)} />
+                          <input style={{ ...inputStyle, fontWeight: 600 }} value={d.name || ""} placeholder="Full name" onChange={e => updateField("name", e.target.value)} onBlur={handleMiscNameBlur} />
+                          {d.contactId && <div style={{ fontSize: 10, color: "#2F7A5F", marginTop: 2 }}>Linked to contact card</div>}
                         </div>
                         <div style={fieldGroup}>
                           <label style={labelStyle}>{mc.contactType === "Police Officer" ? "Department" : "Company / Agency"}</label>
-                          <input style={inputStyle} value={d.company || ""} placeholder={mc.contactType === "Police Officer" ? "Police department" : "Company or agency"} onChange={e => updateField("company", e.target.value)} />
+                          <input style={inputStyle} value={d.company || ""} placeholder={mc.contactType === "Police Officer" ? "Police department" : "Company or agency"} onChange={e => syncMiscContactCard("company", e.target.value)} />
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                          <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={d.phone || ""} onChange={e => updateField("phone", e.target.value)} /></div>
-                          <div><label style={labelStyle}>Email</label><input style={inputStyle} value={d.email || ""} onChange={e => updateField("email", e.target.value)} /></div>
+                          <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={d.phone || ""} onChange={e => syncMiscContactCard("phone", e.target.value)} /></div>
+                          <div><label style={labelStyle}>Email</label><input style={inputStyle} value={d.email || ""} onChange={e => syncMiscContactCard("email", e.target.value)} /></div>
                         </div>
                         <div style={fieldGroup}>
                           <label style={labelStyle}>Address</label>
-                          <input style={inputStyle} value={d.address || ""} onChange={e => updateField("address", e.target.value)} />
+                          <input style={inputStyle} value={d.address || ""} onChange={e => syncMiscContactCard("address", e.target.value)} />
                         </div>
 
                         {mc.contactType === "Police Officer" && (
@@ -7718,13 +7747,24 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
 
   const handleBlur = () => save(draft);
 
+  const [fetchedAssocCases, setFetchedAssocCases] = useState([]);
+  useEffect(() => {
+    if (contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") {
+      apiGetContactCases(contact.id).then(setFetchedAssocCases).catch(() => setFetchedAssocCases([]));
+    } else {
+      setFetchedAssocCases([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contact.id, contact.category]);
+
   const assocCases = useMemo(() => {
+    if (contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") return fetchedAssocCases;
     if (!allCases) return [];
     if (contact.category === "Client")   return allCases.filter(c => c.client === contact.name && !c.deletedAt);
     if (contact.category === "Attorney") return allCases.filter(c => c.plaintiff === contact.name && !c.deletedAt);
     if (contact.category === "Court")    return allCases.filter(c => c.judge === contact.name && !c.deletedAt);
     return [];
-  }, [contact, allCases]);
+  }, [contact, allCases, fetchedAssocCases]);
 
   const catStyle = CONTACT_CAT_STYLE[contact.category] || CONTACT_CAT_STYLE.Miscellaneous;
 
@@ -7917,7 +7957,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
             </div>
           )}
 
-          {(contact.category === "Client" || contact.category === "Attorney" || contact.category === "Court") && (
+          {(contact.category === "Client" || contact.category === "Attorney" || contact.category === "Court" || contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") && (
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#8A9096", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid var(--c-border)" }}>
                 Associated Cases <span style={{ fontSize: 11, fontWeight: 400, color: "#8A9096", textTransform: "none", letterSpacing: 0 }}>({assocCases.length})</span>
@@ -8183,9 +8223,11 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
   const [mergeMode, setMergeMode] = useState(false);
   const [mergeSelected, setMergeSelected] = useState(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [contactCaseCounts, setContactCaseCounts] = useState({});
 
   useEffect(() => {
     apiGetContacts().then(data => { setContacts(data); setLoading(false); }).catch(() => setLoading(false));
+    apiGetContactCaseCounts().then(setContactCaseCounts).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -8445,7 +8487,7 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
                   const caseCount = c.category === "Client"   ? allCases.filter(a => a.client === c.name && !a.deletedAt).length
                                   : c.category === "Attorney" ? allCases.filter(a => a.plaintiff === c.name && !a.deletedAt).length
                                   : c.category === "Court"    ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
-                                  : 0;
+                                  : (contactCaseCounts[c.id] || 0);
                   const isChecked = mergeSelected.has(c.id);
                   return (
                     <tr

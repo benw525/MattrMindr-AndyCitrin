@@ -84,6 +84,8 @@ export const apiDeleteContact      = (id)       => apiFetch(`/api/contacts/${id}
 export const apiRestoreContact     = (id)       => apiFetch(`/api/contacts/${id}/restore`, { method: "POST" });
 
 export const apiMergeContacts      = (data)       => apiFetch("/api/contacts/merge",        { method: "POST",   body: data });
+export const apiGetContactCases   = (id)         => apiFetch(`/api/contacts/${id}/associated-cases`);
+export const apiGetContactCaseCounts = ()        => apiFetch("/api/contacts/case-counts/batch");
 
 // AI Search
 export const apiAiSearch = (query) => apiFetch("/api/ai-search", { method: "POST", body: { query } });
