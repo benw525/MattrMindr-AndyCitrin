@@ -92,16 +92,6 @@ export const apiDeleteContactNote  = (id)        => apiFetch(`/api/contact-notes
 // Correspondence
 export const apiGetCorrespondence    = (caseId) => apiFetch(`/api/correspondence/${caseId}`);
 export const apiDeleteCorrespondence = (id)     => apiFetch(`/api/correspondence/${id}`, { method: "DELETE" });
-export const apiUploadCorrespondence = async (caseId, files, subject, note) => {
-  const formData = new FormData();
-  files.forEach(f => formData.append("files", f));
-  if (subject) formData.append("subject", subject);
-  if (note) formData.append("note", note);
-  const res = await fetch(`/api/correspondence/${caseId}/upload`, { method: "POST", body: formData, credentials: "include" });
-  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || res.statusText); }
-  return res.json();
-};
-
 // Templates
 export const apiGetTemplates      = ()         => apiFetch("/api/templates");
 export const apiDeleteTemplate    = (id)       => apiFetch(`/api/templates/${id}`, { method: "DELETE" });

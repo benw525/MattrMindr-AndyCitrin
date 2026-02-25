@@ -12,7 +12,7 @@ import {
   apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact, apiMergeContacts,
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiAiSearch,
-  apiGetCorrespondence, apiDeleteCorrespondence, apiUploadCorrespondence,
+  apiGetCorrespondence, apiDeleteCorrespondence,
   apiGetTemplates, apiDeleteTemplate, apiUpdateTemplate, apiGetTemplateSource, apiUploadTemplateFile, apiSaveTemplate, apiGenerateDocument,
 } from "./api.js";
 
@@ -2357,11 +2357,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [expandedEmail, setExpandedEmail] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [corrCopied, setCorrCopied] = useState(false);
-  const [showUploadCorr, setShowUploadCorr] = useState(false);
-  const [uploadSubject, setUploadSubject] = useState("");
-  const [uploadNote, setUploadNote] = useState("");
-  const [uploadFiles, setUploadFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
   const [showDocGen, setShowDocGen] = useState(false);
   const [activityFilter, setActivityFilter] = useState("all");
   const canRemove = isAttorney(currentUser);
@@ -3270,63 +3265,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     setCorrLoading(true);
                     apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
                   }}>↻ Refresh</button>
-                  <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={() => setShowUploadCorr(!showUploadCorr)}>
-                    {showUploadCorr ? "Cancel" : "+ Upload Files"}
-                  </button>
                 </div>
               </div>
-
-              {showUploadCorr && (
-                <div style={{ background: "var(--c-bg2, #EEF1F4)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 11, color: "var(--c-text3)", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: "0.08em" }}>Subject / Description</label>
-                    <input type="text" value={uploadSubject} onChange={e => setUploadSubject(e.target.value)} placeholder="e.g. Discovery Documents" style={{ width: "100%", padding: "6px 10px", fontSize: 13 }} />
-                  </div>
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 11, color: "var(--c-text3)", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: "0.08em" }}>Note (optional)</label>
-                    <textarea value={uploadNote} onChange={e => setUploadNote(e.target.value)} placeholder="Add a note about these files..." rows={2} style={{ width: "100%", padding: "6px 10px", fontSize: 13, resize: "vertical" }} />
-                  </div>
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 11, color: "var(--c-text3)", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: "0.08em" }}>Files</label>
-                    <input type="file" multiple onChange={e => setUploadFiles(Array.from(e.target.files))} style={{ fontSize: 12, color: "var(--c-text)" }} />
-                    {uploadFiles.length > 0 && (
-                      <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 4 }}>
-                        {uploadFiles.length} file{uploadFiles.length !== 1 ? "s" : ""} selected ({(uploadFiles.reduce((s, f) => s + f.size, 0) / 1024).toFixed(0)} KB)
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                    <button className="btn btn-outline btn-sm" onClick={() => { setShowUploadCorr(false); setUploadFiles([]); setUploadSubject(""); setUploadNote(""); }}>Cancel</button>
-                    <button
-                      className="btn btn-sm"
-                      disabled={uploadFiles.length === 0 || uploading}
-                      style={{ background: "#1E2A3A", color: "#fff", border: "1px solid #1E2A3A", fontSize: 12, opacity: uploadFiles.length === 0 || uploading ? 0.5 : 1 }}
-                      onClick={async () => {
-                        setUploading(true);
-                        try {
-                          const saved = await apiUploadCorrespondence(c.id, uploadFiles, uploadSubject || "Uploaded Files", uploadNote);
-                          setCorrespondence(p => [saved, ...p]);
-                          setShowUploadCorr(false);
-                          setUploadFiles([]);
-                          setUploadSubject("");
-                          setUploadNote("");
-                          log("Correspondence Added", `Uploaded ${saved.attachments?.length || 0} file(s): "${uploadSubject || "Uploaded Files"}"`);
-                        } catch (err) {
-                          alert("Upload failed: " + err.message);
-                        } finally {
-                          setUploading(false);
-                        }
-                      }}
-                    >{uploading ? "Uploading..." : "Upload"}</button>
-                  </div>
-                </div>
-              )}
 
               {corrLoading && <div style={{ fontSize: 13, color: "#8A9096", padding: "20px 0" }}>Loading correspondence...</div>}
 
               {!corrLoading && correspondence.length === 0 && (
                 <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>
-                  No correspondence received yet. Upload files directly or CC emails to <span style={{ fontFamily: "monospace", color: "#1E2A3A" }}>case-{c.id}@mail.mattrmindr.com</span>.
+                  No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "#1E2A3A" }}>case-{c.id}@mail.mattrmindr.com</span> and they will appear here, including any attachments.
                 </div>
               )}
 
