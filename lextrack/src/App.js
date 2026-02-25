@@ -392,8 +392,8 @@ label { font-size: 12px; color: #8A9096; display: block; margin-bottom: 4px; tex
 .page-btn.active { background: #1E2A3A12; border-color: #1E2A3A; color: #1E2A3A; }
 .checkbox { width: 17px; height: 17px; border-radius: 4px; border: 2px solid #D6D8DB; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; flex-shrink: 0; transition: all 0.15s; }
 .checkbox.done { background: #2F7A5F; border-color: #2F7A5F; }
-.rec-badge { display: inline-flex; align-items: center; gap: 3px; background: #e0f2ec; color: #2F7A5F; border: 1px solid #2F7A5F33; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
-.chain-badge { display: inline-flex; align-items: center; gap: 3px; background: #ede9fe; color: #8877cc; border: 1px solid #a78bfa; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+.rec-badge { display: inline-flex; align-items: center; gap: 3px; background: #e0f2ec; color: #1F2428; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+.chain-badge { display: inline-flex; align-items: center; gap: 3px; background: #ede9fe; color: #1F2428; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; margin-left: 5px; }
 .task-inline-edit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
 .task-inline-edit input[type="date"] { background: #EEF1F4; border: 1px solid #D6D8DB; color: #1F2428; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
 .task-inline-edit select { background: #EEF1F4; border: 1px solid #D6D8DB; color: #1F2428; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
@@ -3089,7 +3089,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{displayName}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                            <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: typeColor.bg, color: typeColor.text, border: `1px solid ${typeColor.border}`, letterSpacing: "0.02em" }}>{party.partyType}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: typeColor.bg, color: "#1F2428", letterSpacing: "0.02em" }}>{party.partyType}</span>
                             {d.representedBy && <span style={{ fontSize: 11, color: "#8A9096" }}>· Rep: {d.representedBy}</span>}
                           </div>
                         </div>
@@ -4643,8 +4643,8 @@ function ICalManager({ externalEvents, setExternalEvents }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}>{feed.name}</div>
-                  {feed.status === "ok" && <span style={{ fontSize: 10, background: "#dcfce7", color: "#4CAE72", border: "1px solid #bbf7d0", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✓ {feed.count} events</span>}
-                  {feed.status === "error" && <span style={{ fontSize: 10, background: "#fee2e2", color: "#e05252", border: "1px solid #fca5a5", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✗ Error</span>}
+                  {feed.status === "ok" && <span style={{ fontSize: 10, background: "#dcfce7", color: "#1F2428", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✓ {feed.count} events</span>}
+                  {feed.status === "error" && <span style={{ fontSize: 10, background: "#fee2e2", color: "#1F2428", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✗ Error</span>}
                   {feed.status === "pending" && <span style={{ fontSize: 10, color: "#8A9096" }}>Importing…</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "#8A9096", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{feed.url}</div>
@@ -5998,7 +5998,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
         <div className="case-overlay-header" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <span style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>
+              <span style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428" }}>
                 {contact.category.toUpperCase()}
               </span>
               {saving && <span style={{ fontSize: 11, color: "#8A9096" }}>Saving…</span>}
@@ -6199,7 +6199,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                   <div key={c.id} onClick={() => handleSetPrimary(c.id)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "9px 14px", borderRadius: 5, background: isPrimary ? "#E4E7EB" : "var(--c-card)", border: `1px solid ${isPrimary ? "#D6D8DB" : "#EEF1F4"}`, transition: "all 0.15s" }}>
                     <input type="radio" name="merge-primary" checked={isPrimary} onChange={() => handleSetPrimary(c.id)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0, cursor: "pointer", width: "auto", padding: 0, border: "none", background: "none" }} />
                     <span style={{ color: isPrimary ? "var(--c-text)" : "var(--c-text2)", fontWeight: isPrimary ? 600 : 400, flex: 1, fontSize: 14 }}>{c.name}</span>
-                    <span style={{ padding: "1px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>{c.category}</span>
+                    <span style={{ padding: "1px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: "#1F2428" }}>{c.category}</span>
                     {noteCount > 0 && <span style={{ fontSize: 11, color: "#8A9096" }}>{noteCount} note{noteCount !== 1 ? "s" : ""}</span>}
                   </div>
                 );
@@ -6232,7 +6232,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                       </td>
                       {allSame ? (
                         <td colSpan={contacts.length} style={{ padding: "11px 14px", verticalAlign: "middle" }}>
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 4, background: "#dcfce7", border: "1px solid #bbf7d0", color: "#4CAE72", fontSize: 13 }}>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 4, background: "#dcfce7", color: "#1F2428", fontSize: 13 }}>
                             <span>✓</span>
                             <span style={{ fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>
                               {contacts[0][key] || <em style={{ color: "#8A9096", fontStyle: "italic" }}>empty on all</em>}
@@ -6591,7 +6591,7 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
                         </td>
                       )}
                       <td style={{ padding: "10px 12px 10px 0" }}>
-                        <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}>
+                        <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: "#1F2428" }}>
                           {c.category}
                         </span>
                       </td>
@@ -6987,7 +6987,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties }) {
                   <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>by {t.createdByName} · {t.placeholders.length} field{t.placeholders.length !== 1 ? "s" : ""}</div>
                   {t.tags.length > 0 && (
                     <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                      {t.tags.map(tag => <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "#E4E7EB", color: "#1E2A3A", border: "1px solid #D6D8DB" }}>{tag}</span>)}
+                      {t.tags.map(tag => <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "#E4E7EB", color: "#1F2428" }}>{tag}</span>)}
                     </div>
                   )}
                 </div>
@@ -7088,14 +7088,14 @@ function DocumentsView({ currentUser }) {
               <div key={t.id} style={{ padding: 16, borderRadius: 10, border: "1px solid var(--c-border)", background: "var(--c-bg2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: "var(--c-text)" }}>{t.name}</div>
-                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: t.visibility === "personal" ? "#fef3c7" : "#ecfdf5", color: t.visibility === "personal" ? "#92400e" : "#065f46", border: `1px solid ${t.visibility === "personal" ? "#f59e0b33" : "#10b98133"}`, flexShrink: 0, marginLeft: 8 }}>
+                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: t.visibility === "personal" ? "#fef3c7" : "#ecfdf5", color: "#1F2428", flexShrink: 0, marginLeft: 8 }}>
                     {t.visibility === "personal" ? "Personal" : "Global"}
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: "#8A9096" }}>by {t.createdByName} · {t.placeholders.length} field{t.placeholders.length !== 1 ? "s" : ""}</div>
                 {t.tags.length > 0 && (
                   <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
-                    {t.tags.map(tag => <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "#E4E7EB", color: "#1E2A3A", border: "1px solid #D6D8DB" }}>{tag}</span>)}
+                    {t.tags.map(tag => <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "#E4E7EB", color: "#1F2428" }}>{tag}</span>)}
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
@@ -7336,7 +7336,7 @@ function DocumentsView({ currentUser }) {
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Tags</label>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
                   {wizard.tags.map(tag => (
-                    <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#E4E7EB", color: "#1E2A3A", border: "1px solid #D6D8DB", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
+                    <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#E4E7EB", color: "#1F2428", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
                       {tag} ✕
                     </span>
                   ))}
@@ -7584,7 +7584,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                           <button
                             key={r}
                             onClick={() => handleToggleRole(u.id, r, u.roles && u.roles.length ? u.roles : [u.role])}
-                            style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#1E2A3A22" : "var(--c-border)"}`, background: on ? "#fef3c7" : "transparent", color: on ? "#1E2A3A" : "var(--c-border)", transition: "all 0.15s" }}
+                            style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "none", background: on ? "#fef3c7" : "transparent", color: on ? "#1F2428" : "var(--c-border)", transition: "all 0.15s" }}
                           >{r}</button>
                         );
                       })}
@@ -7602,10 +7602,10 @@ function StaffView({ allCases, currentUser, setCurrentUser, userOffices, setUser
                         <button
                           key={o}
                           onClick={() => handleToggleOffice(u.id, o)}
-                          style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#1E2A3A22" : "var(--c-border)"}`, background: on ? "#fef3c7" : "transparent", color: on ? "#1E2A3A" : "var(--c-border)", transition: "all 0.15s" }}
+                          style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "none", background: on ? "#fef3c7" : "transparent", color: on ? "#1F2428" : "var(--c-border)", transition: "all 0.15s" }}
                         >{o}</button>
                       ) : on ? (
-                        <span key={o} style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, background: "#fef3c7", color: "#1E2A3A", border: "1px solid #1E2A3A22" }}>{o}</span>
+                        <span key={o} style={{ padding: "2px 10px", borderRadius: 3, fontSize: 11, fontWeight: 600, background: "#fef3c7", color: "#1F2428" }}>{o}</span>
                       ) : null;
                     })}
                     {!canAdmin && offices.length === 0 && <span style={{ fontSize: 12, color: "var(--c-border)", fontStyle: "italic" }}>None assigned</span>}
