@@ -2246,7 +2246,11 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       if (sortCol === "title") { av = a.title || ""; bv = b.title || ""; }
       else if (sortCol === "caseNum") { av = a.caseNum || ""; bv = b.caseNum || ""; }
       else if (sortCol === "defendant") { av = a.defendantName || ""; bv = b.defendantName || ""; }
-      else if (sortCol === "stage") { av = a.stage || ""; bv = b.stage || ""; }
+      else if (sortCol === "stage") {
+        const STAGE_ORDER = { "Arraignment": 0, "Preliminary Hearing": 1, "Grand Jury/Indictment": 2, "Pre-Trial Motions": 3, "Plea Negotiations": 4, "Trial": 5, "Sentencing": 6, "Post-Conviction": 7, "Appeal": 8 };
+        const ai = STAGE_ORDER[a.stage] ?? 99, bi = STAGE_ORDER[b.stage] ?? 99;
+        return (sortDir === "asc" ? 1 : -1) * (ai - bi);
+      }
       else if (sortCol === "trialDate") { av = a.trialDate || "9999"; bv = b.trialDate || "9999"; }
       else if (sortCol === "arrestDate") { av = a.arrestDate || "9999"; bv = b.arrestDate || "9999"; }
       else if (sortCol === "lead") { av = getUserById(a.assignedAttorney)?.name || ""; bv = getUserById(b.assignedAttorney)?.name || ""; }
