@@ -73,6 +73,7 @@ lextrack/
 - **Case Stages**: Arraignment, Preliminary Hearing, Grand Jury/Indictment, Pre-Trial Motions, Plea Negotiations, Trial, Sentencing, Post-Conviction, Appeal
 - **Case Statuses**: Active, Closed, Pending, Disposed, Transferred
 - **Criminal-Specific Fields**: Defendant name, prosecutor, charge description/statute/class, court division (Circuit/District/Juvenile), custody status, bond amount/conditions, jail location, arrest/arraignment/next court/trial/sentencing/disposition dates, investigator, social worker
+- **Death Penalty Flag**: `death_penalty BOOLEAN` column on cases table (JS: `deathPenalty`). Toggle in case detail header (next to Confidential), checkbox in New Case modal. Red "DP" badge shown in main/pinned/deleted table rows and AI search results. 5 demo Circuit Court Class A Felony cases seeded with flag enabled
 
 ### Charge Tracking
 - Multiple charges per case stored as JSONB array

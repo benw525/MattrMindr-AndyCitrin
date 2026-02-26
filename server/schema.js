@@ -68,6 +68,7 @@ async function createSchema() {
         custom_dates    JSONB   NOT NULL DEFAULT '[]',
         hidden_fields   JSONB   NOT NULL DEFAULT '[]',
         confidential    BOOLEAN NOT NULL DEFAULT FALSE,
+        death_penalty   BOOLEAN NOT NULL DEFAULT FALSE,
         custom_team     JSONB   NOT NULL DEFAULT '[]',
         deleted_at      TIMESTAMPTZ,
         created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()

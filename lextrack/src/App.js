@@ -1496,7 +1496,7 @@ function Toggle({ on, onChange, color = "#1E2A3A" }) {
 
 // ─── New Case Modal ──────────────────────────────────────────────────────────
 function NewCaseModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "", court: "", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, arrestDate: "", notes: "" });
+  const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "", court: "", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, arrestDate: "", notes: "", deathPenalty: false });
   const [autoTasks, setAutoTasks] = useState(true);
   const [conflicts, setConflicts] = useState(null);
   const [conflictChecking, setConflictChecking] = useState(false);
@@ -1578,7 +1578,12 @@ function NewCaseModal({ onSave, onClose }) {
               {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
-          <div className="form-group" />
+          <div className="form-group" style={{ display: "flex", alignItems: "flex-end", paddingBottom: 6 }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: form.deathPenalty ? 700 : 400, color: form.deathPenalty ? "#991b1b" : "#8A9096", cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={form.deathPenalty} onChange={e => set("deathPenalty", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#991b1b" }} />
+              Death Penalty Case
+            </label>
+          </div>
         </div>
         <div className="form-row">
           <div className="form-group"><label>Assigned Attorney</label>
@@ -2365,6 +2370,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontWeight: 600, fontSize: 14, color: "#1F2428" }}>{c.title}</span>
+                          {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
                           {c.caseNum && <span style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum}</span>}
                         </div>
                         <div style={{ fontSize: 12, color: "#8A9096", marginTop: 4, lineHeight: 1.5 }}>{r.reason}</div>
@@ -2421,7 +2427,10 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum || "—"}</div>
                         </td>
                         <td>
-                          <div style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
+                            {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
+                          </div>
                           {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1, whiteSpace: "nowrap" }}>{c.prosecutor}</div>}
                         </td>
                         <td style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
@@ -2468,7 +2477,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         return (
                           <tr key={c.id}>
                             <td style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
-                            <td><div style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</div>{c.defendantName && <div style={{ fontSize: 11, color: "#8A9096" }}>Def: {c.defendantName}</div>}</td>
+                            <td><div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>{c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}</div>{c.defendantName && <div style={{ fontSize: 11, color: "#8A9096" }}>Def: {c.defendantName}</div>}</td>
                             <td style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
                             <td style={{ fontSize: 12, color: "#e05252" }}>{deletedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                             <td style={{ fontSize: 12, color: daysLeft <= 7 ? "#e05252" : "#8A9096" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</td>
@@ -2509,7 +2518,10 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum || "—"}</div>
                         </td>
                         <td>
-                          <div style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
+                            {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
+                          </div>
                           {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1, whiteSpace: "nowrap" }}>{c.prosecutor}</div>}
                         </td>
                         <td style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
@@ -3189,6 +3201,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.confidential ? "#dc2626" : "#8A9096", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Confidential cases are excluded from AI Search">
                 <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
                 {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
+              </label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: draft.deathPenalty ? 700 : 400, color: draft.deathPenalty ? "#fff" : "#8A9096", background: draft.deathPenalty ? "#991b1b" : "transparent", padding: draft.deathPenalty ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none", marginLeft: 4, letterSpacing: "0.03em" }} title="Flag this case as a death penalty / capital case">
+                <input type="checkbox" checked={!!draft.deathPenalty} onChange={e => setAndLog("deathPenalty", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#991b1b" }} />
+                {draft.deathPenalty ? "DEATH PENALTY" : "Death Penalty"}
               </label>
             </div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
