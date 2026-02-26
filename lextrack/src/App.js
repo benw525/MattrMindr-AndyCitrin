@@ -1549,9 +1549,9 @@ function NewCaseModal({ onSave, onClose }) {
           <div className="form-group"><label>Court Division</label>
             <select value={form.courtDivision} onChange={e => set("courtDivision", e.target.value)}>
               <option value="">— Select —</option>
-              <option value="Circuit Court">Circuit Court</option>
-              <option value="District Court">District Court</option>
-              <option value="Juvenile Court">Juvenile Court</option>
+              <option value="Circuit">Circuit Court</option>
+              <option value="District">District Court</option>
+              <option value="Juvenile">Juvenile Court</option>
             </select>
           </div>
           <div className="form-group"><label>County</label><input value={form.county} onChange={e => set("county", e.target.value)} /></div>
@@ -2284,9 +2284,9 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
         <div className="topbar-actions">
           <select style={{ width: 160 }} value={divisionFilter} onChange={e => setDivisionFilter(e.target.value)}>
             <option value="All">All Divisions</option>
-            <option value="Circuit Court">Circuit</option>
-            <option value="District Court">District</option>
-            <option value="Juvenile Court">Juvenile</option>
+            <option value="Circuit">Circuit Court</option>
+            <option value="District">District Court</option>
+            <option value="Juvenile">Juvenile Court</option>
           </select>
           <select style={{ width: 160 }} value={attyFilter} onChange={e => setAttyFilter(e.target.value)}>
             <option value="All">All Attorneys</option>
@@ -2575,7 +2575,7 @@ const CORE_FIELDS = [
   { key: "bondAmount",       label: "Bond Amount",          type: "text",   section: "info" },
   { key: "bondConditions",   label: "Bond Conditions",      type: "text",   section: "info" },
   { key: "jailLocation",     label: "Jail Location",        type: "text",   section: "info" },
-  { key: "courtDivision",    label: "Court Division",       type: "select", section: "info", options: ["Circuit Court", "District Court", "Juvenile Court"] },
+  { key: "courtDivision",    label: "Court Division",       type: "select", section: "info", options: ["Circuit", "District", "Juvenile"] },
   { key: "county",           label: "County",               type: "text",   section: "info" },
   { key: "court",            label: "Court",                type: "text",   section: "info" },
   { key: "dispositionType",  label: "Disposition",          type: "select", section: "info", options: ["", "Guilty Plea", "Not Guilty Verdict", "Nolle Prosequi", "Dismissed", "Acquitted", "Convicted at Trial", "Youthful Offender", "Other"] },
