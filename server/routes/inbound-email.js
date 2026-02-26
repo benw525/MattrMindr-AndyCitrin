@@ -123,52 +123,9 @@ router.post("/", upload.any(), async (req, res) => {
           console.error("PDF text extraction error:", pErr.message);
         }
 
-        let isFiling = true;
-        if (extractedText) {
-          try {
-            const OpenAI = require("openai");
-            const openai = new OpenAI({
-              apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-              baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-            });
-            const triagePrompt = `You are a document triage assistant for a criminal defense public defender's office. Determine if this PDF is a COURT FILING or a regular DOCUMENT.
-
-A COURT FILING is a document formally filed with the court. Key indicators:
-- Contains a "Notice of Electronic Filing" (NEF) cover page
-- Is a formal motion, order, plea, indictment, or other pleading filed with the clerk of court
-- Has a court case number header, judge assignment, and filing stamp/date
-- Examples: motions, orders, complaints, indictments, arraignment notices, plea agreements filed with the court
-
-A regular DOCUMENT is anything else that is NOT formally filed with the court. Examples:
-- Police reports, incident reports, arrest reports
-- Lab/forensic reports, toxicology results
-- Witness statements, victim statements
-- Medical records, mental health evaluations
-- Discovery materials, evidence logs
-- Body cam/dash cam transcripts
-- Prior record/PSI reports
-- Attorney correspondence or memos
-
-Return ONLY valid JSON: {"isFiling": true/false, "reason": "brief explanation"}`;
-            const textSnippet = extractedText.substring(0, 6000);
-            const triageResp = await openai.chat.completions.create({
-              model: "gpt-4o-mini",
-              messages: [
-                { role: "system", content: triagePrompt },
-                { role: "user", content: `Is this a court filing or a regular document?\n\n${textSnippet}` },
-              ],
-              temperature: 0.1,
-              max_tokens: 200,
-              store: false,
-              response_format: { type: "json_object" },
-            });
-            const triage = JSON.parse(triageResp.choices[0].message.content);
-            isFiling = triage.isFiling === true;
-            console.log(`PDF triage: "${pdfAtt.filename}" → ${isFiling ? "FILING" : "DOCUMENT"} (${triage.reason || ""})`);
-          } catch (triageErr) {
-            console.error("PDF triage error, defaulting to filing:", triageErr.message);
-          }
-        }
+        const firstPage = extractedText.substring(0, 5000).toUpperCase();
+        const isFiling = firstPage.includes("NOTICE OF ELECTRONIC FILING");
+        console.log(`PDF triage: "${pdfAtt.filename}" → ${isFiling ? "FILING (NEF detected)" : "DOCUMENT (no NEF coversheet)"}`);
 
         if (isFiling) {
           const { rows: filingRows } = await pool.query(
