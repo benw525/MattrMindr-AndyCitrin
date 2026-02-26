@@ -316,6 +316,22 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_training (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        scope       VARCHAR(20) NOT NULL DEFAULT 'personal' CHECK (scope IN ('personal', 'office')),
+        category    VARCHAR(50) NOT NULL DEFAULT 'General',
+        title       VARCHAR(200) NOT NULL,
+        content     TEXT NOT NULL,
+        source_type VARCHAR(20) NOT NULL DEFAULT 'text' CHECK (source_type IN ('text', 'document')),
+        filename    VARCHAR(255),
+        active      BOOLEAN NOT NULL DEFAULT true,
+        created_at  TIMESTAMPTZ DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

@@ -101,6 +101,17 @@ export const apiDocSummary       = (data) => apiFetch("/api/ai-agents/doc-summar
 export const apiTaskSuggestions  = (data) => apiFetch("/api/ai-agents/task-suggestions",  { method: "POST", body: data });
 export const apiAdvocateChat    = (data) => apiFetch("/api/ai-agents/advocate",          { method: "POST", body: data });
 
+// AI Training
+export const apiGetTraining     = ()     => apiFetch("/api/ai-training");
+export const apiCreateTraining  = (data) => apiFetch("/api/ai-training",               { method: "POST", body: data });
+export async function apiUploadTrainingDoc(formData) {
+  const res = await fetch("/api/ai-training/upload", { method: "POST", credentials: "include", body: formData });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
+export const apiUpdateTraining  = (id, data) => apiFetch(`/api/ai-training/${id}`,     { method: "PUT", body: data });
+export const apiDeleteTraining  = (id) => apiFetch(`/api/ai-training/${id}`,           { method: "DELETE" });
+
 // Case Documents
 export const apiGetCaseDocuments = (caseId) => apiFetch(`/api/case-documents/${caseId}`);
 export async function apiUploadCaseDocument(formData) {

@@ -10,11 +10,44 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-async function aiCall(systemPrompt, userPrompt, jsonMode = false) {
+async function getTrainingContext(userId) {
+  try {
+    const result = await pool.query(
+      `SELECT category, title, content FROM ai_training
+       WHERE active = true AND (scope = 'office' OR (scope = 'personal' AND user_id = $1))
+       ORDER BY scope DESC, created_at ASC`,
+      [userId]
+    );
+    if (result.rows.length === 0) return "";
+    let block = "\n\n=== CUSTOM TRAINING & GUIDELINES ===";
+    let totalLen = 0;
+    const MAX_TRAINING_CHARS = 8000;
+    for (const row of result.rows) {
+      const entry = `\n[${row.category}] ${row.title}: ${row.content}`;
+      if (totalLen + entry.length > MAX_TRAINING_CHARS) {
+        block += `\n[${row.category}] ${row.title}: ${row.content.substring(0, MAX_TRAINING_CHARS - totalLen - 100)}...`;
+        break;
+      }
+      block += entry;
+      totalLen += entry.length;
+    }
+    return block;
+  } catch (err) {
+    console.error("Training context load error:", err);
+    return "";
+  }
+}
+
+async function aiCall(systemPrompt, userPrompt, jsonMode = false, userId = null) {
+  let finalPrompt = systemPrompt;
+  if (userId) {
+    const training = await getTrainingContext(userId);
+    if (training) finalPrompt += training;
+  }
   const resp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: finalPrompt },
       { role: "user", content: userPrompt },
     ],
     temperature: 0.3,
@@ -31,7 +64,7 @@ router.post("/charge-class", requireAuth, async (req, res) => {
     if (!statute && !description) return res.status(400).json({ error: "Statute or description required" });
     const systemPrompt = `You are an Alabama criminal law classification assistant. Given a criminal statute and/or charge description, determine the charge classification under Alabama law. Return ONLY valid JSON with one field: "chargeClass" — which must be exactly one of: "Class A Felony", "Class B Felony", "Class C Felony", "Misdemeanor A", "Misdemeanor B", "Misdemeanor C", "Violation", "Other". Use your knowledge of the Alabama Criminal Code to classify accurately.`;
     const userPrompt = `Classify this Alabama criminal charge:\nStatute: ${statute || "Not provided"}\nDescription: ${description || "Not provided"}`;
-    const result = await aiCall(systemPrompt, userPrompt, true);
+    const result = await aiCall(systemPrompt, userPrompt, true, req.session.userId);
     const parsed = JSON.parse(result);
     const valid = ["Class A Felony", "Class B Felony", "Class C Felony", "Misdemeanor A", "Misdemeanor B", "Misdemeanor C", "Violation", "Other"];
     const chargeClass = valid.includes(parsed.chargeClass) ? parsed.chargeClass : "Other";
@@ -76,7 +109,7 @@ Provide:
 5. **Diversion Eligibility** — Whether pretrial diversion, drug court, mental health court, or youthful offender status may apply
 6. **Defense Considerations** — Common defenses or constitutional issues for these types of charges`;
 
-    const result = await aiCall(systemPrompt, userPrompt);
+    const result = await aiCall(systemPrompt, userPrompt, false, req.session.userId);
     res.json({ result });
   } catch (err) {
     console.error("Charge analysis error:", err);
@@ -122,7 +155,7 @@ ${deadlinesList}
 
 Generate 4-8 upcoming procedural deadlines that this case likely needs, considering the current stage and Alabama criminal procedure rules. Include speedy trial deadlines, motion filing windows, discovery deadlines, and any stage-specific deadlines. Do not duplicate existing deadlines.`;
 
-    const raw = await aiCall(systemPrompt, userPrompt, true);
+    const raw = await aiCall(systemPrompt, userPrompt, true, req.session.userId);
     const parsed = JSON.parse(raw);
     res.json({ deadlines: parsed.deadlines || [] });
   } catch (err) {
@@ -181,7 +214,7 @@ Provide:
 6. **Investigation Priorities** — What facts, witnesses, or evidence to pursue
 7. **Mitigating Factors** — Areas to investigate for mitigation`;
 
-    const result = await aiCall(systemPrompt, userPrompt);
+    const result = await aiCall(systemPrompt, userPrompt, false, req.session.userId);
     res.json({ result });
   } catch (err) {
     console.error("Case strategy error:", err);
@@ -223,7 +256,7 @@ ${customInstructions ? `Additional Instructions: ${customInstructions}` : ""}
 
 Draft the complete document with proper formatting, caption, body, signature block, and certificate of service.`;
 
-    const result = await aiCall(systemPrompt, userPrompt);
+    const result = await aiCall(systemPrompt, userPrompt, false, req.session.userId);
     res.json({ result });
   } catch (err) {
     console.error("Document draft error:", err);
@@ -285,7 +318,7 @@ Priority factors (highest to lowest):
 - Cases with no recent activity
 - Higher charge classes`;
 
-    const raw = await aiCall(systemPrompt, `Active caseload:\n${caseSummaries}`, true);
+    const raw = await aiCall(systemPrompt, `Active caseload:\n${caseSummaries}`, true, req.session.userId);
     const parsed = JSON.parse(raw);
     res.json({ cases: parsed.cases || [] });
   } catch (err) {
@@ -336,7 +369,7 @@ ${activity}
 Upcoming Dates:
 ${deadlines}`;
 
-    const result = await aiCall(systemPrompt, userPrompt);
+    const result = await aiCall(systemPrompt, userPrompt, false, req.session.userId);
     res.json({ result });
   } catch (err) {
     console.error("Client summary error:", err);
@@ -428,7 +461,7 @@ ${deadlinesText}
 
 Suggest 5-8 specific, actionable tasks the defense team should prioritize next.`;
 
-    const raw = await aiCall(systemPrompt, userPrompt, true);
+    const raw = await aiCall(systemPrompt, userPrompt, true, req.session.userId);
     const parsed = JSON.parse(raw);
     res.json({ tasks: parsed.tasks || [] });
   } catch (err) {
@@ -473,7 +506,7 @@ Be precise about who filed the document. Look for signatures, captions, and head
     const textSnippet = filing.extracted_text.substring(0, 12000);
     const userPrompt = `Classify this court filing from the case "${filing.case_title}" (Defendant: ${filing.defendant_name || "Unknown"}):\n\n${textSnippet}`;
 
-    const raw = await aiCall(systemPrompt, userPrompt, true);
+    const raw = await aiCall(systemPrompt, userPrompt, true, req.session.userId);
     const parsed = JSON.parse(raw);
 
     const updates = [];
@@ -516,7 +549,7 @@ Be concise but thorough. Flag anything that could help the defense.`;
     const textSnippet = text.substring(0, 12000);
     const userPrompt = `Summarize this ${docType || "document"} for the case "${caseTitle || "Unknown"}" (Defendant: ${defendantName || "Unknown"}):\n\n${textSnippet}`;
 
-    const result = await aiCall(systemPrompt, userPrompt);
+    const result = await aiCall(systemPrompt, userPrompt, false, req.session.userId);
     res.json({ result });
   } catch (err) {
     console.error("Doc summary error:", err);
@@ -651,9 +684,10 @@ ${emailsText}`;
       contextBlock = contextBlock.substring(0, MAX_CONTEXT_CHARS) + "\n[Context truncated due to case size]";
     }
 
+    const trainingContext = await getTrainingContext(req.session.userId);
     const systemPrompt = `You are Advocate AI, a senior criminal defense advisor assisting a public defender at the Mobile County Public Defender's Office in Alabama. You have access to the complete case file below. Answer questions thoughtfully using specific details from the case. Be practical, strategic, and action-oriented. Reference specific evidence, documents, filings, and notes when relevant. Format responses with markdown for readability.${c.death_penalty ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Always consider capital defense strategies, mitigation investigation, Eighth Amendment issues, and the heightened standards required in capital proceedings." : ""}
 
-${contextBlock}`;
+${contextBlock}${trainingContext}`;
 
     const apiMessages = [
       { role: "system", content: systemPrompt },

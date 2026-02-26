@@ -51,6 +51,7 @@ server/
     experts.js      — CRUD /api/experts (case experts with contact card integration)
     misc-contacts.js — CRUD /api/misc-contacts (case miscellaneous contacts)
     time-entries.js — CRUD /api/time-entries (manual time log entries per user/case)
+    ai-training.js — CRUD /api/ai-training + document upload (AI Agent Trainer entries)
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
     case-signature.docx   — Attorney signature block (auto-appended to Pleadings)
@@ -97,6 +98,18 @@ Nine AI-powered agents using OpenAI (`gpt-4o-mini`) via existing integration. Al
 11. **Advocate AI** — Multi-turn conversational AI assistant for case-specific advice. Loads the entire case file as context (case details, all notes, tasks, deadlines, co-defendants/parties, document summaries, filing summaries, email correspondence). Accessible via "🤖 Advocate AI" button in case detail overlay header. Features: starter prompt chips for quick onboarding, chat-style message bubbles with markdown rendering, copy individual AI responses, save full conversation as case note (type "AI Consultation"), context indicator showing loaded data counts, auto-scroll, typing indicator. Death penalty cases get capital-defense-specific instructions. Token management: progressive truncation for large cases (emails first, then notes, then document summaries). Conversation resets on modal close (no persistence). Endpoint: `/api/ai-agents/advocate`.
 
 All agents accessible via `/api/ai-agents/*` endpoints, require authentication. Frontend API helpers in `api.js`. Reusable `AiPanel` component for consistent UI rendering. Charge Analysis and Deadline Generator endpoints accept `caseId` to auto-load case data server-side.
+
+### AI Agent Trainer
+Two-tier system for customizing how all AI agents behave by injecting training context into every agent's system prompt:
+- **Personal Training**: Per-user entries that only affect that user's AI interactions. Available to all staff
+- **Office Training**: Office-wide entries that affect all users' AI interactions. Create/edit restricted to: Public Defender, Chief Deputy Public Defender, Deputy Public Defender, Senior Trial Attorney, App Admin
+- **Categories**: General, Local Rules, Office Policy, Defense Strategy, Court Preferences, Sentencing, Procedures
+- **Source Types**: Text (written instructions) or Document (uploaded PDF/TXT/DOCX — text extracted via pdf-parse/mammoth)
+- **Active Toggle**: Enable/disable individual entries without deleting them
+- **Context Injection**: `getTrainingContext(userId)` in ai-agents.js loads all active entries (personal for user + all office entries), concatenates them as `=== CUSTOM TRAINING & GUIDELINES ===` block appended to system prompts, capped at 8000 chars
+- **Backend**: `server/routes/ai-training.js` — full CRUD + document upload with multer. Registered in server/index.js
+- **Frontend**: Tab in AI Center view ("AI Agents" | "AI Trainer"), with sub-tabs "My Training" / "Office Training", add modal with text/document modes, inline edit, active toggle, delete
+- **API helpers**: `apiGetTraining`, `apiCreateTraining`, `apiUploadTrainingDoc`, `apiUpdateTraining`, `apiDeleteTraining` in api.js
 
 ### AI Center
 - Centralized view in sidebar (under Reports) that provides access to all 11 AI agents from one place
@@ -245,3 +258,4 @@ General, Motions, Discovery, Police Reports, Photographs, Expert Reports, Court 
 | time_entries | Manual time log entries per user/case |
 | case_documents | Uploaded case documents (PDF, DOCX, DOC, TXT) with BYTEA file storage, extracted text, AI summaries |
 | case_filings | Court filings (PDF only) with BYTEA storage, extracted text, AI classification (filed_by, doc_type, filing_date), AI summaries. Source tracking (email/upload) |
+| ai_training | AI training entries for customizing agent behavior. Fields: user_id, scope (personal/office), category, title, content (text or extracted document text), source_type (text/document), filename, active. Personal entries affect only owner's AI; office entries affect all users |

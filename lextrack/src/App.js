@@ -23,6 +23,7 @@ import {
   apiGetMiscContacts, apiCreateMiscContact, apiUpdateMiscContact, apiDeleteMiscContact,
   apiGetTemplates, apiDeleteTemplate, apiUpdateTemplate, apiGetTemplateSource, apiUploadTemplateFile, apiSaveTemplate, apiGenerateDocument, apiDetectPleadingSections,
   apiGetTimeEntries, apiCreateTimeEntry, apiUpdateTimeEntry, apiDeleteTimeEntry,
+  apiGetTraining, apiCreateTraining, apiUploadTrainingDoc, apiUpdateTraining, apiDeleteTraining,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -7164,10 +7165,25 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
 }
 
 // ─── AI Center View ───────────────────────────────────────────────────────────
+const TRAINING_CATEGORIES = ["General", "Local Rules", "Office Policy", "Defense Strategy", "Court Preferences", "Sentencing", "Procedures"];
+const OFFICE_ROLES = ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","App Admin"];
+
 function AiCenterView({ allCases, currentUser, onMenuToggle }) {
   const [selectedCaseId, setSelectedCaseId] = useState("");
   const [activeAgent, setActiveAgent] = useState(null);
   const [aiState, setAiState] = useState({ loading: false, result: null, error: null });
+  const [aiCenterTab, setAiCenterTab] = useState("agents");
+  const [trainingEntries, setTrainingEntries] = useState([]);
+  const [trainingLoaded, setTrainingLoaded] = useState(false);
+  const [trainingTab, setTrainingTab] = useState("personal");
+  const [showAddTraining, setShowAddTraining] = useState(false);
+  const [addMode, setAddMode] = useState("text");
+  const [addForm, setAddForm] = useState({ title: "", content: "", category: "General", scope: "personal" });
+  const [addFile, setAddFile] = useState(null);
+  const [addSaving, setAddSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const canOffice = (currentUser?.roles || []).some(r => OFFICE_ROLES.includes(r));
   const [docType, setDocType] = useState("Motion to Suppress");
   const [docInstructions, setDocInstructions] = useState("");
   const [aiCenterTasks, setAiCenterTasks] = useState({ tasks: [], added: {} });
@@ -7253,6 +7269,65 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
     }
   }, [activeAgent, selectedCaseId]);
 
+  useEffect(() => {
+    if (aiCenterTab === "trainer" && !trainingLoaded) {
+      apiGetTraining().then(entries => { setTrainingEntries(entries); setTrainingLoaded(true); }).catch(() => setTrainingLoaded(true));
+    }
+  }, [aiCenterTab, trainingLoaded]);
+
+  const loadTraining = () => apiGetTraining().then(setTrainingEntries).catch(() => {});
+
+  const handleAddTraining = async () => {
+    if (!addForm.title.trim()) return alert("Title is required");
+    if (addMode === "text" && !addForm.content.trim()) return alert("Content is required");
+    if (addMode !== "text" && !addFile) return alert("Please select a file");
+    setAddSaving(true);
+    try {
+      if (addMode === "text") {
+        await apiCreateTraining(addForm);
+      } else {
+        const fd = new FormData();
+        fd.append("file", addFile);
+        fd.append("title", addForm.title);
+        fd.append("category", addForm.category);
+        fd.append("scope", addForm.scope);
+        await apiUploadTrainingDoc(fd);
+      }
+      setShowAddTraining(false);
+      setAddForm({ title: "", content: "", category: "General", scope: "personal" });
+      setAddFile(null);
+      setAddMode("text");
+      loadTraining();
+    } catch (e) {
+      alert("Error: " + e.message);
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  const handleToggleActive = async (entry) => {
+    try {
+      await apiUpdateTraining(entry.id, { active: !entry.active });
+      setTrainingEntries(p => p.map(e => e.id === entry.id ? { ...e, active: !e.active } : e));
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  const handleDeleteTraining = async (id) => {
+    if (!window.confirm("Delete this training entry?")) return;
+    try {
+      await apiDeleteTraining(id);
+      setTrainingEntries(p => p.filter(e => e.id !== id));
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  const handleSaveEdit = async (id) => {
+    try {
+      await apiUpdateTraining(id, editForm);
+      setTrainingEntries(p => p.map(e => e.id === id ? { ...e, ...editForm } : e));
+      setEditingId(null);
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
   const needsCase = activeAgent && agents.find(a => a.id === activeAgent)?.needsCase;
   const canRun = activeAgent && (!needsCase || selectedCaseId);
 
@@ -7266,6 +7341,12 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
         </div>
       </div>
       <div className="content" style={{ maxWidth: 900 }}>
+        <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
+          <button onClick={() => setAiCenterTab("agents")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "agents" ? "#b8860b" : "var(--c-text2)", borderBottom: aiCenterTab === "agents" ? "2px solid #b8860b" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>AI Agents</button>
+          <button onClick={() => setAiCenterTab("trainer")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "trainer" ? "#6366f1" : "var(--c-text2)", borderBottom: aiCenterTab === "trainer" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>🧠 AI Trainer</button>
+        </div>
+
+        {aiCenterTab === "agents" && <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 24 }}>
           {agents.map(a => (
             <div key={a.id} onClick={() => selectAgent(a.id)} style={{
@@ -7488,6 +7569,137 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
           <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--c-text2)", fontSize: 13 }}>
             Select an AI agent above to get started
           </div>
+        )}
+        </>}
+
+        {aiCenterTab === "trainer" && (
+          <>
+            <div style={{ marginBottom: 16, fontSize: 13, color: "var(--c-text2)", lineHeight: 1.6 }}>
+              Add instructions or upload documents to customize how all AI agents work. Training content is injected into every AI agent's context.
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--c-border)" }}>
+                <button onClick={() => setTrainingTab("personal")} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: trainingTab === "personal" ? "#2563eb" : "var(--c-text2)", borderBottom: trainingTab === "personal" ? "2px solid #2563eb" : "2px solid transparent", marginBottom: -1 }}>My Training</button>
+                <button onClick={() => setTrainingTab("office")} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: trainingTab === "office" ? "#059669" : "var(--c-text2)", borderBottom: trainingTab === "office" ? "2px solid #059669" : "2px solid transparent", marginBottom: -1 }}>Office Training</button>
+              </div>
+              {(trainingTab === "personal" || canOffice) && (
+                <button className="btn btn-sm" style={{ background: "#6366f1", color: "#fff", border: "none", fontSize: 12 }} onClick={() => { setShowAddTraining(true); setAddForm(f => ({ ...f, scope: trainingTab })); }}>+ Add Training</button>
+              )}
+            </div>
+
+            {(() => {
+              const userId = currentUser?.id;
+              const filtered = trainingEntries.filter(e => trainingTab === "personal" ? (e.scope === "personal" && e.user_id === userId) : e.scope === "office");
+              if (filtered.length === 0) return (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--c-text2)" }}>
+                  <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>🧠</div>
+                  <div style={{ fontSize: 13 }}>{trainingTab === "personal" ? "No personal training entries yet. Add instructions to customize AI for your workflow." : "No office-wide training entries yet." + (canOffice ? " Add guidelines that apply to all staff." : "")}</div>
+                </div>
+              );
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {filtered.map(entry => {
+                    const isEditing = editingId === entry.id;
+                    const isOwner = entry.user_id === userId;
+                    const canEdit = entry.scope === "personal" ? isOwner : canOffice;
+                    return (
+                      <div key={entry.id} style={{ background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: 8, padding: "14px 16px", opacity: entry.active ? 1 : 0.5, transition: "opacity 0.15s" }}>
+                        {isEditing ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <input value={editForm.title || ""} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} style={{ fontSize: 13, fontWeight: 600, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }} />
+                            <select value={editForm.category || "General"} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}>
+                              {TRAINING_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                            </select>
+                            {entry.source_type === "text" && (
+                              <textarea value={editForm.content || ""} onChange={e => setEditForm(f => ({ ...f, content: e.target.value }))} style={{ fontSize: 12, minHeight: 100, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", fontFamily: "inherit" }} />
+                            )}
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                              <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setEditingId(null)}>Cancel</button>
+                              <button className="btn btn-sm" style={{ fontSize: 11, background: "#6366f1", color: "#fff", border: "none" }} onClick={() => handleSaveEdit(entry.id)}>Save</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{entry.title}</span>
+                                  <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: entry.scope === "office" ? "#05966918" : "#2563eb18", color: entry.scope === "office" ? "#059669" : "#2563eb" }}>{entry.scope === "office" ? "Office" : "Personal"}</span>
+                                  <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "var(--c-bg)", color: "var(--c-text2)", border: "1px solid var(--c-border)" }}>{entry.category}</span>
+                                  <span style={{ fontSize: 10, color: "#8A9096" }}>{entry.source_type === "document" ? "📄" : "📝"}</span>
+                                </div>
+                                <div style={{ fontSize: 12, color: "var(--c-text2)", lineHeight: 1.5, maxHeight: 60, overflow: "hidden" }}>
+                                  {entry.source_type === "document" && entry.filename && <span style={{ fontSize: 11, color: "#8A9096", marginRight: 6 }}>[{entry.filename}]</span>}
+                                  {(entry.content || "").substring(0, 150)}{(entry.content || "").length > 150 ? "..." : ""}
+                                </div>
+                                {entry.created_by_name && <div style={{ fontSize: 10, color: "#8A9096", marginTop: 4 }}>Added by {entry.created_by_name}</div>}
+                              </div>
+                              {canEdit && (
+                                <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, marginLeft: 8 }}>
+                                  <button onClick={() => handleToggleActive(entry)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px", color: entry.active ? "#059669" : "#8A9096" }} title={entry.active ? "Active — click to disable" : "Inactive — click to enable"}>{entry.active ? "✓" : "○"}</button>
+                                  <button onClick={() => { setEditingId(entry.id); setEditForm(entry.source_type === "document" ? { title: entry.title, category: entry.category } : { title: entry.title, category: entry.category, content: entry.content }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#8A9096" }}>✎</button>
+                                  <button onClick={() => handleDeleteTraining(entry.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#e05252" }}>✕</button>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {showAddTraining && (
+              <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAddTraining(false)}>
+                <div className="modal" style={{ maxWidth: 540 }}>
+                  <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Add Training</span>
+                    <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096" }} onClick={() => setShowAddTraining(false)}>✕</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "1px solid var(--c-border)" }}>
+                    <button onClick={() => setAddMode("text")} style={{ padding: "6px 14px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: addMode === "text" ? "#6366f1" : "var(--c-text2)", borderBottom: addMode === "text" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -1 }}>📝 Write Instructions</button>
+                    <button onClick={() => setAddMode("document")} style={{ padding: "6px 14px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: addMode === "document" ? "#6366f1" : "var(--c-text2)", borderBottom: addMode === "document" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -1 }}>📄 Upload Document</button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Title</label>
+                      <input value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))} placeholder={addMode === "text" ? "e.g., Judge Thompson prefers brief motions" : "e.g., Local Court Rules Reference"} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Category</label>
+                        <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                          {TRAINING_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Scope</label>
+                        <select value={addForm.scope} onChange={e => setAddForm(f => ({ ...f, scope: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                          <option value="personal">Personal (just me)</option>
+                          {canOffice && <option value="office">Office-wide (everyone)</option>}
+                        </select>
+                      </div>
+                    </div>
+                    {addMode === "text" ? (
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Instructions</label>
+                        <textarea value={addForm.content} onChange={e => setAddForm(f => ({ ...f, content: e.target.value }))} placeholder="Write specific instructions, guidelines, or knowledge that should inform all AI agents. For example: local court rules, office procedures, defense strategies, or judge preferences." style={{ width: "100%", minHeight: 150, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                      </div>
+                    ) : (
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Upload File (PDF, TXT, DOCX)</label>
+                        <input type="file" accept=".pdf,.txt,.docx" onChange={e => setAddFile(e.target.files[0])} style={{ fontSize: 12, color: "var(--c-text)" }} />
+                        {addFile && <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 4 }}>Selected: {addFile.name}</div>}
+                      </div>
+                    )}
+                    <button className="btn" style={{ width: "100%", background: "#6366f1", color: "#fff", border: "none" }} disabled={addSaving} onClick={handleAddTraining}>{addSaving ? "Saving..." : "Add Training"}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
