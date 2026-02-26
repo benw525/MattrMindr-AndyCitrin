@@ -62,8 +62,7 @@ const urgencyColor = (days) => {
   return "#4CAE72";
 };
 
-const isFiled = (c) => !!(c.caseNum && c.caseNum.trim().length > 0);
-const recordType = (c) => isFiled(c) ? "Case" : "Matter";
+const recordType = () => "Case";
 
 const PRIORITY_RANK = { Low: 0, Medium: 1, High: 2, Urgent: 3 };
 const RANK_PRIORITY = ["Low", "Medium", "High", "Urgent"];
@@ -1236,7 +1235,7 @@ export default function App() {
         <nav className="sidebar-nav">
           {[
             { id: "dashboard", icon: "⬛", label: "Dashboard" },
-            { id: "cases", icon: "⚖️", label: "Cases & Matters" },
+            { id: "cases", icon: "⚖️", label: "Cases" },
             { id: "deadlines", icon: "📅", label: "Deadlines" },
             { id: "tasks", icon: "✅", label: "Tasks", badge: overdueBadge || null },
             { id: "documents", icon: "📄", label: "Templates" },
@@ -1495,7 +1494,7 @@ function Toggle({ on, onChange, color = "#1E2A3A" }) {
   );
 }
 
-// ─── New Case/Matter Modal ────────────────────────────────────────────────────
+// ─── New Case Modal ──────────────────────────────────────────────────────────
 function NewCaseModal({ onSave, onClose }) {
   const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "", court: "", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, arrestDate: "", notes: "" });
   const [autoTasks, setAutoTasks] = useState(true);
@@ -1512,22 +1511,21 @@ function NewCaseModal({ onSave, onClose }) {
     } catch { setConflicts(null); }
     setConflictChecking(false);
   };
-  const isMatter = !form.caseNum.trim();
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <div className="modal-title">Open New {isMatter ? "Matter" : "Case"}</div>
+        <div className="modal-title">Open New Case</div>
         <div className="modal-sub">
-          {isMatter ? "No case number entered — this will be tracked as a Matter (unfiled)." : "Case number entered — this will be tracked as a filed Case."}
+          Enter the case details below.
         </div>
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          <Badge label={isMatter ? "Matter" : "Case"} />
+          <Badge label="Case" />
           <Badge label="Active" />
         </div>
 
         <div className="form-row">
-          <div className="form-group"><label>Case Number (blank = Matter)</label><input value={form.caseNum} onChange={e => set("caseNum", e.target.value)} placeholder="e.g. CC-2025-001234" /></div>
+          <div className="form-group"><label>Case Number</label><input value={form.caseNum} onChange={e => set("caseNum", e.target.value)} placeholder="e.g. CC-2025-001234" /></div>
           <div className="form-group"><label>Case Title *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. State v. Smith" /></div>
         </div>
         <div className="form-row">
@@ -1634,7 +1632,7 @@ function NewCaseModal({ onSave, onClose }) {
         <div className="modal-footer">
           <button className="btn btn-outline" onClick={onClose}>Cancel</button>
           <button className="btn btn-gold" disabled={!form.title.trim()} onClick={() => { onSave({ ...form, autoTasks }); onClose(); }}>
-            Open {isMatter ? "Matter" : "Case"}
+            Open Case
           </button>
         </div>
       </div>
@@ -1887,9 +1885,9 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
       case "stat-active":
         return (
           <div className="stat-card" key={widgetId}>
-            <div className="stat-label">Active Records</div>
+            <div className="stat-label">Active Cases</div>
             <div className="stat-value">{activeCases.length}</div>
-            <div className="stat-sub">{activeCases.filter(c => isFiled(c)).length} cases · {activeCases.filter(c => !isFiled(c)).length} matters</div>
+            <div className="stat-sub">{activeCases.length} active case{activeCases.length !== 1 ? "s" : ""}</div>
           </div>
         );
       case "stat-deadlines":
@@ -2048,7 +2046,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                 <span style={{ fontSize: 14, marginRight: 6 }}>📌</span>
                 <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
                   <div className="dl-title" style={{ fontSize: 13 }}>{c.title}</div>
-                  <div className="dl-case">{c.caseNum || "Matter"}{c.defendantName ? ` · ${c.defendantName}` : ""}</div>
+                  <div className="dl-case">{c.caseNum || "—"}{c.defendantName ? ` · ${c.defendantName}` : ""}</div>
                 </div>
                 <div style={{ fontSize: 11, color: "#8A9096", flexShrink: 0 }}>{c.status}</div>
               </div>
@@ -2111,7 +2109,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => setShowCustomize(true)} style={{ fontSize: 12 }}>⚙ Customize</button>
-          <button className="btn btn-gold" onClick={() => setShowModal(true)}>+ New Case / Matter</button>
+          <button className="btn btn-gold" onClick={() => setShowModal(true)}>+ New Case</button>
         </div>
       </div>
       <div className="content">
@@ -2145,7 +2143,6 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
 const PAGE_SIZE = 50;
 
 function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline }) {
-  const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -2236,8 +2233,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const filtered = useMemo(() => {
     let list = allCases.filter(c => {
       if (statusFilter !== "All" && statusFilter !== "Deleted" && c.status !== statusFilter) return false;
-      if (typeFilter === "Case" && !isFiled(c)) return false;
-      if (typeFilter === "Matter" && isFiled(c)) return false;
       if (attyFilter !== "All" && c.assignedAttorney !== Number(attyFilter) && c.secondAttorney !== Number(attyFilter)) return false;
       if (divisionFilter !== "All" && c.courtDivision !== divisionFilter) return false;
       if (search) {
@@ -2253,16 +2248,16 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       else if (sortCol === "defendant") { av = a.defendantName || ""; bv = b.defendantName || ""; }
       else if (sortCol === "stage") { av = a.stage || ""; bv = b.stage || ""; }
       else if (sortCol === "trialDate") { av = a.trialDate || "9999"; bv = b.trialDate || "9999"; }
-      else if (sortCol === "type") { av = recordType(a); bv = recordType(b); }
+      else if (sortCol === "arrestDate") { av = a.arrestDate || "9999"; bv = b.arrestDate || "9999"; }
       else if (sortCol === "lead") { av = getUserById(a.assignedAttorney)?.name || ""; bv = getUserById(b.assignedAttorney)?.name || ""; }
       return (sortDir === "asc" ? 1 : -1) * av.localeCompare(bv);
     });
     return list;
-  }, [allCases, statusFilter, typeFilter, attyFilter, divisionFilter, search, sortCol, sortDir]);
+  }, [allCases, statusFilter, attyFilter, divisionFilter, search, sortCol, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => setPage(1), [search, statusFilter, typeFilter, attyFilter, divisionFilter, sortCol]);
+  useEffect(() => setPage(1), [search, statusFilter, attyFilter, divisionFilter, sortCol]);
 
   const caseTasks = useMemo(() => selectedCase ? tasks.filter(t => t.caseId === selectedCase.id) : [], [tasks, selectedCase]);
   const caseDeadlines = useMemo(() => selectedCase ? deadlines.filter(d => d.caseId === selectedCase.id) : [], [deadlines, selectedCase]);
@@ -2283,8 +2278,8 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
       )}
       <div className="topbar">
         <div>
-          <div className="topbar-title">Cases & Matters</div>
-          <div className="topbar-subtitle">{filtered.length} of {allCases.length} · {allCases.filter(c => isFiled(c) && c.status === "Active").length} active cases · {allCases.filter(c => !isFiled(c) && c.status === "Active").length} active matters</div>
+          <div className="topbar-title">Cases</div>
+          <div className="topbar-subtitle">{filtered.length} of {allCases.length} · {allCases.filter(c => c.status === "Active").length} active</div>
         </div>
         <div className="topbar-actions">
           <select style={{ width: 160 }} value={divisionFilter} onChange={e => setDivisionFilter(e.target.value)}>
@@ -2298,7 +2293,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
             {allAttorneys.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn btn-gold" onClick={() => setShowModal(true)}>+ New Case / Matter</button>
+          <button className="btn btn-gold" onClick={() => setShowModal(true)}>+ New Case</button>
         </div>
       </div>
       <div className="content">
@@ -2360,7 +2355,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontWeight: 600, fontSize: 14, color: "#1F2428" }}>{c.title}</span>
-                          <Badge label={recordType(c)} />
                           {c.caseNum && <span style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum}</span>}
                         </div>
                         <div style={{ fontSize: 12, color: "#8A9096", marginTop: 4, lineHeight: 1.5 }}>{r.reason}</div>
@@ -2397,13 +2391,13 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <thead>
                     <tr>
                       <th style={{ width: 32 }}></th>
-                      <th>Type</th>
                       <th>Case Number</th>
                       <th>Style</th>
                       <th>Case Type</th>
                       <th>Defendant</th>
                       <th>Stage</th>
                       <th>Trial Date</th>
+                      <th>Arrest Date</th>
                       <th>Lead</th>
                     </tr>
                   </thead>
@@ -2413,7 +2407,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title="Unpin" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B67A18", padding: 0, lineHeight: 1 }}>📌</button>
                         </td>
-                        <td><Badge label={recordType(c)} /></td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum || "—"}</div>
                         </td>
@@ -2425,6 +2418,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
                         <td><Badge label={c.stage} /></td>
                         <td style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#8A9096", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
+                        <td style={{ fontSize: 12, color: "#8A9096", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
                         <td><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}
@@ -2437,7 +2431,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
         <div className="tabs">
           {["All", "Active", "Monitoring", "Closed"].map(s => <div key={s} className={`tab ${statusFilter === s ? "active" : ""}`} onClick={() => setStatusFilter(s)}>{s}</div>)}
           <div className={`tab ${statusFilter === "Deleted" ? "active" : ""}`} style={{ color: statusFilter === "Deleted" ? "#e05252" : undefined }} onClick={() => setStatusFilter("Deleted")}>Deleted</div>
-          {statusFilter !== "Deleted" && <><div className="tab-divider" />{["All", "Case", "Matter"].map(t => <div key={t} className={`tab ${typeFilter === t ? "active" : ""}`} onClick={() => setTypeFilter(t)}>{t}</div>)}</>}
         </div>
         <div className="card">
           {statusFilter === "Deleted" ? (
@@ -2449,7 +2442,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <table>
                     <thead>
                       <tr>
-                        <th>Type</th>
                         <th>Case Number</th>
                         <th>Style</th>
                         <th>Case Type</th>
@@ -2465,7 +2457,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         const daysLeft = Math.ceil((expiresDate - new Date()) / (1000 * 60 * 60 * 24));
                         return (
                           <tr key={c.id}>
-                            <td><Badge label={recordType(c)} /></td>
                             <td style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
                             <td><div style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</div>{c.defendantName && <div style={{ fontSize: 11, color: "#8A9096" }}>Def: {c.defendantName}</div>}</td>
                             <td style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
@@ -2488,13 +2479,13 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <thead>
                     <tr>
                       <th style={{ width: 32 }}></th>
-                      <SortTh col="type" label="Type" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="caseNum" label="Case Number" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="title" label="Style" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <th>Case Type</th>
                       <SortTh col="defendant" label="Defendant" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="stage" label="Stage" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="trialDate" label="Trial Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <SortTh col="arrestDate" label="Arrest Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="lead" label="Lead" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                     </tr>
                   </thead>
@@ -2504,7 +2495,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title={pinnedIds.includes(c.id) ? "Unpin" : "Pin"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: pinnedIds.includes(c.id) ? "#B67A18" : "#D6D8DB", padding: 0, lineHeight: 1, opacity: pinnedIds.includes(c.id) ? 1 : 0.5, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => { if (!pinnedIds.includes(c.id)) e.currentTarget.style.opacity = "0.5"; }}>📌</button>
                         </td>
-                        <td><Badge label={recordType(c)} /></td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum || "—"}</div>
                         </td>
@@ -2516,12 +2506,13 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
                         <td><Badge label={c.stage} /></td>
                         <td style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#8A9096", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
+                        <td style={{ fontSize: 12, color: "#8A9096", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
                         <td><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {paged.length === 0 && <div className="empty">No records match your filters.</div>}
+                {paged.length === 0 && <div className="empty">No cases match your filters.</div>}
               </div>
               {totalPages > 1 && (
                 <div className="pagination">
@@ -3165,7 +3156,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="case-overlay-header">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-              <Badge label={recordType(draft)} />
+              <Badge label="Case" />
               {draft.caseNum && <span style={{ fontSize: 11, color: "#1E2A3A", fontFamily: "monospace" }}>{draft.caseNum}</span>}
               {editMode
                 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#1E2A3A", background: "#E4E7EB", border: "1px solid #D6D8DB", borderRadius: 4, padding: "2px 8px", letterSpacing: "0.03em" }}>EDIT MODE</span>
@@ -5458,7 +5449,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
                   <tr>
                     <th style={{ width: 14 }}></th>
                     <SortTh col="title" label="Deadline" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                    <SortTh col="case" label="Case / Matter" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                    <SortTh col="case" label="Case" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                     <SortTh col="type" label="Type" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                     <SortTh col="date" label="Due Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                     <th>Days</th><th>Assigned</th>
@@ -5501,7 +5492,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
           <div className="card" style={{ maxWidth: 600 }}>
             <div className="card-header"><div className="card-title">Add New Deadline</div></div>
             <div style={{ padding: 20 }}>
-              <div className="form-group"><label>Case / Matter (sorted by style)</label>
+              <div className="form-group"><label>Case (sorted by style)</label>
                 <select value={newDl.caseId} onChange={e => setNewDl(p => ({ ...p, caseId: Number(e.target.value) }))}>
                   {[...allCases].filter(c => c.status === "Active").sort((a, b) => (a.title || "").localeCompare(b.title || "")).map(c => <option key={c.id} value={c.id}>{c.title}{c.caseNum ? ` (${c.caseNum})` : ""}</option>)}
                 </select>
@@ -5627,7 +5618,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
             <div style={{ padding: 20 }}>
               <div className="form-group"><label>Task Title</label><input value={newTask.title} onChange={e => setNewTask(p => ({ ...p, title: e.target.value }))} placeholder="Describe the task…" /></div>
               <div className="form-group">
-                <label>Case / Matter</label>
+                <label>Case</label>
                 <div style={{ position: "relative" }}>
                   {newTask.caseId && !caseDropOpen ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #cbd5e1", borderRadius: 6, padding: "7px 10px", background: "var(--c-bg)", cursor: "default" }}>
@@ -5738,7 +5729,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                 <tr>
                   <th style={{ width: 40 }}></th>
                   <SortTh col="title" label="Task" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                  <SortTh col="case" label="Case / Matter" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                  <SortTh col="case" label="Case" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                   <SortTh col="assigned" label="Assigned" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                   <SortTh col="due" label="Due" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                   <SortTh col="priority" label="Priority" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
@@ -6488,7 +6479,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
   };
 
   const exportCSV = () => {
-    const headers = ["Date", "Case/Matter", "Case Type", "Description", "Time"];
+    const headers = ["Date", "Case", "Case Type", "Description", "Time"];
     const escapeCell = (val) => `"${String(val || "").replace(/"/g, '""')}"`;
     const csvRows = [
       headers.join(","),
@@ -6595,7 +6586,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
                 <thead>
                   <tr>
                     <th style={{ whiteSpace: "nowrap" }}>Date</th>
-                    <th>Case/Matter</th>
+                    <th>Case</th>
                     <th>Description</th>
                     <th style={{ whiteSpace: "nowrap", width: 90 }}>Time</th>
                     <th style={{ width: 36 }}></th>
@@ -6724,7 +6715,7 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
         <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 16 }}>Add Time Entry</div>
 
         <div className="form-group">
-          <label>Case / Matter</label>
+          <label>Case</label>
           {selectedCase ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ flex: 1, padding: "8px 10px", borderRadius: 6, border: "1px solid #D6D8DB", background: "#F7F8FA", fontSize: 13 }}>
@@ -6738,7 +6729,7 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                 {[
                   { key: "all", label: "All Cases" },
-                  { key: "myMatters", label: "My Matters" },
+                  { key: "myMatters", label: "My Cases" },
                 ].map(f => (
                   <button key={f.key}
                     className={`btn btn-sm ${caseFilter === f.key ? "btn-primary" : "btn-outline"}`}

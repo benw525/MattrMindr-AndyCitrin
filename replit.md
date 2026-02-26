@@ -1,7 +1,7 @@
 # MattrMindr — Criminal Defense Case Management System
 
 ## Overview
-A case management system for the Mobile County Public Defender's Office. Tracks criminal defense cases and matters, manages deadlines, assigns tasks, tracks charges and custody/bond status, performs conflict checks, and generates office-wide reports.
+A case management system for the Mobile County Public Defender's Office. Tracks criminal defense cases, manages deadlines, assigns tasks, tracks charges and custody/bond status, performs conflict checks, and generates office-wide reports.
 
 ## Stack
 - **Frontend**: React 19 (Create React App), port 5000
@@ -87,7 +87,7 @@ lextrack/
 
 ### Core Features
 - Customizable Dashboard: per-user widget system with add/remove/reorder
-- Cases & Matters view with filtering, sorting, pagination
+- Cases view with filtering, sorting, pagination (no "matters" concept — everything is a case)
 - Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, correspondence tab, charges section
 - Deadline Tracker: calendar grid, list view, iCal feed import, court rules calculator
 - Tasks View: filterable task list with inline editing, auto-escalation, recurring tasks
@@ -188,7 +188,7 @@ General, Motions, Discovery, Police Reports, Photographs, Expert Reports, Court 
 | Table | Purpose |
 |-------|---------|
 | users | Staff members with auth fields |
-| cases | All cases/matters with criminal defense fields (defendant_name, prosecutor, charge_description, charge_statute, charge_class, case_type, custody_status, bond_amount, bond_conditions, jail_location, court_division, arrest/arraignment/next_court/sentencing/disposition dates, charges JSONB, investigator, social_worker) |
+| cases | All cases with criminal defense fields (defendant_name, prosecutor, charge_description, charge_statute, charge_class, case_type, custody_status, bond_amount, bond_conditions, jail_location, court_division, arrest/arraignment/next_court/sentencing/disposition dates, charges JSONB, investigator, social_worker) |
 | tasks | User-created tasks per case |
 | deadlines | Court/filing deadlines |
 | case_notes | Per-case notes |
