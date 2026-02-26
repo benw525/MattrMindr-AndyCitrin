@@ -13,7 +13,7 @@ import {
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiGetContactStaff, apiCreateContactStaff, apiUpdateContactStaff, apiDeleteContactStaff,
   apiAiSearch,
-  apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary,
+  apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary, apiTaskSuggestions,
   apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
   apiGetParties, apiCreateParty, apiUpdateParty, apiDeleteParty,
@@ -1330,11 +1330,11 @@ export default function App() {
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} />}
@@ -2313,7 +2313,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
 // ─── Cases View ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onMenuToggle }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onMenuToggle }) {
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -2761,6 +2761,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           onUpdate={onUpdateCase}
           onDeleteCase={handleDeleteFromOverlay}
           onCompleteTask={onCompleteTask}
+          onAddTask={onAddTask}
           onAddNote={async (note) => { try { const saved = await apiCreateNote(note); setCaseNotes(prev => ({ ...prev, [selectedCase.id]: [saved, ...(prev[selectedCase.id] || [])] })); } catch (err) { alert("Failed to save note: " + err.message); } }}
           onDeleteNote={async (noteId) => { try { await apiDeleteNote(noteId); setCaseNotes(prev => ({ ...prev, [selectedCase.id]: (prev[selectedCase.id] || []).filter(n => n.id !== noteId) })); } catch (err) { alert("Failed to delete note: " + err.message); } }}
           onAddLink={async (link) => { try { const saved = await apiCreateLink(link); setCaseLinks(prev => ({ ...prev, [selectedCase.id]: [...(prev[selectedCase.id] || []), saved] })); } catch (err) { alert("Failed to save link: " + err.message); } }}
@@ -2889,7 +2890,7 @@ const CONTACT_LINKABLE_KEYS = new Set(["defendantName", "prosecutor", "judge"]);
 const KEY_DATE_FIELDS = ["arrestDate", "arraignmentDate", "nextCourtDate", "trialDate", "sentencingDate", "dispositionDate"];
 const KEY_DATE_TYPES = { arrestDate: "Other", arraignmentDate: "Hearing", nextCourtDate: "Hearing", trialDate: "Hearing", sentencingDate: "Hearing", dispositionDate: "Other" };
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddNote, onDeleteNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -2947,6 +2948,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [aiStrategy, setAiStrategy] = useState({ loading: false, result: null, error: null, show: false });
   const [aiDraft, setAiDraft] = useState({ loading: false, result: null, error: null, show: false, docType: "Motion to Suppress", instructions: "" });
   const [aiDeadlines, setAiDeadlines] = useState({ loading: false, deadlines: null, error: null, show: false });
+  const [aiTasks, setAiTasks] = useState({ loading: false, tasks: null, error: null, show: false, added: {} });
   const [aiClientSummary, setAiClientSummary] = useState({ loading: false, result: null, error: null, show: false });
   const [aiChargeAnalysis, setAiChargeAnalysis] = useState({ loading: false, result: null, error: null, show: false });
   const [caseDocuments, setCaseDocuments] = useState([]);
@@ -3771,8 +3773,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
               <div className="case-overlay-section">
-                <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
-                {tasks.length === 0 && <div style={{ fontSize: 12, color: "#8A9096" }}>No tasks yet.</div>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b8860b", borderColor: "#d4c9a8" }} disabled={aiTasks.loading} onClick={() => {
+                    setAiTasks({ loading: true, tasks: null, error: null, show: true, added: {} });
+                    apiTaskSuggestions({ caseId: c.id })
+                      .then(r => setAiTasks(p => ({ ...p, loading: false, tasks: r.tasks })))
+                      .catch(e => setAiTasks(p => ({ ...p, loading: false, error: e.message })));
+                  }}>⚡ Suggest Tasks</button>
+                </div>
+                {tasks.length === 0 && !aiTasks.show && <div style={{ fontSize: 12, color: "#8A9096" }}>No tasks yet.</div>}
                 {tasks.filter(t => t.status !== "Completed").sort((a, b) => {
                   const da = a.due ? new Date(a.due) : new Date("9999-12-31");
                   const db = b.due ? new Date(b.due) : new Date("9999-12-31");
@@ -3844,6 +3854,76 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       );
                     })}
                   </>
+                )}
+                {aiTasks.show && (
+                  <div style={{ marginTop: 8, borderTop: "1px dashed #d4c9a8", paddingTop: 8 }}>
+                    {aiTasks.loading && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", color: "#8A9096", fontSize: 11 }}>
+                        <div style={{ width: 14, height: 14, border: "2px solid #d4c9a8", borderTopColor: "#b8860b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                        Analyzing case for task suggestions...
+                      </div>
+                    )}
+                    {aiTasks.error && <div style={{ fontSize: 11, color: "#dc2626", padding: "4px 0" }}>{aiTasks.error}</div>}
+                    {aiTasks.tasks && aiTasks.tasks.length > 0 && (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: "#b8860b" }}>⚡ Suggested Tasks ({aiTasks.tasks.length})</div>
+                          {aiTasks.tasks.some((_, i) => !aiTasks.added[i]) && (
+                            <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={async () => {
+                              const toAdd = aiTasks.tasks.filter((_, i) => !aiTasks.added[i]);
+                              const newAdded = { ...aiTasks.added };
+                              for (let i = 0; i < aiTasks.tasks.length; i++) {
+                                if (!aiTasks.added[i]) {
+                                  const s = aiTasks.tasks[i];
+                                  const dueDate = s.dueInDays ? new Date(Date.now() + s.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                                  try {
+                                    const saved = await apiCreateTask({ caseId: c.id, title: s.title, priority: s.priority || "Medium", assignedRole: s.assignedRole || "", due: dueDate, notes: s.rationale || "", isGenerated: true });
+                                    if (onAddTask) onAddTask(saved);
+                                    newAdded[i] = true;
+                                  } catch (err) { console.error(err); }
+                                }
+                              }
+                              setAiTasks(p => ({ ...p, added: newAdded }));
+                              log("AI Tasks Added", `${toAdd.length} suggested tasks added`);
+                            }}>+ Add All</button>
+                          )}
+                        </div>
+                        {aiTasks.tasks.map((s, i) => {
+                          const isAdded = aiTasks.added[i];
+                          const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "7px 0", borderBottom: "1px dashed #d4c9a8", opacity: isAdded ? 0.45 : 1 }}>
+                              <span style={{ fontSize: 10, color: "#b8860b", marginTop: 2 }}>{isAdded ? "✓" : "⚡"}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, color: "#1E2A3A", fontWeight: 500 }}>{s.title}</div>
+                                <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
+                                  <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[s.priority] || "#b8860b") + "18", color: priorityColors[s.priority] || "#b8860b" }}>{s.priority}</span>
+                                  {s.assignedRole && <span style={{ fontSize: 9, color: "#8A9096" }}>{s.assignedRole}</span>}
+                                  {s.dueInDays && <span style={{ fontSize: 9, color: "#8A9096" }}>· {s.dueInDays}d</span>}
+                                </div>
+                                {s.rationale && <div style={{ fontSize: 10, color: "#8A9096", marginTop: 2, lineHeight: 1.3 }}>{s.rationale}</div>}
+                              </div>
+                              {!isAdded && (
+                                <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }} onClick={async () => {
+                                  const dueDate = s.dueInDays ? new Date(Date.now() + s.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                                  try {
+                                    const saved = await apiCreateTask({ caseId: c.id, title: s.title, priority: s.priority || "Medium", assignedRole: s.assignedRole || "", due: dueDate, notes: s.rationale || "", isGenerated: true });
+                                    if (onAddTask) onAddTask(saved);
+                                    setAiTasks(p => ({ ...p, added: { ...p.added, [i]: true } }));
+                                    log("AI Task Added", s.title);
+                                  } catch (err) { alert("Failed to add task: " + err.message); }
+                                }}>+ Add</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                    {aiTasks.tasks && aiTasks.tasks.length === 0 && <div style={{ fontSize: 11, color: "#8A9096", padding: "4px 0" }}>No additional tasks suggested.</div>}
+                    {(aiTasks.tasks || aiTasks.error) && (
+                      <button style={{ fontSize: 10, color: "#8A9096", background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginTop: 4 }} onClick={() => setAiTasks({ loading: false, tasks: null, error: null, show: false, added: {} })}>Dismiss</button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -6514,7 +6594,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
   }
 }
 
-function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle }) {
+function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle }) {
   const [activeReport, setActiveReport] = useState(null);
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
@@ -6732,6 +6812,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             onUpdate={onUpdateCase}
             onDeleteCase={(id) => { onDeleteCase(id); setSelectedCase(null); }}
             onCompleteTask={onCompleteTask}
+            onAddTask={onAddTask}
             onAddNote={async (note) => { try { const saved = await apiCreateNote(note); setCaseNotes(prev => ({ ...prev, [selectedCase.id]: [saved, ...(prev[selectedCase.id] || [])] })); } catch (err) { alert("Failed to save note: " + err.message); } }}
             onDeleteNote={async (noteId) => { try { await apiDeleteNote(noteId); setCaseNotes(prev => ({ ...prev, [selectedCase.id]: (prev[selectedCase.id] || []).filter(n => n.id !== noteId) })); } catch (err) { alert("Failed to delete note: " + err.message); } }}
             onAddLink={async (link) => { try { const saved = await apiCreateLink(link); setCaseLinks(prev => ({ ...prev, [selectedCase.id]: [...(prev[selectedCase.id] || []), saved] })); } catch (err) { alert("Failed to save link: " + err.message); } }}
@@ -6754,6 +6835,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
   const [aiState, setAiState] = useState({ loading: false, result: null, error: null });
   const [docType, setDocType] = useState("Motion to Suppress");
   const [docInstructions, setDocInstructions] = useState("");
+  const [aiCenterTasks, setAiCenterTasks] = useState({ tasks: [], added: {} });
   const [docSummaryText, setDocSummaryText] = useState("");
   const [docSummaryType, setDocSummaryType] = useState("Police Report");
   const [caseSearch, setCaseSearch] = useState("");
@@ -6770,6 +6852,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
     { id: "draft", icon: "📝", title: "Document Drafting", desc: "Generate first drafts of motions, pleas, and memoranda tailored to your case.", needsCase: true },
     { id: "summary", icon: "💬", title: "Client Communication", desc: "Plain-language case status update suitable for sharing with clients and families.", needsCase: true },
     { id: "docsummary", icon: "📋", title: "Document Summary", desc: "Summarize police reports, witness statements, lab reports, and other case documents for defense-relevant details.", needsCase: true },
+    { id: "tasksuggestions", icon: "✅", title: "Task Suggestions", desc: "Suggest concrete defense tasks based on case stage, charges, deadlines, and existing work — one-click to add.", needsCase: true },
   ];
 
   const runAgent = async (agentId) => {
@@ -6793,6 +6876,11 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
       } else if (agentId === "docsummary") {
         if (!docSummaryText.trim()) throw new Error("Please paste document text to summarize.");
         r = await apiDocSummary({ text: docSummaryText, docType: docSummaryType, caseTitle: selectedCase?.title || "", defendantName: selectedCase?.defendantName || "" });
+      } else if (agentId === "tasksuggestions") {
+        const tsRes = await apiTaskSuggestions({ caseId: Number(selectedCaseId) });
+        const tks = tsRes.tasks || [];
+        setAiCenterTasks({ tasks: tks, added: {} });
+        r = { result: tks.length ? "__TASK_SUGGESTIONS__" : "No tasks suggested for this case." };
       }
       setAiState({ loading: false, result: r.result, error: null });
     } catch (e) {
@@ -6926,13 +7014,66 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
               </button>
             )}
 
-            {(aiState.loading || aiState.result || aiState.error) && (
+            {(aiState.loading || aiState.result || aiState.error) && aiState.result !== "__TASK_SUGGESTIONS__" && !(aiState.loading && activeAgent === "tasksuggestions") && (
               <AiPanel title={agents.find(a => a.id === activeAgent)?.title} result={aiState.result} loading={aiState.loading} error={aiState.error}
                 onRun={() => runAgent(activeAgent)}
                 actions={aiState.result ? (
                   <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => { navigator.clipboard.writeText(aiState.result); }}>Copy</button>
                 ) : null}
               />
+            )}
+            {aiState.result === "__TASK_SUGGESTIONS__" && aiCenterTasks.tasks.length > 0 && (
+              <div className="card" style={{ marginTop: 16, padding: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 600, color: "var(--c-text-h)" }}>⚡ Suggested Tasks ({aiCenterTasks.tasks.length})</div>
+                  {aiCenterTasks.tasks.some((_, i) => !aiCenterTasks.added[i]) && (
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={async () => {
+                      const newAdded = { ...aiCenterTasks.added };
+                      for (let i = 0; i < aiCenterTasks.tasks.length; i++) {
+                        if (!aiCenterTasks.added[i]) {
+                          const s = aiCenterTasks.tasks[i];
+                          const dueDate = s.dueInDays ? new Date(Date.now() + s.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                          try {
+                            await apiCreateTask({ caseId: Number(selectedCaseId), title: s.title, priority: s.priority || "Medium", assignedRole: s.assignedRole || "", due: dueDate, notes: s.rationale || "", isGenerated: true });
+                            newAdded[i] = true;
+                          } catch (err) { console.error(err); }
+                        }
+                      }
+                      setAiCenterTasks(p => ({ ...p, added: newAdded }));
+                    }}>+ Add All to Case</button>
+                  )}
+                </div>
+                {aiCenterTasks.tasks.map((s, i) => {
+                  const isAdded = aiCenterTasks.added[i];
+                  const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--c-border)", opacity: isAdded ? 0.45 : 1 }}>
+                      <span style={{ fontSize: 12, marginTop: 1 }}>{isAdded ? "✓" : "⚡"}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: "var(--c-text-h)", fontWeight: 500 }}>{s.title}</div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: (priorityColors[s.priority] || "#b8860b") + "18", color: priorityColors[s.priority] || "#b8860b" }}>{s.priority}</span>
+                          {s.assignedRole && <span style={{ fontSize: 10, color: "#8A9096" }}>{s.assignedRole}</span>}
+                          {s.dueInDays && <span style={{ fontSize: 10, color: "#8A9096" }}>· Due in {s.dueInDays} days</span>}
+                        </div>
+                        {s.rationale && <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 4, lineHeight: 1.4 }}>{s.rationale}</div>}
+                      </div>
+                      {!isAdded && (
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", flexShrink: 0 }} onClick={async () => {
+                          const dueDate = s.dueInDays ? new Date(Date.now() + s.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                          try {
+                            await apiCreateTask({ caseId: Number(selectedCaseId), title: s.title, priority: s.priority || "Medium", assignedRole: s.assignedRole || "", due: dueDate, notes: s.rationale || "", isGenerated: true });
+                            setAiCenterTasks(p => ({ ...p, added: { ...p.added, [i]: true } }));
+                          } catch (err) { alert("Failed: " + err.message); }
+                        }}>+ Add</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {aiState.loading && activeAgent === "tasksuggestions" && (
+              <AiPanel title="Task Suggestions" result={null} loading={true} error={null} />
             )}
           </div>
         )}

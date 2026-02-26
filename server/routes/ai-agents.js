@@ -327,6 +327,99 @@ ${deadlines}`;
   }
 });
 
+router.post("/task-suggestions", requireAuth, async (req, res) => {
+  try {
+    const { caseId } = req.body;
+    if (!caseId) return res.status(400).json({ error: "caseId required" });
+
+    const [caseRes, tasksRes, notesRes, deadlinesRes, partiesRes] = await Promise.all([
+      pool.query("SELECT * FROM cases WHERE id = $1", [caseId]),
+      pool.query("SELECT title, status, priority, assigned_role, due FROM tasks WHERE case_id = $1", [caseId]),
+      pool.query("SELECT body, type FROM case_notes WHERE case_id = $1 ORDER BY created_at DESC LIMIT 10", [caseId]),
+      pool.query("SELECT title, date, type FROM deadlines WHERE case_id = $1", [caseId]),
+      pool.query("SELECT party_type, data FROM case_parties WHERE case_id = $1", [caseId]),
+    ]);
+
+    const c = caseRes.rows[0];
+    if (!c) return res.status(404).json({ error: "Case not found" });
+
+    const charges = (c.charges || []).map((ch, i) =>
+      `${i + 1}. ${ch.description || ""} (${ch.statute || ""}) — ${ch.chargeClass || ch.class || ""}, ${ch.disposition || "No disposition"}`
+    ).join("\n") || "No charges entered";
+
+    const existingTasks = tasksRes.rows.map(t =>
+      `${t.title} [${t.status}] (${t.priority}, ${t.assigned_role || "Unassigned"}, due: ${t.due || "none"})`
+    ).join("\n") || "No existing tasks";
+
+    const notesText = notesRes.rows.map(n => `[${n.type}] ${(n.body || "").substring(0, 200)}`).join("\n") || "No notes";
+
+    const deadlinesText = deadlinesRes.rows.map(d =>
+      `${d.title} (${d.date ? new Date(d.date).toISOString().split("T")[0] : "no date"}, ${d.type || ""})`
+    ).join("\n") || "No deadlines";
+
+    const coDefendants = partiesRes.rows
+      .filter(p => p.party_type === "Co-Defendant")
+      .map(p => {
+        const d = p.data || {};
+        return `${[d.firstName, d.lastName].filter(Boolean).join(" ") || "Unnamed"} — Status: ${d.status || "Unknown"}, Joint/Severed: ${d.jointSevered || "Unknown"}`;
+      }).join("\n") || "None";
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const systemPrompt = `You are a senior criminal defense case manager at the Mobile County Public Defender's Office in Alabama. Based on the case details, suggest 5-8 concrete, actionable tasks that the defense team should complete next. Return ONLY valid JSON with a "tasks" array. Each task object must have:
+- "title" (string — specific, actionable task name)
+- "priority" (one of: "Low", "Medium", "High", "Urgent")
+- "assignedRole" (one of: "Lead Attorney", "2nd Attorney", "Investigator", "Paralegal", "Social Worker", "Trial Coordinator")
+- "rationale" (string — one sentence explaining why this task is important now)
+- "dueInDays" (number — suggested days from today to complete this task)
+
+Guidelines:
+- DO NOT suggest tasks that duplicate existing tasks listed below
+- Consider the current case stage, charges, custody status, and upcoming deadlines
+- Prioritize time-sensitive items (speedy trial, discovery deadlines, motion filing windows)
+- Include investigation tasks, client communication, motion preparation, and witness management as appropriate
+- For clients in custody, prioritize bond-related and speedy trial tasks
+${c.death_penalty ? "\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Include capital-specific tasks such as mitigation investigation, expert retention, Atkins assessment, and Rule 32 preparation as appropriate." : ""}
+Today's date is ${today}.`;
+
+    const userPrompt = `Case: ${c.title}
+Defendant: ${c.defendant_name || "Unknown"}
+Case Type: ${c.case_type || "Unknown"} | Division: ${c.court_division || "Unknown"}
+Stage: ${c.stage || "Unknown"} | Status: ${c.status || "Unknown"}
+Charge Class: ${c.charge_class || "Unknown"}
+Custody Status: ${c.custody_status || "Unknown"} | Bond: ${c.bond_amount ? "$" + c.bond_amount : "Unknown"}
+${c.death_penalty ? "⚠️ DEATH PENALTY CASE" : ""}
+Arrest Date: ${c.arrest_date ? new Date(c.arrest_date).toISOString().split("T")[0] : "Unknown"}
+Arraignment Date: ${c.arraignment_date ? new Date(c.arraignment_date).toISOString().split("T")[0] : "Unknown"}
+Next Court Date: ${c.next_court_date ? new Date(c.next_court_date).toISOString().split("T")[0] : "Not set"}
+Trial Date: ${c.trial_date ? new Date(c.trial_date).toISOString().split("T")[0] : "Not set"}
+
+Charges:
+${charges}
+
+Co-Defendants:
+${coDefendants}
+
+Existing Tasks (DO NOT DUPLICATE):
+${existingTasks}
+
+Recent Notes:
+${notesText}
+
+Upcoming Deadlines:
+${deadlinesText}
+
+Suggest 5-8 specific, actionable tasks the defense team should prioritize next.`;
+
+    const raw = await aiCall(systemPrompt, userPrompt, true);
+    const parsed = JSON.parse(raw);
+    res.json({ tasks: parsed.tasks || [] });
+  } catch (err) {
+    console.error("Task suggestions error:", err);
+    res.status(500).json({ error: "AI task suggestion failed" });
+  }
+});
+
 router.post("/doc-summary", requireAuth, async (req, res) => {
   try {
     const { text, docType, caseTitle, defendantName } = req.body;

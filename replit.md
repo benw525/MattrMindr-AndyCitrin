@@ -82,7 +82,7 @@ lextrack/
 - Inline editing on Details tab
 
 ### AI Agents (server/routes/ai-agents.js)
-Seven AI-powered agents using OpenAI (`gpt-4o-mini`) via existing integration. All API calls use `store: false` to prevent data retention and model training:
+Eight AI-powered agents using OpenAI (`gpt-4o-mini`) via existing integration. All API calls use `store: false` to prevent data retention and model training:
 1. **Charge Analysis** — Analyzes Alabama Code sections, sentencing ranges, mandatory minimums, diversion eligibility. Available in New Case modal (after entering charges) and case detail Overview tab
 2. **Deadline Generator** — Generates procedural deadlines based on Alabama Rules of Criminal Procedure and case stage. In case detail deadlines section with "Suggest" button; each suggestion has one-click "Add" to create real deadline records
 3. **Case Strategy** — Full defense strategy analysis including motions, plea negotiation, sentencing exposure, investigation priorities. Death penalty cases get capital-specific analysis. "Strategy" button in case detail header; results can be saved as case notes
@@ -90,11 +90,12 @@ Seven AI-powered agents using OpenAI (`gpt-4o-mini`) via existing integration. A
 5. **Case Triage** — Ranks active cases by urgency (death penalty, trial dates, custody, overdue tasks). Dashboard widget (add via Customize) and "Triage" button in Cases view topbar. Each result shows urgency score (1-10), reason, and next action
 6. **Client Communication Summary** — Plain-language case status update for sharing with clients/families. "Client Summary" button in case detail Overview tab with copy functionality
 7. **Document Summary** — Summarizes uploaded case documents (police reports, witness statements, lab reports, etc.) for defense-relevant details. Extracts key facts/timeline, people mentioned, inconsistencies, Miranda/constitutional issues, chain of custody, and bottom-line takeaway. Available in Files tab of case detail overlay (per-document summarize button) and AI Center (paste text for standalone summarization). Document types: Police Report, Witness Statement, Lab/Forensic Report, Mental Health Evaluation, Prior Record/PSI, Discovery Material, Medical Records, Body Cam/Dash Cam Transcript, Court Order, Plea Agreement, Expert Report, Other
+8. **Task Suggestions** — Analyzes case details (charges, stage, custody, deadlines, existing tasks, notes, co-defendants) and suggests 5-8 concrete defense tasks. Each suggestion includes title, priority, assigned role, rationale, and due date. One-click "Add" or "Add All" buttons to create real tasks. Death penalty cases get capital-specific suggestions. Available in case detail Tasks section ("Suggest Tasks" button) and AI Center
 
 All agents accessible via `/api/ai-agents/*` endpoints, require authentication. Frontend API helpers in `api.js`. Reusable `AiPanel` component for consistent UI rendering. Charge Analysis and Deadline Generator endpoints accept `caseId` to auto-load case data server-side.
 
 ### AI Center
-- Centralized view in sidebar (under Reports) that provides access to all 7 AI agents from one place
+- Centralized view in sidebar (under Reports) that provides access to all 8 AI agents from one place
 - Agent cards in a responsive grid; selecting one opens the agent panel with case selector (for agents that need a case)
 - Case Triage runs without case selection; all others require choosing a case first
 - Document Drafting includes document type selector and optional instructions field
