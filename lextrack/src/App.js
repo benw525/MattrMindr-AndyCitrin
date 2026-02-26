@@ -2418,7 +2418,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
     });
     list.sort((a, b) => {
       let av = "", bv = "";
-      if (sortCol === "title") { av = a.title || ""; bv = b.title || ""; }
+      if (sortCol === "title") { av = a.defendantName || a.title || ""; bv = b.defendantName || b.title || ""; }
       else if (sortCol === "caseNum") { av = a.caseNum || ""; bv = b.caseNum || ""; }
       else if (sortCol === "defendant") { av = a.defendantName || ""; bv = b.defendantName || ""; }
       else if (sortCol === "stage") {
