@@ -327,4 +327,31 @@ ${deadlines}`;
   }
 });
 
+router.post("/doc-summary", requireAuth, async (req, res) => {
+  try {
+    const { text, docType, caseTitle, defendantName } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: "Document text is required" });
+
+    const systemPrompt = `You are a criminal defense attorney's document analysis assistant. Summarize the provided document for a public defender reviewing a case. Focus on information relevant to criminal defense.
+
+Provide a structured summary with these sections:
+## Key Facts & Timeline
+## People Mentioned (with roles — officers, witnesses, victims, co-defendants)
+## Inconsistencies or Contradictions
+## Defense-Relevant Details (Miranda issues, search/seizure concerns, chain of custody, witness credibility)
+## Bottom Line
+
+Be concise but thorough. Flag anything that could help the defense.`;
+
+    const textSnippet = text.substring(0, 12000);
+    const userPrompt = `Summarize this ${docType || "document"} for the case "${caseTitle || "Unknown"}" (Defendant: ${defendantName || "Unknown"}):\n\n${textSnippet}`;
+
+    const result = await aiCall(systemPrompt, userPrompt);
+    res.json({ result });
+  } catch (err) {
+    console.error("Doc summary error:", err);
+    res.status(500).json({ error: "AI document summary failed" });
+  }
+});
+
 module.exports = router;

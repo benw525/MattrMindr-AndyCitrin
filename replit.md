@@ -43,6 +43,7 @@ server/
     contact-notes.js — GET/POST/DELETE /api/contact-notes
     contact-staff.js — CRUD /api/contact-staff (staff under attorney/court contacts)
     ai-search.js    — POST /api/ai-search (OpenAI gpt-5-mini semantic case search)
+    case-documents.js — Upload/list/summarize/download/delete case documents (PDF, DOCX, DOC, TXT)
     correspondence.js — GET/DELETE /api/correspondence (per-case email history)
     inbound-email.js — POST /api/inbound-email (SendGrid Inbound Parse webhook, no auth)
     templates.js    — CRUD /api/templates, document generation with docxtemplater, pleading assembly
@@ -81,18 +82,19 @@ lextrack/
 - Inline editing on Details tab
 
 ### AI Agents (server/routes/ai-agents.js)
-Six AI-powered agents using OpenAI (`gpt-4o-mini`) via existing integration. All API calls use `store: false` to prevent data retention and model training:
+Seven AI-powered agents using OpenAI (`gpt-4o-mini`) via existing integration. All API calls use `store: false` to prevent data retention and model training:
 1. **Charge Analysis** — Analyzes Alabama Code sections, sentencing ranges, mandatory minimums, diversion eligibility. Available in New Case modal (after entering charges) and case detail Overview tab
 2. **Deadline Generator** — Generates procedural deadlines based on Alabama Rules of Criminal Procedure and case stage. In case detail deadlines section with "Suggest" button; each suggestion has one-click "Add" to create real deadline records
 3. **Case Strategy** — Full defense strategy analysis including motions, plea negotiation, sentencing exposure, investigation priorities. Death penalty cases get capital-specific analysis. "Strategy" button in case detail header; results can be saved as case notes
 4. **Document Drafting** — Generates first drafts of motions (suppress, dismiss, bond reduction, continuance, discovery, plea agreement, sentencing memo, speedy trial). "AI Draft" button in case detail header opens modal with document type selector
 5. **Case Triage** — Ranks active cases by urgency (death penalty, trial dates, custody, overdue tasks). Dashboard widget (add via Customize) and "Triage" button in Cases view topbar. Each result shows urgency score (1-10), reason, and next action
 6. **Client Communication Summary** — Plain-language case status update for sharing with clients/families. "Client Summary" button in case detail Overview tab with copy functionality
+7. **Document Summary** — Summarizes uploaded case documents (police reports, witness statements, lab reports, etc.) for defense-relevant details. Extracts key facts/timeline, people mentioned, inconsistencies, Miranda/constitutional issues, chain of custody, and bottom-line takeaway. Available in Files tab of case detail overlay (per-document summarize button) and AI Center (paste text for standalone summarization). Document types: Police Report, Witness Statement, Lab/Forensic Report, Mental Health Evaluation, Prior Record/PSI, Discovery Material, Medical Records, Body Cam/Dash Cam Transcript, Court Order, Plea Agreement, Expert Report, Other
 
 All agents accessible via `/api/ai-agents/*` endpoints, require authentication. Frontend API helpers in `api.js`. Reusable `AiPanel` component for consistent UI rendering. Charge Analysis and Deadline Generator endpoints accept `caseId` to auto-load case data server-side.
 
 ### AI Center
-- Centralized view in sidebar (under Reports) that provides access to all 6 AI agents from one place
+- Centralized view in sidebar (under Reports) that provides access to all 7 AI agents from one place
 - Agent cards in a responsive grid; selecting one opens the agent panel with case selector (for agents that need a case)
 - Case Triage runs without case selection; all others require choosing a case first
 - Document Drafting includes document type selector and optional instructions field
@@ -120,7 +122,7 @@ All agents accessible via `/api/ai-agents/*` endpoints, require authentication. 
 ### Core Features
 - Customizable Dashboard: per-user widget system with add/remove/reorder
 - Cases view with filtering, sorting, pagination (no "matters" concept — everything is a case)
-- Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, correspondence tab, charges section
+- Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, files tab (document upload/summary), correspondence tab, charges section
 - Deadline Tracker: calendar grid, list view, iCal feed import, court rules calculator
 - Tasks View: filterable task list with inline editing, auto-escalation, recurring tasks
 - Reports: pre-built report types with CSV export and print
@@ -235,3 +237,4 @@ General, Motions, Discovery, Police Reports, Photographs, Expert Reports, Court 
 | case_experts | Per-case experts with contact card links (JSONB data) |
 | case_misc_contacts | Per-case miscellaneous contacts (JSONB data, typed) |
 | time_entries | Manual time log entries per user/case |
+| case_documents | Uploaded case documents (PDF, DOCX, DOC, TXT) with BYTEA file storage, extracted text, AI summaries |

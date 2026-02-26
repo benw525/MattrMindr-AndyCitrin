@@ -96,6 +96,22 @@ export const apiCaseStrategy     = (data) => apiFetch("/api/ai-agents/case-strat
 export const apiDraftDocument    = (data) => apiFetch("/api/ai-agents/draft-document",    { method: "POST", body: data });
 export const apiCaseTriage       = ()     => apiFetch("/api/ai-agents/case-triage",       { method: "POST", body: {} });
 export const apiClientSummary    = (data) => apiFetch("/api/ai-agents/client-summary",    { method: "POST", body: data });
+export const apiDocSummary       = (data) => apiFetch("/api/ai-agents/doc-summary",       { method: "POST", body: data });
+
+// Case Documents
+export const apiGetCaseDocuments = (caseId) => apiFetch(`/api/case-documents/${caseId}`);
+export async function apiUploadCaseDocument(formData) {
+  const res = await fetch("/api/case-documents/upload", { method: "POST", credentials: "include", body: formData });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
+export const apiSummarizeDocument = (docId) => apiFetch(`/api/case-documents/${docId}/summarize`, { method: "POST", body: {} });
+export async function apiDownloadDocument(docId) {
+  const res = await fetch(`/api/case-documents/${docId}/download`, { credentials: "include" });
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  return res.blob();
+}
+export const apiDeleteCaseDocument = (docId) => apiFetch(`/api/case-documents/${docId}`, { method: "DELETE" });
 
 // Contact Notes
 export const apiGetContactNotes    = (contactId) => apiFetch(`/api/contact-notes/${contactId}`);

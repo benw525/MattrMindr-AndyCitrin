@@ -25,6 +25,7 @@ const expertsRoutes          = require("./routes/experts");
 const miscContactsRoutes     = require("./routes/misc-contacts");
 const timeEntriesRoutes      = require("./routes/time-entries");
 const aiAgentsRoutes         = require("./routes/ai-agents");
+const caseDocumentsRoutes    = require("./routes/case-documents");
 
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
@@ -80,6 +81,7 @@ app.use("/api/experts",        expertsRoutes);
 app.use("/api/misc-contacts",  miscContactsRoutes);
 app.use("/api/time-entries",   timeEntriesRoutes);
 app.use("/api/ai-agents",     aiAgentsRoutes);
+app.use("/api/case-documents", caseDocumentsRoutes);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

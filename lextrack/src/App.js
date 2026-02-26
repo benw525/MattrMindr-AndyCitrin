@@ -13,7 +13,8 @@ import {
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiGetContactStaff, apiCreateContactStaff, apiUpdateContactStaff, apiDeleteContactStaff,
   apiAiSearch,
-  apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary,
+  apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary,
+  apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
   apiGetParties, apiCreateParty, apiUpdateParty, apiDeleteParty,
   apiConflictCheck,
@@ -2947,6 +2948,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [aiDeadlines, setAiDeadlines] = useState({ loading: false, deadlines: null, error: null, show: false });
   const [aiClientSummary, setAiClientSummary] = useState({ loading: false, result: null, error: null, show: false });
   const [aiChargeAnalysis, setAiChargeAnalysis] = useState({ loading: false, result: null, error: null, show: false });
+  const [caseDocuments, setCaseDocuments] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docUploadType, setDocUploadType] = useState("Police Report");
+  const [docSummarizing, setDocSummarizing] = useState(null);
+  const [expandedDocId, setExpandedDocId] = useState(null);
   const canRemove = isAttorney(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -2958,6 +2964,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     if (activeTab === "correspondence") {
       setCorrLoading(true);
       apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
+    }
+    if (activeTab === "files") {
+      setDocsLoading(true);
+      apiGetCaseDocuments(c.id).then(setCaseDocuments).catch(() => {}).finally(() => setDocsLoading(false));
     }
     if (activeTab === "details") {
       setPartiesLoading(true);
@@ -3510,6 +3520,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="case-overlay-tabs">
           <div className={`case-overlay-tab ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}>Overview</div>
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
+          <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Files</div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
             Correspondence {correspondence.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({correspondence.length})</span>}
           </div>
@@ -4676,6 +4687,100 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             </div>
 
+          </div>
+        )}
+
+        {/* ── Files Tab ── */}
+        {activeTab === "files" && (
+          <div className="case-overlay-body">
+            <div className="case-overlay-section">
+              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>Upload Document</div>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const fileInput = e.target.querySelector('input[type="file"]');
+                if (!fileInput.files[0]) return;
+                const formData = new FormData();
+                formData.append("file", fileInput.files[0]);
+                formData.append("caseId", c.id);
+                formData.append("docType", docUploadType);
+                try {
+                  const saved = await apiUploadCaseDocument(formData);
+                  setCaseDocuments(prev => [saved, ...prev]);
+                  fileInput.value = "";
+                  onLogActivity("Document Uploaded", `${saved.filename} (${saved.docType})`);
+                } catch (err) { alert("Upload failed: " + err.message); }
+              }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>File (PDF, DOCX, DOC, TXT)</label>
+                  <input type="file" accept=".pdf,.docx,.doc,.txt" style={{ fontSize: 12, width: "100%" }} />
+                </div>
+                <div style={{ minWidth: 160 }}>
+                  <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Document Type</label>
+                  <select value={docUploadType} onChange={e => setDocUploadType(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 5, border: "1px solid var(--c-border)", width: "100%", background: "var(--c-bg)", color: "var(--c-text)" }}>
+                    {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-gold btn-sm">Upload</button>
+              </form>
+            </div>
+
+            <div className="case-overlay-section">
+              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>
+                Documents {caseDocuments.length > 0 && <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400, marginLeft: 6 }}>({caseDocuments.length})</span>}
+              </div>
+              {docsLoading && <div style={{ fontSize: 12, color: "#8A9096", padding: "12px 0" }}>Loading...</div>}
+              {!docsLoading && caseDocuments.length === 0 && <div className="empty" style={{ fontSize: 12 }}>No documents uploaded yet</div>}
+              {caseDocuments.map(doc => (
+                <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.filename}</div>
+                      <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
+                        {doc.docType} · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={async () => {
+                        try {
+                          const blob = await apiDownloadDocument(doc.id);
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url);
+                        } catch (err) { alert("Download failed: " + err.message); }
+                      }}>Download</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b8860b", borderColor: "#d4c9a8" }} disabled={docSummarizing === doc.id} onClick={async () => {
+                        setDocSummarizing(doc.id);
+                        try {
+                          const { summary } = await apiSummarizeDocument(doc.id);
+                          setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, summary } : d));
+                          setExpandedDocId(doc.id);
+                        } catch (err) { alert("Summarize failed: " + err.message); }
+                        setDocSummarizing(null);
+                      }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : "⚡ Summarize")}</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#e05252", borderColor: "#fca5a5" }} onClick={async () => {
+                        if (!window.confirm(`Delete ${doc.filename}?`)) return;
+                        try {
+                          await apiDeleteCaseDocument(doc.id);
+                          setCaseDocuments(prev => prev.filter(d => d.id !== doc.id));
+                          onLogActivity("Document Deleted", doc.filename);
+                        } catch (err) { alert("Delete failed: " + err.message); }
+                      }}>Delete</button>
+                    </div>
+                  </div>
+                  {doc.summary && (
+                    <div style={{ marginTop: 8 }}>
+                      <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#b8860b", fontWeight: 500, padding: 0 }}>
+                        {expandedDocId === doc.id ? "▾ Hide Summary" : "▸ View Summary"}
+                      </button>
+                      {expandedDocId === doc.id && (
+                        <AiPanel title="Document Summary" result={doc.summary}
+                          actions={<button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => navigator.clipboard.writeText(doc.summary)}>Copy</button>}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -6775,6 +6880,8 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
   const [aiState, setAiState] = useState({ loading: false, result: null, error: null });
   const [docType, setDocType] = useState("Motion to Suppress");
   const [docInstructions, setDocInstructions] = useState("");
+  const [docSummaryText, setDocSummaryText] = useState("");
+  const [docSummaryType, setDocSummaryType] = useState("Police Report");
   const [caseSearch, setCaseSearch] = useState("");
   const [caseDropOpen, setCaseDropOpen] = useState(false);
 
@@ -6788,6 +6895,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
     { id: "deadlines", icon: "📅", title: "Deadline Generator", desc: "Generate procedural deadlines based on Alabama Rules of Criminal Procedure and case stage.", needsCase: true },
     { id: "draft", icon: "📝", title: "Document Drafting", desc: "Generate first drafts of motions, pleas, and memoranda tailored to your case.", needsCase: true },
     { id: "summary", icon: "💬", title: "Client Communication", desc: "Plain-language case status update suitable for sharing with clients and families.", needsCase: true },
+    { id: "docsummary", icon: "📋", title: "Document Summary", desc: "Summarize police reports, witness statements, lab reports, and other case documents for defense-relevant details.", needsCase: true },
   ];
 
   const runAgent = async (agentId) => {
@@ -6808,6 +6916,9 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
         r = await apiDraftDocument({ caseId: Number(selectedCaseId), documentType: docType, customInstructions: docInstructions });
       } else if (agentId === "summary") {
         r = await apiClientSummary({ caseId: Number(selectedCaseId) });
+      } else if (agentId === "docsummary") {
+        if (!docSummaryText.trim()) throw new Error("Please paste document text to summarize.");
+        r = await apiDocSummary({ text: docSummaryText, docType: docSummaryType, caseTitle: selectedCase?.title || "", defendantName: selectedCase?.defendantName || "" });
       }
       setAiState({ loading: false, result: r.result, error: null });
     } catch (e) {
@@ -6820,6 +6931,8 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
     setAiState({ loading: false, result: null, error: null });
     setDocType("Motion to Suppress");
     setDocInstructions("");
+    setDocSummaryText("");
+    setDocSummaryType("Police Report");
     setCaseSearch("");
     setCaseDropOpen(false);
   };
@@ -6918,8 +7031,23 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
               </>
             )}
 
+            {activeAgent === "docsummary" && (
+              <>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Document Type</label>
+                  <select value={docSummaryType} onChange={e => setDocSummaryType(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                    {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Paste Document Text</label>
+                  <textarea value={docSummaryText} onChange={e => setDocSummaryText(e.target.value)} style={{ width: "100%", minHeight: 120, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg)", color: "var(--c-text)" }} placeholder="Paste the text of the document you want summarized (police report, witness statement, lab report, etc.)..." />
+                </div>
+              </>
+            )}
+
             {!aiState.result && !aiState.loading && (
-              <button className="btn btn-gold" style={{ width: "100%", opacity: canRun ? 1 : 0.5 }} disabled={!canRun} onClick={() => runAgent(activeAgent)}>
+              <button className="btn btn-gold" style={{ width: "100%", opacity: (activeAgent === "docsummary" ? (canRun && docSummaryText.trim()) : canRun) ? 1 : 0.5 }} disabled={activeAgent === "docsummary" ? !(canRun && docSummaryText.trim()) : !canRun} onClick={() => runAgent(activeAgent)}>
                 Run {agents.find(a => a.id === activeAgent)?.title}
               </button>
             )}
