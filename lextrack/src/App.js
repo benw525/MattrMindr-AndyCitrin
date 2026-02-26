@@ -5776,6 +5776,8 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
   const [sortDir, setSortDir] = useState("asc");
   const [externalEvents, setExternalEvents] = useState([]);
   const [newDl, setNewDl] = useState({ caseId: allCases.find(c => c.status === "Active")?.id || 1, title: "", date: today, type: "Filing", rule: "", assigned: currentUser.id });
+  const [dlCaseSearch, setDlCaseSearch] = useState("");
+  const [dlCaseDropOpen, setDlCaseDropOpen] = useState(false);
 
   const handleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
 
@@ -5875,10 +5877,44 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
           <div className="card" style={{ maxWidth: 600 }}>
             <div className="card-header"><div className="card-title">Add New Deadline</div></div>
             <div style={{ padding: 20 }}>
-              <div className="form-group"><label>Case (sorted by style)</label>
-                <select value={newDl.caseId} onChange={e => setNewDl(p => ({ ...p, caseId: Number(e.target.value) }))}>
-                  {[...allCases].filter(c => c.status === "Active").sort((a, b) => (a.title || "").localeCompare(b.title || "")).map(c => <option key={c.id} value={c.id}>{c.title}{c.caseNum ? ` (${c.caseNum})` : ""}</option>)}
-                </select>
+              <div className="form-group"><label>Case</label>
+                <div style={{ position: "relative" }}>
+                  {newDl.caseId && !dlCaseDropOpen ? (() => {
+                    const sc = allCases.find(c => c.id === newDl.caseId);
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #cbd5e1", borderRadius: 6, padding: "7px 10px", background: "var(--c-bg)", cursor: "default" }}>
+                        <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sc?.defendantName || sc?.title || "Unknown"}{sc?.caseNum ? <span style={{ fontSize: 11, color: "#8A9096", marginLeft: 8 }}>{sc.caseNum}</span> : null}</span>
+                        <button type="button" style={{ border: "none", background: "none", color: "#8A9096", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewDl(p => ({ ...p, caseId: 0 })); setDlCaseSearch(""); setDlCaseDropOpen(true); }}>×</button>
+                      </div>
+                    );
+                  })() : (
+                    <div onBlur={e => { setTimeout(() => { if (!e.currentTarget.contains(document.activeElement)) setDlCaseDropOpen(false); }, 150); }} tabIndex={-1} style={{ outline: "none" }}>
+                      <input
+                        autoFocus={dlCaseDropOpen}
+                        placeholder="Search by defendant name..."
+                        value={dlCaseSearch}
+                        onChange={e => { setDlCaseSearch(e.target.value); setDlCaseDropOpen(true); }}
+                        onFocus={() => setDlCaseDropOpen(true)}
+                        autoComplete="off"
+                      />
+                      {dlCaseDropOpen && (() => {
+                        const q = dlCaseSearch.toLowerCase().trim();
+                        const dlFiltered = [...allCases].filter(c => c.status === "Active").filter(c => !q || (c.defendantName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)).sort((a, b) => (a.defendantName || a.title || "").localeCompare(b.defendantName || b.title || ""));
+                        return (
+                          <div style={{ position: "absolute", zIndex: 200, left: 0, right: 0, maxHeight: 220, overflowY: "auto", border: "1px solid #cbd5e1", borderRadius: 6, background: "var(--c-card)", boxShadow: "0 6px 20px rgba(0,0,0,0.18)", marginTop: 2 }}>
+                            {dlFiltered.length === 0 && <div style={{ padding: "10px 12px", fontSize: 12, color: "#8A9096" }}>No matches</div>}
+                            {dlFiltered.slice(0, 20).map(c => (
+                              <div key={c.id} onMouseDown={e => { e.preventDefault(); setNewDl(p => ({ ...p, caseId: c.id })); setDlCaseSearch(""); setDlCaseDropOpen(false); }} style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.defendantName || c.title}</span>
+                                {c.caseNum && <span style={{ fontSize: 10, color: "#8A9096", fontFamily: "monospace", flexShrink: 0, marginLeft: 8 }}>{c.caseNum}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="form-group"><label>Deadline Title</label><input value={newDl.title} onChange={e => setNewDl(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Summary Judgment Motion" /></div>
               <div className="form-row">
@@ -5959,8 +5995,8 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 
   const handleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
 
-  const sortedCases = useMemo(() => [...allCases].filter(c => c.status === "Active").sort((a, b) => (a.title || "").localeCompare(b.title || "")), [allCases]);
-  const filteredCases = useMemo(() => { const q = caseSearch.toLowerCase(); return q ? sortedCases.filter(c => (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)) : sortedCases; }, [sortedCases, caseSearch]);
+  const sortedCases = useMemo(() => [...allCases].filter(c => c.status === "Active").sort((a, b) => (a.defendantName || a.title || "").localeCompare(b.defendantName || b.title || "")), [allCases]);
+  const filteredCases = useMemo(() => { const q = caseSearch.toLowerCase(); return q ? sortedCases.filter(c => (c.defendantName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)) : sortedCases; }, [sortedCases, caseSearch]);
   const blank = useMemo(() => ({ caseId: 0, title: "", assigned: currentUser.id, due: addDays(today, 7), priority: "Low", autoEscalate: true, status: "Not Started", notes: "", recurring: false, recurringDays: 30, escalateMediumDays: 30, escalateHighDays: 14, escalateUrgentDays: 7 }), [currentUser.id]);
   const [newTask, setNewTask] = useState({ ...blank });
 
@@ -6008,7 +6044,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                 <div style={{ position: "relative" }}>
                   {newTask.caseId && !caseDropOpen ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #cbd5e1", borderRadius: 6, padding: "7px 10px", background: "var(--c-bg)", cursor: "default" }}>
-                      <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sortedCases.find(c => c.id === newTask.caseId)?.title || "Unknown"}{sortedCases.find(c => c.id === newTask.caseId)?.caseNum ? <span style={{ fontSize: 11, color: "#8A9096", marginLeft: 8 }}>{sortedCases.find(c => c.id === newTask.caseId)?.caseNum}</span> : null}</span>
+                      <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sortedCases.find(c => c.id === newTask.caseId)?.defendantName || sortedCases.find(c => c.id === newTask.caseId)?.title || "Unknown"}{sortedCases.find(c => c.id === newTask.caseId)?.caseNum ? <span style={{ fontSize: 11, color: "#8A9096", marginLeft: 8 }}>{sortedCases.find(c => c.id === newTask.caseId)?.caseNum}</span> : null}</span>
                       <button type="button" style={{ border: "none", background: "none", color: "#8A9096", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewTask(p => ({ ...p, caseId: 0 })); setCaseSearch(""); setCaseDropOpen(true); }}>×</button>
                     </div>
                   ) : (
@@ -6034,7 +6070,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                               onMouseEnter={e => e.currentTarget.style.background = "#F7F8FA"}
                               onMouseLeave={e => e.currentTarget.style.background = "#fff"}
                             >
-                              <span style={{ color: "#1F2428", fontWeight: 500 }}>{c.title}</span>
+                              <span style={{ color: "#1F2428", fontWeight: 500 }}>{c.defendantName || c.title}</span>
                               {c.caseNum && <span style={{ fontSize: 10, color: "#8A9096", fontFamily: "monospace", flexShrink: 0, marginLeft: 8 }}>{c.caseNum}</span>}
                             </div>
                           ))}
