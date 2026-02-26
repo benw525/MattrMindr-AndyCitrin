@@ -9027,10 +9027,19 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const canAdmin = isAppAdmin(currentUser);
+  const [roleFilter, setRoleFilter] = useState("All");
+  const [pinnedIds, setPinnedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("lextrack-pinned-staff") || "[]"); } catch { return []; }
+  });
+  const [pinnedExpanded, setPinnedExpanded] = useState(true);
+
+  const savePins = (next) => { setPinnedIds(next); localStorage.setItem("lextrack-pinned-staff", JSON.stringify(next)); };
+  const togglePin = (id) => { const next = pinnedIds.includes(id) ? pinnedIds.filter(x => x !== id) : [...pinnedIds, id]; savePins(next); };
 
   const activeUsers = allUsers.filter(u => !u.deletedAt);
   const deletedUsers = allUsers.filter(u => u.deletedAt);
-  const filteredStaff = activeUsers;
+  const filteredStaff = roleFilter === "All" ? activeUsers : activeUsers.filter(u => (u.roles && u.roles.length ? u.roles : [u.role]).includes(roleFilter));
+  const pinnedStaff = filteredStaff.filter(u => pinnedIds.includes(u.id));
   const [showDeletedStaff, setShowDeletedStaff] = useState(false);
   const [expandedStaffId, setExpandedStaffId] = useState(null);
 
@@ -9114,13 +9123,65 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
           <div className="topbar-title">Staff Directory</div>
           <div className="topbar-subtitle">{filteredStaff.length} of {activeUsers.length} team members</div>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-card)", color: "var(--c-text)" }}>
+            <option value="All">All Roles</option>
+            {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
           {canAdmin && (
             <button className="btn btn-gold" onClick={() => setShowAddModal(true)}>+ Add Staff</button>
           )}
         </div>
       </div>
       <div className="content">
+        {pinnedStaff.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <button
+              onClick={() => setPinnedExpanded(!pinnedExpanded)}
+              style={{ background: "transparent", border: "none", padding: "0 0 12px 0", fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Playfair Display',serif" }}
+            >
+              {pinnedExpanded ? "▾" : "▸"} Pinned ({pinnedStaff.length})
+            </button>
+            {pinnedExpanded && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 16 }}>
+                {pinnedStaff.map(u => {
+                  const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.trialCoordinator === u.id || c.investigator === u.id || c.socialWorker === u.id);
+                  const isExpanded = expandedStaffId === u.id;
+                  return (
+                    <div key={u.id} className="card" style={{ padding: "20px 22px", position: "relative", cursor: "pointer", borderLeft: "3px solid #C9A84C" }} onClick={() => setExpandedStaffId(isExpanded ? null : u.id)}>
+                      <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 4, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => togglePin(u.id)} title="Unpin" style={{ background: "transparent", border: "none", color: "#C9A84C", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>📌</button>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: isExpanded ? 14 : 0 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{u.initials}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: "var(--c-text-h)", fontWeight: 600 }}>{u.name}</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                            {(u.roles && u.roles.length ? u.roles : [u.role]).map(r => <Badge key={r} label={r} />)}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 12, color: "#8A9096", flexShrink: 0 }}>{isExpanded ? "▾" : "▸"}</span>
+                      </div>
+                      {isExpanded && (
+                        <>
+                          {[
+                            ["Extension", u.ext || "—"],
+                            ["Direct Line", u.phone || "—"],
+                            ["Cell", u.cell || "—"],
+                            ["Email", u.email || "—"],
+                            ["Active Cases", `${mine.filter(c => c.status === "Active").length} (${mine.length} total)`]
+                          ].map(([k, v]) => (
+                            <div key={k} className="info-row"><span className="info-key">{k}</span><span className="info-val" style={{ fontSize: 12 }}>{v}</span></div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 16 }}>
           {filteredStaff.map(u => {
             const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.trialCoordinator === u.id || c.investigator === u.id || c.socialWorker === u.id);
@@ -9128,7 +9189,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
             const isExpanded = expandedStaffId === u.id;
             return (
               <div key={u.id} className="card" style={{ padding: "20px 22px", position: "relative", cursor: "pointer" }} onClick={() => setExpandedStaffId(isExpanded ? null : u.id)}>
-                {isExpanded && (canAdmin || currentUser.id === u.id) && (
+                {isExpanded && (
                   <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 4, alignItems: "center" }} onClick={e => e.stopPropagation()}>
                     {isConfirming ? (
                       <>
@@ -9138,7 +9199,10 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
                       </>
                     ) : (
                       <>
-                        <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#8A9096", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>✎</button>
+                        <button onClick={() => togglePin(u.id)} title={pinnedIds.includes(u.id) ? "Unpin" : "Pin to top"} style={{ background: "transparent", border: "none", color: pinnedIds.includes(u.id) ? "#C9A84C" : "#8A9096", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>📌</button>
+                        {(canAdmin || currentUser.id === u.id) && (
+                          <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#8A9096", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>✎</button>
+                        )}
                         {canAdmin && (
                           <button onClick={async () => { if (!window.confirm(`Send a temporary password to ${u.email}?`)) return; try { const r = await apiSendTempPassword(u.id); alert(r.message || "Sent!"); } catch (e) { alert(e.message || "Failed"); } }} title="Send temporary password" style={{ background: "transparent", border: "none", color: "#8A9096", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: "2px 4px" }}>🔑</button>
                         )}
