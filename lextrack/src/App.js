@@ -6848,7 +6848,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
                     />
                     {caseDropOpen && (() => {
                       const q = caseSearch.toLowerCase().trim();
-                      const filtered = q ? activeCases.filter(c => (c.defendantName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNumber || "").toLowerCase().includes(q)) : activeCases;
+                      const filtered = (q ? activeCases.filter(c => (c.defendantName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNumber || "").toLowerCase().includes(q)) : activeCases).sort((a, b) => (a.defendantName || a.title || "").localeCompare(b.defendantName || b.title || ""));
                       return filtered.length > 0 ? (
                         <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: "0 0 6px 6px", maxHeight: 220, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
                           {filtered.slice(0, 20).map(c => (
