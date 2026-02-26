@@ -6826,7 +6826,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
                 <select value={selectedCaseId} onChange={e => { setSelectedCaseId(e.target.value); setAiState({ loading: false, result: null, error: null }); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
                   <option value="">— Choose a case —</option>
                   {activeCases.map(c => (
-                    <option key={c.id} value={c.id}>{c.caseNumber || "No #"} — {c.defendantName || c.title}</option>
+                    <option key={c.id} value={c.id}>{c.defendantName || c.title}</option>
                   ))}
                 </select>
                 {selectedCase && (
