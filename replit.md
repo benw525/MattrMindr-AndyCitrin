@@ -94,7 +94,7 @@ lextrack/
 - Reports: pre-built report types with CSV export and print
 - Time Log: unified time tracking view; derives entries from task completions, notes, and correspondence; supports manual time entries
 - Staff Directory with admin controls (role/office management, send temp passwords, remove staff)
-- Contacts: auto-populated contacts with phone/email/fax/address, associated cases, persistent notes, and soft-delete
+- Contacts: seeded with 47 contacts (20 prosecutors, 20 judges, 3 courts, 4 jails); categories: Client, Prosecutor, Judge, Court, Witness, Expert, Family Member, Social Worker, Treatment Provider, Miscellaneous; associated cases auto-linked by name matching
 - AI Search: Natural language search across all case data via OpenAI gpt-5-mini
 - Confidential Cases: access-restricted to assigned team members + App Admin
 - Case Parties: accordion-style party management on Details tab (types: Defendant, Co-Defendant, Victim, Witness)

@@ -194,7 +194,7 @@ async function createSchema() {
       CREATE TABLE IF NOT EXISTS contacts (
         id         SERIAL PRIMARY KEY,
         name       TEXT    NOT NULL,
-        category   TEXT    NOT NULL,
+        category   TEXT    NOT NULL CHECK (category = ANY(ARRAY['Client','Prosecutor','Judge','Court','Witness','Expert','Family Member','Social Worker','Treatment Provider','Adjuster','Miscellaneous'])),
         phone      TEXT    NOT NULL DEFAULT '',
         email      TEXT    NOT NULL DEFAULT '',
         fax        TEXT    NOT NULL DEFAULT '',

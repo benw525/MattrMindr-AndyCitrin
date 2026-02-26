@@ -6848,10 +6848,10 @@ function NewContactModal({ onSave, onClose }) {
               {CONTACT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-          {form.category === "Attorney" && (
+          {form.category === "Prosecutor" && (
             <div>
-              <label className="field-label">Firm</label>
-              <input className="field-input" value={form.firm} onChange={e => set("firm", e.target.value)} placeholder="Law firm name" />
+              <label className="field-label">Office</label>
+              <input className="field-input" value={form.firm} onChange={e => set("firm", e.target.value)} placeholder="District Attorney's Office" />
             </div>
           )}
           {(form.category === "Adjuster" || form.category === "Expert") && (
@@ -6860,7 +6860,7 @@ function NewContactModal({ onSave, onClose }) {
               <input className="field-input" value={form.company} onChange={e => set("company", e.target.value)} placeholder="Company name" />
             </div>
           )}
-          {form.category === "Court" && (
+          {(form.category === "Court" || form.category === "Judge") && (
             <div>
               <label className="field-label">County</label>
               <input className="field-input" value={form.county} onChange={e => set("county", e.target.value)} placeholder="County name" />
@@ -6910,8 +6910,8 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   const staffTimers = useRef({});
   const staffPendingData = useRef({});
 
-  const hasStaff = contact.category === "Attorney" || contact.category === "Court";
-  const staffTypes = contact.category === "Attorney" ? ATTORNEY_STAFF_TYPES : COURT_STAFF_TYPES;
+  const hasStaff = contact.category === "Prosecutor" || contact.category === "Court";
+  const staffTypes = contact.category === "Prosecutor" ? ATTORNEY_STAFF_TYPES : COURT_STAFF_TYPES;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setDraft({ ...contact }); setShowDelete(false); }, [contact.id]);
@@ -6958,8 +6958,8 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
     if (contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") return fetchedAssocCases;
     if (!allCases) return [];
     if (contact.category === "Client")   return allCases.filter(c => c.defendantName === contact.name && !c.deletedAt);
-    if (contact.category === "Attorney") return allCases.filter(c => c.prosecutor === contact.name && !c.deletedAt);
-    if (contact.category === "Court")    return allCases.filter(c => c.judge === contact.name && !c.deletedAt);
+    if (contact.category === "Prosecutor") return allCases.filter(c => c.prosecutor === contact.name && !c.deletedAt);
+    if (contact.category === "Judge")    return allCases.filter(c => c.judge === contact.name && !c.deletedAt);
     return [];
   }, [contact, allCases, fetchedAssocCases]);
 
@@ -7055,10 +7055,10 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
         <div className="case-overlay-body" style={{ padding: "20px 28px", overflowY: "auto" }}>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#8A9096", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid var(--c-border)" }}>Contact Information</div>
-            {contact.category === "Attorney" && (
+            {contact.category === "Prosecutor" && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Firm</label>
-                <input className="field-input" value={draft.firm || ""} onChange={e => set("firm", e.target.value)} onBlur={handleBlur} placeholder="Law firm name" />
+                <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Office</label>
+                <input className="field-input" value={draft.firm || ""} onChange={e => set("firm", e.target.value)} onBlur={handleBlur} placeholder="District Attorney's Office" />
               </div>
             )}
             {(contact.category === "Adjuster" || contact.category === "Expert") && (
@@ -7067,7 +7067,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                 <input className="field-input" value={draft.company || ""} onChange={e => set("company", e.target.value)} onBlur={handleBlur} placeholder="Company name" />
               </div>
             )}
-            {contact.category === "Court" && (
+            {(contact.category === "Court" || contact.category === "Judge") && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>County</label>
                 <input className="field-input" value={draft.county || ""} onChange={e => set("county", e.target.value)} onBlur={handleBlur} placeholder="County name" />
@@ -7154,7 +7154,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
             </div>
           )}
 
-          {(contact.category === "Client" || contact.category === "Attorney" || contact.category === "Court" || contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") && (
+          {(contact.category === "Client" || contact.category === "Prosecutor" || contact.category === "Judge" || contact.category === "Court" || contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") && (
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#8A9096", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid var(--c-border)" }}>
                 Associated Cases <span style={{ fontSize: 11, fontWeight: 400, color: "#8A9096", textTransform: "none", letterSpacing: 0 }}>({assocCases.length})</span>
@@ -7543,14 +7543,18 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
   };
 
   const tabs = [
-    { id: "All",           label: `All (${(contacts || []).length})` },
-    { id: "Client",        label: `Clients (${counts.Client || 0})` },
-    { id: "Attorney",      label: `Attorneys (${counts.Attorney || 0})` },
-    { id: "Adjuster",      label: `Adjusters (${counts.Adjuster || 0})` },
-    { id: "Court",         label: `Courts (${counts.Court || 0})` },
-    { id: "Expert",        label: `Experts (${counts.Expert || 0})` },
-    { id: "Miscellaneous", label: `Miscellaneous (${counts.Miscellaneous || 0})` },
-    { id: "Deleted",       label: `Deleted (${(deletedContacts || []).length})`, red: true },
+    { id: "All",              label: `All (${(contacts || []).length})` },
+    { id: "Client",           label: `Clients (${counts.Client || 0})` },
+    { id: "Prosecutor",      label: `Prosecutors (${counts.Prosecutor || 0})` },
+    { id: "Judge",            label: `Judges (${counts.Judge || 0})` },
+    { id: "Court",            label: `Courts (${counts.Court || 0})` },
+    { id: "Witness",          label: `Witnesses (${counts.Witness || 0})` },
+    { id: "Expert",           label: `Experts (${counts.Expert || 0})` },
+    { id: "Family Member",    label: `Family (${counts["Family Member"] || 0})` },
+    { id: "Social Worker",    label: `Social Workers (${counts["Social Worker"] || 0})` },
+    { id: "Treatment Provider", label: `Treatment (${counts["Treatment Provider"] || 0})` },
+    { id: "Miscellaneous",    label: `Misc (${counts.Miscellaneous || 0})` },
+    { id: "Deleted",          label: `Deleted (${(deletedContacts || []).length})`, red: true },
   ];
 
   return (
@@ -7682,8 +7686,8 @@ function ContactsView({ currentUser, allCases, onOpenCase }) {
                 ) : filtered.map(c => {
                   const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
                   const caseCount = c.category === "Client"   ? allCases.filter(a => a.defendantName === c.name && !a.deletedAt).length
-                                  : c.category === "Attorney" ? allCases.filter(a => a.prosecutor === c.name && !a.deletedAt).length
-                                  : c.category === "Court"    ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
+                                  : c.category === "Prosecutor" ? allCases.filter(a => a.prosecutor === c.name && !a.deletedAt).length
+                                  : c.category === "Judge"    ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
                                   : (contactCaseCounts[c.id] || 0);
                   const isChecked = mergeSelected.has(c.id);
                   return (

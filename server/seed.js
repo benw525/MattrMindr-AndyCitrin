@@ -68,6 +68,69 @@ async function seed() {
       console.log(`Cases sequence advanced to ${maxCaseId}`);
     }
 
+    const CONTACTS = [
+      { name: "Amanda Price", category: "Prosecutor", phone: "(251) 574-8401", email: "aprice@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Andrew Collins", category: "Prosecutor", phone: "(251) 574-8402", email: "acollins@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Brian Lawson", category: "Prosecutor", phone: "(251) 574-8403", email: "blawson@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Catherine Webb", category: "Prosecutor", phone: "(251) 574-8404", email: "cwebb@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Daniel Marsh", category: "Prosecutor", phone: "(251) 574-8405", email: "dmarsh@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "David Harper", category: "Prosecutor", phone: "(251) 574-8406", email: "dharper@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "James Wright", category: "Prosecutor", phone: "(251) 574-8407", email: "jwright@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Jessica Banks", category: "Prosecutor", phone: "(251) 574-8408", email: "jbanks@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Kevin Reynolds", category: "Prosecutor", phone: "(251) 574-8409", email: "kreynolds@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Lisa Carmichael", category: "Prosecutor", phone: "(251) 574-8410", email: "lcarmichael@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Marcus Reed", category: "Prosecutor", phone: "(251) 574-8411", email: "mreed@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Michael Chen", category: "Prosecutor", phone: "(251) 574-8412", email: "mchen@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Michelle Torres", category: "Prosecutor", phone: "(251) 574-8413", email: "mtorres@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Nicole Garrett", category: "Prosecutor", phone: "(251) 574-8414", email: "ngarrett@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Patricia Nolan", category: "Prosecutor", phone: "(251) 574-8415", email: "pnolan@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Rachel Foster", category: "Prosecutor", phone: "(251) 574-8416", email: "rfoster@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Robert Tillman", category: "Prosecutor", phone: "(251) 574-8417", email: "rtillman@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Sarah Johnson", category: "Prosecutor", phone: "(251) 574-8418", email: "sjohnson@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Stephanie Moore", category: "Prosecutor", phone: "(251) 574-8419", email: "smoore@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Thomas Blackwell", category: "Prosecutor", phone: "(251) 574-8420", email: "tblackwell@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Ben H. Brooks", category: "Judge", phone: "(251) 574-8701", email: "chambers.brooks@alacourt.gov", address: "205 Government St, Courtroom 7A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Brandy V. Hambright", category: "Judge", phone: "(251) 574-8702", email: "chambers.hambright@alacourt.gov", address: "205 Government St, Courtroom 3B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Charles A. Graddick Jr.", category: "Judge", phone: "(251) 574-8703", email: "chambers.graddick@alacourt.gov", address: "205 Government St, Courtroom 5A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Deborah B. Alley", category: "Judge", phone: "(251) 574-8704", email: "chambers.alley@alacourt.gov", address: "205 Government St, Courtroom 2C, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Gaines McCorquodale", category: "Judge", phone: "(251) 574-8705", email: "chambers.mccorquodale@alacourt.gov", address: "205 Government St, Courtroom 6A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. George M. Callahan", category: "Judge", phone: "(251) 574-8706", email: "chambers.callahan@alacourt.gov", address: "205 Government St, Courtroom 4B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. J. Ryan deGraffenried", category: "Judge", phone: "(251) 574-8707", email: "chambers.degraffenried@alacourt.gov", address: "205 Government St, Courtroom 8A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. James T. Patterson", category: "Judge", phone: "(251) 574-8708", email: "chambers.patterson@alacourt.gov", address: "205 Government St, Courtroom 1A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Jennifer Wright", category: "Judge", phone: "(251) 574-8709", email: "chambers.wright@alacourt.gov", address: "205 Government St, Courtroom 3C, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. John H. Lockett", category: "Judge", phone: "(251) 574-8710", email: "chambers.lockett@alacourt.gov", address: "205 Government St, Courtroom 5B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Joseph H. Johnston", category: "Judge", phone: "(251) 574-8711", email: "chambers.johnston@alacourt.gov", address: "205 Government St, Courtroom 2A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Karlos R. Finley", category: "Judge", phone: "(251) 574-8712", email: "chambers.finley@alacourt.gov", address: "205 Government St, Courtroom 7B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Kristin S. Wade", category: "Judge", phone: "(251) 574-8713", email: "chambers.wade@alacourt.gov", address: "205 Government St, Courtroom 4A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Michael A. Youngpeter", category: "Judge", phone: "(251) 574-8714", email: "chambers.youngpeter@alacourt.gov", address: "205 Government St, Courtroom 6B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Richard W. Vollmer III", category: "Judge", phone: "(251) 574-8715", email: "chambers.vollmer@alacourt.gov", address: "205 Government St, Courtroom 1B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Rick W. Graddick", category: "Judge", phone: "(251) 574-8716", email: "chambers.rgraddick@alacourt.gov", address: "205 Government St, Courtroom 8B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Sarah B. Stewart", category: "Judge", phone: "(251) 574-8717", email: "chambers.stewart@alacourt.gov", address: "205 Government St, Courtroom 3A, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Shawn K. Alves", category: "Judge", phone: "(251) 574-8718", email: "chambers.alves@alacourt.gov", address: "205 Government St, Courtroom 5C, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Sheila O. Anderson", category: "Judge", phone: "(251) 574-8719", email: "chambers.anderson@alacourt.gov", address: "205 Government St, Courtroom 2B, Mobile, AL 36602", county: "Mobile" },
+      { name: "Hon. Wesley M. Pipes", category: "Judge", phone: "(251) 574-8720", email: "chambers.pipes@alacourt.gov", address: "205 Government St, Courtroom 4C, Mobile, AL 36602", county: "Mobile" },
+      { name: "Mobile County Circuit Court", category: "Court", phone: "(251) 574-8400", email: "circuitclerk@mobilecountyal.gov", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Mobile County District Court", category: "Court", phone: "(251) 574-8500", email: "districtclerk@mobilecountyal.gov", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
+      { name: "Mobile County Juvenile Court", category: "Court", phone: "(251) 574-8600", email: "juvenileclerk@mobilecountyal.gov", address: "1011 Schillinger Rd S, Mobile, AL 36695", county: "Mobile" },
+      { name: "Mobile County Metro Jail", category: "Court", phone: "(251) 574-2351", email: "metrojail@mobileso.com", address: "450 St. Emanuel St, Mobile, AL 36603", county: "Mobile" },
+      { name: "Mobile County Jail — West", category: "Court", phone: "(251) 574-8950", email: "westjail@mobileso.com", address: "840 Schillinger Rd S, Mobile, AL 36695", county: "Mobile" },
+      { name: "Mobile County Community Corrections", category: "Court", phone: "(251) 574-8900", email: "commcorrections@mobilecountyal.gov", address: "151 Government St, Suite 400, Mobile, AL 36602", county: "Mobile" },
+      { name: "Mobile County Strickland Youth Center", category: "Court", phone: "(251) 574-8650", email: "stricklandyouth@mobilecountyal.gov", address: "1011 Schillinger Rd S, Mobile, AL 36695", county: "Mobile" },
+    ];
+
+    console.log(`Seeding ${CONTACTS.length} contacts...`);
+    for (const ct of CONTACTS) {
+      const existing = await client.query(`SELECT id FROM contacts WHERE name = $1 AND category = $2 AND deleted_at IS NULL`, [ct.name, ct.category]);
+      if (existing.rows.length === 0) {
+        await client.query(
+          `INSERT INTO contacts (name, category, phone, email, fax, address, firm, company, county)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [ct.name, ct.category, ct.phone || "", ct.email || "", ct.fax || "", ct.address || "", ct.firm || "", ct.company || "", ct.county || ""]
+        );
+      }
+    }
+    console.log(`${CONTACTS.length} contacts seeded.`);
+
     await client.query("COMMIT");
     console.log("Seed complete.");
   } catch (err) {
