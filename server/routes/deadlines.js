@@ -16,7 +16,22 @@ const toFrontend = (row) => ({
 
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM deadlines ORDER BY date");
+    const roles = req.session.userRoles || [req.session.userRole];
+    const isAdmin = roles.includes("App Admin");
+    if (isAdmin) {
+      const { rows } = await pool.query("SELECT * FROM deadlines ORDER BY date");
+      return res.json(rows.map(toFrontend));
+    }
+    const uid = req.session.userId;
+    const { rows } = await pool.query(
+      `SELECT d.* FROM deadlines d
+       JOIN cases c ON d.case_id = c.id
+       WHERE c.lead_attorney = $1 OR c.second_attorney = $1
+          OR c.trial_coordinator = $1 OR c.investigator = $1
+          OR c.social_worker = $1
+       ORDER BY d.date`,
+      [uid]
+    );
     return res.json(rows.map(toFrontend));
   } catch (err) {
     console.error("Deadlines fetch error:", err);
