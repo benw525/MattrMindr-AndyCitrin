@@ -2969,8 +2969,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [expandedFilingId, setExpandedFilingId] = useState(null);
   const [editingFilingId, setEditingFilingId] = useState(null);
   const [editingFilingData, setEditingFilingData] = useState({});
-  const [viewingFilingId, setViewingFilingId] = useState(null);
-  const [viewingFilingBlob, setViewingFilingBlob] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingDocData, setEditingDocData] = useState({});
   const canRemove = isAttorney(currentUser);
@@ -5009,20 +5007,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             {filingsLoading ? <div style={{ textAlign: "center", padding: 40, color: "#8A9096" }}>Loading filings...</div> : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {viewingFilingId && viewingFilingBlob && (
-                  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }} onClick={() => { setViewingFilingId(null); if (viewingFilingBlob) URL.revokeObjectURL(viewingFilingBlob); setViewingFilingBlob(null); }}>
-                    <div style={{ background: "#fff", borderRadius: 12, width: "90%", maxWidth: 900, height: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #E5E7EB" }}>
-                        <span style={{ fontSize: 14, fontWeight: 600 }}>{(filings.find(f => f.id === viewingFilingId) || {}).filename || "Filing"}</span>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => { const f = filings.find(x => x.id === viewingFilingId); const a = document.createElement("a"); a.href = viewingFilingBlob; a.download = f?.filename || "filing.pdf"; a.click(); }} style={{ fontSize: 11, padding: "5px 14px", borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontWeight: 500 }}>Download</button>
-                          <button onClick={() => { setViewingFilingId(null); URL.revokeObjectURL(viewingFilingBlob); setViewingFilingBlob(null); }} style={{ fontSize: 11, padding: "5px 14px", borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontWeight: 500 }}>Close</button>
-                        </div>
-                      </div>
-                      <iframe src={viewingFilingBlob} style={{ flex: 1, border: "none", width: "100%" }} title="Filing PDF Viewer" />
-                    </div>
-                  </div>
-                )}
+                
                 {filings.filter(f => filingFilterBy === "All" || f.filedBy === filingFilterBy).map(f => {
                   const partyColors = { State: "#DC2626", Defendant: "#2563EB", "Co-Defendant": "#7C3AED", Court: "#059669", Other: "#6B7280" };
                   const partyColor = partyColors[f.filedBy] || "#6B7280";
@@ -5073,7 +5058,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <span style={{ fontSize: 10, color: "#8A9096" }}>{f.uploadedByName ? `by ${f.uploadedByName}` : ""}{f.sourceEmailFrom ? `from ${f.sourceEmailFrom}` : ""}</span>
                         <span style={{ fontSize: 10, color: "#8A9096" }}>{new Date(f.createdAt).toLocaleDateString()}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                          <button onClick={async () => { try { const res = await fetch(`/api/filings/${f.id}/download?inline=true`, { credentials: "include" }); if (!res.ok) throw new Error("View failed"); const blob = await res.blob(); const pdfBlob = new Blob([blob], { type: "application/pdf" }); const url = URL.createObjectURL(pdfBlob); setViewingFilingBlob(url); setViewingFilingId(f.id); } catch (err) { alert("View failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>View</button>
+                          <button onClick={async () => { try { const res = await fetch(`/api/filings/${f.id}/download?inline=true`, { credentials: "include" }); if (!res.ok) throw new Error("View failed"); const blob = await res.blob(); const pdfBlob = new Blob([blob], { type: "application/pdf" }); const url = URL.createObjectURL(pdfBlob); window.open(url, "_blank"); } catch (err) { alert("View failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>View</button>
                           <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D97706", background: "#FEF3C7", color: "#92400E", cursor: "pointer" }}>{filingClassifying === f.id ? "Classifying..." : "⚡ Classify"}</button>
                           <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #6366F1", background: "#EEF2FF", color: "#4338CA", cursor: "pointer" }}>{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? "⚡ Re-summarize" : "⚡ Summarize")}</button>
                           {canRemove && <button onClick={async () => { if (!window.confirm("Delete this filing?")) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #EF4444", background: "#FEF2F2", color: "#DC2626", cursor: "pointer" }}>Delete</button>}
