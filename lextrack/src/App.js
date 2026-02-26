@@ -5076,7 +5076,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           <button onClick={() => setExpandedFilingId(expandedFilingId === f.id ? null : f.id)} style={{ fontSize: 11, color: "#4F46E5", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>{expandedFilingId === f.id ? "▾ Hide Summary" : "▸ View Summary"}</button>
                           {expandedFilingId === f.id && (
                             <div style={{ marginTop: 6 }}>
-                              <AiPanel content={f.summary} />
+                              <AiPanel title="Filing Summary" result={f.summary} />
                             </div>
                           )}
                         </div>
