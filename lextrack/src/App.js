@@ -2971,7 +2971,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [editingFilingData, setEditingFilingData] = useState({});
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingDocData, setEditingDocData] = useState({});
-  const canRemove = isAttorney(currentUser);
+  const canRemove = isAttorney(currentUser) || isAppAdmin(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
   useEffect(() => {
