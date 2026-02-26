@@ -2,6 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const { simpleParser } = require("mailparser");
 const pool = require("../db");
+const { extractText } = require("../utils/extract-text");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -176,6 +177,73 @@ router.post("/", upload.any(), async (req, res) => {
         console.log(`PDF filing created from email: ${pdfAtt.filename} for case ${caseId}`);
       } catch (filingErr) {
         console.error("Create filing from email error:", filingErr.message);
+      }
+    }
+
+    const docTypes = [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "text/plain",
+    ];
+    const docAttachments = attachments.filter(a => docTypes.includes(a.contentType));
+    for (const docAtt of docAttachments) {
+      try {
+        const fileBuffer = Buffer.from(docAtt.data, "base64");
+        let extractedText = "";
+        try {
+          extractedText = await extractText(fileBuffer, docAtt.contentType, docAtt.filename);
+        } catch (eErr) {
+          console.error("Doc text extraction error:", eErr.message);
+        }
+
+        const { rows: docRows } = await pool.query(
+          `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by_name, file_size)
+           VALUES ($1, $2, $3, $4, $5, 'Other', $6, $7)
+           RETURNING id`,
+          [caseId, docAtt.filename, docAtt.contentType, fileBuffer, extractedText, `Email: ${fromEmail}`, docAtt.size]
+        );
+
+        if (docRows.length > 0 && extractedText) {
+          const docId = docRows[0].id;
+          try {
+            const OpenAI = require("openai");
+            const openai = new OpenAI({
+              apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+              baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+            });
+            const classifyPrompt = `You are a document classification assistant for a criminal defense public defender's office. Analyze the document text and classify it. Return ONLY valid JSON with these fields:
+- "suggestedName" (string — descriptive document name based on content)
+- "docType" (one of: "Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other")`;
+            const textSnippet = extractedText.substring(0, 12000);
+            const resp = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: classifyPrompt },
+                { role: "user", content: `Classify this document:\n\n${textSnippet}` },
+              ],
+              temperature: 0.3,
+              max_tokens: 1000,
+              store: false,
+              response_format: { type: "json_object" },
+            });
+            const classification = JSON.parse(resp.choices[0].message.content);
+            const sets = [];
+            const setVals = [];
+            let si = 1;
+            if (classification.suggestedName) { sets.push(`filename = $${si++}`); setVals.push(classification.suggestedName); }
+            if (classification.docType) { sets.push(`doc_type = $${si++}`); setVals.push(classification.docType); }
+            if (sets.length > 0) {
+              setVals.push(docId);
+              await pool.query(`UPDATE case_documents SET ${sets.join(", ")} WHERE id = $${si}`, setVals);
+            }
+            console.log(`Document auto-classified: ${classification.suggestedName || docAtt.filename} (${classification.docType || "Other"})`);
+          } catch (classifyErr) {
+            console.error("Auto-classify document error:", classifyErr.message);
+          }
+        }
+        console.log(`Document created from email: ${docAtt.filename} for case ${caseId}`);
+      } catch (docErr) {
+        console.error("Create document from email error:", docErr.message);
       }
     }
 

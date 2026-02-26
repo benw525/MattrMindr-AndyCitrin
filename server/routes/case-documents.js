@@ -1,8 +1,8 @@
 const express = require("express");
 const multer = require("multer");
-const mammoth = require("mammoth");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { extractText } = require("../utils/extract-text");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -13,22 +13,6 @@ const ALLOWED_TYPES = [
   "application/msword",
   "text/plain",
 ];
-
-async function extractText(buffer, contentType, filename) {
-  if (contentType === "text/plain") {
-    return buffer.toString("utf-8");
-  }
-  if (contentType === "application/msword" || contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value || "";
-  }
-  if (contentType === "application/pdf") {
-    const pdfParse = require("pdf-parse");
-    const data = await pdfParse(buffer);
-    return data.text || "";
-  }
-  return "";
-}
 
 const toFrontend = (row) => ({
   id: row.id,
@@ -163,6 +147,34 @@ router.get("/:id/download", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Document download error:", err);
     return res.status(500).json({ error: "Download failed" });
+  }
+});
+
+router.put("/:id", requireAuth, async (req, res) => {
+  try {
+    const { rows: check } = await pool.query("SELECT case_id FROM case_documents WHERE id = $1", [req.params.id]);
+    if (check.length === 0) return res.status(404).json({ error: "Not found" });
+    if (!(await verifyCaseAccess(req, check[0].case_id))) return res.status(403).json({ error: "Access denied" });
+
+    const { filename, docType } = req.body;
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+
+    if (filename !== undefined) { sets.push(`filename = $${idx++}`); vals.push(filename); }
+    if (docType !== undefined) { sets.push(`doc_type = $${idx++}`); vals.push(docType); }
+
+    if (sets.length === 0) return res.status(400).json({ error: "No fields to update" });
+
+    vals.push(req.params.id);
+    const { rows } = await pool.query(
+      `UPDATE case_documents SET ${sets.join(", ")} WHERE id = $${idx} RETURNING id, case_id, filename, content_type, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at`,
+      vals
+    );
+    return res.json(toFrontend(rows[0]));
+  } catch (err) {
+    console.error("Document update error:", err);
+    return res.status(500).json({ error: "Update failed" });
   }
 });
 

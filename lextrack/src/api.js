@@ -113,6 +113,7 @@ export async function apiDownloadDocument(docId) {
   return res.blob();
 }
 export const apiDeleteCaseDocument = (docId) => apiFetch(`/api/case-documents/${docId}`, { method: "DELETE" });
+export const apiUpdateCaseDocument = (docId, data) => apiFetch(`/api/case-documents/${docId}`, { method: "PUT", body: data });
 
 // Filings
 export const apiGetFilings = (caseId) => apiFetch(`/api/filings/${caseId}`);

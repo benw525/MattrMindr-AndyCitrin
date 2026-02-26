@@ -124,7 +124,7 @@ All agents accessible via `/api/ai-agents/*` endpoints, require authentication. 
 ### Core Features
 - Customizable Dashboard: per-user widget system with add/remove/reorder
 - Cases view with filtering, sorting, pagination (no "matters" concept — everything is a case)
-- Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, Documents tab (formerly Files — document upload/summary), Correspondence tab, Filings tab (court filing management with AI classification). Details tab layout: top-left = Charges, top-right = Case Info + Offices, below = Co-Defendants, Misc Contacts, Experts
+- Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, Documents tab (formerly Files — document upload/summary, inline-editable name/type), Correspondence tab, Filings tab (court filing management with AI classification). Details tab layout: top-left = Charges, top-right = Case Info + Offices, below = Co-Defendants, Misc Contacts, Experts
 - Deadline Tracker: calendar grid, list view, iCal feed import, court rules calculator
 - Tasks View: filterable task list with inline editing, auto-escalation, recurring tasks
 - Reports: pre-built report types with CSV export and print
@@ -137,7 +137,7 @@ All agents accessible via `/api/ai-agents/*` endpoints, require authentication. 
 - Case Experts: accordion-style expert management on Details tab
 - Document Generator: upload .docx templates with placeholder auto-detection; template categories (Motions, Orders, Notices, Subpoenas, Client Letters, General)
 - Email Correspondence: SendGrid Inbound Parse captures emails to case-{id}@mcpd.mattrmindr.com
-- Filings: court filing management in dedicated Filings tab. PDF-only upload with auto AI classification (names filing, identifies filing party, extracts filing date). Inbound email PDF attachments auto-create filings and trigger AI classification. Per-filing actions: download, classify, summarize, delete. Filter by filing party. Source tracking (email vs upload). Color-coded party badges (State=red, Defendant=blue, Co-Defendant=purple, Court=green)
+- Filings: court filing management in dedicated Filings tab. PDF-only upload with auto AI classification (names filing, identifies filing party, extracts filing date). Inbound email PDF attachments auto-create filings and trigger AI classification. Per-filing actions: view (in-app PDF viewer with download option), classify, summarize, delete. Filter by filing party. Source tracking (email vs upload). Color-coded party badges (State=red, Defendant=blue, Co-Defendant=purple, Court=green). Inline editing of filing name, filed by, doc type, filing date (click to edit). Non-PDF email attachments (DOCX, DOC, TXT) auto-create documents in Documents tab with AI doc-type classification
 
 ### Removed Features (from civil version)
 - Insurance tracking (removed entirely)

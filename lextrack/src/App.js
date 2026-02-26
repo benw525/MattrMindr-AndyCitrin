@@ -14,7 +14,7 @@ import {
   apiGetContactStaff, apiCreateContactStaff, apiUpdateContactStaff, apiDeleteContactStaff,
   apiAiSearch,
   apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary, apiTaskSuggestions,
-  apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument,
+  apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
   apiGetFilings, apiUploadFiling, apiDownloadFiling, apiDeleteFiling, apiSummarizeFiling, apiUpdateFiling, apiClassifyFiling,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
   apiGetParties, apiCreateParty, apiUpdateParty, apiDeleteParty,
@@ -2967,6 +2967,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [filingSummarizing, setFilingSummarizing] = useState(null);
   const [filingClassifying, setFilingClassifying] = useState(null);
   const [expandedFilingId, setExpandedFilingId] = useState(null);
+  const [editingFilingId, setEditingFilingId] = useState(null);
+  const [editingFilingData, setEditingFilingData] = useState({});
+  const [viewingFilingId, setViewingFilingId] = useState(null);
+  const [viewingFilingBlob, setViewingFilingBlob] = useState(null);
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [editingDocData, setEditingDocData] = useState({});
   const canRemove = isAttorney(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -4700,15 +4706,38 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
               {docsLoading && <div style={{ fontSize: 12, color: "#8A9096", padding: "12px 0" }}>Loading...</div>}
               {!docsLoading && caseDocuments.length === 0 && <div className="empty" style={{ fontSize: 12 }}>No documents uploaded yet</div>}
-              {caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType).map(doc => (
+              {caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType).map(doc => {
+                const isDocEditing = editingDocId === doc.id;
+                return (
                 <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.filename}</div>
-                      <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
-                        {doc.docType} · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
-                      </div>
+                      {isDocEditing ? (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <input value={editingDocData.filename || ""} onChange={e => setEditingDocData(d => ({ ...d, filename: e.target.value }))} style={{ fontSize: 13, fontWeight: 500, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6", flex: 1, minWidth: 120 }} />
+                          <select value={editingDocData.docType || "Other"} onChange={e => setEditingDocData(d => ({ ...d, docType: e.target.value }))} style={{ fontSize: 11, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
+                            {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
+                          </select>
+                          <button onClick={async () => {
+                            try {
+                              const updated = await apiUpdateCaseDocument(doc.id, editingDocData);
+                              setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, filename: updated.filename, docType: updated.docType } : d));
+                              log("Document edited", editingDocData.filename);
+                              setEditingDocId(null);
+                            } catch (err) { alert("Save failed: " + err.message); }
+                          }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
+                          <button onClick={() => setEditingDocId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.filename}</div>
+                          <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
+                            <span style={{ cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.docType}</span> · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
+                          </div>
+                        </>
+                      )}
                     </div>
+                    {!isDocEditing && (
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={async () => {
                         try {
@@ -4735,6 +4764,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         } catch (err) { alert("Delete failed: " + err.message); }
                       }}>Delete</button>
                     </div>
+                    )}
                   </div>
                   {doc.summary && (
                     <div style={{ marginTop: 8 }}>
@@ -4749,7 +4779,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -4985,24 +5016,71 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             {filingsLoading ? <div style={{ textAlign: "center", padding: 40, color: "#8A9096" }}>Loading filings...</div> : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {viewingFilingId && viewingFilingBlob && (
+                  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }} onClick={() => { setViewingFilingId(null); if (viewingFilingBlob) URL.revokeObjectURL(viewingFilingBlob); setViewingFilingBlob(null); }}>
+                    <div style={{ background: "#fff", borderRadius: 12, width: "90%", maxWidth: 900, height: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #E5E7EB" }}>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{(filings.find(f => f.id === viewingFilingId) || {}).filename || "Filing"}</span>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => { const f = filings.find(x => x.id === viewingFilingId); const a = document.createElement("a"); a.href = viewingFilingBlob; a.download = f?.filename || "filing.pdf"; a.click(); }} style={{ fontSize: 11, padding: "5px 14px", borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontWeight: 500 }}>Download</button>
+                          <button onClick={() => { setViewingFilingId(null); URL.revokeObjectURL(viewingFilingBlob); setViewingFilingBlob(null); }} style={{ fontSize: 11, padding: "5px 14px", borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontWeight: 500 }}>Close</button>
+                        </div>
+                      </div>
+                      <iframe src={viewingFilingBlob} style={{ flex: 1, border: "none", width: "100%" }} title="Filing PDF Viewer" />
+                    </div>
+                  </div>
+                )}
                 {filings.filter(f => filingFilterBy === "All" || f.filedBy === filingFilterBy).map(f => {
                   const partyColors = { State: "#DC2626", Defendant: "#2563EB", "Co-Defendant": "#7C3AED", Court: "#059669", Other: "#6B7280" };
                   const partyColor = partyColors[f.filedBy] || "#6B7280";
+                  const isEditing = editingFilingId === f.id;
                   return (
                     <div key={f.id} style={{ border: "1px solid #E5E7EB", borderRadius: 8, padding: "10px 14px", background: "#FAFBFC" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 150 }}>{f.filename}</span>
-                        {f.filedBy && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: partyColor, borderRadius: 4, padding: "2px 7px", textTransform: "uppercase" }}>{f.filedBy}</span>}
-                        {f.docType && <span style={{ fontSize: 10, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 7px" }}>{f.docType}</span>}
+                        {isEditing ? (
+                          <input value={editingFilingData.filename || ""} onChange={e => setEditingFilingData(d => ({ ...d, filename: e.target.value }))} style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 150, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6" }} />
+                        ) : (
+                          <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 150, cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.filename}</span>
+                        )}
+                        {isEditing ? (
+                          <select value={editingFilingData.filedBy || ""} onChange={e => setEditingFilingData(d => ({ ...d, filedBy: e.target.value }))} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
+                            <option value="">— None —</option>
+                            <option>State</option><option>Defendant</option><option>Co-Defendant</option><option>Court</option><option>Other</option>
+                          </select>
+                        ) : (
+                          f.filedBy && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: partyColor, borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.filedBy}</span>
+                        )}
+                        {isEditing ? (
+                          <input value={editingFilingData.docType || ""} onChange={e => setEditingFilingData(d => ({ ...d, docType: e.target.value }))} placeholder="Doc type" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6", width: 120 }} />
+                        ) : (
+                          f.docType && <span style={{ fontSize: 10, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 7px", cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.docType}</span>
+                        )}
                         {f.source === "email" && <span style={{ fontSize: 10, color: "#D97706", background: "#FEF3C7", borderRadius: 4, padding: "2px 7px" }}>📧 Email</span>}
-                        {f.filingDate && <span style={{ fontSize: 10, color: "#6B7280" }}>Filed: {new Date(f.filingDate).toLocaleDateString()}</span>}
+                        {isEditing ? (
+                          <input type="date" value={editingFilingData.filingDate || ""} onChange={e => setEditingFilingData(d => ({ ...d, filingDate: e.target.value }))} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6" }} />
+                        ) : (
+                          f.filingDate && <span style={{ fontSize: 10, color: "#6B7280", cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">Filed: {new Date(f.filingDate).toLocaleDateString()}</span>
+                        )}
+                        {isEditing && (
+                          <div style={{ display: "flex", gap: 4 }}>
+                            <button onClick={async () => {
+                              try {
+                                await apiUpdateFiling(f.id, editingFilingData);
+                                setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: editingFilingData.filename, filedBy: editingFilingData.filedBy, docType: editingFilingData.docType, filingDate: editingFilingData.filingDate || null } : x));
+                                log("Filing edited", editingFilingData.filename);
+                                setEditingFilingId(null);
+                              } catch (err) { alert("Save failed: " + err.message); }
+                            }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
+                            <button onClick={() => setEditingFilingId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 10, color: "#8A9096" }}>{f.fileSize ? (f.fileSize / 1024).toFixed(0) + " KB" : ""}</span>
                         <span style={{ fontSize: 10, color: "#8A9096" }}>{f.uploadedByName ? `by ${f.uploadedByName}` : ""}{f.sourceEmailFrom ? `from ${f.sourceEmailFrom}` : ""}</span>
                         <span style={{ fontSize: 10, color: "#8A9096" }}>{new Date(f.createdAt).toLocaleDateString()}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                          <button onClick={async () => { try { const blob = await apiDownloadFiling(f.id); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = f.filename || "filing.pdf"; a.click(); URL.revokeObjectURL(url); } catch (err) { alert("Download failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Download</button>
+                          <button onClick={async () => { try { const blob = await apiDownloadFiling(f.id); const url = URL.createObjectURL(blob); setViewingFilingBlob(url); setViewingFilingId(f.id); } catch (err) { alert("View failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>View</button>
                           <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D97706", background: "#FEF3C7", color: "#92400E", cursor: "pointer" }}>{filingClassifying === f.id ? "Classifying..." : "⚡ Classify"}</button>
                           <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #6366F1", background: "#EEF2FF", color: "#4338CA", cursor: "pointer" }}>{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? "⚡ Re-summarize" : "⚡ Summarize")}</button>
                           {canRemove && <button onClick={async () => { if (!window.confirm("Delete this filing?")) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #EF4444", background: "#FEF2F2", color: "#DC2626", cursor: "pointer" }}>Delete</button>}
