@@ -2319,8 +2319,8 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const [divisionFilter, setDivisionFilter] = useState("All");
   const [stageFilter, setStageFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
-  const [sortCol, setSortCol] = useState("title");
-  const [sortDir, setSortDir] = useState("asc");
+  const [sortCol, setSortCol] = useState("arrestDate");
+  const [sortDir, setSortDir] = useState("desc");
   const [aiQuery, setAiQuery] = useState("");
   const [aiResults, setAiResults] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
