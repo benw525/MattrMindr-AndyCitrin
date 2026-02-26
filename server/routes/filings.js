@@ -110,6 +110,9 @@ router.get("/:id/download", requireAuth, async (req, res) => {
 
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
+    const attorneyRoles = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "Trial Attorney", "App Admin"];
+    const userRoles = req.session.userRoles || [req.session.userRole];
+    if (!userRoles.some(r => attorneyRoles.includes(r))) return res.status(403).json({ error: "Only attorneys may delete filings" });
     const { rows } = await pool.query("SELECT case_id FROM case_filings WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
