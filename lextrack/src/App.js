@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword,
@@ -2955,36 +2956,42 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                 title="Clear filter"
               >✕</button>
             )}
-            {staffFocused && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: 260, overflowY: "auto", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100 }}>
-                <div
-                  style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}
-                  onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
-                >All Staff</div>
-                {staffSuggestions.length > 0 ? staffSuggestions.map(u => {
-                  const isSelected = String(u.id) === attyFilter;
-                  const q = staffInput.toLowerCase();
-                  const name = u.name;
-                  let nameEl;
-                  if (q && name.toLowerCase().includes(q)) {
-                    const idx = name.toLowerCase().indexOf(q);
-                    nameEl = <>{name.slice(0, idx)}<strong>{name.slice(idx, idx + q.length)}</strong>{name.slice(idx + q.length)}</>;
-                  } else {
-                    nameEl = name;
-                  }
-                  return (
+            {staffFocused && staffSearchRef.current && createPortal(
+              (() => {
+                const rect = staffSearchRef.current.getBoundingClientRect();
+                return (
+                  <div style={{ position: "fixed", top: rect.bottom + 2, left: rect.left, width: Math.max(rect.width, 220), maxHeight: 260, overflowY: "auto", background: "#fff", border: "1px solid #D6D8DB", borderRadius: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.2)", zIndex: 99999, fontSize: 13 }}>
                     <div
-                      key={u.id}
-                      style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text)", background: isSelected ? "var(--c-hover)" : "transparent" }}
-                      onMouseDown={e => { e.preventDefault(); setAttyFilter(String(u.id)); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
-                      onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
-                      onMouseLeave={e => e.currentTarget.style.background = isSelected ? "var(--c-hover)" : "transparent"}
-                    >{nameEl}</div>
-                  );
-                }) : (
-                  <div style={{ padding: "7px 10px", fontSize: 13, color: "var(--c-text2)" }}>No matches</div>
-                )}
-              </div>
+                      style={{ padding: "8px 12px", cursor: "pointer", color: "#8A9096", borderBottom: "1px solid #D6D8DB" }}
+                      onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
+                    >All Staff</div>
+                    {staffSuggestions.length > 0 ? staffSuggestions.map(u => {
+                      const isSelected = String(u.id) === attyFilter;
+                      const q = staffInput.toLowerCase();
+                      const name = u.name;
+                      let nameEl;
+                      if (q && name.toLowerCase().includes(q)) {
+                        const idx = name.toLowerCase().indexOf(q);
+                        nameEl = <>{name.slice(0, idx)}<strong>{name.slice(idx, idx + q.length)}</strong>{name.slice(idx + q.length)}</>;
+                      } else {
+                        nameEl = name;
+                      }
+                      return (
+                        <div
+                          key={u.id}
+                          style={{ padding: "8px 12px", cursor: "pointer", color: "#1F2428", background: isSelected ? "#F0F2F4" : "transparent" }}
+                          onMouseDown={e => { e.preventDefault(); setAttyFilter(String(u.id)); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#F0F2F4"}
+                          onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#F0F2F4" : "transparent"}
+                        >{nameEl}</div>
+                      );
+                    }) : (
+                      <div style={{ padding: "8px 12px", color: "#8A9096" }}>No matches</div>
+                    )}
+                  </div>
+                );
+              })(),
+              document.body
             )}
           </div>
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
