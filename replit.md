@@ -29,6 +29,8 @@ server/
   schema.js         — Creates all DB tables (run once)
   seed.js           — Seeds USERS from firmData.js
   email.js          — SendGrid email utility (temp passwords, password resets)
+  utils/
+    extract-text.js — Text extraction from PDF/DOCX/TXT with OCR fallback (tesseract.js + pdftoppm) for scanned PDFs
   middleware/
     auth.js         — requireAuth middleware
   routes/
@@ -104,7 +106,7 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - **Personal Training**: Per-user entries that only affect that user's AI interactions. Available to all staff
 - **Office Training**: Office-wide entries that affect all users' AI interactions. Create/edit restricted to: Public Defender, Chief Deputy Public Defender, Deputy Public Defender, Senior Trial Attorney, App Admin
 - **Categories**: General, Local Rules, Office Policy, Defense Strategy, Court Preferences, Sentencing, Procedures
-- **Source Types**: Text (written instructions) or Document (uploaded PDF/TXT/DOCX — text extracted via pdf-parse/mammoth)
+- **Source Types**: Text (written instructions) or Document (uploaded PDF/TXT/DOCX — text extracted via pdf-parse/mammoth, with OCR fallback for scanned PDFs)
 - **Active Toggle**: Enable/disable individual entries without deleting them
 - **Context Injection**: `getTrainingContext(userId)` in ai-agents.js loads all active entries (personal for user + all office entries), concatenates them as `=== CUSTOM TRAINING & GUIDELINES ===` block appended to system prompts, capped at 8000 chars
 - **Backend**: `server/routes/ai-training.js` — full CRUD + document upload with multer. Registered in server/index.js
@@ -153,7 +155,7 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - Case Experts: accordion-style expert management on Details tab
 - Document Generator: unified Generate modal with two modes — "From Template" (upload .docx templates with placeholder auto-detection; template categories: Motions, Orders, Notices, Subpoenas, Client Letters, General) and "AI Draft" (AI-generated first drafts of motions, pleas, memoranda tailored to case details; results can be copied or saved as case notes)
 - Email Correspondence: SendGrid Inbound Parse captures emails to case-{id}@mcpd.mattrmindr.com
-- Filings: court filing management in dedicated Filings tab. PDF-only upload with auto AI classification (names filing, identifies filing party, extracts filing date). Inbound email PDF attachments are triaged deterministically: PDFs with "NOTICE OF ELECTRONIC FILING" in the first page (AlaCourt NEF coversheet) → Filings tab; all other PDFs → Documents tab. Per-filing actions: view (opens in new browser tab), classify, summarize, delete. Filter by filing party. Source tracking (email vs upload). Color-coded party badges (State=red, Defendant=blue, Co-Defendant=purple, Court=green). Inline editing of filing name, filed by, doc type, filing date (click to edit). Non-PDF email attachments (DOCX, DOC, TXT) auto-create documents in Documents tab with AI doc-type classification
+- Filings: court filing management in dedicated Filings tab. PDF-only upload with auto AI classification (names filing, identifies filing party, extracts filing date). Inbound email PDF attachments are triaged deterministically: PDFs with "NOTICE OF ELECTRONIC FILING" in the first page (AlaCourt NEF coversheet) → Filings tab; all other PDFs → Documents tab. Scanned/image-based PDFs are OCR'd automatically (tesseract.js + pdftoppm, up to 10 pages). Per-filing actions: view (opens in new browser tab), classify, summarize, delete. Filter by filing party. Source tracking (email vs upload). Color-coded party badges (State=red, Defendant=blue, Co-Defendant=purple, Court=green). Inline editing of filing name, filed by, doc type, filing date (click to edit). Non-PDF email attachments (DOCX, DOC, TXT) auto-create documents in Documents tab with AI doc-type classification
 
 ### Removed Features (from civil version)
 - Insurance tracking (removed entirely)

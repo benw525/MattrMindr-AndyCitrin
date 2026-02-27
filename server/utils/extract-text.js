@@ -1,4 +1,65 @@
 const mammoth = require("mammoth");
+const { execFile } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+
+const OCR_MIN_TEXT_LENGTH = 50;
+const OCR_MAX_PAGES = 10;
+
+async function ocrPdfBuffer(buffer, filename) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-"));
+  const pdfPath = path.join(tmpDir, "input.pdf");
+  fs.writeFileSync(pdfPath, buffer);
+
+  try {
+    const imgPrefix = path.join(tmpDir, "page");
+    await new Promise((resolve, reject) => {
+      execFile("pdftoppm", [
+        "-png", "-r", "300",
+        "-l", String(OCR_MAX_PAGES),
+        pdfPath, imgPrefix
+      ], { timeout: 60000 }, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    const imageFiles = fs.readdirSync(tmpDir)
+      .filter(f => f.startsWith("page") && f.endsWith(".png"))
+      .sort()
+      .slice(0, OCR_MAX_PAGES);
+
+    if (imageFiles.length === 0) {
+      console.log(`OCR: no page images generated for "${filename}"`);
+      return "";
+    }
+
+    console.log(`OCR fallback: processing ${imageFiles.length} pages for "${filename}"`);
+
+    const Tesseract = require("tesseract.js");
+    const worker = await Tesseract.createWorker("eng");
+
+    let fullText = "";
+    for (const imgFile of imageFiles) {
+      const imgPath = path.join(tmpDir, imgFile);
+      const { data: { text } } = await worker.recognize(imgPath);
+      fullText += text + "\n";
+    }
+
+    await worker.terminate();
+    console.log(`OCR complete: extracted ${fullText.trim().length} chars from ${imageFiles.length} pages`);
+    return fullText.trim();
+  } finally {
+    try {
+      const files = fs.readdirSync(tmpDir);
+      for (const f of files) fs.unlinkSync(path.join(tmpDir, f));
+      fs.rmdirSync(tmpDir);
+    } catch (cleanupErr) {
+      console.error("OCR temp cleanup error:", cleanupErr.message);
+    }
+  }
+}
 
 async function extractText(buffer, contentType, filename) {
   if (contentType === "text/plain") {
@@ -11,7 +72,22 @@ async function extractText(buffer, contentType, filename) {
   if (contentType === "application/pdf") {
     const pdfParse = require("pdf-parse");
     const data = await pdfParse(buffer);
-    return data.text || "";
+    const text = (data.text || "").trim();
+
+    if (text.length >= OCR_MIN_TEXT_LENGTH) {
+      return text;
+    }
+
+    console.log(`PDF text extraction yielded only ${text.length} chars for "${filename}", attempting OCR...`);
+    try {
+      const ocrText = await ocrPdfBuffer(buffer, filename);
+      if (ocrText.length > text.length) {
+        return ocrText;
+      }
+    } catch (ocrErr) {
+      console.error("OCR fallback error:", ocrErr.message);
+    }
+    return text;
   }
   return "";
 }

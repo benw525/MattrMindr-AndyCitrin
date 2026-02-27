@@ -116,9 +116,7 @@ router.post("/", upload.any(), async (req, res) => {
         const fileBuffer = Buffer.from(pdfAtt.data, "base64");
         let extractedText = "";
         try {
-          const pdfParse = require("pdf-parse");
-          const parsed = await pdfParse(fileBuffer);
-          extractedText = parsed.text || "";
+          extractedText = await extractText(fileBuffer, "application/pdf", pdfAtt.filename);
         } catch (pErr) {
           console.error("PDF text extraction error:", pErr.message);
         }
