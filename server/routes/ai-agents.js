@@ -714,8 +714,29 @@ ${contextBlock}${trainingContext}`;
       store: false,
     });
 
-    const reply = resp.choices[0].message.content;
-    res.json({ reply, contextStats });
+    let reply = resp.choices[0].message.content;
+    let suggestedTasks = null;
+
+    const taskPatterns = [
+      /<!--\s*TASKS_JSON\s*(\[[\s\S]*?\])\s*-->/,
+      /```(?:json)?\s*<!--\s*TASKS_JSON\s*(\[[\s\S]*?\])\s*-->\s*```/,
+      /TASKS_JSON\s*(\[[\s\S]*?\])\s*(?:-->)?/,
+    ];
+    for (const pat of taskPatterns) {
+      const m = reply.match(pat);
+      if (m) {
+        try {
+          const parsed = JSON.parse(m[1]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            suggestedTasks = parsed;
+            reply = reply.replace(m[0], "").replace(/```\s*$/, "").trim();
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    res.json({ reply, contextStats, suggestedTasks });
   } catch (err) {
     console.error("Advocate AI error:", err);
     res.status(500).json({ error: "Advocate AI failed" });

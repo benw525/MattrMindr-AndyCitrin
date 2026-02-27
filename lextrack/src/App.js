@@ -3354,7 +3354,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           setAdvocateLoading(true);
                           setAdvocateInput("");
                           apiAdvocateChat({ caseId: c.id, messages: msgs }).then(r => {
-                            setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply }]);
+                            setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
                             if (r.contextStats) setAdvocateStats(r.contextStats);
                           }).catch(e => {
                             setAdvocateMessages(p => [...p, { role: "assistant", content: "I encountered an error. Please try again." }]);
@@ -3365,15 +3365,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
               )}
               {advocateMessages.map((msg, i) => {
-                let displayText = msg.content;
-                let parsedTasks = null;
-                if (msg.role === "assistant") {
-                  const taskMatch = msg.content.match(/<!--\s*TASKS_JSON\s*(\[[\s\S]*\])\s*-->/);
-                  if (taskMatch) {
-                    try { parsedTasks = JSON.parse(taskMatch[1]); if (!Array.isArray(parsedTasks)) parsedTasks = null; } catch (e) { parsedTasks = null; }
-                    displayText = msg.content.replace(/<!--\s*TASKS_JSON\s*\[[\s\S]*\]\s*-->/g, "").trim();
-                  }
-                }
+                const displayText = msg.content;
+                const parsedTasks = msg.suggestedTasks && Array.isArray(msg.suggestedTasks) && msg.suggestedTasks.length > 0 ? msg.suggestedTasks : null;
                 const msgAdded = advocateTasksAdded[i] || {};
                 const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
                 return (
@@ -3483,7 +3476,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     setAdvocateLoading(true);
                     setAdvocateInput("");
                     apiAdvocateChat({ caseId: c.id, messages: newMsgs }).then(r => {
-                      setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply }]);
+                      setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
                       if (r.contextStats && !advocateStats) setAdvocateStats(r.contextStats);
                     }).catch(() => {
                       setAdvocateMessages(p => [...p, { role: "assistant", content: "I encountered an error. Please try again." }]);
@@ -3503,7 +3496,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   setAdvocateLoading(true);
                   setAdvocateInput("");
                   apiAdvocateChat({ caseId: c.id, messages: newMsgs }).then(r => {
-                    setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply }]);
+                    setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
                     if (r.contextStats && !advocateStats) setAdvocateStats(r.contextStats);
                   }).catch(() => {
                     setAdvocateMessages(p => [...p, { role: "assistant", content: "I encountered an error. Please try again." }]);
