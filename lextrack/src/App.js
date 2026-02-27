@@ -4181,7 +4181,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             if ((charge.statute || charge.description) && !charge.chargeClass) {
                               setClassifyingChargeIdx(idx);
                               apiGetChargeClass({ statute: charge.statute, description: charge.description }).then(r => {
-                                const cur = chargesRef.current || []; if (cur[idx] && !cur[idx].chargeClass) { const updated = [...cur]; updated[idx] = { ...updated[idx], chargeClass: r.chargeClass }; onUpdate({ charges: updated }); }
+                                const cur = chargesRef.current || []; if (cur[idx] && !cur[idx].chargeClass) { const updated = [...cur]; updated[idx] = { ...updated[idx], chargeClass: r.chargeClass }; onUpdate({ ...c, charges: updated }); }
                               }).catch(() => {}).finally(() => setClassifyingChargeIdx(null));
                             }
                           }} /></div>
@@ -4191,7 +4191,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             if ((charge.statute || charge.description) && !charge.chargeClass) {
                               setClassifyingChargeIdx(idx);
                               apiGetChargeClass({ statute: charge.statute, description: charge.description }).then(r => {
-                                const cur = chargesRef.current || []; if (cur[idx] && !cur[idx].chargeClass) { const updated = [...cur]; updated[idx] = { ...updated[idx], chargeClass: r.chargeClass }; onUpdate({ charges: updated }); }
+                                const cur = chargesRef.current || []; if (cur[idx] && !cur[idx].chargeClass) { const updated = [...cur]; updated[idx] = { ...updated[idx], chargeClass: r.chargeClass }; onUpdate({ ...c, charges: updated }); }
                               }).catch(() => {}).finally(() => setClassifyingChargeIdx(null));
                             }
                           }} /></div>
