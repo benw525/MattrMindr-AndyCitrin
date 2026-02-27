@@ -2056,11 +2056,81 @@ function RecentActivityWidget({ currentUser }) {
   );
 }
 
+function CaseSearchField({ allCases, value, onChange, placeholder }) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selectedCase = value ? allCases.find(c => c.id === parseInt(value)) : null;
+
+  useEffect(() => {
+    const handleClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const active = allCases.filter(c => c.status === "Active");
+    const q = search.toLowerCase().trim();
+    const matched = q ? active.filter(c =>
+      (c.title || "").toLowerCase().includes(q) ||
+      (c.caseNum || "").toLowerCase().includes(q) ||
+      (c.defendantName || "").toLowerCase().includes(q)
+    ) : active;
+    return matched.sort((a, b) => {
+      const aDate = a.trialDate ? new Date(a.trialDate) : null;
+      const bDate = b.trialDate ? new Date(b.trialDate) : null;
+      if (aDate && bDate) return aDate - bDate;
+      if (aDate) return -1;
+      if (bDate) return 1;
+      return (a.title || "").localeCompare(b.title || "");
+    }).slice(0, 20);
+  }, [allCases, search]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {selectedCase ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", fontSize: 12 }}>
+          <span style={{ flex: 1, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedCase.title || selectedCase.caseNum}</span>
+          <button onClick={() => { onChange(""); setSearch(""); }} style={{ background: "none", border: "none", color: "#8A9096", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder || "Search cases…"}
+          style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
+        />
+      )}
+      {open && !selectedCase && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, maxHeight: 200, overflowY: "auto", background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: 6, marginTop: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+          {filtered.length === 0 && <div style={{ padding: "8px 10px", fontSize: 12, color: "#8A9096" }}>No cases found</div>}
+          {filtered.map(c => (
+            <div
+              key={c.id}
+              onClick={() => { onChange(String(c.id)); setSearch(""); setOpen(false); }}
+              style={{ padding: "8px 10px", cursor: "pointer", borderBottom: "1px solid var(--c-border2)", fontSize: 12 }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{c.title}</div>
+              <div style={{ fontSize: 11, color: "#8A9096" }}>{c.caseNum || "—"}{c.defendantName ? ` · ${c.defendantName}` : ""}{c.trialDate ? ` · Trial: ${new Date(c.trialDate).toLocaleDateString()}` : ""}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [body, setBody] = useState("");
+  const [formCaseId, setFormCaseId] = useState("");
+  const [formTime, setFormTime] = useState("");
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editBody, setEditBody] = useState("");
@@ -2068,12 +2138,15 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
   const [editTime, setEditTime] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [successMsg, setSuccessMsg] = useState(null);
   const recRef = useRef(null);
   const speechSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
   useEffect(() => {
     apiGetQuickNotes().then(setNotes).catch(() => setNotes([])).finally(() => setLoading(false));
   }, []);
+
+  const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000); };
 
   const toggleSpeech = () => {
     if (isListening && recRef.current) {
@@ -2108,15 +2181,25 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
     if (recRef.current) { recRef.current.stop(); recRef.current = null; setIsListening(false); }
     setSaving(true);
     try {
-      const saved = await apiCreateNote({
+      const noteData = {
         body: body.trim(),
-        type: "Quick Note",
+        type: formCaseId ? "General" : "Quick Note",
         authorId: currentUser.id,
         authorName: currentUser.name,
         authorRole: currentUser.role,
-      });
-      setNotes(prev => [saved, ...prev]);
+      };
+      if (formCaseId) noteData.caseId = parseInt(formCaseId);
+      if (formTime) noteData.timeLogged = formTime;
+      const saved = await apiCreateNote(noteData);
+      if (!formCaseId) {
+        setNotes(prev => [saved, ...prev]);
+      } else {
+        const cs = allCases.find(c => c.id === parseInt(formCaseId));
+        showSuccess(`Note saved to ${cs?.title || "case"}`);
+      }
       setBody("");
+      setFormCaseId("");
+      setFormTime("");
       setShowForm(false);
     } catch (err) {
       alert("Failed to save note: " + err.message);
@@ -2151,6 +2234,8 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
       const updated = await apiUpdateNote(editingId, updates);
       if (editCaseId) {
         setNotes(prev => prev.filter(n => n.id !== editingId));
+        const cs = allCases.find(c => c.id === parseInt(editCaseId));
+        showSuccess(`Note moved to ${cs?.title || "case"}`);
       } else {
         setNotes(prev => prev.map(n => n.id === editingId ? updated : n));
       }
@@ -2172,14 +2257,40 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
+  const caseFields = (caseIdVal, setCaseIdVal, timeVal, setTimeVal) => (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div>
+        <label style={{ fontSize: 11, color: "#8A9096", display: "block", marginBottom: 2 }}>Assign to Case (optional)</label>
+        <CaseSearchField allCases={allCases} value={caseIdVal} onChange={setCaseIdVal} placeholder="Search cases…" />
+      </div>
+      <div>
+        <label style={{ fontSize: 11, color: "#8A9096", display: "block", marginBottom: 2 }}>Time Spent (hours)</label>
+        <input
+          type="number"
+          step="0.1"
+          min="0"
+          value={timeVal}
+          onChange={e => setTimeVal(e.target.value)}
+          placeholder="0.0"
+          style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="card">
       <div className="card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div className="card-title">Quick Notes</div>
-        <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowForm(!showForm); setEditingId(null); }}>
+        <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowForm(!showForm); setEditingId(null); setFormCaseId(""); setFormTime(""); }}>
           {showForm ? "Cancel" : "+ Add Note"}
         </button>
       </div>
+      {successMsg && (
+        <div style={{ padding: "8px 20px", background: "rgba(47,122,95,0.1)", color: "#2F7A5F", fontSize: 12, fontWeight: 600, borderBottom: "1px solid var(--c-border2)" }}>
+          {successMsg}
+        </div>
+      )}
       {showForm && (
         <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border2)" }}>
           <textarea
@@ -2188,6 +2299,9 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
             placeholder={isListening ? "Speak now — your words will appear here…" : "Type your note…"}
             style={{ width: "100%", minHeight: 70, resize: "vertical", padding: 10, borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }}
           />
+          <div style={{ marginTop: 8 }}>
+            {caseFields(formCaseId, setFormCaseId, formTime, setFormTime)}
+          </div>
           <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
             {speechSupported && (
               <button
@@ -2200,7 +2314,7 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
             )}
             <div style={{ flex: 1 }} />
             <button className="btn btn-primary btn-sm" onClick={handleAdd} disabled={saving || !body.trim()} style={{ fontSize: 12 }}>
-              {saving ? "Saving…" : "Save Note"}
+              {saving ? "Saving…" : formCaseId ? "Save to Case" : "Save Note"}
             </button>
           </div>
         </div>
@@ -2221,33 +2335,7 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
                   onChange={e => setEditBody(e.target.value)}
                   style={{ width: "100%", minHeight: 60, resize: "vertical", padding: 8, borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }}
                 />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <div>
-                    <label style={{ fontSize: 11, color: "#8A9096", display: "block", marginBottom: 2 }}>Assign to Case</label>
-                    <select
-                      value={editCaseId}
-                      onChange={e => setEditCaseId(e.target.value)}
-                      style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12 }}
-                    >
-                      <option value="">None (keep as quick note)</option>
-                      {allCases.filter(c => c.status === "Active").map(c => (
-                        <option key={c.id} value={c.id}>{c.title || c.caseNum}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: "#8A9096", display: "block", marginBottom: 2 }}>Time Spent (hours)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={editTime}
-                      onChange={e => setEditTime(e.target.value)}
-                      placeholder="0.0"
-                      style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
-                    />
-                  </div>
-                </div>
+                {caseFields(editCaseId, setEditCaseId, editTime, setEditTime)}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button className="btn btn-outline btn-sm" onClick={() => setEditingId(null)} style={{ fontSize: 11 }}>Cancel</button>
                   <button className="btn btn-primary btn-sm" onClick={handleSaveEdit} disabled={editSaving} style={{ fontSize: 11 }}>
@@ -2906,7 +2994,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <tbody>
                     {pinnedCases.map(c => (
                       <tr key={c.id} className={`clickable-row ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
-                        <td className="mobile-hide" style={{ textAlign: "center", padding: "6px 4px" }}>
+                        <td data-label="" style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title="Unpin" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B67A18", padding: 0, lineHeight: 1 }}>📌</button>
                         </td>
                         <td data-label="Case #" style={{ whiteSpace: "nowrap" }}>
@@ -2997,7 +3085,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <tbody>
                     {paged.map(c => (
                       <tr key={c.id} className={`clickable-row ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
-                        <td className="mobile-hide" style={{ textAlign: "center", padding: "6px 4px" }}>
+                        <td data-label="" style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title={pinnedIds.includes(c.id) ? "Unpin" : "Pin"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: pinnedIds.includes(c.id) ? "#B67A18" : "#D6D8DB", padding: 0, lineHeight: 1, opacity: pinnedIds.includes(c.id) ? 1 : 0.5, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => { if (!pinnedIds.includes(c.id)) e.currentTarget.style.opacity = "0.5"; }}>📌</button>
                         </td>
                         <td data-label="Case #" style={{ whiteSpace: "nowrap" }}>
