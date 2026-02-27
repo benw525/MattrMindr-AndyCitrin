@@ -174,7 +174,7 @@ router.post("/", requireAuth, requireBatchRole, async (req, res) => {
         if (!toUser) throw new Error("Target staff member not found");
         detail = `${label} reassigned from ${fromUser?.name || "Unknown"} to ${toUser.name}`;
         for (const c of cases) {
-          await client.query(`UPDATE cases SET ${col} = $1, updated_at = NOW() WHERE id = $2`, [Number(params.toUserId), c.id]);
+          await client.query(`UPDATE cases SET ${col} = $1 WHERE id = $2`, [Number(params.toUserId), c.id]);
           await client.query(
             "INSERT INTO case_activity (case_id, user_id, user_name, user_role, action, detail) VALUES ($1, $2, $3, $4, $5, $6)",
             [c.id, userId, userName, userRole, "Attorney reassigned", detail]
@@ -186,7 +186,7 @@ router.post("/", requireAuth, requireBatchRole, async (req, res) => {
         if (!VALID_STATUSES.includes(params.newStatus)) throw new Error("Invalid status");
         detail = `Status changed to ${params.newStatus}`;
         for (const c of cases) {
-          await client.query("UPDATE cases SET status = $1, updated_at = NOW() WHERE id = $2", [params.newStatus, c.id]);
+          await client.query("UPDATE cases SET status = $1 WHERE id = $2", [params.newStatus, c.id]);
           await client.query(
             "INSERT INTO case_activity (case_id, user_id, user_name, user_role, action, detail) VALUES ($1, $2, $3, $4, $5, $6)",
             [c.id, userId, userName, userRole, "Status changed", `${c.status} → ${params.newStatus} (batch update)`]
@@ -198,7 +198,7 @@ router.post("/", requireAuth, requireBatchRole, async (req, res) => {
         if (!VALID_STAGES.includes(params.toStage)) throw new Error("Invalid stage");
         detail = `Stage advanced from ${params.fromStage} to ${params.toStage}`;
         for (const c of cases) {
-          await client.query("UPDATE cases SET stage = $1, updated_at = NOW() WHERE id = $2", [params.toStage, c.id]);
+          await client.query("UPDATE cases SET stage = $1 WHERE id = $2", [params.toStage, c.id]);
           await client.query(
             "INSERT INTO case_activity (case_id, user_id, user_name, user_role, action, detail) VALUES ($1, $2, $3, $4, $5, $6)",
             [c.id, userId, userName, userRole, "Field Updated", `Stage: ${params.fromStage} → ${params.toStage} (batch update)`]
@@ -209,7 +209,7 @@ router.post("/", requireAuth, requireBatchRole, async (req, res) => {
       case "update-court-date": {
         detail = `Next court date updated to ${params.newDate}`;
         for (const c of cases) {
-          await client.query("UPDATE cases SET next_court_date = $1, updated_at = NOW() WHERE id = $2", [params.newDate, c.id]);
+          await client.query("UPDATE cases SET next_court_date = $1 WHERE id = $2", [params.newDate, c.id]);
           await client.query(
             "INSERT INTO case_activity (case_id, user_id, user_name, user_role, action, detail) VALUES ($1, $2, $3, $4, $5, $6)",
             [c.id, userId, userName, userRole, "Court date updated", `Next court date set to ${params.newDate} (batch update)`]
@@ -221,7 +221,7 @@ router.post("/", requireAuth, requireBatchRole, async (req, res) => {
         if (!VALID_DIVISIONS.includes(params.newDivision)) throw new Error("Invalid division");
         detail = `Court division changed to ${params.newDivision}`;
         for (const c of cases) {
-          await client.query("UPDATE cases SET court_division = $1, updated_at = NOW() WHERE id = $2", [params.newDivision, c.id]);
+          await client.query("UPDATE cases SET court_division = $1 WHERE id = $2", [params.newDivision, c.id]);
           await client.query(
             "INSERT INTO case_activity (case_id, user_id, user_name, user_role, action, detail) VALUES ($1, $2, $3, $4, $5, $6)",
             [c.id, userId, userName, userRole, "Field Updated", `Division: ${c.court_division || "None"} → ${params.newDivision} (batch update)`]
