@@ -14,6 +14,74 @@ const { USERS, CASES } = sandbox;
 
 const orNull = (val) => (val && String(val).trim() && String(val) !== "0") ? val : null;
 
+const BYTEA_COLUMNS = {
+  case_documents: ["file_data"],
+  case_filings: ["file_data"],
+  doc_templates: ["file_data"],
+};
+
+async function importTableData(client, tableName, rows) {
+  if (!rows || rows.length === 0) return;
+  const byteaCols = BYTEA_COLUMNS[tableName] || [];
+
+  const sampleRow = { ...rows[0] };
+  const cols = Object.keys(sampleRow).filter(
+    (k) => !k.startsWith("__base64__")
+  );
+
+  const idCol = cols.includes("id") ? "id" : null;
+
+  let inserted = 0;
+  for (const row of rows) {
+    const values = cols.map((col) => {
+      let val = row[col];
+      if (row[`__base64__${col}`] && typeof val === "string") {
+        val = Buffer.from(val, "base64");
+      } else if (val !== null && typeof val === "object" && !Buffer.isBuffer(val) && !(val instanceof Date)) {
+        if (Array.isArray(val) && (val.length === 0 || typeof val[0] !== "object")) {
+          // primitive array → pass as-is for PostgreSQL array columns (TEXT[], etc.)
+        } else {
+          val = JSON.stringify(val);
+        }
+      }
+      return val;
+    });
+
+    const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
+    const colList = cols.map((c) => `"${c}"`).join(", ");
+
+    try {
+      if (idCol) {
+        await client.query(
+          `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders}) ON CONFLICT (id) DO NOTHING`,
+          values
+        );
+      } else {
+        await client.query(
+          `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders})`,
+          values
+        );
+      }
+      inserted++;
+    } catch (err) {
+      if (err.code === "23505") continue;
+      throw err;
+    }
+  }
+
+  if (idCol) {
+    const ids = rows.map((r) => r.id).filter((id) => typeof id === "number");
+    if (ids.length > 0) {
+      const maxId = Math.max(...ids);
+      const seqName = `${tableName}_id_seq`;
+      try {
+        await client.query(`SELECT setval('${seqName}', GREATEST($1, (SELECT COALESCE(max(id),0) FROM ${tableName})), true)`, [maxId]);
+      } catch (_) {}
+    }
+  }
+  console.log(`  ${tableName}: ${inserted} rows imported`);
+}
+
 async function seed() {
   const client = await pool.connect();
   try {
@@ -131,6 +199,25 @@ async function seed() {
       }
     }
     console.log(`${CONTACTS.length} contacts seeded.`);
+
+    const seedDataPath = path.join(__dirname, "seed-data.json");
+    if (fs.existsSync(seedDataPath)) {
+      console.log("Importing additional table data from seed-data.json...");
+      const seedData = JSON.parse(fs.readFileSync(seedDataPath, "utf8"));
+      const importOrder = [
+        "tasks", "deadlines", "case_notes", "case_activity",
+        "case_links", "case_correspondence",
+        "case_parties", "case_experts", "case_misc_contacts", "case_insurance",
+        "contact_notes", "contact_staff", "time_entries",
+        "case_documents", "case_filings", "doc_templates", "ai_training",
+      ];
+      for (const tableName of importOrder) {
+        if (seedData[tableName]) {
+          await importTableData(client, tableName, seedData[tableName]);
+        }
+      }
+      console.log("Additional data import complete.");
+    }
 
     await client.query("COMMIT");
     console.log("Seed complete.");
