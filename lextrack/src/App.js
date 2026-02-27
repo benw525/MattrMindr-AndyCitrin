@@ -1937,7 +1937,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   const reset = () => { setLayout([...DEFAULT_LAYOUT]); saveDashboardLayout(userId, DEFAULT_LAYOUT); };
   const sizeLabel = (s) => s === "quarter" ? "\u00BC" : s === "half" ? "\u00BD" : "Full";
   const sizeColor = (s) => s === "quarter" ? "#4F7393" : s === "half" ? "#2F7A5F" : "#B67A18";
-  const handleDragStart = (e, i) => { setDragIdx(i); e.dataTransfer.effectAllowed = "move"; };
+  const handleDragStart = (e, i) => { setDragIdx(i); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); };
   const handleDragOver = (e, i) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverIdx(i); };
   const handleDrop = (e, dropI) => {
     e.preventDefault();
@@ -1958,6 +1958,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
         <div className="login-sub" style={{ marginBottom: 20 }}>Drag to reorder, add or remove widgets</div>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--c-text2)", marginBottom: 8 }}>Your Dashboard</div>
         {layout.length === 0 && <div style={{ fontSize: 13, color: "#8A9096", padding: "8px 0" }}>No widgets added yet</div>}
+        <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); if (dragIdx !== null) { setDragIdx(null); setOverIdx(null); } }}>
         {layout.map((id, i) => {
           const w = DASHBOARD_WIDGETS.find(x => x.id === id);
           if (!w) return null;
@@ -1966,21 +1967,24 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
           return (
             <div
               key={id}
-              draggable
+              draggable="true"
               onDragStart={e => handleDragStart(e, i)}
               onDragOver={e => handleDragOver(e, i)}
               onDrop={e => handleDrop(e, i)}
               onDragEnd={handleDragEnd}
               style={{
-                display: "flex", alignItems: "center", gap: 8, padding: "8px 0",
+                display: "flex", alignItems: "center", gap: 8, padding: "8px 4px",
                 borderBottom: "1px solid var(--c-border)",
                 opacity: isDragging ? 0.4 : 1,
-                borderTop: isOver ? "2px solid var(--c-gold, #b8860b)" : "2px solid transparent",
-                transition: "border-top 0.15s ease",
-                cursor: "grab"
+                borderTop: isOver ? "2px solid #b8860b" : "2px solid transparent",
+                background: isDragging ? "var(--c-hover, #f5f5f5)" : "transparent",
+                borderRadius: 4,
+                transition: "border-top 0.15s ease, opacity 0.15s ease",
+                cursor: "grab",
+                userSelect: "none"
               }}
             >
-              <span style={{ fontSize: 14, color: "var(--c-text2)", cursor: "grab", userSelect: "none", width: 18, textAlign: "center" }} title="Drag to reorder">:::</span>
+              <span style={{ fontSize: 16, color: "var(--c-text2)", cursor: "grab", userSelect: "none", width: 20, textAlign: "center", letterSpacing: 1 }} title="Drag to reorder">⠿</span>
               <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon}</span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
               <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
@@ -1988,6 +1992,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
             </div>
           );
         })}
+        </div>
         {available.length > 0 && (
           <>
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--c-text2)", marginTop: 20, marginBottom: 8 }}>Available Widgets</div>
@@ -2893,8 +2898,9 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
     const fields = ["assignedAttorney", "secondAttorney", "trialCoordinator", "investigator", "socialWorker"];
     const assignedIds = new Set();
     allCases.forEach(c => fields.forEach(f => { if (c[f] > 0) assignedIds.add(c[f]); }));
+    assignedIds.add(currentUser.id);
     return USERS.filter(u => assignedIds.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allCases]);
+  }, [allCases, currentUser.id]);
   const selectedStaffName = useMemo(() => {
     if (attyFilter === "All") return "";
     const u = USERS.find(u => u.id === Number(attyFilter));
@@ -2934,11 +2940,11 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           <div ref={staffSearchRef} style={{ position: "relative", width: 200 }}>
             <input
               style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
-              placeholder="All Staff"
-              value={staffDropdownOpen ? staffSearch : (attyFilter === "All" ? "" : selectedStaffName)}
+              placeholder="Search staff..."
+              value={staffDropdownOpen ? staffSearch : selectedStaffName}
               onChange={e => { setStaffSearch(e.target.value); setStaffDropdownOpen(true); }}
               onFocus={() => { setStaffSearch(""); setStaffDropdownOpen(true); }}
-              onBlur={() => setTimeout(() => setStaffDropdownOpen(false), 150)}
+              onBlur={() => setTimeout(() => setStaffDropdownOpen(false), 200)}
             />
             {attyFilter !== "All" && (
               <button
