@@ -46,4 +46,4 @@ externalPort = 3002
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "NODE_ENV=production node server/index.js"]
-build = ["bash", "-c", "node server/schema.js && npm install --prefix lextrack && npm run build --prefix lextrack"]
+build = ["bash", "-c", "node server/schema.js && cd lextrack && npm install && CI=false npm run build"]
