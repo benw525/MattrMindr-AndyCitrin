@@ -549,46 +549,84 @@ body.dark-body { background: #0E1116; }
 .sidebar-backdrop { display: none; }
 .hide-mobile { }
 @media (max-width: 768px) {
-  .hamburger-btn { display: flex; align-items: center; justify-content: center; }
+  .hamburger-btn { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
   .sidebar { position: fixed; z-index: 700; top: 0; bottom: 0; left: 0; transform: translateX(-100%); transition: transform 0.25s ease; }
   .sidebar.open { transform: translateX(0); }
   .sidebar-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 699; }
+  .nav-item { padding: 12px 20px; min-height: 44px; }
   .content { padding: 14px 12px; }
   .topbar { padding: 10px 12px; }
   .topbar-title { font-size: 17px; }
   .topbar-actions { width: 100%; }
-  .topbar-actions select, .topbar-actions input { width: 100% !important; min-width: 0 !important; }
+  .topbar-actions select, .topbar-actions input { width: 100% !important; min-width: 0 !important; font-size: 16px !important; min-height: 44px; }
   .grid4 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .grid2, .form-row { grid-template-columns: 1fr; }
   .stat-value { font-size: 24px; }
   .stat-card { padding: 14px 16px; }
-  .btn { min-height: 40px; padding: 8px 14px; }
-  .btn-sm { min-height: 36px; padding: 6px 10px; }
-  .modal { width: calc(100vw - 24px) !important; max-width: 620px; padding: 18px; border-radius: 8px; }
+  .btn { min-height: 44px; padding: 10px 16px; font-size: 14px; }
+  .btn-sm { min-height: 38px; padding: 8px 12px; font-size: 13px; }
+  input:not([type=radio]):not([type=checkbox]), select, textarea { font-size: 16px !important; min-height: 44px; padding: 10px 12px; }
+  .checkbox { width: 22px; height: 22px; }
+  .modal { width: calc(100vw - 16px) !important; max-width: 620px; padding: 18px; border-radius: 8px; }
   .detail-panel { width: 100% !important; }
   .login-box { width: calc(100vw - 24px) !important; max-width: 400px; padding: 28px 20px; }
   .print-doc { width: 100% !important; padding: 24px 16px; }
   .case-overlay { left: 0 !important; }
-  .case-overlay-header { padding: 14px 12px; flex-wrap: wrap; }
-  .case-overlay-tabs { padding: 0 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .case-overlay-tab { padding: 10px 14px; white-space: nowrap; font-size: 12px; }
+  .case-overlay-header { padding: 14px 12px; flex-wrap: wrap; gap: 10px; }
+  .case-overlay-tabs { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; position: relative; }
+  .case-overlay-tabs::-webkit-scrollbar { display: none; }
+  .case-overlay-tab { padding: 10px 14px; white-space: nowrap; font-size: 12px; min-height: 44px; display: flex; align-items: center; }
   .case-overlay-body { padding: 16px 12px; }
   .overlay-cols { grid-template-columns: 1fr; gap: 0; }
   .edit-field-key { min-width: 110px; font-size: 11px; }
+  .edit-field-actions { opacity: 1; }
+  .table-wrap { overflow-x: visible; }
+  table.mobile-cards { display: block; width: 100%; }
+  table.mobile-cards thead { display: none; }
+  table.mobile-cards tbody { display: flex; flex-direction: column; gap: 8px; }
+  table.mobile-cards tr { display: flex; flex-direction: column; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 8px; padding: 12px 14px; gap: 6px; cursor: pointer; }
+  table.mobile-cards tr:hover td { background: transparent; }
+  table.mobile-cards td { display: flex; align-items: center; gap: 8px; padding: 2px 0 !important; border-bottom: none !important; font-size: 13px; }
+  table.mobile-cards td::before { content: attr(data-label); font-size: 11px; color: var(--c-text3); text-transform: uppercase; letter-spacing: 0.06em; min-width: 90px; flex-shrink: 0; font-weight: 600; }
+  table.mobile-cards td[data-label=""]::before, table.mobile-cards td:not([data-label])::before { display: none; }
+  table.mobile-cards td.mobile-hide { display: none; }
+  table.mobile-cards .selected-row { border-color: var(--c-accent); border-width: 2px; }
+  table.mobile-cards .selected-row td:first-child { border-left: none; }
   th { padding: 8px 8px; font-size: 10px; }
   td { padding: 8px 8px; font-size: 12px; }
   .hide-mobile { display: none !important; }
-  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
-  .tab { white-space: nowrap; padding: 8px 12px; font-size: 12px; }
+  .show-mobile { display: flex !important; }
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; padding: 10px 14px; font-size: 13px; min-height: 44px; display: flex; align-items: center; }
   .pagination { font-size: 12px; flex-wrap: wrap; gap: 6px; }
+  .page-btn { min-height: 38px; min-width: 38px; display: flex; align-items: center; justify-content: center; }
   .modal-title { font-size: 18px; }
-  .card-header { padding: 12px 14px; }
+  .card-header { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
   .card-title { font-size: 14px; }
-  .deadline-item { padding: 10px 12px; }
-  .note-item { padding: 8px 10px; }
+  .deadline-item { padding: 12px; }
+  .note-item { padding: 10px 12px; }
   .print-overlay { padding: 10px 8px; }
   .modal-footer { gap: 8px; flex-wrap: wrap; }
+  .modal-footer .btn { flex: 1; min-width: 100px; text-align: center; justify-content: center; }
   .report-card { padding: 14px 16px; }
+  .info-row { flex-direction: column; gap: 2px; }
+  .info-val { text-align: left; }
+  .mobile-grid-1 { grid-template-columns: 1fr !important; display: grid !important; }
+  .mobile-full { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+  .activity-entry { gap: 10px; }
+  .activity-avatar-col { width: 28px; }
+  .toggle { width: 44px; height: 24px; }
+  .toggle-knob { width: 20px; height: 20px; }
+  .dark-mode-btn { min-height: 44px; }
+  .case-overlay-body [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  .modal [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  .case-overlay-header > div:first-child { min-width: 0; flex: 1; }
+  .case-overlay-header select { max-width: 100%; font-size: 14px !important; }
+  .topbar-actions .btn { flex: 1; min-width: 0; text-align: center; justify-content: center; }
+  .field-input { width: 100% !important; }
+  .case-overlay-panel { width: 100% !important; max-width: 100vw !important; }
+  .report-card { min-width: 0 !important; }
 }
 @media (max-width: 480px) {
   .grid4 { grid-template-columns: 1fr; }
@@ -599,10 +637,14 @@ body.dark-body { background: #0E1116; }
   .case-overlay-body { padding: 12px 10px; }
   .edit-field { flex-wrap: wrap; gap: 4px; }
   .edit-field-key { min-width: 100%; font-size: 11px; }
-  .btn { font-size: 12px; }
+  .btn { font-size: 13px; }
+  .btn-sm { font-size: 12px; }
   .modal { padding: 14px; }
   .modal-title { font-size: 16px; }
   .content { padding: 10px 8px; }
+  table.mobile-cards td::before { min-width: 80px; font-size: 10px; }
+  table.mobile-cards tr { padding: 10px 12px; }
+  .topbar-actions { gap: 6px; }
 }
 @keyframes pulse-mic {
   0%, 100% { opacity: 1; }
@@ -2624,7 +2666,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
             </div>
             {pinnedExpanded && (
               <div className="table-wrap">
-                <table>
+                <table className="mobile-cards">
                   <thead>
                     <tr>
                       <th style={{ width: 32 }}></th>
@@ -2641,25 +2683,25 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <tbody>
                     {pinnedCases.map(c => (
                       <tr key={c.id} className={`clickable-row ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
-                        <td style={{ textAlign: "center", padding: "6px 4px" }}>
+                        <td className="mobile-hide" style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title="Unpin" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B67A18", padding: 0, lineHeight: 1 }}>📌</button>
                         </td>
-                        <td style={{ whiteSpace: "nowrap" }}>
+                        <td data-label="Case #" style={{ whiteSpace: "nowrap" }}>
                           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum || "—"}</div>
                         </td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <td data-label="Style">
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                             <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
                             {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
                           </div>
-                          {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1, whiteSpace: "nowrap" }}>{c.prosecutor}</div>}
+                          {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1 }}>{c.prosecutor}</div>}
                         </td>
-                        <td className="hide-mobile" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
-                        <td className="hide-mobile" style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
-                        <td><Badge label={c.stage} /></td>
-                        <td style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#8A9096", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
-                        <td className="hide-mobile" style={{ fontSize: 12, color: "#8A9096", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
-                        <td className="hide-mobile"><Avatar userId={c.assignedAttorney} size={26} /></td>
+                        <td className="hide-mobile" data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
+                        <td className="hide-mobile" data-label="Defendant" style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
+                        <td data-label="Stage"><Badge label={c.stage} /></td>
+                        <td data-label="Trial" style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#8A9096", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
+                        <td className="hide-mobile" data-label="Arrest" style={{ fontSize: 12, color: "#8A9096", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
+                        <td className="hide-mobile" data-label="Lead"><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -2679,7 +2721,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                 <div className="empty">Loading deleted records…</div>
               ) : (
                 <>
-                  <table>
+                  <table className="mobile-cards">
                     <thead>
                       <tr>
                         <th>Case Number</th>
@@ -2697,12 +2739,12 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         const daysLeft = Math.ceil((expiresDate - new Date()) / (1000 * 60 * 60 * 24));
                         return (
                           <tr key={c.id}>
-                            <td style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
-                            <td><div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>{c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}</div>{c.defendantName && <div style={{ fontSize: 11, color: "#8A9096" }}>Def: {c.defendantName}</div>}</td>
-                            <td style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
-                            <td style={{ fontSize: 12, color: "#e05252" }}>{deletedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                            <td style={{ fontSize: 12, color: daysLeft <= 7 ? "#e05252" : "#8A9096" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</td>
-                            <td><button className="btn btn-outline btn-sm" onClick={() => handleRestoreDeleted(c.id)}>Restore</button></td>
+                            <td data-label="Case #" style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
+                            <td data-label="Style"><div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>{c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}</div>{c.defendantName && <div style={{ fontSize: 11, color: "#8A9096" }}>Def: {c.defendantName}</div>}</td>
+                            <td data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
+                            <td data-label="Deleted" style={{ fontSize: 12, color: "#e05252" }}>{deletedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                            <td data-label="Expires" style={{ fontSize: 12, color: daysLeft <= 7 ? "#e05252" : "#8A9096" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</td>
+                            <td data-label=""><button className="btn btn-outline btn-sm" onClick={() => handleRestoreDeleted(c.id)}>Restore</button></td>
                           </tr>
                         );
                       })}
@@ -2715,7 +2757,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           ) : (
             <>
               <div className="table-wrap">
-                <table>
+                <table className="mobile-cards">
                   <thead>
                     <tr>
                       <th style={{ width: 32 }}></th>
@@ -2732,25 +2774,25 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <tbody>
                     {paged.map(c => (
                       <tr key={c.id} className={`clickable-row ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
-                        <td style={{ textAlign: "center", padding: "6px 4px" }}>
+                        <td className="mobile-hide" style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title={pinnedIds.includes(c.id) ? "Unpin" : "Pin"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: pinnedIds.includes(c.id) ? "#B67A18" : "#D6D8DB", padding: 0, lineHeight: 1, opacity: pinnedIds.includes(c.id) ? 1 : 0.5, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => { if (!pinnedIds.includes(c.id)) e.currentTarget.style.opacity = "0.5"; }}>📌</button>
                         </td>
-                        <td style={{ whiteSpace: "nowrap" }}>
+                        <td data-label="Case #" style={{ whiteSpace: "nowrap" }}>
                           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#1E2A3A" }}>{c.caseNum || "—"}</div>
                         </td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <td data-label="Style">
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                             <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
                             {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
                           </div>
-                          {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1, whiteSpace: "nowrap" }}>{c.prosecutor}</div>}
+                          {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1 }}>{c.prosecutor}</div>}
                         </td>
-                        <td className="hide-mobile" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
-                        <td className="hide-mobile" style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
-                        <td><Badge label={c.stage} /></td>
-                        <td style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#8A9096", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
-                        <td className="hide-mobile" style={{ fontSize: 12, color: "#8A9096", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
-                        <td className="hide-mobile"><Avatar userId={c.assignedAttorney} size={26} /></td>
+                        <td className="hide-mobile" data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
+                        <td className="hide-mobile" data-label="Defendant" style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
+                        <td data-label="Stage"><Badge label={c.stage} /></td>
+                        <td data-label="Trial" style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#8A9096", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
+                        <td className="hide-mobile" data-label="Arrest" style={{ fontSize: 12, color: "#8A9096", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
+                        <td className="hide-mobile" data-label="Lead"><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -3534,7 +3576,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       )}
       {showTeamPopup && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowTeamPopup(false)}>
-          <div style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 380, maxWidth: 500, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+          <div className="mobile-full" style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 380, maxWidth: 500, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.3)", margin: "0 8px" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
               <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Team</div>
               <button onClick={() => setShowTeamPopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096", lineHeight: 1, padding: "2px 4px" }}>✕</button>
@@ -3785,7 +3827,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             )}
 
             {/* Two-column: Details + Key Dates */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
+            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
 
               <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
                 <div className="case-overlay-section-title">Case Details</div>
@@ -3919,7 +3961,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
             {/* Three-column: Deadlines | Tasks | Notes */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 32px" }}>
+            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 32px" }}>
               <div className="case-overlay-section">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
@@ -4155,7 +4197,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className="case-overlay-body">
 
             {/* Two-column: Charges + Case Info */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
+            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
 
               {/* Left column: Charges */}
               <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
@@ -4258,7 +4300,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
+            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
 
               {/* Experts */}
               <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
@@ -6115,7 +6157,7 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
   };
 
   return (
-    <div style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
+    <div className="mobile-grid-1" style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
       {/* Calendar */}
       <div className="card" style={{ flex: 1, minWidth: 0 }}>
         {/* Month nav */}
@@ -6173,7 +6215,7 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
       </div>
 
       {/* Day detail panel */}
-      <div className="card" style={{ width: 300, flexShrink: 0 }}>
+      <div className="card mobile-full" style={{ width: 300, flexShrink: 0 }}>
         <div className="card-header">
           <div className="card-title">{selected ? fmt(selected) : "Select a date"}</div>
           {selected && <span style={{ fontSize: 12, color: "#8A9096" }}>{selectedEvents.length} event{selectedEvents.length !== 1 ? "s" : ""}</span>}
@@ -6400,7 +6442,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
               <input placeholder="Search deadlines or cases…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <div className="table-wrap">
-              <table>
+              <table className="mobile-cards">
                 <thead>
                   <tr>
                     <th style={{ width: 14 }}></th>
@@ -6417,13 +6459,13 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
                     const cs = allCases.find(c => c.id === d.caseId);
                     return (
                       <tr key={d.id}>
-                        <td><div style={{ width: 10, height: 10, borderRadius: "50%", background: col }} /></td>
-                        <td><div style={{ color: "var(--c-text)", fontWeight: 600 }}>{d.title}</div>{d.rule && <div style={{ fontSize: 11, color: "#1E2A3A", fontFamily: "monospace" }}>{d.rule}</div>}</td>
-                        <td style={{ fontSize: 12, color: "var(--c-text2)" }}>{cs?.title?.slice(0, 40) || `#${d.caseId}`}<div style={{ fontSize: 10, color: "#8A9096" }}>{cs?.caseNum}</div></td>
-                        <td><Badge label={d.type} /></td>
-                        <td style={{ color: col, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(d.date)}</td>
-                        <td style={{ color: col, fontWeight: 700 }}>{days < 0 ? <span style={{ color: "#e05252" }}>{Math.abs(days)}d over</span> : days === 0 ? "Today" : `${days}d`}</td>
-                        <td><Avatar userId={d.assigned} size={26} /></td>
+                        <td className="mobile-hide"><div style={{ width: 10, height: 10, borderRadius: "50%", background: col }} /></td>
+                        <td data-label="Deadline"><div style={{ color: "var(--c-text)", fontWeight: 600 }}>{d.title}</div>{d.rule && <div style={{ fontSize: 11, color: "#1E2A3A", fontFamily: "monospace" }}>{d.rule}</div>}</td>
+                        <td data-label="Case" style={{ fontSize: 12, color: "var(--c-text2)" }}>{cs?.title?.slice(0, 40) || `#${d.caseId}`}<div style={{ fontSize: 10, color: "#8A9096" }}>{cs?.caseNum}</div></td>
+                        <td data-label="Type"><Badge label={d.type} /></td>
+                        <td data-label="Due" style={{ color: col, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(d.date)}</td>
+                        <td data-label="Days" style={{ color: col, fontWeight: 700 }}>{days < 0 ? <span style={{ color: "#e05252" }}>{Math.abs(days)}d over</span> : days === 0 ? "Today" : `${days}d`}</td>
+                        <td data-label="Assigned"><Avatar userId={d.assigned} size={26} /></td>
                       </tr>
                     );
                   })}
@@ -6717,7 +6759,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 
         <div className="card">
           <div className="table-wrap">
-            <table>
+            <table className="mobile-cards">
               <thead>
                 <tr>
                   <th style={{ width: 40 }}></th>
@@ -6741,28 +6783,28 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                   return (
                     <Fragment key={t.id}>
                       <tr style={{ opacity: done ? 0.5 : 1 }}>
-                        <td><div className={`checkbox ${done ? "done" : ""}`} onClick={() => onCompleteTask(t.id)}>{done && "✓"}</div></td>
-                        <td>
+                        <td data-label=""><div className={`checkbox ${done ? "done" : ""}`} onClick={() => onCompleteTask(t.id)}>{done && "✓"}</div></td>
+                        <td data-label="Task">
                           <div style={{ color: "var(--c-text)", fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>
                             {t.title}{t.recurring && <span className="rec-badge">🔁 {t.recurringDays}d</span>}{t.isChained && <span className="chain-badge">⛓ auto</span>}
                           </div>
                           {t.notes && <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>{t.notes}</div>}
                         </td>
-                        <td style={{ fontSize: 12, color: "var(--c-text2)", maxWidth: 200 }}>{cs?.title?.slice(0, 40) || `#${t.caseId}`}<div style={{ fontSize: 10, color: "#8A9096" }}>{cs?.caseNum}</div></td>
-                        <td><div style={{ display: "flex", alignItems: "center", gap: 6 }}><Avatar userId={t.assigned} size={24} /><span style={{ fontSize: 12, color: "var(--c-text2)" }}>{getUserById(t.assigned)?.name.split(" ")[0]}</span></div></td>
-                        <td style={{ color: urgencyColor(days), fontSize: 13, whiteSpace: "nowrap" }}>{fmt(t.due)}{days < 0 && !done && <div style={{ fontSize: 11, color: "#e05252" }}>{Math.abs(days)}d over</div>}</td>
-                        <td>
+                        <td data-label="Case" style={{ fontSize: 12, color: "var(--c-text2)", maxWidth: 200 }}>{cs?.title?.slice(0, 40) || `#${t.caseId}`}<div style={{ fontSize: 10, color: "#8A9096" }}>{cs?.caseNum}</div></td>
+                        <td data-label="Assigned"><div style={{ display: "flex", alignItems: "center", gap: 6 }}><Avatar userId={t.assigned} size={24} /><span style={{ fontSize: 12, color: "var(--c-text2)" }}>{getUserById(t.assigned)?.name.split(" ")[0]}</span></div></td>
+                        <td data-label="Due" style={{ color: urgencyColor(days), fontSize: 13, whiteSpace: "nowrap" }}>{fmt(t.due)}{days < 0 && !done && <div style={{ fontSize: 11, color: "#e05252" }}>{Math.abs(days)}d over</div>}</td>
+                        <td data-label="Priority">
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                             <Badge label={ep} />
                             {t.autoEscalate && <span title={escalated ? `Escalated from ${t.priority}` : "Auto-escalate on"} style={{ fontSize: 11, cursor: "help" }}>🔺</span>}
                           </div>
                           {escalated && <div style={{ fontSize: 10, color: "#8A9096", marginTop: 2 }}>was {t.priority}</div>}
                         </td>
-                        <td><Badge label={done ? "Completed" : t.status} /></td>
-                        <td>
+                        <td data-label="Status"><Badge label={done ? "Completed" : t.status} /></td>
+                        <td data-label="">
                           <button
                             onClick={() => setExpandedTask(isExpanded ? null : t.id)}
-                            style={{ background: "none", border: "none", color: isExpanded ? "#1E2A3A" : "#8A9096", cursor: "pointer", fontSize: 13, padding: "2px 6px", borderRadius: 3 }}
+                            style={{ background: "none", border: "none", color: isExpanded ? "#1E2A3A" : "#8A9096", cursor: "pointer", fontSize: 13, padding: "2px 6px", borderRadius: 3, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
                             title="Edit due date, priority, assignee"
                           >✎</button>
                         </td>
@@ -7155,7 +7197,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
       </div>
       <div className="content">
         {/* Report picker grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(200px,100%), 1fr))", gap: 12, marginBottom: 24 }}>
           {REPORT_DEFS.map(r => (
             <div key={r.id} className={`report-card ${activeReport === r.id ? "active" : ""}`}
               onClick={() => { setActiveReport(r.id); setGenerated(null); setParams({}); }}>
@@ -7250,7 +7292,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
               <div className="empty">No records match this report's criteria.</div>
             ) : (
               <div className="table-wrap">
-                <table>
+                <table className="mobile-cards">
                   <thead>
                     <tr>{generated.columns.map((col, i) => <th key={i}>{col}</th>)}</tr>
                   </thead>
@@ -7269,7 +7311,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                           const color = isColored ? generated.colorFn(cell) : undefined;
                           const isStatus = generated.columns[ci] === "Status" || generated.columns[ci] === "Role" || generated.columns[ci] === "Stage" || generated.columns[ci] === "Priority" || generated.columns[ci] === "Type";
                           return (
-                            <td key={ci} style={{ color: color || undefined }}>
+                            <td key={ci} data-label={generated.columns[ci] || ""} style={{ color: color || undefined }}>
                               {isStatus && cell && cell !== "—" ? <Badge label={cell} /> : (
                                 <span style={{ fontWeight: ci === 1 ? 600 : 400, color: color || (ci === 1 ? "var(--c-text)" : undefined), fontFamily: ci === 0 ? "monospace" : undefined, fontSize: ci === 0 ? 11 : undefined }}>{cell || "—"}</span>
                               )}
@@ -7529,7 +7571,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
         </div>
 
         {aiCenterTab === "agents" && <>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px,100%), 1fr))", gap: 14, marginBottom: 24 }}>
           {agents.map(a => (
             <div key={a.id} onClick={() => selectAgent(a.id)} style={{
               background: activeAgent === a.id ? "linear-gradient(135deg, #f8f6f0, #f3f0e8)" : "var(--c-card)",
@@ -8130,7 +8172,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
             <div className="empty">No activity recorded for this date range.</div>
           ) : (
             <div className="table-wrap">
-              <table>
+              <table className="mobile-cards">
                 <thead>
                   <tr>
                     <th style={{ whiteSpace: "nowrap" }}>Date</th>
@@ -8143,12 +8185,12 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={`${r._source}-${r._id}-${i}`}>
-                      <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "var(--c-text2)" }}>{fmtDateTime(r.date)}</td>
-                      <td>
+                      <td data-label="Date" style={{ whiteSpace: "nowrap", fontSize: 12, color: "var(--c-text2)" }}>{fmtDateTime(r.date)}</td>
+                      <td data-label="Case">
                         <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 500 }}>{r.caseTitle}</div>
                         {r.caseType && <div style={{ fontSize: 10, color: "#8A9096" }}>{r.caseType}</div>}
                       </td>
-                      <td style={{ fontSize: 12, color: "#1F2428", maxWidth: 420 }}>
+                      <td data-label="Detail" style={{ fontSize: 12, color: "#1F2428", maxWidth: 420 }}>
                         {editingCell?.key === `${r._source}-${r._id}` && editingCell.field === "detail" ? (
                           <input ref={editRef} value={editValue} onChange={e => setEditValue(e.target.value)}
                             onBlur={saveEdit} onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingCell(null); }}
@@ -8160,7 +8202,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
                           >{r.detail || <span style={{ color: "#8A9096", fontStyle: "italic" }}>Click to add description</span>}</div>
                         )}
                       </td>
-                      <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                      <td data-label="Time" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
                         {editingCell?.key === `${r._source}-${r._id}` && editingCell.field === "time" ? (
                           <input ref={editRef} value={editValue} onChange={e => setEditValue(e.target.value)}
                             onBlur={saveEdit} onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingCell(null); }}
@@ -8172,10 +8214,10 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
                           >{r.time || "—"}</span>
                         )}
                       </td>
-                      <td>
+                      <td data-label="">
                         {r._source === "manual" && (
                           <button onClick={() => handleDeleteManual(r._id)}
-                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#8A9096", padding: 2 }}
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#8A9096", padding: 2, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
                             title="Delete entry">✕</button>
                         )}
                       </td>
@@ -8329,7 +8371,7 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div className="form-group">
             <label>Date</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} />
@@ -8414,7 +8456,7 @@ function NewContactModal({ onSave, onClose }) {
               <input className="field-input" value={form.county} onChange={e => set("county", e.target.value)} placeholder="County name" />
             </div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <label className="field-label">Phone</label>
               <input className="field-input" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 555-5555" />
@@ -8567,7 +8609,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
 
   return (
     <div className="case-overlay" onClick={onClose}>
-      <div className="case-overlay-panel" onClick={e => e.stopPropagation()} style={{ width: 640, maxWidth: "100vw" }}>
+      <div className="case-overlay-panel mobile-full" onClick={e => e.stopPropagation()} style={{ width: 640, maxWidth: "100vw" }}>
         <div className="case-overlay-header" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -8621,7 +8663,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                 <input className="field-input" value={draft.county || ""} onChange={e => set("county", e.target.value)} onBlur={handleBlur} placeholder="County name" />
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Phone</label>
                 <input className="field-input" value={draft.phone} onChange={e => set("phone", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
@@ -9156,7 +9198,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
 
         {/* Deleted contacts table */}
         {isDeleted && (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className="mobile-cards" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ fontSize: 11, color: "#8A9096", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--c-border)" }}>
                 <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600 }}>Category</th>
@@ -9176,13 +9218,13 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                 const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
                 return (
                   <tr key={c.id} style={{ borderBottom: "1px solid #ffffff" }}>
-                    <td style={{ padding: "10px 12px 10px 0" }}>
+                    <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
                       <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: catStyle.color }}>{c.category}</span>
                     </td>
-                    <td style={{ padding: "10px 12px 10px 0", color: "var(--c-text)" }}>{c.name}</td>
-                    <td style={{ padding: "10px 12px 10px 0", color: "#8A9096" }}>{c.deletedAt ? new Date(c.deletedAt).toLocaleDateString() : ""}</td>
-                    <td style={{ padding: "10px 12px 10px 0", color: days <= 7 ? "#e05252" : "var(--c-text2)", fontWeight: days <= 7 ? 700 : 400 }}>{days} days</td>
-                    <td style={{ padding: "10px 0", textAlign: "right" }}>
+                    <td data-label="Name" style={{ padding: "10px 12px 10px 0", color: "var(--c-text)" }}>{c.name}</td>
+                    <td data-label="Deleted" style={{ padding: "10px 12px 10px 0", color: "#8A9096" }}>{c.deletedAt ? new Date(c.deletedAt).toLocaleDateString() : ""}</td>
+                    <td data-label="Remaining" style={{ padding: "10px 12px 10px 0", color: days <= 7 ? "#e05252" : "var(--c-text2)", fontWeight: days <= 7 ? 700 : 400 }}>{days} days</td>
+                    <td data-label="" style={{ padding: "10px 0", textAlign: "right" }}>
                       <button onClick={() => handleRestoreContact(c.id)} style={{ background: "#dcfce7", border: "1px solid #bbf7d0", color: "#4CAE72", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Restore</button>
                     </td>
                   </tr>
@@ -9216,14 +9258,14 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                 <span style={{ color: "#8A9096", fontSize: 12 }}>{mergeSelected.size} selected</span>
               </div>
             )}
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table className="mobile-cards" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ fontSize: 11, color: "#8A9096", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   {mergeMode && <th style={{ width: 32, padding: "6px 8px 6px 0", position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}></th>}
                   <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Category</th>
                   <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Phone</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Email</th>
+                  <th className="hide-mobile" style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Phone</th>
+                  <th className="hide-mobile" style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Email</th>
                   <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Cases</th>
                 </tr>
               </thead>
@@ -9250,19 +9292,19 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                       onMouseLeave={e => { if (!isChecked) e.currentTarget.style.background = ""; }}
                     >
                       {mergeMode && (
-                        <td style={{ padding: "10px 8px 10px 0" }}>
-                          <input type="checkbox" checked={isChecked} onChange={() => toggleMergeSelect(c.id)} onClick={e => e.stopPropagation()} style={{ width: 15, height: 15, cursor: "pointer" }} />
+                        <td data-label="" style={{ padding: "10px 8px 10px 0" }}>
+                          <input type="checkbox" checked={isChecked} onChange={() => toggleMergeSelect(c.id)} onClick={e => e.stopPropagation()} style={{ width: 22, height: 22, cursor: "pointer" }} />
                         </td>
                       )}
-                      <td style={{ padding: "10px 12px 10px 0" }}>
+                      <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
                         <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: "#1F2428" }}>
                           {c.category}
                         </span>
                       </td>
-                      <td style={{ padding: "10px 12px 10px 0", color: "var(--c-text)", fontWeight: 500 }}>{c.name}</td>
-                      <td style={{ padding: "10px 12px 10px 0", color: "var(--c-text2)", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
-                      <td style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12 }}>{c.email || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
-                      <td style={{ padding: "10px 0", color: caseCount > 0 ? "#1E2A3A" : "var(--c-border)", fontWeight: caseCount > 0 ? 600 : 400 }}>
+                      <td data-label="Name" style={{ padding: "10px 12px 10px 0", color: "var(--c-text)", fontWeight: 500 }}>{c.name}</td>
+                      <td data-label="Phone" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "var(--c-text2)", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
+                      <td data-label="Email" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12, wordBreak: "break-all" }}>{c.email || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
+                      <td data-label="Cases" style={{ padding: "10px 0", color: caseCount > 0 ? "#1E2A3A" : "var(--c-border)", fontWeight: caseCount > 0 ? 600 : 400 }}>
                         {caseCount > 0 ? caseCount : "—"}
                       </td>
                     </tr>
@@ -10771,7 +10813,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
               {pinnedExpanded ? "▾" : "▸"} Pinned ({pinnedStaff.length})
             </button>
             {pinnedExpanded && (
-              <div ref={pinnedGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 16 }}>
+              <div ref={pinnedGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16 }}>
                 {pinnedStaff.map((u, idx) => {
                   const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.trialCoordinator === u.id || c.investigator === u.id || c.socialWorker === u.id);
                   const isExpanded = isRowExpanded("pinned", idx);
@@ -10818,7 +10860,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
             {allStaffExpanded ? "▾" : "▸"} All Staff ({filteredStaff.length})
           </button>
         </div>
-        {allStaffExpanded && <div ref={allGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 16 }}>
+        {allStaffExpanded && <div ref={allGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16 }}>
           {filteredStaff.map((u, idx) => {
             const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.trialCoordinator === u.id || c.investigator === u.id || c.socialWorker === u.id);
             const isConfirming = confirmDeleteId === u.id;
@@ -10904,7 +10946,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
               {showDeletedStaff ? "▾" : "▸"} Deactivated Staff ({deletedUsers.length})
             </button>
             {showDeletedStaff && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 16, marginTop: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16, marginTop: 16 }}>
                 {deletedUsers.map(u => (
                   <div key={u.id} className="card" style={{ padding: "20px 22px", opacity: 0.7, position: "relative" }}>
                     <div style={{ position: "absolute", top: 10, right: 12 }}>

@@ -125,13 +125,19 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - **Sidebar**: Collapsible on mobile — hidden by default with slide-in animation via `.sidebar.open` class. Hamburger button (☰) visible in every view's topbar via `.hamburger-btn` (hidden on desktop). Backdrop overlay closes sidebar on tap. All nav items auto-close sidebar on click
 - **Hamburger prop**: Each view component receives `onMenuToggle` prop for the hamburger button
 - **Grids**: `.grid4` → 2 columns at 768px, 1 column at 480px. `.grid2` and `.form-row` → 1 column at 768px
-- **Modals**: `.modal` class uses `width: calc(100vw - 24px) !important; max-width: 620px` at 768px. All inline-width modals have `maxWidth: "calc(100vw - 24px)"` fallback
-- **Case Overlay**: Full-width (`left: 0`) on mobile; header wraps, tabs scroll horizontally, body padding reduced
-- **Tables**: Lower-priority columns hidden via `.hide-mobile` class (Case Type, Defendant, Arrest Date, Lead). `SortTh` component accepts `className` prop for this. Table cell padding reduced
-- **Touch targets**: Buttons get `min-height: 40px` on mobile (36px for btn-sm)
+- **Modals**: `.modal` class uses `width: calc(100vw - 24px) !important; max-width: 620px` at 768px. All inline-width modals have `maxWidth: "calc(100vw - 24px)"` fallback. Modal inner grids auto-collapse via `[style*="grid-template-columns"]` selector
+- **Case Overlay**: Full-width (`left: 0`) on mobile; header wraps, tabs scroll horizontally (no visible scrollbar), body padding reduced. All inner grids auto-collapse to single column via CSS attribute selector. `.mobile-grid-1` class on major section grids (details+dates, deadlines/tasks/notes, charges+info, experts/parties). `.case-overlay-panel` forced full-width on mobile
+- **Tables → Card Layout**: `table.mobile-cards` class converts tables to stacked card layout at 768px — thead hidden, each td becomes a flex row with `::before` label from `data-label` attribute. Applied to: Cases table, pinned/deleted cases, Deadlines, Tasks, Reports, TimeLog, Contacts (active + deleted). `td[data-label=""]::before` hidden for action columns. `td.mobile-hide` hides low-priority columns
+- **Touch targets**: Buttons `min-height: 44px`, btn-sm `min-height: 38px`, inputs/selects `min-height: 44px` with `font-size: 16px` (prevents iOS zoom). Checkboxes 22x22px. Page buttons 38x38px. Nav items 44px min-height. Toggle switches enlarged
 - **Login box**: Responsive with max-width constraint
 - **Detail panel** (`.detail-panel`): Full-width on mobile
+- **Contact Detail Overlay**: `.case-overlay-panel` with `.mobile-full` — full viewport width on mobile
+- **Day Detail Panel**: `.mobile-full` class — full width on mobile, calendar layout wraps
+- **Team Popup**: `.mobile-full` class with margin — responds to narrow screens
+- **Staff Grid**: Uses `minmax(min(290px,100%),1fr)` to prevent overflow on small screens
+- **AI Center/Reports Grid**: Uses `minmax(min(260px/200px,100%),1fr)` for safe mobile rendering
 - **Edit fields**: Stack label/value vertically at 480px via `flex-wrap: wrap`
+- **Utility classes**: `.mobile-grid-1` (force single column), `.mobile-full` (force full width), `.hide-mobile` / `.show-mobile` (visibility toggles)
 
 ### Conflict Check
 - Automatic on new case creation: triggered when defendant name is entered
