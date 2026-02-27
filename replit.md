@@ -17,9 +17,10 @@ Login: email + password (existing users default: `1234`, new users get temp pass
 
 ## Deployment
 - **Target**: autoscale
-- **Build**: `cd server && node schema.js && node seed.js && cd .. && cd lextrack && npm install && npm run build`
-  - Schema + seed run on every deploy (idempotent: CREATE IF NOT EXISTS, ON CONFLICT DO UPDATE)
-  - Production has a **separate PostgreSQL database** from development — schema/seed must run during build
+- **Build**: `cd server && node schema.js && cd .. && cd lextrack && npm install && npm run build`
+  - Schema runs on every deploy (idempotent: CREATE IF NOT EXISTS) to ensure new tables are created
+  - Seed step removed — production database already has all data; seed.js is only for initial setup
+  - Production has a **separate PostgreSQL database** from development
 - **Run**: `NODE_ENV=production node server/index.js` (serves API + React build on port 5000)
 - In production: Express serves static React build, secure cookies enabled, trust proxy set
 - Health check (`/api/health`) verifies database connectivity
