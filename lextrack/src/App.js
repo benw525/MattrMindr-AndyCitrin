@@ -2814,7 +2814,7 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
   const ddText = darkMode ? "#E6EDF3" : "#1F2428";
   const ddHover = darkMode ? "#27313D" : "#F0F2F4";
   return (
-    <div ref={staffSearchRef} style={{ position: "relative", minWidth: 140, maxWidth: 240, flex: "0 1 200px" }}>
+    <div ref={staffSearchRef} style={{ position: "relative", width: 160 }}>
       <input
         ref={inputRef}
         style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
