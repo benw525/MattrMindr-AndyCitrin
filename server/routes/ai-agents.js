@@ -270,8 +270,8 @@ router.post("/case-triage", requireAuth, async (req, res) => {
     const isAdmin = req.session.role === "App Admin" || req.session.role === "Managing Attorney";
 
     const casesQ = isAdmin
-      ? "SELECT id, case_num, title, defendant_name, case_type, stage, status, court_division, charge_class, custody_status, death_penalty, trial_date, next_court_date, arrest_date, lead_attorney FROM cases WHERE status = 'Active' AND deleted_at IS NULL ORDER BY trial_date ASC NULLS LAST LIMIT 100"
-      : "SELECT id, case_num, title, defendant_name, case_type, stage, status, court_division, charge_class, custody_status, death_penalty, trial_date, next_court_date, arrest_date, lead_attorney FROM cases WHERE status = 'Active' AND deleted_at IS NULL AND (lead_attorney = $1 OR second_attorney = $1) ORDER BY trial_date ASC NULLS LAST LIMIT 100";
+      ? "SELECT id, case_num, title, defendant_name, case_type, stage, status, court_division, charge_class, custody_status, death_penalty, trial_date, next_court_date, arrest_date, arraignment_date, sentencing_date, lead_attorney, charges FROM cases WHERE status = 'Active' AND deleted_at IS NULL ORDER BY trial_date ASC NULLS LAST LIMIT 100"
+      : "SELECT id, case_num, title, defendant_name, case_type, stage, status, court_division, charge_class, custody_status, death_penalty, trial_date, next_court_date, arrest_date, arraignment_date, sentencing_date, lead_attorney, charges FROM cases WHERE status = 'Active' AND deleted_at IS NULL AND (lead_attorney = $1 OR second_attorney = $1) ORDER BY trial_date ASC NULLS LAST LIMIT 100";
 
     const [casesRes, tasksRes, deadlinesRes, usersRes] = await Promise.all([
       isAdmin ? pool.query(casesQ) : pool.query(casesQ, [userId]),
