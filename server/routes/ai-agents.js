@@ -500,6 +500,7 @@ router.post("/classify-filing", requireAuth, async (req, res) => {
 - "docType" (string — filing type, e.g., "Motion to Suppress", "Discovery Response", "Court Order", "Arraignment Order", "Bond Hearing Order", "Plea Agreement", "Sentencing Order", "Notice of Appearance", "Subpoena", "Warrant", "Indictment", "Information", "Docket Entry", "Other")
 - "filingDate" (string — date found in the filing in YYYY-MM-DD format, or null if not found)
 - "summary" (string — 2-3 sentence summary of the filing's content and significance for the defense)
+- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion to Suppress Hearing", "Status Conference", "Sentencing Hearing"). Extract ALL hearing dates, court dates, or scheduled appearances mentioned in the filing. Return empty array [] if none found.)
 
 Be precise about who filed the document. Look for signatures, captions, and headings to determine the filing party.`;
 
@@ -521,6 +522,30 @@ Be precise about who filed the document. Look for signatures, captions, and head
     if (updates.length > 0) {
       vals.push(filingId);
       await pool.query(`UPDATE case_filings SET ${updates.join(", ")} WHERE id = $${idx}`, vals);
+    }
+
+    if (Array.isArray(parsed.hearingDates) && parsed.hearingDates.length > 0) {
+      const createdDeadlines = [];
+      for (const hd of parsed.hearingDates) {
+        if (!hd.date || !hd.description) continue;
+        try {
+          const { rows: existing } = await pool.query(
+            `SELECT id FROM deadlines WHERE case_id = $1 AND date = $2 AND LOWER(title) = LOWER($3)`,
+            [filing.case_id, hd.date, hd.description]
+          );
+          if (existing.length === 0) {
+            const { rows: newDl } = await pool.query(
+              `INSERT INTO deadlines (case_id, title, date, type, rule, assigned) VALUES ($1, $2, $3, 'Hearing', '', NULL) RETURNING *`,
+              [filing.case_id, hd.description, hd.date]
+            );
+            createdDeadlines.push(newDl[0]);
+            console.log(`Auto-created hearing deadline: "${hd.description}" on ${hd.date} for case ${filing.case_id}`);
+          }
+        } catch (dlErr) {
+          console.error("Auto-create hearing deadline error:", dlErr.message);
+        }
+      }
+      parsed.createdDeadlines = createdDeadlines;
     }
 
     res.json({ classification: parsed });

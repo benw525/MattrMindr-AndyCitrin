@@ -15,7 +15,7 @@ router.get("/", requireAuth, async (req, res) => {
   try {
     const userId = req.session.userId;
     const result = await pool.query(
-      `SELECT t.*, u.first_name || ' ' || u.last_name AS created_by_name
+      `SELECT t.*, u.name AS created_by_name
        FROM ai_training t
        LEFT JOIN users u ON t.user_id = u.id
        WHERE (t.scope = 'office') OR (t.scope = 'personal' AND t.user_id = $1)

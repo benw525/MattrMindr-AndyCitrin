@@ -7331,7 +7331,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
     }
   }, [aiCenterTab, trainingLoaded]);
 
-  const loadTraining = () => apiGetTraining().then(setTrainingEntries).catch(() => {});
+  const loadTraining = () => apiGetTraining().then(setTrainingEntries).catch(err => console.error("Load training error:", err));
 
   const handleAddTraining = async () => {
     if (!addForm.title.trim()) return alert("Title is required");
@@ -7339,15 +7339,19 @@ function AiCenterView({ allCases, currentUser, onMenuToggle }) {
     if (addMode !== "text" && !addFile) return alert("Please select a file");
     setAddSaving(true);
     try {
+      let newEntry;
       if (addMode === "text") {
-        await apiCreateTraining(addForm);
+        newEntry = await apiCreateTraining(addForm);
       } else {
         const fd = new FormData();
         fd.append("file", addFile);
         fd.append("title", addForm.title);
         fd.append("category", addForm.category);
         fd.append("scope", addForm.scope);
-        await apiUploadTrainingDoc(fd);
+        newEntry = await apiUploadTrainingDoc(fd);
+      }
+      if (newEntry && newEntry.id) {
+        setTrainingEntries(prev => [{ ...newEntry, created_by_name: currentUser?.name || "" }, ...prev]);
       }
       setShowAddTraining(false);
       setAddForm({ title: "", content: "", category: "General", scope: "personal" });

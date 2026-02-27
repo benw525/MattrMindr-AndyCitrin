@@ -198,7 +198,43 @@ Be concise but thorough. Flag anything that requires immediate action by the def
 
     const summary = resp.choices[0].message.content;
     await pool.query("UPDATE case_filings SET summary = $1 WHERE id = $2", [summary, req.params.id]);
-    return res.json({ summary });
+
+    let createdDeadlines = [];
+    try {
+      const dateResp = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: `Extract any hearing dates, court dates, or scheduled appearances from this filing summary. Return ONLY valid JSON with a single field:\n- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion to Suppress Hearing", "Status Conference", "Sentencing Hearing"). Return empty array [] if none found.)` },
+          { role: "user", content: summary },
+        ],
+        temperature: 0.1,
+        max_tokens: 500,
+        store: false,
+        response_format: { type: "json_object" },
+      });
+      const parsed = JSON.parse(dateResp.choices[0].message.content);
+      if (Array.isArray(parsed.hearingDates) && parsed.hearingDates.length > 0) {
+        for (const hd of parsed.hearingDates) {
+          if (!hd.date || !hd.description) continue;
+          const { rows: existing } = await pool.query(
+            `SELECT id FROM deadlines WHERE case_id = $1 AND date = $2 AND LOWER(title) = LOWER($3)`,
+            [filing.case_id, hd.date, hd.description]
+          );
+          if (existing.length === 0) {
+            const { rows: newDl } = await pool.query(
+              `INSERT INTO deadlines (case_id, title, date, type, rule, assigned) VALUES ($1, $2, $3, 'Hearing', '', NULL) RETURNING *`,
+              [filing.case_id, hd.description, hd.date]
+            );
+            createdDeadlines.push(newDl[0]);
+            console.log(`Auto-created hearing deadline: "${hd.description}" on ${hd.date} for case ${filing.case_id}`);
+          }
+        }
+      }
+    } catch (hdErr) {
+      console.error("Hearing date extraction error:", hdErr.message);
+    }
+
+    return res.json({ summary, createdDeadlines });
   } catch (err) {
     console.error("Filing summarize error:", err);
     return res.status(500).json({ error: "AI summarization failed" });

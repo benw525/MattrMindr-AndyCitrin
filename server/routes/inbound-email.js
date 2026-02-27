@@ -146,7 +146,8 @@ router.post("/", upload.any(), async (req, res) => {
 - "filedBy" (one of: "State", "Defendant", "Co-Defendant", "Court", "Other")
 - "docType" (string — filing type)
 - "filingDate" (string — YYYY-MM-DD format, or null if not found)
-- "summary" (string — 2-3 sentence summary)`;
+- "summary" (string — 2-3 sentence summary)
+- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion to Suppress Hearing", "Status Conference", "Sentencing Hearing"). Extract ALL hearing dates, court dates, or scheduled appearances mentioned in the filing. Return empty array [] if none found.)`;
               const textSnippet = extractedText.substring(0, 12000);
               const resp = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
@@ -173,6 +174,27 @@ router.post("/", upload.any(), async (req, res) => {
                 await pool.query(`UPDATE case_filings SET ${sets.join(", ")} WHERE id = $${si}`, setVals);
               }
               console.log(`Filing auto-classified: ${classification.suggestedName || pdfAtt.filename} (${classification.filedBy || "unknown"})`);
+
+              if (Array.isArray(classification.hearingDates) && classification.hearingDates.length > 0) {
+                for (const hd of classification.hearingDates) {
+                  if (!hd.date || !hd.description) continue;
+                  try {
+                    const { rows: existing } = await pool.query(
+                      `SELECT id FROM deadlines WHERE case_id = $1 AND date = $2 AND LOWER(title) = LOWER($3)`,
+                      [caseId, hd.date, hd.description]
+                    );
+                    if (existing.length === 0) {
+                      await pool.query(
+                        `INSERT INTO deadlines (case_id, title, date, type, rule, assigned) VALUES ($1, $2, $3, 'Hearing', '', NULL)`,
+                        [caseId, hd.description, hd.date]
+                      );
+                      console.log(`Auto-created hearing deadline: "${hd.description}" on ${hd.date} for case ${caseId}`);
+                    }
+                  } catch (dlErr) {
+                    console.error("Auto-create hearing deadline error:", dlErr.message);
+                  }
+                }
+              }
             } catch (classifyErr) {
               console.error("Auto-classify filing error:", classifyErr.message);
             }
