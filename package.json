@@ -23,8 +23,5 @@
     "tesseract.js": "^7.0.0",
     "zod": "^4.3.6",
     "zod-validation-error": "^5.0.0"
-  },
-  "devDependencies": {
-    "xlsx": "^0.18.5"
   }
 }
