@@ -2978,6 +2978,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [advocateLoading, setAdvocateLoading] = useState(false);
   const [advocateInput, setAdvocateInput] = useState("");
   const [advocateStats, setAdvocateStats] = useState(null);
+  const [advocateTasksAdded, setAdvocateTasksAdded] = useState({});
   const advocateEndRef = useRef(null);
   useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading]);
   const [caseDocuments, setCaseDocuments] = useState([]);
@@ -3321,7 +3322,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     alert("Conversation saved as case note.");
                   }}>Save as Note</button>
                 )}
-                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096" }} onClick={() => { setShowAdvocate(false); setAdvocateMessages([]); setAdvocateInput(""); setAdvocateStats(null); setAdvocateLoading(false); }}>✕</button>
+                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096" }} onClick={() => { setShowAdvocate(false); setAdvocateMessages([]); setAdvocateInput(""); setAdvocateStats(null); setAdvocateLoading(false); setAdvocateTasksAdded({}); }}>✕</button>
               </div>
             </div>
             {advocateStats && (
@@ -3363,8 +3364,21 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                 </div>
               )}
-              {advocateMessages.map((msg, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+              {advocateMessages.map((msg, i) => {
+                let displayText = msg.content;
+                let parsedTasks = null;
+                if (msg.role === "assistant") {
+                  const taskMatch = msg.content.match(/<!--\s*TASKS_JSON\s*(\[[\s\S]*\])\s*-->/);
+                  if (taskMatch) {
+                    try { parsedTasks = JSON.parse(taskMatch[1]); if (!Array.isArray(parsedTasks)) parsedTasks = null; } catch (e) { parsedTasks = null; }
+                    displayText = msg.content.replace(/<!--\s*TASKS_JSON\s*\[[\s\S]*\]\s*-->/g, "").trim();
+                  }
+                }
+                const msgAdded = advocateTasksAdded[i] || {};
+                const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
+                return (
+                <div key={i}>
+                <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
                   <div style={{
                     maxWidth: "85%", padding: "10px 14px", borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
                     background: msg.role === "user" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "var(--c-card-alt, #1a2332)",
@@ -3375,13 +3389,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     {msg.role === "assistant" && (
                       <button style={{ position: "absolute", top: 4, right: 4, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#8A9096", opacity: 0.6, padding: "2px 4px" }}
                         title="Copy response"
-                        onClick={() => { navigator.clipboard.writeText(msg.content); }}>📋</button>
+                        onClick={() => { navigator.clipboard.writeText(displayText); }}>📋</button>
                     )}
                     {msg.role === "user" ? (
                       <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
                     ) : (
                       <div>
-                        {msg.content.split("\n").map((line, li) => {
+                        {displayText.split("\n").map((line, li) => {
                           if (line.startsWith("## ")) return <div key={li} style={{ fontWeight: 700, fontSize: 14, marginTop: 10, marginBottom: 4 }}>{line.replace(/^## /, "")}</div>;
                           if (line.startsWith("### ")) return <div key={li} style={{ fontWeight: 600, fontSize: 13, marginTop: 8, marginBottom: 2 }}>{line.replace(/^### /, "")}</div>;
                           if (line.startsWith("**") && line.endsWith("**")) return <div key={li} style={{ fontWeight: 700, marginTop: 6, marginBottom: 2 }}>{line.replace(/\*\*/g, "")}</div>;
@@ -3394,7 +3408,56 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     )}
                   </div>
                 </div>
-              ))}
+                {parsedTasks && parsedTasks.length > 0 && (
+                  <div style={{ maxWidth: "85%", marginTop: 6, padding: "10px 14px", borderRadius: 10, background: "var(--c-card)", border: "1px solid var(--c-border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text-h)" }}>⚡ Suggested Tasks</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {Object.keys(msgAdded).length < parsedTasks.length && (
+                          <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 10px", background: "#6366f1", color: "#fff", border: "none" }} onClick={async () => {
+                            for (let ti = 0; ti < parsedTasks.length; ti++) {
+                              if (msgAdded[ti]) continue;
+                              const t = parsedTasks[ti];
+                              const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                              try {
+                                await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                                setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
+                              } catch (err) { alert("Failed: " + err.message); break; }
+                            }
+                          }}>+ Add All</button>
+                        )}
+                      </div>
+                    </div>
+                    {parsedTasks.map((t, ti) => {
+                      const added = msgAdded[ti];
+                      return (
+                        <div key={ti} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", borderTop: ti > 0 ? "1px solid var(--c-border)" : "none", opacity: added ? 0.45 : 1 }}>
+                          <span style={{ fontSize: 12, marginTop: 1 }}>{added ? "✓" : "⚡"}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: (priorityColors[t.priority] || "#b8860b") + "18", color: priorityColors[t.priority] || "#b8860b" }}>{t.priority}</span>
+                              {t.assignedRole && <span style={{ fontSize: 10, color: "#8A9096" }}>{t.assignedRole}</span>}
+                              {t.dueInDays && <span style={{ fontSize: 10, color: "#8A9096" }}>Due in {t.dueInDays} days</span>}
+                            </div>
+                            {t.rationale && <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 3, lineHeight: 1.4 }}>{t.rationale}</div>}
+                          </div>
+                          {!added && (
+                            <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", flexShrink: 0 }} onClick={async () => {
+                              const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                              try {
+                                await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                                setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
+                              } catch (err) { alert("Failed: " + err.message); }
+                            }}>+ Add</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                </div>
+              )})}
               {advocateLoading && (
                 <div style={{ display: "flex", justifyContent: "flex-start" }}>
                   <div style={{ padding: "12px 18px", borderRadius: "14px 14px 14px 4px", background: "var(--c-card-alt, #1a2332)", border: "1px solid var(--c-border)", display: "flex", gap: 4, alignItems: "center" }}>

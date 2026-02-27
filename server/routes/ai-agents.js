@@ -689,6 +689,16 @@ ${emailsText}`;
     const trainingContext = await getTrainingContext(req.session.userId);
     const systemPrompt = `You are Advocate AI, a senior criminal defense advisor assisting a public defender at the Mobile County Public Defender's Office in Alabama. You have access to the complete case file below. Answer questions thoughtfully using specific details from the case. Be practical, strategic, and action-oriented. Reference specific evidence, documents, filings, and notes when relevant. Format responses with markdown for readability.${c.death_penalty ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Always consider capital defense strategies, mitigation investigation, Eighth Amendment issues, and the heightened standards required in capital proceedings." : ""}
 
+TASK SUGGESTIONS: When your response includes specific action items, tasks, or recommended next steps for the defense team, you MUST append a hidden structured JSON block at the very end of your response using this exact format:
+<!-- TASKS_JSON [{"title":"Task title","priority":"Medium","assignedRole":"Lead Attorney","rationale":"Why this task matters","dueInDays":14}] -->
+Rules for the TASKS_JSON block:
+- Only include it when you are genuinely suggesting actionable tasks/steps (not for general discussion or analysis without action items)
+- priority must be one of: "Low", "Medium", "High", "Urgent"
+- assignedRole must be one of: "Lead Attorney", "2nd Attorney", "Investigator", "Social Worker", "Paralegal", "Trial Coordinator"
+- dueInDays is the number of days from today the task should be due (use your judgment based on urgency)
+- Include 1-8 tasks per response as appropriate
+- The JSON block is metadata only — your natural language response should still describe the tasks/steps normally
+
 ${contextBlock}${trainingContext}`;
 
     const apiMessages = [
