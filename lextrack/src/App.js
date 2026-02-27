@@ -2770,6 +2770,77 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
 // ─── Cases View ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
 
+function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInput, setStaffInput, staffFocused, setStaffFocused, staffDisplayValue, staffSuggestions }) {
+  const [dropdownPos, setDropdownPos] = useState(null);
+  useEffect(() => {
+    if (staffFocused && staffSearchRef.current) {
+      const update = () => {
+        const rect = staffSearchRef.current.getBoundingClientRect();
+        setDropdownPos({ top: rect.bottom + 2, left: rect.left, width: Math.max(rect.width, 220) });
+      };
+      update();
+      window.addEventListener("resize", update);
+      window.addEventListener("scroll", update, true);
+      return () => { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+    } else {
+      setDropdownPos(null);
+    }
+  }, [staffFocused, staffSearchRef]);
+  const selectStaff = (id) => { setAttyFilter(id); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); };
+  return (
+    <div ref={staffSearchRef} style={{ position: "relative", width: 200 }}>
+      <input
+        style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
+        placeholder="Search staff..."
+        value={staffDisplayValue}
+        onChange={e => setStaffInput(e.target.value)}
+        onFocus={() => { setStaffInput(""); setStaffFocused(true); }}
+        onBlur={() => setTimeout(() => { setStaffFocused(false); setStaffInput(""); }, 250)}
+        autoComplete="off"
+      />
+      {attyFilter !== "All" && !staffFocused && (
+        <button
+          onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); }}
+          style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
+          title="Clear filter"
+        >✕</button>
+      )}
+      {staffFocused && dropdownPos && createPortal(
+        <div style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: 260, overflowY: "auto", background: "#fff", border: "1px solid #D6D8DB", borderRadius: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.25)", zIndex: 99999, fontSize: 13 }}>
+          <div
+            style={{ padding: "8px 12px", cursor: "pointer", color: "#8A9096", borderBottom: "1px solid #D6D8DB" }}
+            onMouseDown={e => { e.preventDefault(); selectStaff("All"); }}
+          >All Staff</div>
+          {staffSuggestions.length > 0 ? staffSuggestions.map(u => {
+            const isSelected = String(u.id) === attyFilter;
+            const q = staffInput.toLowerCase();
+            const name = u.name;
+            let nameEl;
+            if (q && name.toLowerCase().includes(q)) {
+              const idx = name.toLowerCase().indexOf(q);
+              nameEl = <>{name.slice(0, idx)}<strong>{name.slice(idx, idx + q.length)}</strong>{name.slice(idx + q.length)}</>;
+            } else {
+              nameEl = name;
+            }
+            return (
+              <div
+                key={u.id}
+                style={{ padding: "8px 12px", cursor: "pointer", color: "#1F2428", background: isSelected ? "#F0F2F4" : "transparent" }}
+                onMouseDown={e => { e.preventDefault(); selectStaff(String(u.id)); }}
+                onMouseEnter={e => e.currentTarget.style.background = "#F0F2F4"}
+                onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#F0F2F4" : "transparent"}
+              >{nameEl}</div>
+            );
+          }) : (
+            <div style={{ padding: "8px 12px", color: "#8A9096" }}>No matches</div>
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin }) {
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
@@ -2939,61 +3010,17 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
             <option value="All">All Stages</option>
             {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <div ref={staffSearchRef} style={{ position: "relative", width: 200 }}>
-            <input
-              style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
-              placeholder="Search staff..."
-              value={staffDisplayValue}
-              onChange={e => setStaffInput(e.target.value)}
-              onFocus={() => { setStaffInput(""); setStaffFocused(true); }}
-              onBlur={() => setTimeout(() => { setStaffFocused(false); setStaffInput(""); }, 200)}
-              autoComplete="off"
-            />
-            {attyFilter !== "All" && !staffFocused && (
-              <button
-                onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); }}
-                style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
-                title="Clear filter"
-              >✕</button>
-            )}
-            {staffFocused && staffSearchRef.current && createPortal(
-              (() => {
-                const rect = staffSearchRef.current.getBoundingClientRect();
-                return (
-                  <div style={{ position: "fixed", top: rect.bottom + 2, left: rect.left, width: Math.max(rect.width, 220), maxHeight: 260, overflowY: "auto", background: "#fff", border: "1px solid #D6D8DB", borderRadius: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.2)", zIndex: 99999, fontSize: 13 }}>
-                    <div
-                      style={{ padding: "8px 12px", cursor: "pointer", color: "#8A9096", borderBottom: "1px solid #D6D8DB" }}
-                      onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
-                    >All Staff</div>
-                    {staffSuggestions.length > 0 ? staffSuggestions.map(u => {
-                      const isSelected = String(u.id) === attyFilter;
-                      const q = staffInput.toLowerCase();
-                      const name = u.name;
-                      let nameEl;
-                      if (q && name.toLowerCase().includes(q)) {
-                        const idx = name.toLowerCase().indexOf(q);
-                        nameEl = <>{name.slice(0, idx)}<strong>{name.slice(idx, idx + q.length)}</strong>{name.slice(idx + q.length)}</>;
-                      } else {
-                        nameEl = name;
-                      }
-                      return (
-                        <div
-                          key={u.id}
-                          style={{ padding: "8px 12px", cursor: "pointer", color: "#1F2428", background: isSelected ? "#F0F2F4" : "transparent" }}
-                          onMouseDown={e => { e.preventDefault(); setAttyFilter(String(u.id)); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
-                          onMouseEnter={e => e.currentTarget.style.background = "#F0F2F4"}
-                          onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#F0F2F4" : "transparent"}
-                        >{nameEl}</div>
-                      );
-                    }) : (
-                      <div style={{ padding: "8px 12px", color: "#8A9096" }}>No matches</div>
-                    )}
-                  </div>
-                );
-              })(),
-              document.body
-            )}
-          </div>
+          <StaffSearchPicker
+            staffSearchRef={staffSearchRef}
+            attyFilter={attyFilter}
+            setAttyFilter={setAttyFilter}
+            staffInput={staffInput}
+            setStaffInput={setStaffInput}
+            staffFocused={staffFocused}
+            setStaffFocused={setStaffFocused}
+            staffDisplayValue={staffDisplayValue}
+            staffSuggestions={staffSuggestions}
+          />
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
           <button className="btn btn-outline btn-sm" style={{ color: "#b8860b", borderColor: "#d4c9a8", fontSize: 12 }} onClick={() => {
             setTriageShow(true); setTriageLoading(true);
