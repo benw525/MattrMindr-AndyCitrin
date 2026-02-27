@@ -2817,7 +2817,7 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
     <div ref={staffSearchRef} style={{ position: "relative", width: 160, flex: "0 0 160px" }}>
       <input
         ref={inputRef}
-        style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
+        style={{ width: "100%", padding: "7px 10px", paddingRight: attyFilter !== "All" ? 28 : 8, fontSize: 13, boxSizing: "border-box" }}
         placeholder="Search staff..."
         value={staffDisplayValue}
         onChange={e => setStaffInput(e.target.value)}
