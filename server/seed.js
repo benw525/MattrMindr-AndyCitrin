@@ -32,6 +32,7 @@ async function importTableData(client, tableName, rows) {
   const idCol = cols.includes("id") ? "id" : null;
 
   let inserted = 0;
+  let skipped = 0;
   for (const row of rows) {
     const values = cols.map((col) => {
       let val = row[col];
@@ -65,6 +66,7 @@ async function importTableData(client, tableName, rows) {
       inserted++;
     } catch (err) {
       if (err.code === "23505") continue;
+      if (err.code === "23503") { skipped++; continue; }
       throw err;
     }
   }
@@ -79,7 +81,8 @@ async function importTableData(client, tableName, rows) {
       } catch (_) {}
     }
   }
-  console.log(`  ${tableName}: ${inserted} rows imported`);
+  const skipMsg = skipped > 0 ? ` (${skipped} skipped — missing references)` : "";
+  console.log(`  ${tableName}: ${inserted} rows imported${skipMsg}`);
 }
 
 async function seed() {
@@ -205,6 +208,7 @@ async function seed() {
       console.log("Importing additional table data from seed-data.json...");
       const seedData = JSON.parse(fs.readFileSync(seedDataPath, "utf8"));
       const importOrder = [
+        "cases",
         "tasks", "deadlines", "case_notes", "case_activity",
         "case_links", "case_correspondence",
         "case_parties", "case_experts", "case_misc_contacts", "case_insurance",

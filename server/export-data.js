@@ -1,6 +1,7 @@
 const pool = require("./db");
 
 const TABLES = [
+  { name: "cases", bytea: [] },
   { name: "tasks", bytea: [] },
   { name: "deadlines", bytea: [] },
   { name: "case_notes", bytea: [] },
