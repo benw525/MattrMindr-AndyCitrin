@@ -87,17 +87,41 @@ app.use("/api/case-documents", caseDocumentsRoutes);
 app.use("/api/filings",        filingsRoutes);
 app.use("/api/ai-training",    aiTrainingRoutes);
 
-app.get("/api/health", (req, res) => res.json({ ok: true }));
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Health check DB failure:", err.message);
+    res.status(503).json({ ok: false, error: "database unreachable" });
+  }
+});
 
 if (isProd) {
   const buildPath = path.join(__dirname, "..", "lextrack", "build");
-  app.use(express.static(buildPath));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(buildPath, "index.html"));
-  });
+  const fs = require("fs");
+  const indexPath = path.join(buildPath, "index.html");
+  if (fs.existsSync(indexPath)) {
+    app.use(express.static(buildPath));
+    app.get("*", (req, res) => {
+      res.sendFile(indexPath);
+    });
+  } else {
+    console.error("PRODUCTION BUILD MISSING — lextrack/build/index.html not found at:", indexPath);
+    app.get("*", (req, res) => {
+      if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
+      res.status(500).send("Application build not found. Please redeploy.");
+    });
+  }
 }
 
 const listenPort = isProd ? 5000 : PORT;
-app.listen(listenPort, "0.0.0.0", () => {
+app.listen(listenPort, "0.0.0.0", async () => {
   console.log(`MattrMindr API listening on port ${listenPort}`);
+  try {
+    const { rows } = await pool.query("SELECT count(*) as cnt FROM users");
+    console.log(`Database connected — ${rows[0].cnt} users in database`);
+  } catch (err) {
+    console.error("Database connectivity check failed:", err.message);
+  }
 });

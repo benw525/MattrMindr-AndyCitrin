@@ -62,6 +62,7 @@ router.post("/login", async (req, res) => {
       [email.trim()]
     );
     if (rows.length === 0) {
+      console.log("Login failed — no account for email:", email.trim());
       return res.status(401).json({ error: "No account found with that email" });
     }
     const user = rows[0];
