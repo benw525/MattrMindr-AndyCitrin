@@ -860,6 +860,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState("dashboard");
   const [selectedCase, setSelectedCase] = useState(null);
+  const [pendingTab, setPendingTab] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState(null);
 
@@ -1407,8 +1408,8 @@ export default function App() {
         <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
       )}
       <div className="main">
-        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={c => { handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} />}
+        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
@@ -2087,11 +2088,11 @@ function MyTimeWidget({ currentUser }) {
   );
 }
 
-function RecentActivityWidget({ currentUser }) {
+function RecentActivityWidget({ currentUser, allCases, onSelectCase }) {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    apiGetRecentActivity(currentUser.id, 8)
+    apiGetRecentActivity(currentUser.id, 10)
       .then(data => setActivities(data))
       .catch(() => setActivities([]))
       .finally(() => setLoading(false));
@@ -2103,13 +2104,26 @@ function RecentActivityWidget({ currentUser }) {
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
   };
+  const tabForAction = (action) => {
+    const a = (action || "").toLowerCase();
+    if (a.includes("document") || a.includes("evidence")) return "files";
+    if (a.includes("filing") || a.includes("motion")) return "filings";
+    if (a.includes("correspondence")) return "correspondence";
+    if (a.includes("note")) return "activity";
+    return "overview";
+  };
+  const handleClick = (a) => {
+    if (!onSelectCase || !allCases) return;
+    const caseObj = allCases.find(c => c.id === a.caseId);
+    if (caseObj) onSelectCase(caseObj, tabForAction(a.action));
+  };
   return (
     <div className="card">
-      <div className="card-header"><div className="card-title">Recent Activity</div></div>
+      <div className="card-header"><div className="card-title">My Recent Activity</div></div>
       {loading && <div className="empty">Loading...</div>}
       {!loading && activities.length === 0 && <div className="empty">No recent activity</div>}
       {!loading && activities.map(a => (
-        <div key={a.id} className="deadline-item" style={{ padding: "8px 16px" }}>
+        <div key={a.id} className="deadline-item" style={{ padding: "8px 16px", cursor: "pointer" }} onClick={() => handleClick(a)}>
           <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
             <div className="dl-title" style={{ fontSize: 12 }}>{a.action}</div>
             <div className="dl-case">{a.caseTitle || `Case #${a.caseId}`}{a.detail ? ` — ${a.detail}` : ""}</div>
@@ -2642,7 +2656,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
           </div>
         ) : null;
       case "recent-activity":
-        return <RecentActivityWidget key={widgetId} currentUser={currentUser} />;
+        return <RecentActivityWidget key={widgetId} currentUser={currentUser} allCases={allCases} onSelectCase={onSelectCase} />;
       case "overdue":
         return (
           <div className="card" key={widgetId}>
@@ -2771,31 +2785,43 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
 const PAGE_SIZE = 50;
 
 function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInput, setStaffInput, staffFocused, setStaffFocused, staffDisplayValue, staffSuggestions }) {
+  const inputRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState(null);
+  const darkMode = document.querySelector(".app.dark") !== null;
   useEffect(() => {
-    if (staffFocused && staffSearchRef.current) {
-      const update = () => {
-        const rect = staffSearchRef.current.getBoundingClientRect();
-        setDropdownPos({ top: rect.bottom + 2, left: rect.left, width: Math.max(rect.width, 220) });
-      };
-      update();
-      window.addEventListener("resize", update);
-      window.addEventListener("scroll", update, true);
-      return () => { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
-    } else {
-      setDropdownPos(null);
-    }
-  }, [staffFocused, staffSearchRef]);
-  const selectStaff = (id) => { setAttyFilter(id); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); };
+    if (!staffFocused) { setDropdownPos(null); return; }
+    const el = inputRef.current;
+    if (!el) return;
+    let raf;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const ddWidth = Math.max(rect.width, 240);
+      let left = rect.left;
+      if (left + ddWidth > vw - 8) left = Math.max(8, vw - ddWidth - 8);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = spaceBelow > 200 ? rect.bottom + 2 : rect.top - 262;
+      setDropdownPos({ top: Math.max(4, top), left, width: ddWidth });
+      raf = requestAnimationFrame(update);
+    };
+    raf = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(raf);
+  }, [staffFocused]);
+  const selectStaff = (id) => { setAttyFilter(id); setStaffInput(""); setStaffFocused(false); inputRef.current?.blur(); };
+  const ddBg = darkMode ? "#1C2330" : "#fff";
+  const ddBorder = darkMode ? "#27313D" : "#D6D8DB";
+  const ddText = darkMode ? "#E6EDF3" : "#1F2428";
+  const ddHover = darkMode ? "#27313D" : "#F0F2F4";
   return (
-    <div ref={staffSearchRef} style={{ position: "relative", width: 200 }}>
+    <div ref={staffSearchRef} style={{ position: "relative", minWidth: 140, maxWidth: 240, flex: "0 1 200px" }}>
       <input
+        ref={inputRef}
         style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
         placeholder="Search staff..."
         value={staffDisplayValue}
         onChange={e => setStaffInput(e.target.value)}
         onFocus={() => { setStaffInput(""); setStaffFocused(true); }}
-        onBlur={() => setTimeout(() => { setStaffFocused(false); setStaffInput(""); }, 250)}
+        onBlur={() => setTimeout(() => { setStaffFocused(false); setStaffInput(""); }, 200)}
         autoComplete="off"
       />
       {attyFilter !== "All" && !staffFocused && (
@@ -2806,9 +2832,9 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
         >✕</button>
       )}
       {staffFocused && dropdownPos && createPortal(
-        <div style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: 260, overflowY: "auto", background: "#fff", border: "1px solid #D6D8DB", borderRadius: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.25)", zIndex: 99999, fontSize: 13 }}>
+        <div style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: 260, overflowY: "auto", background: ddBg, border: `1px solid ${ddBorder}`, borderRadius: 6, boxShadow: "0 6px 24px rgba(0,0,0,0.35)", zIndex: 99999, fontSize: 13 }}>
           <div
-            style={{ padding: "8px 12px", cursor: "pointer", color: "#8A9096", borderBottom: "1px solid #D6D8DB" }}
+            style={{ padding: "8px 12px", cursor: "pointer", color: "#8A9096", borderBottom: `1px solid ${ddBorder}` }}
             onMouseDown={e => { e.preventDefault(); selectStaff("All"); }}
           >All Staff</div>
           {staffSuggestions.length > 0 ? staffSuggestions.map(u => {
@@ -2825,10 +2851,10 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
             return (
               <div
                 key={u.id}
-                style={{ padding: "8px 12px", cursor: "pointer", color: "#1F2428", background: isSelected ? "#F0F2F4" : "transparent" }}
+                style={{ padding: "8px 12px", cursor: "pointer", color: ddText, background: isSelected ? ddHover : "transparent" }}
                 onMouseDown={e => { e.preventDefault(); selectStaff(String(u.id)); }}
-                onMouseEnter={e => e.currentTarget.style.background = "#F0F2F4"}
-                onMouseLeave={e => e.currentTarget.style.background = isSelected ? "#F0F2F4" : "transparent"}
+                onMouseEnter={e => e.currentTarget.style.background = ddHover}
+                onMouseLeave={e => e.currentTarget.style.background = isSelected ? ddHover : "transparent"}
               >{nameEl}</div>
             );
           }) : (
@@ -2841,7 +2867,8 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
   );
 }
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin }) {
+  const setSelectedCase = useCallback((c) => { if (clearPendingTab) clearPendingTab(); rawSetSelectedCase(c); }, [clearPendingTab, rawSetSelectedCase]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -3299,9 +3326,10 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           notes={notes}
           links={caseLinks[selectedCase.id] || []}
           activity={caseActivity[selectedCase.id] || []}
-          onClose={() => setSelectedCase(null)}
+          onClose={() => { setSelectedCase(null); if (clearPendingTab) clearPendingTab(); }}
           onUpdate={onUpdateCase}
           onDeleteCase={handleDeleteFromOverlay}
+          initialTab={pendingTab || undefined}
           onCompleteTask={onCompleteTask}
           onAddTask={onAddTask}
           onAddNote={async (note) => { try { const saved = await apiCreateNote(note); setCaseNotes(prev => ({ ...prev, [selectedCase.id]: [saved, ...(prev[selectedCase.id] || [])] })); } catch (err) { alert("Failed to save note: " + err.message); } }}
@@ -3433,7 +3461,7 @@ const CONTACT_LINKABLE_KEYS = new Set(["defendantName", "prosecutor", "judge"]);
 const KEY_DATE_FIELDS = ["arrestDate", "arraignmentDate", "nextCourtDate", "trialDate", "sentencingDate", "dispositionDate"];
 const KEY_DATE_TYPES = { arrestDate: "Other", arraignmentDate: "Hearing", nextCourtDate: "Hearing", trialDate: "Hearing", sentencingDate: "Hearing", dispositionDate: "Other" };
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, initialTab }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -3445,7 +3473,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [addingDate, setAddingDate] = useState(false);
   const [newDateLabel, setNewDateLabel] = useState("");
   const [showPrint, setShowPrint] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview"); // "overview" | "details" | "correspondence" | "activity"
+  const [activeTab, setActiveTab] = useState(initialTab || "overview");
+  const initialTabConsumed = useRef(false);
+  useEffect(() => {
+    if (initialTab && !initialTabConsumed.current) {
+      setActiveTab(initialTab);
+      initialTabConsumed.current = true;
+    }
+  }, [initialTab]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [allContacts, setAllContacts] = useState([]);

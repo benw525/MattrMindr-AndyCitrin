@@ -156,7 +156,7 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - Backend endpoint: GET /api/cases/conflict-check?name=<name>
 
 ### Core Features
-- Customizable Dashboard: per-user widget system with add/remove/reorder; Quick Notes widget for unassigned notes with speech-to-text, later assignable to cases with time tracking
+- Customizable Dashboard: per-user widget system with add/remove/reorder (drag-and-drop); Quick Notes widget for unassigned notes with speech-to-text, later assignable to cases with time tracking; Recent Activity widget clicks navigate to case detail with context-appropriate tab
 - Cases view with filtering, sorting, pagination (no "matters" concept — everything is a case)
 - Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, Documents tab (formerly Files — document upload/summary, inline-editable name/type), Correspondence tab, Filings tab (court filing management with AI classification). Details tab layout: top-left = Charges, top-right = Case Info + Offices, below = Co-Defendants, Misc Contacts, Experts. Notes: speech-to-text dictation via Web Speech API (browser-native, no external service)
 - Deadline Tracker: calendar grid, list view, iCal feed import, court rules calculator
