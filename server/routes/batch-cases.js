@@ -34,7 +34,7 @@ const VALID_STAGES = ["Arraignment", "Preliminary Hearing", "Grand Jury/Indictme
 const VALID_DIVISIONS = ["Circuit", "District", "Juvenile"];
 
 function requireBatchRole(req, res, next) {
-  const userRoles = req.session.roles || [];
+  const userRoles = req.session.userRoles || [req.session.userRole];
   if (!userRoles.some(r => ALLOWED_ROLES.includes(r))) {
     return res.status(403).json({ error: "Insufficient permissions for batch operations" });
   }
@@ -160,8 +160,8 @@ router.post("/", requireAuth, requireBatchRole, async (req, res) => {
     }
 
     const userId = req.session.userId;
-    const userName = req.session.name || "System";
-    const userRole = (req.session.roles || [])[0] || "Unknown";
+    const userName = req.session.userName || "System";
+    const userRole = (req.session.userRoles || [req.session.userRole])[0] || "Unknown";
     let detail = "";
 
     switch (operation) {
