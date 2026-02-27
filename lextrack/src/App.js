@@ -583,8 +583,8 @@ body.dark-body { background: #0E1116; }
   .table-wrap { overflow-x: visible; }
   table.mobile-cards { display: block; width: 100%; }
   table.mobile-cards thead { display: none; }
-  table.mobile-cards tbody { display: flex; flex-direction: column; gap: 8px; }
-  table.mobile-cards tr { display: flex; flex-direction: column; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 8px; padding: 12px 14px; gap: 6px; cursor: pointer; }
+  table.mobile-cards tbody { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  table.mobile-cards tr { display: flex; flex-direction: column; background: var(--c-bg); border: 1px solid var(--c-border); border-radius: 8px; padding: 12px 14px; gap: 6px; cursor: pointer; }
   table.mobile-cards tr:hover td { background: transparent; }
   table.mobile-cards td { display: flex; align-items: center; gap: 8px; padding: 2px 0 !important; border-bottom: none !important; font-size: 13px; }
   table.mobile-cards td::before { content: attr(data-label); font-size: 11px; color: var(--c-text3); text-transform: uppercase; letter-spacing: 0.06em; min-width: 90px; flex-shrink: 0; font-weight: 600; }
