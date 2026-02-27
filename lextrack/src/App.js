@@ -2814,7 +2814,7 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
   const ddText = darkMode ? "#E6EDF3" : "#1F2428";
   const ddHover = darkMode ? "#27313D" : "#F0F2F4";
   return (
-    <div ref={staffSearchRef} style={{ position: "relative", width: 160 }}>
+    <div ref={staffSearchRef} style={{ position: "relative", width: 160, flex: "0 0 160px" }}>
       <input
         ref={inputRef}
         style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
@@ -3133,10 +3133,6 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
             staffSuggestions={staffSuggestions}
           />
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn btn-outline btn-sm" style={{ color: "#b8860b", borderColor: "#d4c9a8", fontSize: 12 }} onClick={() => {
-            setTriageShow(true); setTriageLoading(true);
-            apiCaseTriage().then(r => { setTriageResults(r.cases || []); setTriageLoading(false); }).catch(() => setTriageLoading(false));
-          }}>⚡ Triage</button>
           <button className="btn btn-gold" onClick={() => setShowModal(true)}>+ New Case</button>
         </div>
       </div>
@@ -3163,6 +3159,10 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           </div>
         )}
         <div style={{ marginBottom: 16, display: "flex", gap: 8, alignItems: "center" }}>
+          <button className="btn btn-outline btn-sm" style={{ color: "#b8860b", borderColor: "#d4c9a8", fontSize: 12, height: 40, whiteSpace: "nowrap" }} onClick={() => {
+            setTriageShow(true); setTriageLoading(true);
+            apiCaseTriage().then(r => { setTriageResults(r.cases || []); setTriageLoading(false); }).catch(() => setTriageLoading(false));
+          }}>⚡ Triage</button>
           <div style={{ position: "relative", flex: 1 }}>
             <input
               style={{ width: "100%", paddingLeft: 36, paddingRight: 10, height: 40, borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
