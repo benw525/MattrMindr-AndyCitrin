@@ -2775,8 +2775,8 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [attyFilter, setAttyFilter] = useState(String(currentUser.id));
-  const [staffSearch, setStaffSearch] = useState("");
-  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false);
+  const [staffInput, setStaffInput] = useState("");
+  const [staffFocused, setStaffFocused] = useState(false);
   const staffSearchRef = useRef(null);
   const [divisionFilter, setDivisionFilter] = useState("All");
   const [stageFilter, setStageFilter] = useState("All");
@@ -2906,11 +2906,12 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
     const u = USERS.find(u => u.id === Number(attyFilter));
     return u ? u.name : "";
   }, [attyFilter]);
+  const staffDisplayValue = staffFocused ? staffInput : selectedStaffName;
   const staffSuggestions = useMemo(() => {
-    if (!staffSearch.trim()) return allStaff;
-    const q = staffSearch.toLowerCase();
+    if (!staffInput.trim()) return allStaff;
+    const q = staffInput.toLowerCase();
     return allStaff.filter(u => u.name.toLowerCase().includes(q));
-  }, [allStaff, staffSearch]);
+  }, [allStaff, staffInput]);
 
   return (
     <>
@@ -2941,28 +2942,28 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
             <input
               style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
               placeholder="Search staff..."
-              value={staffDropdownOpen ? staffSearch : selectedStaffName}
-              onChange={e => { setStaffSearch(e.target.value); if (!staffDropdownOpen) setStaffDropdownOpen(true); }}
-              onFocus={() => { setStaffSearch(""); setStaffDropdownOpen(true); }}
-              onBlur={() => setTimeout(() => setStaffDropdownOpen(false), 200)}
+              value={staffDisplayValue}
+              onChange={e => setStaffInput(e.target.value)}
+              onFocus={() => { setStaffInput(""); setStaffFocused(true); }}
+              onBlur={() => setTimeout(() => { setStaffFocused(false); setStaffInput(""); }, 200)}
               autoComplete="off"
             />
-            {attyFilter !== "All" && (
+            {attyFilter !== "All" && !staffFocused && (
               <button
-                onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffSearch(""); setStaffDropdownOpen(false); }}
+                onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); }}
                 style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
                 title="Clear filter"
               >✕</button>
             )}
-            {staffDropdownOpen && staffSuggestions.length > 0 && (
+            {staffFocused && (
               <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: 260, overflowY: "auto", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100 }}>
                 <div
                   style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}
-                  onMouseDown={() => { setAttyFilter("All"); setStaffSearch(""); setStaffDropdownOpen(false); }}
+                  onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
                 >All Staff</div>
-                {staffSuggestions.map(u => {
+                {staffSuggestions.length > 0 ? staffSuggestions.map(u => {
                   const isSelected = String(u.id) === attyFilter;
-                  const q = staffSearch.toLowerCase();
+                  const q = staffInput.toLowerCase();
                   const name = u.name;
                   let nameEl;
                   if (q && name.toLowerCase().includes(q)) {
@@ -2975,16 +2976,15 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                     <div
                       key={u.id}
                       style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text)", background: isSelected ? "var(--c-hover)" : "transparent" }}
-                      onMouseDown={() => { setAttyFilter(String(u.id)); setStaffSearch(""); setStaffDropdownOpen(false); }}
+                      onMouseDown={e => { e.preventDefault(); setAttyFilter(String(u.id)); setStaffInput(""); setStaffFocused(false); staffSearchRef.current?.querySelector("input")?.blur(); }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = isSelected ? "var(--c-hover)" : "transparent"}
                     >{nameEl}</div>
                   );
-                })}
+                }) : (
+                  <div style={{ padding: "7px 10px", fontSize: 13, color: "var(--c-text2)" }}>No matches</div>
+                )}
               </div>
-            )}
-            {staffDropdownOpen && staffSuggestions.length === 0 && staffSearch.trim() && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100, padding: "7px 10px", fontSize: 13, color: "var(--c-text2)" }}>No matches</div>
             )}
           </div>
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
