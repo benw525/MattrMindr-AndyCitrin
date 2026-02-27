@@ -2942,34 +2942,49 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
               style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
               placeholder="Search staff..."
               value={staffDropdownOpen ? staffSearch : selectedStaffName}
-              onChange={e => { setStaffSearch(e.target.value); setStaffDropdownOpen(true); }}
+              onChange={e => { setStaffSearch(e.target.value); if (!staffDropdownOpen) setStaffDropdownOpen(true); }}
               onFocus={() => { setStaffSearch(""); setStaffDropdownOpen(true); }}
               onBlur={() => setTimeout(() => setStaffDropdownOpen(false), 200)}
+              autoComplete="off"
             />
             {attyFilter !== "All" && (
               <button
-                onClick={() => { setAttyFilter("All"); setStaffSearch(""); }}
+                onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffSearch(""); setStaffDropdownOpen(false); }}
                 style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
                 title="Clear filter"
               >✕</button>
             )}
-            {staffDropdownOpen && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: 240, overflowY: "auto", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100 }}>
+            {staffDropdownOpen && staffSuggestions.length > 0 && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: 260, overflowY: "auto", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100 }}>
                 <div
                   style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}
                   onMouseDown={() => { setAttyFilter("All"); setStaffSearch(""); setStaffDropdownOpen(false); }}
                 >All Staff</div>
-                {staffSuggestions.map(u => (
-                  <div
-                    key={u.id}
-                    style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text)", background: String(u.id) === attyFilter ? "var(--c-hover)" : "transparent" }}
-                    onMouseDown={() => { setAttyFilter(String(u.id)); setStaffSearch(""); setStaffDropdownOpen(false); }}
-                    onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
-                    onMouseLeave={e => e.currentTarget.style.background = String(u.id) === attyFilter ? "var(--c-hover)" : "transparent"}
-                  >{u.name}</div>
-                ))}
-                {staffSuggestions.length === 0 && <div style={{ padding: "7px 10px", fontSize: 13, color: "var(--c-text2)" }}>No matches</div>}
+                {staffSuggestions.map(u => {
+                  const isSelected = String(u.id) === attyFilter;
+                  const q = staffSearch.toLowerCase();
+                  const name = u.name;
+                  let nameEl;
+                  if (q && name.toLowerCase().includes(q)) {
+                    const idx = name.toLowerCase().indexOf(q);
+                    nameEl = <>{name.slice(0, idx)}<strong>{name.slice(idx, idx + q.length)}</strong>{name.slice(idx + q.length)}</>;
+                  } else {
+                    nameEl = name;
+                  }
+                  return (
+                    <div
+                      key={u.id}
+                      style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text)", background: isSelected ? "var(--c-hover)" : "transparent" }}
+                      onMouseDown={() => { setAttyFilter(String(u.id)); setStaffSearch(""); setStaffDropdownOpen(false); }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
+                      onMouseLeave={e => e.currentTarget.style.background = isSelected ? "var(--c-hover)" : "transparent"}
+                    >{nameEl}</div>
+                  );
+                })}
               </div>
+            )}
+            {staffDropdownOpen && staffSuggestions.length === 0 && staffSearch.trim() && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100, padding: "7px 10px", fontSize: 13, color: "var(--c-text2)" }}>No matches</div>
             )}
           </div>
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
