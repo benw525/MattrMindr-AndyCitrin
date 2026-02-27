@@ -604,6 +604,10 @@ body.dark-body { background: #0E1116; }
   .modal-title { font-size: 16px; }
   .content { padding: 10px 8px; }
 }
+@keyframes pulse-mic {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 `;
 
 
@@ -5532,6 +5536,44 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
   const [form, setForm] = useState({ type: "General", body: "", time: "" });
   const [assignId, setAssignId] = useState(0);
   const [showAllAssign, setShowAllAssign] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const speechRecRef = useRef(null);
+  const speechSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  const toggleSpeech = useCallback(() => {
+    if (isListening && speechRecRef.current) {
+      speechRecRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = "en-US";
+    rec.onresult = (e) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) transcript += e.results[i][0].transcript;
+      }
+      if (transcript) {
+        setForm(p => ({ ...p, body: p.body + (p.body && !p.body.endsWith(" ") ? " " : "") + transcript }));
+      }
+    };
+    rec.onerror = (e) => {
+      if (e.error === "not-allowed") alert("Microphone access was denied. Please allow microphone permissions.");
+      setIsListening(false);
+    };
+    rec.onend = () => setIsListening(false);
+    speechRecRef.current = rec;
+    rec.start();
+    setIsListening(true);
+  }, [isListening]);
+
+  useEffect(() => {
+    return () => { if (speechRecRef.current) { try { speechRecRef.current.stop(); } catch {} } };
+  }, []);
 
   const currentIsSupportStaff = isSupportStaff(currentUser);
 
@@ -5553,6 +5595,8 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
       timeLogged: form.time.trim() || null,
       timeLogUser: (currentIsSupportStaff && assignId > 0) ? assignId : null,
     });
+    if (speechRecRef.current) { try { speechRecRef.current.stop(); } catch {} }
+    setIsListening(false);
     setForm({ type: "General", body: "", time: "" });
     setAssignId(0);
     setShowAllAssign(false);
@@ -5569,7 +5613,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
         <button
           className="btn btn-outline btn-sm"
           style={{ fontSize: 11 }}
-          onClick={() => { setShowForm(s => !s); setExpandedId(null); if (showForm) { setAssignId(0); setShowAllAssign(false); } }}
+          onClick={() => { setShowForm(s => !s); setExpandedId(null); if (showForm) { setAssignId(0); setShowAllAssign(false); if (speechRecRef.current) { try { speechRecRef.current.stop(); } catch {} } setIsListening(false); } }}
         >
           {showForm ? "Cancel" : "+ Add Note"}
         </button>
@@ -5585,13 +5629,35 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, caseRe
             </select>
           </div>
           <div className="form-group" style={{ marginBottom: 10 }}>
-            <label>Note</label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <label style={{ marginBottom: 0 }}>Note</label>
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleSpeech}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "3px 10px", fontSize: 11, fontWeight: 500,
+                    border: isListening ? "1px solid #ef4444" : "1px solid var(--c-border)",
+                    borderRadius: 5,
+                    background: isListening ? "rgba(239,68,68,0.1)" : "var(--c-bg)",
+                    color: isListening ? "#ef4444" : "var(--c-text2)",
+                    cursor: "pointer",
+                    animation: isListening ? "pulse-mic 1.5s infinite" : "none",
+                  }}
+                  title={isListening ? "Stop dictation" : "Start voice dictation"}
+                >
+                  <span style={{ fontSize: 14 }}>{isListening ? "🔴" : "🎙️"}</span>
+                  {isListening ? "Listening…" : "Dictate"}
+                </button>
+              )}
+            </div>
             <textarea
               rows={5}
               value={form.body}
               onChange={e => setForm(p => ({ ...p, body: e.target.value }))}
-              placeholder="Enter detailed note here…"
-              style={{ resize: "vertical" }}
+              placeholder={isListening ? "Speak now — your words will appear here…" : "Enter detailed note here…"}
+              style={{ resize: "vertical", marginTop: 4 }}
             />
           </div>
           <div className="form-group" style={{ marginBottom: 10 }}>
