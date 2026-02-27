@@ -17,6 +17,19 @@ const toFrontend = (row) => ({
   timeLogUser: row.time_log_user || null,
 });
 
+router.get("/quick", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM case_notes WHERE case_id IS NULL AND author_id = $1 ORDER BY created_at DESC",
+      [req.session.userId]
+    );
+    return res.json(rows.map(toFrontend));
+  } catch (err) {
+    console.error("Quick notes fetch error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -36,7 +49,7 @@ router.post("/", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO case_notes (case_id, type, body, author_id, author_name, author_role, created_at, time_logged, time_log_user)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [d.caseId, d.type || "General", d.body, d.authorId || null,
+      [d.caseId || null, d.type || "General", d.body, d.authorId || null,
        d.authorName || "", d.authorRole || "", d.createdAt || new Date().toISOString(),
        d.timeLogged || null, d.timeLogUser || null]
     );
@@ -48,13 +61,15 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 router.put("/:id", requireAuth, async (req, res) => {
-  const { timeLogged, body } = req.body;
+  const { timeLogged, body, caseId, type } = req.body;
   try {
     const sets = [];
     const vals = [];
     let idx = 1;
     if (timeLogged !== undefined) { sets.push(`time_logged = $${idx++}`); vals.push(timeLogged || null); }
     if (body !== undefined) { sets.push(`body = $${idx++}`); vals.push(body); }
+    if (caseId !== undefined) { sets.push(`case_id = $${idx++}`); vals.push(caseId || null); }
+    if (type !== undefined) { sets.push(`type = $${idx++}`); vals.push(type); }
     if (sets.length === 0) return res.status(400).json({ error: "Nothing to update" });
     vals.push(req.params.id);
     const { rows } = await pool.query(

@@ -118,7 +118,7 @@ async function createSchema() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS case_notes (
         id          SERIAL PRIMARY KEY,
-        case_id     INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        case_id     INTEGER REFERENCES cases(id) ON DELETE CASCADE,
         type        TEXT    NOT NULL DEFAULT 'General',
         body        TEXT    NOT NULL,
         author_id   INTEGER REFERENCES users(id),
@@ -331,6 +331,8 @@ async function createSchema() {
         updated_at  TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+
+    await client.query(`ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL`).catch(() => {});
 
     await client.query("COMMIT");
     console.log("Schema created successfully.");

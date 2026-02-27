@@ -60,6 +60,7 @@ export const apiUpdateDeadline  = (id, data) => apiFetch(`/api/deadlines/${id}`,
 
 // Notes
 export const apiGetNotes    = (caseId) => apiFetch(`/api/notes/${caseId}`);
+export const apiGetQuickNotes = ()     => apiFetch("/api/notes/quick");
 export const apiCreateNote  = (data)   => apiFetch("/api/notes",     { method: "POST",   body: data });
 export const apiUpdateNote  = (id, data) => apiFetch(`/api/notes/${id}`, { method: "PUT",    body: data });
 export const apiDeleteNote  = (id)     => apiFetch(`/api/notes/${id}`, { method: "DELETE" });

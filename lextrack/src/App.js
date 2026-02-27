@@ -6,7 +6,7 @@ import {
   apiGetTasks, apiGetCaseTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline, apiUpdateDeadline,
   apiGetUsers, apiCreateUser, apiDeleteUser, apiGetDeletedUsers, apiRestoreUser, apiUpdateUserRoles, apiUpdateUser,
-  apiGetNotes, apiCreateNote, apiUpdateNote, apiDeleteNote,
+  apiGetNotes, apiGetQuickNotes, apiCreateNote, apiUpdateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
   apiGetActivity, apiGetRecentActivity, apiCreateActivity,
   apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact, apiMergeContacts, apiGetContactCases, apiGetContactCaseCounts,
@@ -1893,6 +1893,7 @@ const DASHBOARD_WIDGETS = [
   { id: "overdue", label: "Overdue Tasks", size: "half", icon: "⚠️" },
   { id: "my-time", label: "My Time", size: "half", icon: "⏱️" },
   { id: "ai-triage", label: "AI Case Triage", size: "full", icon: "⚡" },
+  { id: "quick-notes", label: "Quick Notes", size: "half", icon: "📝" },
 ];
 const DEFAULT_LAYOUT = ["stat-active", "stat-deadlines", "stat-tasks", "stat-trials", "deadlines", "trials", "tasks"];
 const getDashboardLayout = (userId) => { try { return JSON.parse(localStorage.getItem(`dashboard_layout_${userId}`)) || DEFAULT_LAYOUT; } catch { return DEFAULT_LAYOUT; } };
@@ -2051,6 +2052,226 @@ function RecentActivityWidget({ currentUser }) {
           <div style={{ fontSize: 11, color: "#8A9096", flexShrink: 0 }}>{timeAgo(a.ts)}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function QuickNotesWidget({ currentUser, allCases, onSelectCase }) {
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editBody, setEditBody] = useState("");
+  const [editCaseId, setEditCaseId] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recRef = useRef(null);
+  const speechSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  useEffect(() => {
+    apiGetQuickNotes().then(setNotes).catch(() => setNotes([])).finally(() => setLoading(false));
+  }, []);
+
+  const toggleSpeech = () => {
+    if (isListening && recRef.current) {
+      recRef.current.stop();
+      recRef.current = null;
+      setIsListening(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = "en-US";
+    rec.onresult = (e) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) transcript += e.results[i][0].transcript;
+      }
+      if (transcript) {
+        setBody(p => p + (p && !p.endsWith(" ") ? " " : "") + transcript);
+      }
+    };
+    rec.onerror = () => { setIsListening(false); recRef.current = null; };
+    rec.onend = () => { setIsListening(false); recRef.current = null; };
+    rec.start();
+    recRef.current = rec;
+    setIsListening(true);
+  };
+
+  const handleAdd = async () => {
+    if (!body.trim()) return;
+    if (recRef.current) { recRef.current.stop(); recRef.current = null; setIsListening(false); }
+    setSaving(true);
+    try {
+      const saved = await apiCreateNote({
+        body: body.trim(),
+        type: "Quick Note",
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        authorRole: currentUser.role,
+      });
+      setNotes(prev => [saved, ...prev]);
+      setBody("");
+      setShowForm(false);
+    } catch (err) {
+      alert("Failed to save note: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await apiDeleteNote(id);
+      setNotes(prev => prev.filter(n => n.id !== id));
+      if (editingId === id) setEditingId(null);
+    } catch (err) {
+      alert("Failed to delete note: " + err.message);
+    }
+  };
+
+  const startEdit = (note) => {
+    setEditingId(note.id);
+    setEditBody(note.body);
+    setEditCaseId(note.caseId || "");
+    setEditTime(note.timeLogged || "");
+  };
+
+  const handleSaveEdit = async () => {
+    setEditSaving(true);
+    try {
+      const updates = { body: editBody };
+      if (editCaseId) { updates.caseId = parseInt(editCaseId); updates.type = "General"; }
+      if (editTime) updates.timeLogged = editTime;
+      const updated = await apiUpdateNote(editingId, updates);
+      if (editCaseId) {
+        setNotes(prev => prev.filter(n => n.id !== editingId));
+      } else {
+        setNotes(prev => prev.map(n => n.id === editingId ? updated : n));
+      }
+      setEditingId(null);
+    } catch (err) {
+      alert("Failed to update note: " + err.message);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const fmtDate = (iso) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  return (
+    <div className="card">
+      <div className="card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="card-title">Quick Notes</div>
+        <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowForm(!showForm); setEditingId(null); }}>
+          {showForm ? "Cancel" : "+ Add Note"}
+        </button>
+      </div>
+      {showForm && (
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border2)" }}>
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder={isListening ? "Speak now — your words will appear here…" : "Type your note…"}
+            style={{ width: "100%", minHeight: 70, resize: "vertical", padding: 10, borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }}
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+            {speechSupported && (
+              <button
+                onClick={toggleSpeech}
+                style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 6, border: isListening ? "1px solid #e05252" : "1px solid var(--c-border)", background: isListening ? "rgba(224,82,82,0.08)" : "transparent", color: isListening ? "#e05252" : "var(--c-text2)", cursor: "pointer", fontSize: 12, animation: isListening ? "pulse-mic 1.5s ease-in-out infinite" : "none" }}
+              >
+                <span style={{ fontSize: 14 }}>{isListening ? "🔴" : "🎙️"}</span>
+                {isListening ? "Listening…" : "Dictate"}
+              </button>
+            )}
+            <div style={{ flex: 1 }} />
+            <button className="btn btn-primary btn-sm" onClick={handleAdd} disabled={saving || !body.trim()} style={{ fontSize: 12 }}>
+              {saving ? "Saving…" : "Save Note"}
+            </button>
+          </div>
+        </div>
+      )}
+      <div style={{ maxHeight: 320, overflowY: "auto" }}>
+        {loading && <div style={{ padding: "16px 20px", fontSize: 13, color: "#8A9096" }}>Loading…</div>}
+        {!loading && notes.length === 0 && !showForm && (
+          <div style={{ padding: "24px 20px", textAlign: "center", color: "#8A9096", fontSize: 13 }}>
+            No quick notes yet. Click "+ Add Note" to jot something down.
+          </div>
+        )}
+        {notes.map(note => (
+          <div key={note.id} style={{ padding: "10px 20px", borderBottom: "1px solid var(--c-border2)" }}>
+            {editingId === note.id ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <textarea
+                  value={editBody}
+                  onChange={e => setEditBody(e.target.value)}
+                  style={{ width: "100%", minHeight: 60, resize: "vertical", padding: 8, borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }}
+                />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: "#8A9096", display: "block", marginBottom: 2 }}>Assign to Case</label>
+                    <select
+                      value={editCaseId}
+                      onChange={e => setEditCaseId(e.target.value)}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12 }}
+                    >
+                      <option value="">None (keep as quick note)</option>
+                      {allCases.filter(c => c.status === "Active").map(c => (
+                        <option key={c.id} value={c.id}>{c.title || c.caseNum}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: "#8A9096", display: "block", marginBottom: 2 }}>Time Spent (hours)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={editTime}
+                      onChange={e => setEditTime(e.target.value)}
+                      placeholder="0.0"
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn btn-outline btn-sm" onClick={() => setEditingId(null)} style={{ fontSize: 11 }}>Cancel</button>
+                  <button className="btn btn-primary btn-sm" onClick={handleSaveEdit} disabled={editSaving} style={{ fontSize: 11 }}>
+                    {editSaving ? "Saving…" : editCaseId ? "Save & Move to Case" : "Save"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5 }}>
+                  {note.body.length > 200 ? note.body.slice(0, 200) + "…" : note.body}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                  <span style={{ fontSize: 11, color: "#8A9096" }}>{fmtDate(note.createdAt)}</span>
+                  {note.timeLogged && <span style={{ fontSize: 11, color: "var(--c-brand)", fontWeight: 600 }}>{note.timeLogged}h</span>}
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => startEdit(note)} style={{ background: "none", border: "none", color: "#8A9096", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Edit note">✎</button>
+                  <button onClick={() => { if (window.confirm("Delete this note?")) handleDelete(note.id); }} style={{ background: "none", border: "none", color: "#8A9096", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Delete note">✕</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2313,6 +2534,8 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
             })}
           </div>
         );
+      case "quick-notes":
+        return <QuickNotesWidget key={widgetId} currentUser={currentUser} allCases={allCases} onSelectCase={onSelectCase} />;
       default:
         return null;
     }
