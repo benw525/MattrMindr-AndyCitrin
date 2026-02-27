@@ -2868,6 +2868,89 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
   );
 }
 
+function BatchStaffPicker({ staffList, value, onChange, inputValue, onInputChange, focused, onFocusChange, inputRef, placeholder }) {
+  const localRef = useRef(null);
+  const ref = inputRef || localRef;
+  const [dropdownPos, setDropdownPos] = useState(null);
+  const darkMode = document.querySelector(".app.dark") !== null;
+  useEffect(() => {
+    if (!focused) { setDropdownPos(null); return; }
+    const el = ref.current;
+    if (!el) return;
+    let raf;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const ddWidth = Math.max(rect.width, 280);
+      let left = rect.left;
+      if (left + ddWidth > vw - 8) left = Math.max(8, vw - ddWidth - 8);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = spaceBelow > 220 ? rect.bottom + 2 : rect.top - 282;
+      setDropdownPos({ top: Math.max(4, top), left, width: ddWidth });
+      raf = requestAnimationFrame(update);
+    };
+    raf = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(raf);
+  }, [focused, ref]);
+  const selectedUser = staffList.find(u => String(u.id) === String(value));
+  const displayValue = focused ? inputValue : (selectedUser ? `${selectedUser.name} — ${(selectedUser.roles || [selectedUser.role]).join(", ")}` : "");
+  const q = (inputValue || "").toLowerCase();
+  const filtered = q ? staffList.filter(u => u.name.toLowerCase().includes(q) || (u.roles || [u.role]).some(r => r.toLowerCase().includes(q))) : staffList;
+  const ddBg = darkMode ? "#1C2330" : "#fff";
+  const ddBorder = darkMode ? "#27313D" : "#D6D8DB";
+  const ddText = darkMode ? "#E6EDF3" : "#1F2428";
+  const ddHover = darkMode ? "#27313D" : "#F0F2F4";
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        ref={ref}
+        style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: `1px solid ${ddBorder}`, background: darkMode ? "#161B22" : "#fff", color: ddText, fontSize: 13, paddingRight: value ? 28 : 10 }}
+        placeholder={placeholder || "Search staff..."}
+        value={displayValue}
+        onChange={e => onInputChange(e.target.value)}
+        onFocus={() => { onInputChange(""); onFocusChange(true); }}
+        onBlur={() => setTimeout(() => { onFocusChange(false); onInputChange(""); }, 200)}
+        autoComplete="off"
+      />
+      {value && !focused && (
+        <button
+          onMouseDown={e => { e.preventDefault(); onChange(""); onInputChange(""); }}
+          style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
+          title="Clear"
+        >✕</button>
+      )}
+      {focused && dropdownPos && createPortal(
+        <div style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: 280, overflowY: "auto", background: ddBg, border: `1px solid ${ddBorder}`, borderRadius: 6, boxShadow: "0 6px 24px rgba(0,0,0,0.35)", zIndex: 99999, fontSize: 13 }}>
+          {filtered.length > 0 ? filtered.map(u => {
+            const isSelected = String(u.id) === String(value);
+            const name = u.name;
+            const roles = (u.roles || [u.role]).join(", ");
+            let nameEl;
+            if (q && name.toLowerCase().includes(q)) {
+              const idx = name.toLowerCase().indexOf(q);
+              nameEl = <>{name.slice(0, idx)}<strong>{name.slice(idx, idx + q.length)}</strong>{name.slice(idx + q.length)}</>;
+            } else {
+              nameEl = name;
+            }
+            return (
+              <div
+                key={u.id}
+                style={{ padding: "8px 12px", cursor: "pointer", color: ddText, background: isSelected ? ddHover : "transparent" }}
+                onMouseDown={e => { e.preventDefault(); onChange(String(u.id)); }}
+                onMouseEnter={e => e.currentTarget.style.background = ddHover}
+                onMouseLeave={e => e.currentTarget.style.background = isSelected ? ddHover : "transparent"}
+              >{nameEl} <span style={{ color: "#8A9096", fontSize: 11 }}>— {roles}</span></div>
+            );
+          }) : (
+            <div style={{ padding: "8px 12px", color: "#8A9096" }}>No matches</div>
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin }) {
   const setSelectedCase = useCallback((c) => { if (clearPendingTab) clearPendingTab(); rawSetSelectedCase(c); }, [clearPendingTab, rawSetSelectedCase]);
   const [statusFilter, setStatusFilter] = useState("Active");
@@ -7973,6 +8056,12 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   const [batchStaffList, setBatchStaffList] = useState([]);
   const [batchCaseSearch, setBatchCaseSearch] = useState("");
   const [batchSelectedCases, setBatchSelectedCases] = useState([]);
+  const [batchFromStaffInput, setBatchFromStaffInput] = useState("");
+  const [batchFromStaffFocused, setBatchFromStaffFocused] = useState(false);
+  const [batchToStaffInput, setBatchToStaffInput] = useState("");
+  const [batchToStaffFocused, setBatchToStaffFocused] = useState(false);
+  const batchFromRef = useRef(null);
+  const batchToRef = useRef(null);
 
   const runAgent = async (agentId) => {
     setAiState({ loading: true, result: null, error: null });
@@ -8031,6 +8120,10 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
     setBatchApplied(null);
     setBatchCaseSearch("");
     setBatchSelectedCases([]);
+    setBatchFromStaffInput("");
+    setBatchFromStaffFocused(false);
+    setBatchToStaffInput("");
+    setBatchToStaffFocused(false);
     if (agentId === "batch" && batchStaffList.length === 0) {
       apiGetUsers().then(users => setBatchStaffList(users.filter(u => u.active !== false))).catch(() => {});
     }
@@ -8313,7 +8406,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                 <div>
                   <div style={{ marginBottom: 16 }}>
                     <label style={labelStyle}>Operation</label>
-                    <select value={batchOp} onChange={e => { setBatchOp(e.target.value); setBatchParams({}); setBatchPreview(null); setBatchApplied(null); setBatchSelectedCases([]); setBatchCaseSearch(""); }} style={selectStyle}>
+                    <select value={batchOp} onChange={e => { setBatchOp(e.target.value); setBatchParams({}); setBatchPreview(null); setBatchApplied(null); setBatchSelectedCases([]); setBatchCaseSearch(""); setBatchFromStaffInput(""); setBatchFromStaffFocused(false); setBatchToStaffInput(""); setBatchToStaffFocused(false); }} style={selectStyle}>
                       {BATCH_OPS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                     </select>
                     <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 4 }}>{BATCH_OPS.find(o => o.id === batchOp)?.desc}</div>
@@ -8330,17 +8423,31 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                       </div>
                       <div style={{ marginBottom: 12 }}>
                         <label style={labelStyle}>From Staff Member</label>
-                        <select value={batchParams.fromUserId || ""} onChange={e => setBatchParams(p => ({ ...p, fromUserId: e.target.value }))} style={selectStyle}>
-                          <option value="">Select staff...</option>
-                          {batchStaffList.map(u => <option key={u.id} value={u.id}>{u.name} — {(u.roles || [u.role]).join(", ")}</option>)}
-                        </select>
+                        <BatchStaffPicker
+                          staffList={batchStaffList}
+                          value={batchParams.fromUserId || ""}
+                          onChange={val => { setBatchParams(p => ({ ...p, fromUserId: val })); setBatchFromStaffInput(""); setBatchFromStaffFocused(false); }}
+                          inputValue={batchFromStaffInput}
+                          onInputChange={setBatchFromStaffInput}
+                          focused={batchFromStaffFocused}
+                          onFocusChange={setBatchFromStaffFocused}
+                          inputRef={batchFromRef}
+                          placeholder="Search staff..."
+                        />
                       </div>
                       <div style={{ marginBottom: 12 }}>
                         <label style={labelStyle}>To Staff Member</label>
-                        <select value={batchParams.toUserId || ""} onChange={e => setBatchParams(p => ({ ...p, toUserId: e.target.value }))} style={selectStyle}>
-                          <option value="">Select staff...</option>
-                          {batchStaffList.filter(u => String(u.id) !== String(batchParams.fromUserId)).map(u => <option key={u.id} value={u.id}>{u.name} — {(u.roles || [u.role]).join(", ")}</option>)}
-                        </select>
+                        <BatchStaffPicker
+                          staffList={batchStaffList.filter(u => String(u.id) !== String(batchParams.fromUserId))}
+                          value={batchParams.toUserId || ""}
+                          onChange={val => { setBatchParams(p => ({ ...p, toUserId: val })); setBatchToStaffInput(""); setBatchToStaffFocused(false); }}
+                          inputValue={batchToStaffInput}
+                          onInputChange={setBatchToStaffInput}
+                          focused={batchToStaffFocused}
+                          onFocusChange={setBatchToStaffFocused}
+                          inputRef={batchToRef}
+                          placeholder="Search staff..."
+                        />
                       </div>
                       <div style={{ marginBottom: 12 }}>
                         <label style={labelStyle}>Status Filter (optional)</label>
@@ -8507,7 +8614,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                     <div style={{ marginTop: 16, padding: 16, background: "#dcfce7", borderRadius: 8, border: "1px solid #bbf7d0" }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: "#166534", marginBottom: 4 }}>Batch Operation Complete</div>
                       <div style={{ fontSize: 13, color: "#15803d" }}>{batchApplied.message}</div>
-                      <button className="btn btn-outline btn-sm" style={{ marginTop: 12, fontSize: 11 }} onClick={() => { setBatchApplied(null); setBatchPreview(null); setBatchParams({}); setBatchSelectedCases([]); setBatchCaseSearch(""); }}>Start New Operation</button>
+                      <button className="btn btn-outline btn-sm" style={{ marginTop: 12, fontSize: 11 }} onClick={() => { setBatchApplied(null); setBatchPreview(null); setBatchParams({}); setBatchSelectedCases([]); setBatchCaseSearch(""); setBatchFromStaffInput(""); setBatchFromStaffFocused(false); setBatchToStaffInput(""); setBatchToStaffFocused(false); }}>Start New Operation</button>
                     </div>
                   )}
                 </div>
