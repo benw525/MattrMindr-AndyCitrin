@@ -242,3 +242,7 @@ export const apiDeleteTimeEntry   = (id)     => apiFetch(`/api/time-entries/${id
 // Pinned Cases
 export const apiGetPinnedCases    = ()        => apiFetch("/api/cases/pinned");
 export const apiSetPinnedCases    = (pinnedIds) => apiFetch("/api/cases/pinned", { method: "PUT", body: { pinnedIds } });
+
+// Batch Case Operations
+export const apiBatchPreview = (data) => apiFetch("/api/batch-cases/preview", { method: "POST", body: data });
+export const apiBatchApply   = (data) => apiFetch("/api/batch-cases",         { method: "POST", body: data });

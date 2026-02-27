@@ -26,6 +26,7 @@ import {
   apiGetTimeEntries, apiCreateTimeEntry, apiUpdateTimeEntry, apiDeleteTimeEntry,
   apiGetTraining, apiCreateTraining, apiUploadTrainingDoc, apiUpdateTraining, apiDeleteTraining,
   apiGetPinnedCases, apiSetPinnedCases,
+  apiBatchPreview, apiBatchApply,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -7932,6 +7933,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   const [editForm, setEditForm] = useState({});
   const canOffice = (currentUser?.roles || []).some(r => OFFICE_ROLES.includes(r));
   const [docType, setDocType] = useState("Motion to Suppress");
+  const [docTypeCustom, setDocTypeCustom] = useState("");
   const [docInstructions, setDocInstructions] = useState("");
   const [aiCenterTasks, setAiCenterTasks] = useState({ tasks: [], added: {} });
   const [docSummaryText, setDocSummaryText] = useState("");
@@ -7957,6 +7959,21 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
     { id: "filingclassifier", icon: "📁", title: "Filing Classifier", desc: "Classify court filings — auto-name, identify filing party (State, Defendant, Court), and summarize significance.", needsCase: true },
   ];
 
+  const BATCH_ALLOWED_ROLES = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "IT Specialist", "App Admin"];
+  const canBatch = (currentUser?.roles || []).some(r => BATCH_ALLOWED_ROLES.includes(r));
+  if (canBatch) {
+    agents.push({ id: "batch", icon: "🔄", title: "Batch Case Manager", desc: "Perform bulk operations — reassign staff, change statuses, advance stages, update court dates, transfer divisions.", needsCase: false });
+  }
+
+  const [batchOp, setBatchOp] = useState("reassign-staff");
+  const [batchParams, setBatchParams] = useState({});
+  const [batchPreview, setBatchPreview] = useState(null);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchApplied, setBatchApplied] = useState(null);
+  const [batchStaffList, setBatchStaffList] = useState([]);
+  const [batchCaseSearch, setBatchCaseSearch] = useState("");
+  const [batchSelectedCases, setBatchSelectedCases] = useState([]);
+
   const runAgent = async (agentId) => {
     setAiState({ loading: true, result: null, error: null });
     try {
@@ -7972,7 +7989,8 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
         const dls = dlRes.deadlines || [];
         r = { result: dls.length ? dls.map((d, i) => `**${i + 1}. ${d.title}**\nDate: ${d.date}\nRule: ${d.rule || "—"}\nType: ${d.type || "—"}\n`).join("\n") : "No deadlines generated." };
       } else if (agentId === "draft") {
-        r = await apiDraftDocument({ caseId: Number(selectedCaseId), documentType: docType, customInstructions: docInstructions });
+        const effectiveDocType = docType === "Other" ? (docTypeCustom.trim() || "Other Document") : docType;
+        r = await apiDraftDocument({ caseId: Number(selectedCaseId), documentType: effectiveDocType, customInstructions: docInstructions });
       } else if (agentId === "summary") {
         r = await apiClientSummary({ caseId: Number(selectedCaseId) });
       } else if (agentId === "docsummary") {
@@ -8000,11 +8018,22 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
     setActiveAgent(agentId);
     setAiState({ loading: false, result: null, error: null });
     setDocType("Motion to Suppress");
+    setDocTypeCustom("");
     setDocInstructions("");
     setDocSummaryText("");
     setDocSummaryType("Police Report");
     setAiCenterFilings([]);
     setAiCenterSelectedFiling("");
+    setBatchOp("reassign-staff");
+    setBatchParams({});
+    setBatchPreview(null);
+    setBatchLoading(false);
+    setBatchApplied(null);
+    setBatchCaseSearch("");
+    setBatchSelectedCases([]);
+    if (agentId === "batch" && batchStaffList.length === 0) {
+      apiGetUsers().then(users => setBatchStaffList(users.filter(u => u.active !== false))).catch(() => {});
+    }
     setAiCenterFilingResult(null);
     setCaseSearch("");
     setCaseDropOpen(false);
@@ -8176,10 +8205,16 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
               <>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Document Type</label>
-                  <select value={docType} onChange={e => setDocType(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
-                    {["Motion to Suppress", "Motion to Dismiss", "Bond Reduction Motion", "Continuance Request", "Discovery Demand", "Plea Agreement Draft", "Sentencing Memorandum", "Motion for Speedy Trial"].map(t => <option key={t}>{t}</option>)}
+                  <select value={docType} onChange={e => { setDocType(e.target.value); if (e.target.value !== "Other") setDocTypeCustom(""); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                    {["Motion to Suppress", "Motion to Dismiss", "Bond Reduction Motion", "Continuance Request", "Discovery Demand", "Plea Agreement Draft", "Sentencing Memorandum", "Motion for Speedy Trial", "Other"].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
+                {docType === "Other" && (
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Specify Document Type</label>
+                    <input type="text" value={docTypeCustom} onChange={e => setDocTypeCustom(e.target.value)} placeholder="e.g. Habeas Corpus Petition, Expungement Motion, Subpoena..." style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }} />
+                  </div>
+                )}
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Additional Instructions (optional)</label>
                   <textarea value={docInstructions} onChange={e => setDocInstructions(e.target.value)} style={{ width: "100%", minHeight: 60, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg)", color: "var(--c-text)" }} placeholder="e.g. Focus on Fourth Amendment issues, include specific facts about the traffic stop..." />
@@ -8216,7 +8251,270 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
               </div>
             )}
 
-            {!aiState.result && !aiState.loading && (
+            {activeAgent === "batch" && (() => {
+              const BATCH_OPS = [
+                { id: "reassign-staff", label: "Staff Reassignment", desc: "Reassign cases from one staff member to another by role" },
+                { id: "change-status", label: "Bulk Status Change", desc: "Change the status of multiple cases at once" },
+                { id: "advance-stage", label: "Bulk Stage Advancement", desc: "Move cases from one stage to another" },
+                { id: "update-court-date", label: "Bulk Court Date Update", desc: "Update the next court date for multiple cases" },
+                { id: "transfer-division", label: "Division Transfer", desc: "Move cases to a different court division" },
+              ];
+              const ROLE_FIELDS = [
+                { id: "assignedAttorney", label: "Assigned Attorney" },
+                { id: "secondAttorney", label: "Second Attorney" },
+                { id: "trialCoordinator", label: "Trial Coordinator" },
+                { id: "investigator", label: "Investigator" },
+                { id: "socialWorker", label: "Social Worker" },
+              ];
+              const STATUSES = ["Active", "Closed", "Pending", "Disposed", "Transferred"];
+              const STAGES = ["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"];
+              const DIVISIONS = ["Circuit", "District", "Juvenile"];
+              const needsCaseSelect = ["change-status", "update-court-date", "transfer-division"].includes(batchOp);
+              const bq = batchCaseSearch.toLowerCase().trim();
+              const batchFilteredCases = bq ? allCases.filter(c => c.status !== "Closed" && c.deletedAt == null && ((c.defendantName || "").toLowerCase().includes(bq) || (c.title || "").toLowerCase().includes(bq) || (c.caseNum || "").toLowerCase().includes(bq))) : [];
+              const toggleCase = (c) => {
+                setBatchSelectedCases(prev => prev.find(x => x.id === c.id) ? prev.filter(x => x.id !== c.id) : [...prev, c]);
+                setBatchPreview(null);
+                setBatchApplied(null);
+              };
+              const canPreview = (() => {
+                if (batchOp === "reassign-staff") return batchParams.fromUserId && batchParams.toUserId && batchParams.roleField && batchParams.fromUserId !== batchParams.toUserId;
+                if (batchOp === "change-status") return batchSelectedCases.length > 0 && batchParams.newStatus;
+                if (batchOp === "advance-stage") return batchParams.fromStage && batchParams.toStage && batchParams.fromStage !== batchParams.toStage;
+                if (batchOp === "update-court-date") return batchSelectedCases.length > 0 && batchParams.newDate;
+                if (batchOp === "transfer-division") return batchSelectedCases.length > 0 && batchParams.newDivision;
+                return false;
+              })();
+              const handlePreview = async () => {
+                setBatchLoading(true); setBatchPreview(null); setBatchApplied(null);
+                try {
+                  const payload = { operation: batchOp, ...batchParams };
+                  if (needsCaseSelect) payload.caseIds = batchSelectedCases.map(c => c.id);
+                  const res = await apiBatchPreview(payload);
+                  setBatchPreview(res);
+                } catch (e) { alert("Preview failed: " + e.message); }
+                setBatchLoading(false);
+              };
+              const handleApply = async () => {
+                if (!window.confirm(`Apply this batch operation to ${batchPreview.count} case${batchPreview.count === 1 ? "" : "s"}? This cannot be undone.`)) return;
+                setBatchLoading(true);
+                try {
+                  const payload = { operation: batchOp, ...batchParams };
+                  if (needsCaseSelect) payload.caseIds = batchSelectedCases.map(c => c.id);
+                  const res = await apiBatchApply(payload);
+                  setBatchApplied(res);
+                  setBatchPreview(null);
+                } catch (e) { alert("Batch operation failed: " + e.message); }
+                setBatchLoading(false);
+              };
+              const labelStyle = { fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" };
+              const selectStyle = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" };
+              return (
+                <div>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={labelStyle}>Operation</label>
+                    <select value={batchOp} onChange={e => { setBatchOp(e.target.value); setBatchParams({}); setBatchPreview(null); setBatchApplied(null); setBatchSelectedCases([]); setBatchCaseSearch(""); }} style={selectStyle}>
+                      {BATCH_OPS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                    </select>
+                    <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 4 }}>{BATCH_OPS.find(o => o.id === batchOp)?.desc}</div>
+                  </div>
+
+                  {batchOp === "reassign-staff" && (
+                    <>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>Role to Reassign</label>
+                        <select value={batchParams.roleField || ""} onChange={e => setBatchParams(p => ({ ...p, roleField: e.target.value }))} style={selectStyle}>
+                          <option value="">Select role...</option>
+                          {ROLE_FIELDS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>From Staff Member</label>
+                        <select value={batchParams.fromUserId || ""} onChange={e => setBatchParams(p => ({ ...p, fromUserId: e.target.value }))} style={selectStyle}>
+                          <option value="">Select staff...</option>
+                          {batchStaffList.map(u => <option key={u.id} value={u.id}>{u.name} — {(u.roles || [u.role]).join(", ")}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>To Staff Member</label>
+                        <select value={batchParams.toUserId || ""} onChange={e => setBatchParams(p => ({ ...p, toUserId: e.target.value }))} style={selectStyle}>
+                          <option value="">Select staff...</option>
+                          {batchStaffList.filter(u => String(u.id) !== String(batchParams.fromUserId)).map(u => <option key={u.id} value={u.id}>{u.name} — {(u.roles || [u.role]).join(", ")}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>Status Filter (optional)</label>
+                        <select value={batchParams.statusFilter || "All"} onChange={e => setBatchParams(p => ({ ...p, statusFilter: e.target.value }))} style={selectStyle}>
+                          <option value="All">All Statuses</option>
+                          {STATUSES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {batchOp === "change-status" && (
+                    <>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>New Status</label>
+                        <select value={batchParams.newStatus || ""} onChange={e => setBatchParams(p => ({ ...p, newStatus: e.target.value }))} style={selectStyle}>
+                          <option value="">Select status...</option>
+                          {STATUSES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {batchOp === "advance-stage" && (
+                    <>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>From Stage</label>
+                        <select value={batchParams.fromStage || ""} onChange={e => setBatchParams(p => ({ ...p, fromStage: e.target.value }))} style={selectStyle}>
+                          <option value="">Select stage...</option>
+                          {STAGES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>To Stage</label>
+                        <select value={batchParams.toStage || ""} onChange={e => setBatchParams(p => ({ ...p, toStage: e.target.value }))} style={selectStyle}>
+                          <option value="">Select stage...</option>
+                          {STAGES.filter(s => s !== batchParams.fromStage).map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>Status Filter (optional)</label>
+                        <select value={batchParams.statusFilter || "All"} onChange={e => setBatchParams(p => ({ ...p, statusFilter: e.target.value }))} style={selectStyle}>
+                          <option value="All">All Statuses</option>
+                          {STATUSES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {batchOp === "update-court-date" && (
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={labelStyle}>New Court Date</label>
+                      <input type="date" value={batchParams.newDate || ""} onChange={e => setBatchParams(p => ({ ...p, newDate: e.target.value }))} style={selectStyle} />
+                    </div>
+                  )}
+
+                  {batchOp === "transfer-division" && (
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={labelStyle}>New Division</label>
+                      <select value={batchParams.newDivision || ""} onChange={e => setBatchParams(p => ({ ...p, newDivision: e.target.value }))} style={selectStyle}>
+                        <option value="">Select division...</option>
+                        {DIVISIONS.map(d => <option key={d}>{d}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {needsCaseSelect && (
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={labelStyle}>Select Cases ({batchSelectedCases.length} selected)</label>
+                      <div style={{ position: "relative" }}>
+                        <input type="text" value={batchCaseSearch} onChange={e => setBatchCaseSearch(e.target.value)} placeholder="Search cases by defendant, title, or case number..." style={{ ...selectStyle, marginBottom: 4 }} />
+                        {bq && batchFilteredCases.length > 0 && (
+                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: "0 0 6px 6px", maxHeight: 200, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                            {batchFilteredCases.slice(0, 20).map(c => {
+                              const sel = batchSelectedCases.find(x => x.id === c.id);
+                              return (
+                                <div key={c.id} onClick={() => { toggleCase(c); setBatchCaseSearch(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "var(--c-text)", borderBottom: "1px solid var(--c-border)", background: sel ? "var(--c-bg)" : "transparent", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => { if (!sel) e.currentTarget.style.background = "var(--c-bg)"; }} onMouseLeave={e => { if (!sel) e.currentTarget.style.background = "transparent"; }}>
+                                  <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>{sel ? "✓" : ""}</span>
+                                  <div>
+                                    <div style={{ fontWeight: 500 }}>{c.defendantName || c.title}</div>
+                                    <div style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseNum || "—"} · {c.status} · {c.stage}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {batchSelectedCases.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                          {batchSelectedCases.map(c => (
+                            <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, background: "var(--c-bg)", border: "1px solid var(--c-border)", fontSize: 11, color: "var(--c-text)" }}>
+                              {c.defendantName || c.title}
+                              <button onClick={() => toggleCase(c)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#e05252", padding: 0, lineHeight: 1 }}>✕</button>
+                            </span>
+                          ))}
+                          <button onClick={() => { setBatchSelectedCases([]); setBatchPreview(null); }} style={{ fontSize: 11, color: "#e05252", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Clear all</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!batchPreview && !batchApplied && (
+                    <button className="btn btn-gold" style={{ width: "100%", opacity: canPreview ? 1 : 0.5 }} disabled={!canPreview || batchLoading} onClick={handlePreview}>
+                      {batchLoading ? "Loading..." : "Preview Changes"}
+                    </button>
+                  )}
+
+                  {batchPreview && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: "var(--c-text-h)", marginBottom: 8 }}>
+                        Preview: {batchPreview.count} case{batchPreview.count === 1 ? "" : "s"} will be affected
+                      </div>
+                      {batchPreview.count === 0 ? (
+                        <div style={{ padding: 16, textAlign: "center", color: "var(--c-text2)", fontSize: 13 }}>No cases match the selected criteria</div>
+                      ) : (
+                        <>
+                          <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 12 }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                              <thead>
+                                <tr style={{ background: "var(--c-bg)", position: "sticky", top: 0 }}>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}>Case</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}>Defendant</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}>Current</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {batchPreview.cases.slice(0, 50).map(c => (
+                                  <tr key={c.id} style={{ borderBottom: "1px solid var(--c-border)" }}>
+                                    <td style={{ padding: "6px 10px", color: "var(--c-text)" }}>{c.caseNum || c.title}</td>
+                                    <td style={{ padding: "6px 10px", color: "var(--c-text)" }}>{c.defendantName || "—"}</td>
+                                    <td style={{ padding: "6px 10px", color: "var(--c-text2)", fontSize: 11 }}>
+                                      {batchOp === "reassign-staff" && (c.currentStaffName || "—")}
+                                      {batchOp === "change-status" && c.status}
+                                      {batchOp === "advance-stage" && c.stage}
+                                      {batchOp === "update-court-date" && (c.nextCourtDate ? new Date(c.nextCourtDate).toLocaleDateString() : "Not set")}
+                                      {batchOp === "transfer-division" && (c.courtDivision || "—")}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            {batchPreview.cases.length > 50 && (
+                              <div style={{ padding: "8px 10px", textAlign: "center", fontSize: 11, color: "var(--c-text2)" }}>...and {batchPreview.cases.length - 50} more</div>
+                            )}
+                          </div>
+                          {batchOp === "reassign-staff" && batchPreview.fromUserName && batchPreview.toUserName && (
+                            <div style={{ fontSize: 12, color: "var(--c-text)", marginBottom: 12, padding: "8px 12px", background: "var(--c-bg)", borderRadius: 6 }}>
+                              <strong>{batchPreview.fromUserName}</strong> → <strong>{batchPreview.toUserName}</strong>
+                            </div>
+                          )}
+                          <div style={{ display: "flex", gap: 10 }}>
+                            <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setBatchPreview(null)}>Cancel</button>
+                            <button className="btn" style={{ flex: 1, background: "#dc2626", color: "#fff", border: "none" }} disabled={batchLoading} onClick={handleApply}>
+                              {batchLoading ? "Applying..." : `Apply to ${batchPreview.count} Case${batchPreview.count === 1 ? "" : "s"}`}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {batchApplied && (
+                    <div style={{ marginTop: 16, padding: 16, background: "#dcfce7", borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#166534", marginBottom: 4 }}>Batch Operation Complete</div>
+                      <div style={{ fontSize: 13, color: "#15803d" }}>{batchApplied.message}</div>
+                      <button className="btn btn-outline btn-sm" style={{ marginTop: 12, fontSize: 11 }} onClick={() => { setBatchApplied(null); setBatchPreview(null); setBatchParams({}); setBatchSelectedCases([]); setBatchCaseSearch(""); }}>Start New Operation</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {activeAgent !== "batch" && !aiState.result && !aiState.loading && (
               <button className="btn btn-gold" style={{ width: "100%", opacity: (activeAgent === "docsummary" ? (canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? (canRun && aiCenterSelectedFiling) : canRun)) ? 1 : 0.5 }} disabled={activeAgent === "docsummary" ? !(canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? !(canRun && aiCenterSelectedFiling) : !canRun)} onClick={() => runAgent(activeAgent)}>
                 Run {agents.find(a => a.id === activeAgent)?.title}
               </button>
@@ -10487,18 +10785,25 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
               <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 16 }}>Generate a first draft of a motion, plea, or memorandum using AI — tailored to your case details.</div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", marginBottom: 4, display: "block" }}>Document Type</label>
-                <select value={aiDraft.docType} onChange={e => setAiDraft(p => ({ ...p, docType: e.target.value }))} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg2)", color: "var(--c-text)" }}>
-                  {["Motion to Suppress", "Motion to Dismiss", "Bond Reduction Motion", "Continuance Request", "Discovery Demand", "Plea Agreement Draft", "Sentencing Memorandum", "Motion for Speedy Trial"].map(t => <option key={t}>{t}</option>)}
+                <select value={aiDraft.docType} onChange={e => setAiDraft(p => ({ ...p, docType: e.target.value, customType: e.target.value !== "Other" ? "" : (p.customType || "") }))} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg2)", color: "var(--c-text)" }}>
+                  {["Motion to Suppress", "Motion to Dismiss", "Bond Reduction Motion", "Continuance Request", "Discovery Demand", "Plea Agreement Draft", "Sentencing Memorandum", "Motion for Speedy Trial", "Other"].map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
+              {aiDraft.docType === "Other" && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", marginBottom: 4, display: "block" }}>Specify Document Type</label>
+                  <input type="text" value={aiDraft.customType || ""} onChange={e => setAiDraft(p => ({ ...p, customType: e.target.value }))} placeholder="e.g. Habeas Corpus Petition, Expungement Motion, Subpoena..." style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg2)", color: "var(--c-text)" }} />
+                </div>
+              )}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", marginBottom: 4, display: "block" }}>Additional Instructions (optional)</label>
                 <textarea value={aiDraft.instructions} onChange={e => setAiDraft(p => ({ ...p, instructions: e.target.value }))} style={{ width: "100%", minHeight: 60, padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg2)", color: "var(--c-text)" }} placeholder="e.g. Focus on Fourth Amendment issues, include specific facts about the traffic stop..." />
               </div>
               {!aiDraft.result && !aiDraft.loading && (
                 <button className="btn btn-gold" style={{ width: "100%" }} onClick={() => {
+                  const effectiveType = aiDraft.docType === "Other" ? ((aiDraft.customType || "").trim() || "Other Document") : aiDraft.docType;
                   setAiDraft(p => ({ ...p, loading: true, result: null, error: null }));
-                  apiDraftDocument({ caseId: caseId || caseData.id, documentType: aiDraft.docType, customInstructions: aiDraft.instructions })
+                  apiDraftDocument({ caseId: caseId || caseData.id, documentType: effectiveType, customInstructions: aiDraft.instructions })
                     .then(r => setAiDraft(p => ({ ...p, loading: false, result: r.result })))
                     .catch(e => setAiDraft(p => ({ ...p, loading: false, error: e.message })));
                 }}>Generate Draft</button>
