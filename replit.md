@@ -17,7 +17,7 @@ Login: email + password (existing users default: `1234`, new users get temp pass
 
 ## Deployment
 - **Target**: autoscale
-- **Build**: `node server/schema.js && cd lextrack && npm install && npm run build`
+- **Build**: `node server/schema.js && npm install --prefix lextrack && npm run build --prefix lextrack`
   - Schema runs on every deploy (idempotent: CREATE IF NOT EXISTS) to ensure new tables are created
   - Seed step removed — production database already has all data; seed.js is only for initial setup
   - Production has a **separate PostgreSQL database** from development
