@@ -31,7 +31,9 @@ server/
   index.js          — Express entry point, session middleware, CORS, prod static serving
   db.js             — pg Pool configured from DATABASE_URL
   schema.js         — Creates all DB tables (run once)
-  seed.js           — Seeds USERS from firmData.js
+  seed.js           — Seeds USERS from firmData.js + imports all table data from seed-data.json
+  export-data.js    — Exports dev DB table data to seed-data.json (run manually to refresh)
+  seed-data.json    — Exported table data (cases, tasks, deadlines, notes, etc.) for production seeding
   email.js          — SendGrid email utility (temp passwords, password resets)
   utils/
     extract-text.js — Text extraction from PDF/DOCX/TXT with OCR fallback (tesseract.js + pdftoppm) for scanned PDFs

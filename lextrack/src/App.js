@@ -1929,31 +1929,61 @@ const getDashboardLayout = (userId) => { try { return JSON.parse(localStorage.ge
 const saveDashboardLayout = (userId, layout) => localStorage.setItem(`dashboard_layout_${userId}`, JSON.stringify(layout));
 
 function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
   const available = DASHBOARD_WIDGETS.filter(w => !layout.includes(w.id));
-  const moveUp = (i) => { if (i <= 0) return; const n = [...layout]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; setLayout(n); saveDashboardLayout(userId, n); };
-  const moveDown = (i) => { if (i >= layout.length - 1) return; const n = [...layout]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; setLayout(n); saveDashboardLayout(userId, n); };
   const remove = (id) => { const n = layout.filter(x => x !== id); setLayout(n); saveDashboardLayout(userId, n); };
   const add = (id) => { const n = [...layout, id]; setLayout(n); saveDashboardLayout(userId, n); };
   const reset = () => { setLayout([...DEFAULT_LAYOUT]); saveDashboardLayout(userId, DEFAULT_LAYOUT); };
-  const sizeLabel = (s) => s === "quarter" ? "¼" : s === "half" ? "½" : "Full";
+  const sizeLabel = (s) => s === "quarter" ? "\u00BC" : s === "half" ? "\u00BD" : "Full";
   const sizeColor = (s) => s === "quarter" ? "#4F7393" : s === "half" ? "#2F7A5F" : "#B67A18";
+  const handleDragStart = (e, i) => { setDragIdx(i); e.dataTransfer.effectAllowed = "move"; };
+  const handleDragOver = (e, i) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverIdx(i); };
+  const handleDrop = (e, dropI) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === dropI) { setDragIdx(null); setOverIdx(null); return; }
+    const n = [...layout];
+    const [moved] = n.splice(dragIdx, 1);
+    n.splice(dropI, 0, moved);
+    setLayout(n);
+    saveDashboardLayout(userId, n);
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+  const handleDragEnd = () => { setDragIdx(null); setOverIdx(null); };
   return (
     <div className="login-bg" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }}>
       <div className="login-box" style={{ width: 480, maxWidth: "calc(100vw - 24px)", maxHeight: "80vh", overflow: "auto" }}>
         <div className="login-title" style={{ fontSize: 20, marginBottom: 4 }}>Customize Dashboard</div>
-        <div className="login-sub" style={{ marginBottom: 20 }}>Add, remove, and reorder widgets</div>
+        <div className="login-sub" style={{ marginBottom: 20 }}>Drag to reorder, add or remove widgets</div>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--c-text2)", marginBottom: 8 }}>Your Dashboard</div>
         {layout.length === 0 && <div style={{ fontSize: 13, color: "#8A9096", padding: "8px 0" }}>No widgets added yet</div>}
         {layout.map((id, i) => {
           const w = DASHBOARD_WIDGETS.find(x => x.id === id);
           if (!w) return null;
+          const isDragging = dragIdx === i;
+          const isOver = overIdx === i && dragIdx !== i;
           return (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border)" }}>
+            <div
+              key={id}
+              draggable
+              onDragStart={e => handleDragStart(e, i)}
+              onDragOver={e => handleDragOver(e, i)}
+              onDrop={e => handleDrop(e, i)}
+              onDragEnd={handleDragEnd}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "8px 0",
+                borderBottom: "1px solid var(--c-border)",
+                opacity: isDragging ? 0.4 : 1,
+                borderTop: isOver ? "2px solid var(--c-gold, #b8860b)" : "2px solid transparent",
+                transition: "border-top 0.15s ease",
+                cursor: "grab"
+              }}
+            >
+              <span style={{ fontSize: 14, color: "var(--c-text2)", cursor: "grab", userSelect: "none", width: 18, textAlign: "center" }} title="Drag to reorder">:::</span>
               <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon}</span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
               <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
-              <button onClick={() => moveUp(i)} disabled={i === 0} style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.3 : 1, fontSize: 14, color: "var(--c-text2)", padding: "2px 4px" }} title="Move up">▲</button>
-              <button onClick={() => moveDown(i)} disabled={i === layout.length - 1} style={{ background: "none", border: "none", cursor: i === layout.length - 1 ? "default" : "pointer", opacity: i === layout.length - 1 ? 0.3 : 1, fontSize: 14, color: "var(--c-text2)", padding: "2px 4px" }} title="Move down">▼</button>
               <button onClick={() => remove(id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B24A4A", padding: "2px 4px" }} title="Remove">✕</button>
             </div>
           );
@@ -2740,6 +2770,9 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [attyFilter, setAttyFilter] = useState(String(currentUser.id));
+  const [staffSearch, setStaffSearch] = useState("");
+  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false);
+  const staffSearchRef = useRef(null);
   const [divisionFilter, setDivisionFilter] = useState("All");
   const [stageFilter, setStageFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
@@ -2820,7 +2853,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const filtered = useMemo(() => {
     let list = allCases.filter(c => {
       if (statusFilter !== "All" && statusFilter !== "Deleted" && c.status !== statusFilter) return false;
-      if (attyFilter !== "All" && c.assignedAttorney !== Number(attyFilter) && c.secondAttorney !== Number(attyFilter)) return false;
+      if (attyFilter !== "All") { const fid = Number(attyFilter); if (![c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(fid)) return false; }
       if (divisionFilter !== "All" && c.courtDivision !== divisionFilter) return false;
       if (stageFilter !== "All" && c.stage !== stageFilter) return false;
       if (search) {
@@ -2856,11 +2889,22 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const notes = selectedCase ? (caseNotes[selectedCase.id] || []) : [];
   const [showPrint, setShowPrint] = useState(false);
 
-  const allAttorneys = useMemo(() => {
-    return USERS
-      .filter(u => ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","Trial Attorney"].some(r => hasRole(u, r)))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, []);
+  const allStaff = useMemo(() => {
+    const fields = ["assignedAttorney", "secondAttorney", "trialCoordinator", "investigator", "socialWorker"];
+    const assignedIds = new Set();
+    allCases.forEach(c => fields.forEach(f => { if (c[f] > 0) assignedIds.add(c[f]); }));
+    return USERS.filter(u => assignedIds.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allCases]);
+  const selectedStaffName = useMemo(() => {
+    if (attyFilter === "All") return "";
+    const u = USERS.find(u => u.id === Number(attyFilter));
+    return u ? u.name : "";
+  }, [attyFilter]);
+  const staffSuggestions = useMemo(() => {
+    if (!staffSearch.trim()) return allStaff;
+    const q = staffSearch.toLowerCase();
+    return allStaff.filter(u => u.name.toLowerCase().includes(q));
+  }, [allStaff, staffSearch]);
 
   return (
     <>
@@ -2887,10 +2931,41 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
             <option value="All">All Stages</option>
             {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <select style={{ width: 160 }} value={attyFilter} onChange={e => setAttyFilter(e.target.value)}>
-            <option value="All">All Attorneys</option>
-            {allAttorneys.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
+          <div ref={staffSearchRef} style={{ position: "relative", width: 200 }}>
+            <input
+              style={{ width: "100%", paddingRight: attyFilter !== "All" ? 28 : 8 }}
+              placeholder="All Staff"
+              value={staffDropdownOpen ? staffSearch : (attyFilter === "All" ? "" : selectedStaffName)}
+              onChange={e => { setStaffSearch(e.target.value); setStaffDropdownOpen(true); }}
+              onFocus={() => { setStaffSearch(""); setStaffDropdownOpen(true); }}
+              onBlur={() => setTimeout(() => setStaffDropdownOpen(false), 150)}
+            />
+            {attyFilter !== "All" && (
+              <button
+                onClick={() => { setAttyFilter("All"); setStaffSearch(""); }}
+                style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
+                title="Clear filter"
+              >✕</button>
+            )}
+            {staffDropdownOpen && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: 240, overflowY: "auto", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100 }}>
+                <div
+                  style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}
+                  onMouseDown={() => { setAttyFilter("All"); setStaffSearch(""); setStaffDropdownOpen(false); }}
+                >All Staff</div>
+                {staffSuggestions.map(u => (
+                  <div
+                    key={u.id}
+                    style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", color: "var(--c-text)", background: String(u.id) === attyFilter ? "var(--c-hover)" : "transparent" }}
+                    onMouseDown={() => { setAttyFilter(String(u.id)); setStaffSearch(""); setStaffDropdownOpen(false); }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
+                    onMouseLeave={e => e.currentTarget.style.background = String(u.id) === attyFilter ? "var(--c-hover)" : "transparent"}
+                  >{u.name}</div>
+                ))}
+                {staffSuggestions.length === 0 && <div style={{ padding: "7px 10px", fontSize: 13, color: "var(--c-text2)" }}>No matches</div>}
+              </div>
+            )}
+          </div>
           <input style={{ width: 200 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
           <button className="btn btn-outline btn-sm" style={{ color: "#b8860b", borderColor: "#d4c9a8", fontSize: 12 }} onClick={() => {
             setTriageShow(true); setTriageLoading(true);
