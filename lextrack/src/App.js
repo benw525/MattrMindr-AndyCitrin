@@ -5057,6 +5057,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsContactDropdownOpen, setSmsContactDropdownOpen] = useState(false);
   const [smsOtherChecked, setSmsOtherChecked] = useState(false);
   const [smsAddPhone, setSmsAddPhone] = useState("");
+  const [smsNewMessage, setSmsNewMessage] = useState("");
   const [smsCompose, setSmsCompose] = useState(false);
   const [smsComposePhone, setSmsComposePhone] = useState("");
   const [smsComposeBody, setSmsComposeBody] = useState("");
@@ -7279,6 +7280,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             Reminders: {[cfg.notifyHearings && "Hearings", cfg.notifyCourtDates && "Court Dates", cfg.notifyDeadlines && "Deadlines", cfg.notifyMeetings && "Meetings"].filter(Boolean).join(", ") || "None"}
                             {" | "}{(cfg.reminderDays || []).map(d => d === 0 ? "Day of" : d === 1 ? "1 day before" : `${d} days before`).join(", ")}
                           </div>
+                          {cfg.customMessage && (
+                            <div style={{ fontSize: 10, color: "var(--c-text3)", marginTop: 2, fontStyle: "italic", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              Message: "{cfg.customMessage}"
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                           <button onClick={async () => {
@@ -7312,8 +7318,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   setSmsNewName(""); setSmsNewPhones([]); setSmsNewType("client");
                   setSmsNewNotifyHearings(true); setSmsNewNotifyCourtDates(true);
                   setSmsNewNotifyDeadlines(false); setSmsNewNotifyMeetings(false);
-                  setSmsNewReminderDays([1, 7]); setSmsNewCustomDay(""); setSmsOtherChecked(false); setSmsAddPhone("");
-                  setSmsContactSearch(""); setSmsContactSelected(null); setSmsContactResults([]); setSmsContactDropdownOpen(false); setSmsAddPhone("");
+                  setSmsNewReminderDays([1, 7]); setSmsNewCustomDay(""); setSmsOtherChecked(false); setSmsAddPhone(""); setSmsNewMessage("");
+                  setSmsContactSearch(""); setSmsContactSelected(null); setSmsContactResults([]); setSmsContactDropdownOpen(false);
                 }}>+ Add Recipient</button>
               ) : (
                 <div style={{ padding: 16, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)" }}>
@@ -7523,6 +7529,31 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     )}
                   </div>
 
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Message Preview</label>
+                    <div style={{ fontSize: 10, color: "var(--c-text3)", marginBottom: 4 }}>
+                      {smsNewMessage ? "Custom message — this exact text will be sent with each reminder." : "Default message shown below. Click to edit and customize."}
+                    </div>
+                    <textarea
+                      value={smsNewMessage || `Reminder: ${smsNewName || "[Name]"} have a [Event Type] scheduled [timing] on [Date]. If you have questions, please contact the Mobile County Public Defender's Office.`}
+                      onChange={e => setSmsNewMessage(e.target.value)}
+                      rows={3}
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: smsNewMessage ? "var(--c-bg)" : "var(--c-bg2)", color: "var(--c-text)", fontSize: 12, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", lineHeight: 1.5, fontStyle: smsNewMessage ? "normal" : "italic" }}
+                    />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      {smsNewMessage ? (
+                        <button onClick={() => setSmsNewMessage("")} style={{ fontSize: 10, color: "var(--c-accent, #1e3a5f)", background: "transparent", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Reset to default</button>
+                      ) : (
+                        <span style={{ fontSize: 10, color: "var(--c-text3)" }}>Auto-generated per event</span>
+                      )}
+                      {smsNewMessage && (
+                        <span style={{ fontSize: 10, color: smsNewMessage.length > 160 ? "#f59e0b" : "var(--c-text3)" }}>
+                          {smsNewMessage.length} chars {smsNewMessage.length > 160 ? `(${Math.ceil(smsNewMessage.length / 153)} segments)` : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                     <button className="btn btn-outline btn-sm" onClick={() => setSmsAddingRecipient(false)}>Cancel</button>
                     <button className="btn btn-sm" style={{ background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", cursor: "pointer", fontSize: 12, opacity: (smsNewPhones.length === 0 || !smsNewName) ? 0.5 : 1 }} disabled={smsNewPhones.length === 0 || !smsNewName} onClick={async () => {
@@ -7537,6 +7568,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           notifyDeadlines: smsNewNotifyDeadlines,
                           notifyMeetings: smsNewNotifyMeetings,
                           reminderDays: smsNewReminderDays,
+                          customMessage: smsNewMessage || "",
                         });
                         setSmsConfigs(p => [...p, created]);
                         setSmsAddingRecipient(false);
