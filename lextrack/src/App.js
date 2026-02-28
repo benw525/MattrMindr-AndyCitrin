@@ -923,7 +923,9 @@ export default function App() {
   const [advocateTasksAdded, setAdvocateTasksAdded] = useState({});
   const [advocateCaseId, setAdvocateCaseId] = useState(null);
   const advocateEndRef = useRef(null);
-  useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading]);
+  const advocatePrevViewRef = useRef(view);
+  const [advocateScreenChips, setAdvocateScreenChips] = useState(null);
+  useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading, advocateScreenChips]);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("lextrack-dark") === "1");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showChangePw, setShowChangePw] = useState(false);
@@ -1052,6 +1054,7 @@ export default function App() {
     setAdvocateMessages(newMsgs);
     setAdvocateLoading(true);
     setAdvocateInput("");
+    setAdvocateScreenChips(null);
     const sc = buildScreenContext();
     apiAdvocateChat({ caseId: advocateCaseId || null, messages: newMsgs, screenContext: sc }).then(r => {
       setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
@@ -1067,7 +1070,17 @@ export default function App() {
     setAdvocateTasksAdded({});
     setAdvocateInput("");
     setAdvocateLoading(false);
+    setAdvocateScreenChips(null);
   }, []);
+
+  useEffect(() => {
+    if (view !== advocatePrevViewRef.current) {
+      advocatePrevViewRef.current = view;
+      if (showAdvocateGlobal && advocateMessages.length > 0 && !advocateCaseId) {
+        setAdvocateScreenChips(view);
+      }
+    }
+  }, [view, showAdvocateGlobal, advocateMessages.length, advocateCaseId]);
 
   const ADVOCATE_SCREEN_CHIPS = {
     dashboard: ["What needs my attention today?", "Summarize my upcoming deadlines", "Which cases are most urgent?"],
@@ -1845,6 +1858,25 @@ export default function App() {
               )}
               </div>
             )})}
+            {advocateScreenChips && !advocateLoading && ADVOCATE_SCREEN_CHIPS[advocateScreenChips] && (
+              <div style={{ padding: "6px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
+                  <span style={{ fontSize: 10, color: "#8A9096", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                    {SCREEN_LABELS[advocateScreenChips]?.icon} Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center" }}>
+                  {ADVOCATE_SCREEN_CHIPS[advocateScreenChips].map(prompt => (
+                    <button key={prompt} style={{ padding: "4px 9px", fontSize: 11, borderRadius: 14, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
+                      onMouseEnter={e => { e.target.style.background = "rgba(99,102,241,0.18)"; }}
+                      onMouseLeave={e => { e.target.style.background = "rgba(99,102,241,0.08)"; }}
+                      onClick={() => { setAdvocateScreenChips(null); advocateSend(prompt); }}>{prompt}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {advocateLoading && (
               <div style={{ display: "flex", justifyContent: "flex-start" }}>
                 <div style={{ padding: "10px 14px", borderRadius: "12px 12px 12px 4px", background: "var(--c-card-alt, #1a2332)", border: "1px solid var(--c-border)", display: "flex", gap: 4, alignItems: "center" }}>
@@ -7219,7 +7251,6 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
     setIsListening(false);
     setForm({ type: "General", body: "", time: "" });
     setAssignId(0);
-    setShowAllAssign(false);
     setShowForm(false);
   };
 
@@ -7233,7 +7264,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
         <button
           className="btn btn-outline btn-sm"
           style={{ fontSize: 11 }}
-          onClick={() => { setShowForm(s => !s); setExpandedId(null); if (showForm) { setAssignId(0); setShowAllAssign(false); if (speechRecRef.current) { try { speechRecRef.current.stop(); } catch {} } setIsListening(false); } }}
+          onClick={() => { setShowForm(s => !s); setExpandedId(null); if (showForm) { setAssignId(0); if (speechRecRef.current) { try { speechRecRef.current.stop(); } catch {} } setIsListening(false); } }}
         >
           {showForm ? "Cancel" : "+ Add Note"}
         </button>
