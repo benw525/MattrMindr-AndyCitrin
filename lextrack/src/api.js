@@ -24,6 +24,8 @@ export const apiChangePassword    = (currentPassword, newPassword) => apiFetch("
 export const apiForgotPassword    = (email)                        => apiFetch("/api/auth/forgot-password",  { method: "POST", body: { email } });
 export const apiResetPassword     = (email, code, newPassword)     => apiFetch("/api/auth/reset-password",   { method: "POST", body: { email, code, newPassword } });
 export const apiSendTempPassword  = (userId)                       => apiFetch("/api/auth/send-temp-password", { method: "POST", body: { userId } });
+export const apiGetPreferences    = ()                               => apiFetch("/api/auth/preferences");
+export const apiSavePreferences   = (prefs)                          => apiFetch("/api/auth/preferences", { method: "PUT", body: prefs });
 
 // Users
 export const apiGetUsers          = ()              => apiFetch("/api/users");

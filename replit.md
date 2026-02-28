@@ -7,7 +7,7 @@ A case management system for the Mobile County Public Defender's Office. Tracks 
 - **Frontend**: React 19 (Create React App), port 5000
 - **Backend**: Node.js + Express 4, port 3001
 - **Database**: PostgreSQL (Replit-provisioned), accessed via `DATABASE_URL`
-- **Auth**: express-session with bcrypt password hashing; temporary password emails via SendGrid
+- **Auth**: express-session with bcrypt password hashing; session restore on page refresh via `/api/auth/me`; temporary password emails via SendGrid
 - **Email**: SendGrid (Replit integration) for auth emails; SendGrid Inbound Parse for case correspondence
 - **Styling**: CSS-in-JS template literal injected at runtime via `<style>` tag
 
@@ -145,7 +145,8 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - **Tables → Card Layout**: `table.mobile-cards` class converts tables to stacked card layout at 768px — thead hidden, each td becomes a flex row with `::before` label from `data-label` attribute. Applied to: Cases table, pinned/deleted cases, Deadlines, Tasks, Reports, TimeLog, Contacts (active + deleted). `td[data-label=""]::before` hidden for action columns. `td.mobile-hide` hides low-priority columns
 - **Pinned Cases on Mobile**: `.pinned-card-mobile` class removes card border/shadow/background on mobile so pinned row cards don't double-nest inside the wrapper card. Rows get a gold left-border accent (`border-left: 3px solid #B67A18`) for visual distinction
 - **Pinned Cases in Dropdowns**: All case search dropdowns (Tasks, AI Center, Quick Notes, Deadlines, Time Log) show pinned cases in a "📌 Pinned" section at top, followed by "All Cases" section. Uses `PinnedSectionHeader` component
-- **Pinned Cases Storage**: Server-backed via `pinned_cases` JSONB column on `users` table. API: `GET/PUT /api/cases/pinned`. App-level `pinnedCaseIds` state loaded at login, passed as props to all views. `handleTogglePinnedCase` callback at App level. One-time localStorage→DB migration on first login (reads `pinned_cases_{userId}`, uploads to API, removes localStorage key)
+- **Pinned Cases Storage**: Server-backed via `pinned_cases` JSONB column on `users` table. API: `GET/PUT /api/cases/pinned`. App-level `pinnedCaseIds` state loaded at login, passed as props to all views. `handleTogglePinnedCase` callback at App level
+- **Pinned Contacts**: Server-backed via `preferences.pinnedContacts` in user preferences. Pin button on each contact row in Contacts view. Pinned contacts shown in collapsible "Pinned Contacts" card section at top of contacts list (similar to pinned staff in Staff view)
 - **Touch targets**: Buttons `min-height: 44px`, btn-sm `min-height: 38px`, inputs/selects `min-height: 44px` with `font-size: 16px` (prevents iOS zoom). Checkboxes 22x22px. Page buttons 38x38px. Nav items 44px min-height. Toggle switches enlarged
 - **Login box**: Responsive with max-width constraint
 - **Detail panel** (`.detail-panel`): Full-width on mobile
@@ -202,6 +203,15 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - Document Generator: unified Generate modal with two modes — "From Template" (upload .docx templates with placeholder auto-detection; template categories: Motions, Orders, Notices, Subpoenas, Client Letters, General) and "AI Draft" (AI-generated first drafts of motions, pleas, memoranda tailored to case details; results can be copied or saved as case notes)
 - Email Correspondence: SendGrid Inbound Parse captures emails to case-{id}@mcpd.mattrmindr.com
 - Filings: court filing management in dedicated Filings tab. PDF-only upload with auto AI classification (names filing, identifies filing party, extracts filing date, extracts hearing dates → auto-creates deadlines). Inbound email PDF attachments are triaged deterministically: PDFs with "NOTICE OF ELECTRONIC FILING" in the first page (AlaCourt NEF coversheet) → Filings tab; all other PDFs → Documents tab. Scanned/image-based PDFs are OCR'd automatically (tesseract.js + pdftoppm, up to 10 pages). Per-filing actions: view (opens in new browser tab), classify, summarize, delete. Filter by filing party. Source tracking (email vs upload). Color-coded party badges (State=red, Defendant=blue, Co-Defendant=purple, Court=green). Inline editing of filing name, filed by, doc type, filing date (click to edit). Non-PDF email attachments (DOCX, DOC, TXT) auto-create documents in Documents tab with AI doc-type classification. **Hearing Date Auto-Extraction**: Filing classification (email, manual classify) and summarization all extract hearing dates/court dates from the filing text and automatically create deadline entries (type="Hearing") with duplicate detection
+
+### User Preferences (Server-Side)
+- `preferences JSONB` column on `users` table — stores all per-user settings server-side for cross-device consistency
+- **API**: `GET /api/auth/preferences`, `PUT /api/auth/preferences` (merges incoming keys into existing preferences)
+- **Included in auth**: Preferences returned with `/api/auth/login` and `/api/auth/me` responses via `userPayload()`
+- **Session Restore**: On page load, `apiMe()` is called to check for an existing session cookie. If valid, user is restored without re-login. Splash screen shown during check
+- **Stored preferences**: `darkMode` (boolean), `dashboardLayout` (array of widget IDs), `calendarToggles` (`{ deadlines, tasks, courtDates, external }`), `pinnedStaff` (array of user IDs), `pinnedContacts` (array of contact IDs)
+- **Migration**: One-time localStorage→server migration on first login after upgrade — reads old localStorage keys, pushes to server preferences, clears localStorage
+- **Dark mode**: Still writes to localStorage as secondary for instant render before session check completes (avoids flash of wrong theme)
 
 ### Removed Features (from civil version)
 - Insurance tracking (removed entirely)

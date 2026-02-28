@@ -25,7 +25,8 @@ async function createSchema() {
         password_reset_token TEXT NOT NULL DEFAULT '',
         password_reset_expires TIMESTAMPTZ,
         deleted_at  TIMESTAMPTZ,
-        pinned_cases JSONB NOT NULL DEFAULT '[]'
+        pinned_cases JSONB NOT NULL DEFAULT '[]',
+        preferences JSONB NOT NULL DEFAULT '{}'
       );
     `);
 
@@ -399,6 +400,8 @@ async function createSchema() {
     await client.query(`ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL`).catch(() => {});
 
     await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS custody_tracking JSONB NOT NULL DEFAULT '{}'`).catch(() => {});
+
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'`).catch(() => {});
 
     await client.query("COMMIT");
     console.log("Schema created successfully.");

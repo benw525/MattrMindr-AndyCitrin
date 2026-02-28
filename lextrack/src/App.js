@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "rea
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import {
-  apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword,
+  apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
   apiGetTasks, apiGetCaseTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
   apiGetDeadlines, apiCreateDeadline, apiUpdateDeadline, apiDeleteDeadline,
@@ -872,13 +872,13 @@ function FollowUpPromptModal({ prompt, onDecide }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [view, setView] = useState("dashboard");
   const [selectedCase, setSelectedCase] = useState(null);
   const [pendingTab, setPendingTab] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState(null);
 
-  // Server-backed state — loaded from API after login
   const [allCases,     setAllCases]     = useState([]);
   const [allDeadlines, setAllDeadlines] = useState([]);
   const [tasks,        setTasks]        = useState([]);
@@ -886,7 +886,7 @@ export default function App() {
   const [caseLinks,    setCaseLinks]    = useState({});
   const [caseActivity, setCaseActivity] = useState({});
   const [allCorrespondence, setAllCorrespondence] = useState([]);
-  const [deletedCases, setDeletedCases] = useState(null); // null = not yet loaded
+  const [deletedCases, setDeletedCases] = useState(null);
   const [allUsers,     setAllUsers]     = useState(USERS);
   const [pinnedCaseIds, setPinnedCaseIds] = useState([]);
 
@@ -899,6 +899,20 @@ export default function App() {
   const [showChangePw, setShowChangePw] = useState(false);
 
   useEffect(() => {
+    apiMe().then(user => {
+      setCurrentUser(user);
+      const prefs = user.preferences || {};
+      if (prefs.darkMode !== undefined) {
+        setDarkMode(prefs.darkMode);
+      }
+    }).catch(() => {}).finally(() => setSessionChecked(true));
+  }, []);
+
+  const savePreference = useCallback((key, value) => {
+    apiSavePreferences({ [key]: value }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem("lextrack-dark", darkMode ? "1" : "0");
     if (darkMode) {
       document.body.classList.add("dark-body");
@@ -908,7 +922,46 @@ export default function App() {
   }, [darkMode]);
   // shape: { target, caseForTask, updatedTasksAfterComplete, pendingChainSpawns, completedDate }
 
-  // Load all data from API when user logs in
+  useEffect(() => {
+    if (!currentUser) return;
+    const prefs = currentUser.preferences || {};
+    const migrated = {};
+    try {
+      const localDark = localStorage.getItem("lextrack-dark");
+      if (localDark !== null && prefs.darkMode === undefined) {
+        migrated.darkMode = localDark === "1";
+        setDarkMode(migrated.darkMode);
+      }
+      const localLayout = localStorage.getItem(`dashboard_layout_${currentUser.id}`);
+      if (localLayout && !prefs.dashboardLayout) {
+        try { migrated.dashboardLayout = JSON.parse(localLayout); } catch {}
+      }
+      const calKeys = { cal_showDeadlines: "deadlines", cal_showTasks: "tasks", cal_showCourtDates: "courtDates", cal_showExternal: "external" };
+      if (!prefs.calendarToggles) {
+        const ct = {};
+        let found = false;
+        for (const [lk, pk] of Object.entries(calKeys)) {
+          const v = localStorage.getItem(lk);
+          if (v !== null) { ct[pk] = v === "true"; found = true; }
+        }
+        if (found) migrated.calendarToggles = ct;
+      }
+      const localStaffPins = localStorage.getItem("lextrack-pinned-staff");
+      if (localStaffPins && !prefs.pinnedStaff) {
+        try { migrated.pinnedStaff = JSON.parse(localStaffPins); } catch {}
+      }
+      if (Object.keys(migrated).length > 0) {
+        apiSavePreferences(migrated).then(() => {
+          localStorage.removeItem("lextrack-dark");
+          localStorage.removeItem(`dashboard_layout_${currentUser.id}`);
+          Object.keys(calKeys).forEach(k => localStorage.removeItem(k));
+          localStorage.removeItem("lextrack-pinned-staff");
+          setCurrentUser(prev => ({ ...prev, preferences: { ...prefs, ...migrated } }));
+        }).catch(() => {});
+      }
+    } catch {}
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!currentUser) return;
     setLoading(true);
@@ -980,6 +1033,13 @@ export default function App() {
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!sessionChecked) return (
+    <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <img src="/logo.png" alt="MattrMindr" style={{ height: 40 }} />
+      <div style={{ fontSize: 13, color: "#8A9096" }}>Restoring session…</div>
+    </div>
+  );
 
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
 
@@ -1409,7 +1469,7 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button className="dark-mode-btn" onClick={() => setDarkMode(d => !d)}>
+          <button className="dark-mode-btn" onClick={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })}>
             {darkMode ? "☀️  Light Mode" : "🌙  Dark Mode"}
           </button>
           <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Signed in as</div>
@@ -1941,16 +2001,16 @@ const DASHBOARD_WIDGETS = [
   { id: "quick-notes", label: "Quick Notes", size: "half", icon: "📝" },
 ];
 const DEFAULT_LAYOUT = ["stat-active", "stat-deadlines", "stat-tasks", "stat-trials", "deadlines", "trials", "tasks"];
-const getDashboardLayout = (userId) => { try { return JSON.parse(localStorage.getItem(`dashboard_layout_${userId}`)) || DEFAULT_LAYOUT; } catch { return DEFAULT_LAYOUT; } };
-const saveDashboardLayout = (userId, layout) => localStorage.setItem(`dashboard_layout_${userId}`, JSON.stringify(layout));
+const getDashboardLayout = (prefs) => { try { return prefs?.dashboardLayout || DEFAULT_LAYOUT; } catch { return DEFAULT_LAYOUT; } };
+const saveDashboardLayout = (layout) => { apiSavePreferences({ dashboardLayout: layout }).catch(() => {}); };
 
 function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
   const available = DASHBOARD_WIDGETS.filter(w => !layout.includes(w.id));
-  const remove = (id) => { const n = layout.filter(x => x !== id); setLayout(n); saveDashboardLayout(userId, n); };
-  const add = (id) => { const n = [...layout, id]; setLayout(n); saveDashboardLayout(userId, n); };
-  const reset = () => { setLayout([...DEFAULT_LAYOUT]); saveDashboardLayout(userId, DEFAULT_LAYOUT); };
+  const remove = (id) => { const n = layout.filter(x => x !== id); setLayout(n); saveDashboardLayout(n); };
+  const add = (id) => { const n = [...layout, id]; setLayout(n); saveDashboardLayout(n); };
+  const reset = () => { setLayout([...DEFAULT_LAYOUT]); saveDashboardLayout(DEFAULT_LAYOUT); };
   const sizeLabel = (s) => s === "quarter" ? "\u00BC" : s === "half" ? "\u00BD" : "Full";
   const sizeColor = (s) => s === "quarter" ? "#4F7393" : s === "half" ? "#2F7A5F" : "#B67A18";
   const handleDragStart = (e, i) => { setDragIdx(i); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); };
@@ -1962,7 +2022,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
     const [moved] = n.splice(dragIdx, 1);
     n.splice(dropI, 0, moved);
     setLayout(n);
-    saveDashboardLayout(userId, n);
+    saveDashboardLayout(n);
     setDragIdx(null);
     setOverIdx(null);
   };
@@ -2485,9 +2545,9 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
   const [triageResults, setTriageResults] = useState(null);
   const [triageLoading, setTriageLoading] = useState(false);
   const [triageError, setTriageError] = useState(null);
-  const [layout, setLayout] = useState(() => getDashboardLayout(currentUser.id));
+  const [layout, setLayout] = useState(() => getDashboardLayout(currentUser.preferences));
   const pinnedIds = pinnedCaseIds;
-  useEffect(() => { setLayout(getDashboardLayout(currentUser.id)); }, [currentUser.id]);
+  useEffect(() => { setLayout(getDashboardLayout(currentUser.preferences)); }, [currentUser.id, currentUser.preferences?.dashboardLayout]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeCases = allCases.filter(c => c.status === "Active");
   const upcomingDl = deadlines.filter(d => { const n = daysUntil(d.date); return n !== null && n >= 0 && n <= 30; }).sort((a, b) => new Date(a.date) - new Date(b.date));
   const trialSoon = allCases.filter(c => c.trialDate && daysUntil(c.trialDate) >= 0 && daysUntil(c.trialDate) <= 90).sort((a, b) => new Date(a.trialDate) - new Date(b.trialDate));
@@ -7435,20 +7495,27 @@ function parseICalText(text, calName, allCases) {
 }
 
 // ─── Calendar Grid ────────────────────────────────────────────────────────────
-function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase }) {
+function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase, currentUser }) {
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
   const [selected, setSelected] = useState(null);
 
-  const [showDeadlines, setShowDeadlines] = useState(() => { try { const v = localStorage.getItem("cal_showDeadlines"); return v === null ? true : v === "true"; } catch { return true; } });
-  const [showTasks, setShowTasks] = useState(() => { try { const v = localStorage.getItem("cal_showTasks"); return v === null ? true : v === "true"; } catch { return true; } });
-  const [showCourtDates, setShowCourtDates] = useState(() => { try { const v = localStorage.getItem("cal_showCourtDates"); return v === null ? true : v === "true"; } catch { return true; } });
-  const [showExternal, setShowExternal] = useState(() => { try { const v = localStorage.getItem("cal_showExternal"); return v === null ? true : v === "true"; } catch { return true; } });
-  useEffect(() => { try { localStorage.setItem("cal_showDeadlines", showDeadlines); } catch {} }, [showDeadlines]);
-  useEffect(() => { try { localStorage.setItem("cal_showTasks", showTasks); } catch {} }, [showTasks]);
-  useEffect(() => { try { localStorage.setItem("cal_showCourtDates", showCourtDates); } catch {} }, [showCourtDates]);
-  useEffect(() => { try { localStorage.setItem("cal_showExternal", showExternal); } catch {} }, [showExternal]);
+  const calPrefs = currentUser?.preferences?.calendarToggles || {};
+  const [showDeadlines, setShowDeadlines] = useState(() => calPrefs.deadlines !== undefined ? calPrefs.deadlines : true);
+  const [showTasks, setShowTasks] = useState(() => calPrefs.tasks !== undefined ? calPrefs.tasks : true);
+  const [showCourtDates, setShowCourtDates] = useState(() => calPrefs.courtDates !== undefined ? calPrefs.courtDates : true);
+  const [showExternal, setShowExternal] = useState(() => calPrefs.external !== undefined ? calPrefs.external : true);
+  const calMounted = useRef(false);
+  const saveCalToggle = useCallback((key, val) => {
+    const cur = currentUser?.preferences?.calendarToggles || {};
+    apiSavePreferences({ calendarToggles: { ...cur, [key]: val } }).catch(() => {});
+  }, [currentUser?.preferences?.calendarToggles]);
+  useEffect(() => { if (!calMounted.current) return; saveCalToggle("deadlines", showDeadlines); }, [showDeadlines]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!calMounted.current) return; saveCalToggle("tasks", showTasks); }, [showTasks]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!calMounted.current) return; saveCalToggle("courtDates", showCourtDates); }, [showCourtDates]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!calMounted.current) return; saveCalToggle("external", showExternal); }, [showExternal]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { calMounted.current = true; }, []);
 
   const monthName = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -7841,7 +7908,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
         </div>
 
         {tab === "calendar" && (
-          <CalendarGrid deadlines={deadlines} tasks={tasks} allCases={allCases} externalEvents={externalEvents} onSelectCase={onSelectCase} />
+          <CalendarGrid deadlines={deadlines} tasks={tasks} allCases={allCases} externalEvents={externalEvents} onSelectCase={onSelectCase} currentUser={currentUser} />
         )}
 
         {tab === "list" && (
@@ -10829,6 +10896,10 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
   const [mergeSelected, setMergeSelected] = useState(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [contactCaseCounts, setContactCaseCounts] = useState({});
+  const [pinnedContactIds, setPinnedContactIds] = useState(() => currentUser?.preferences?.pinnedContacts || []);
+  const [pinnedContactsExpanded, setPinnedContactsExpanded] = useState(true);
+  const saveContactPins = (next) => { setPinnedContactIds(next); apiSavePreferences({ pinnedContacts: next }).catch(() => {}); };
+  const togglePinContact = (id) => { const next = pinnedContactIds.includes(id) ? pinnedContactIds.filter(x => x !== id) : [...pinnedContactIds, id]; saveContactPins(next); };
 
   useEffect(() => {
     apiGetContacts().then(data => { setContacts(data); setLoading(false); }).catch(() => setLoading(false));
@@ -11055,6 +11126,48 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
         {/* Active contacts table */}
         {!isDeleted && (
           <>
+            {(() => {
+              const pinnedContacts = !mergeMode && pinnedContactIds.length > 0 ? pinnedContactIds.map(id => (contacts || []).find(c => c.id === id)).filter(Boolean) : [];
+              return pinnedContacts.length > 0 && (
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setPinnedContactsExpanded(p => !p)}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13 }}>📌</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--c-text-h)" }}>Pinned Contacts</span>
+                      <span style={{ fontSize: 11, color: "#8A9096" }}>({pinnedContacts.length})</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: "#8A9096" }}>{pinnedContactsExpanded ? "▼" : "▶"}</span>
+                  </div>
+                  {pinnedContactsExpanded && (
+                    <table className="mobile-cards" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <tbody>
+                        {pinnedContacts.map(c => {
+                          const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
+                          const caseCount = c.category === "Client" ? allCases.filter(a => a.defendantName === c.name && !a.deletedAt).length
+                                          : c.category === "Prosecutor" ? allCases.filter(a => a.prosecutor === c.name && !a.deletedAt).length
+                                          : c.category === "Judge" ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
+                                          : (contactCaseCounts[c.id] || 0);
+                          return (
+                            <tr key={c.id} onClick={() => handleSelectContact(c)} style={{ borderBottom: "1px solid var(--c-border2)", cursor: "pointer", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"} onMouseLeave={e => e.currentTarget.style.background = ""}>
+                              <td style={{ width: 30, padding: "10px 4px 10px 10px" }}>
+                                <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title="Unpin" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#B67A18", padding: 0, lineHeight: 1 }}>📌</button>
+                              </td>
+                              <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
+                                <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: "#1F2428" }}>{c.category}</span>
+                              </td>
+                              <td data-label="Name" style={{ padding: "10px 12px 10px 0", color: "var(--c-text)", fontWeight: 500 }}>{c.name}</td>
+                              <td data-label="Phone" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "var(--c-text2)", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
+                              <td data-label="Email" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12, wordBreak: "break-all" }}>{c.email || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
+                              <td data-label="Cases" style={{ padding: "10px 0", color: caseCount > 0 ? "#1E2A3A" : "var(--c-border)", fontWeight: caseCount > 0 ? 600 : 400 }}>{caseCount > 0 ? caseCount : "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })()}
             {mergeMode && (
               <div style={{ position: "sticky", top: 0, zIndex: 12, marginBottom: 0, padding: "10px 14px", background: "#dcfce7", border: "1px solid #bbf7d0", borderBottom: "none", borderRadius: "4px 4px 0 0", display: "flex", alignItems: "center", gap: 14, fontSize: 13 }}>
                 <span style={{ color: "#4CAE72" }}>Select 2 or more contacts to merge.</span>
@@ -11080,6 +11193,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
               <thead>
                 <tr style={{ fontSize: 11, color: "#8A9096", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   {mergeMode && <th style={{ width: 32, padding: "6px 8px 6px 0", position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}></th>}
+                  {!mergeMode && <th style={{ width: 30, padding: "6px 4px 6px 0", position: "sticky", top: 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}></th>}
                   <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Category</th>
                   <th style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Name</th>
                   <th className="hide-mobile" style={{ textAlign: "left", padding: "6px 12px 6px 0", fontWeight: 600, position: "sticky", top: mergeMode ? 44 : 0, background: "var(--c-bg)", zIndex: 11, borderBottom: "1px solid var(--c-border)" }}>Phone</th>
@@ -11089,9 +11203,9 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#8A9096", textAlign: "center" }}>Loading contacts…</td></tr>
+                  <tr><td colSpan={mergeMode ? 7 : 7} style={{ padding: 30, color: "#8A9096", textAlign: "center" }}>Loading contacts…</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={mergeMode ? 6 : 5} style={{ padding: 30, color: "#8A9096", textAlign: "center" }}>
+                  <tr><td colSpan={mergeMode ? 7 : 7} style={{ padding: 30, color: "#8A9096", textAlign: "center" }}>
                     {search ? "No contacts match your search." : "No contacts in this category yet."}
                   </td></tr>
                 ) : filtered.map(c => {
@@ -11101,6 +11215,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                                   : c.category === "Judge"    ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
                                   : (contactCaseCounts[c.id] || 0);
                   const isChecked = mergeSelected.has(c.id);
+                  const isPinned = pinnedContactIds.includes(c.id);
                   return (
                     <tr
                       key={c.id}
@@ -11112,6 +11227,11 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                       {mergeMode && (
                         <td data-label="" style={{ padding: "10px 8px 10px 0" }}>
                           <input type="checkbox" checked={isChecked} onChange={() => toggleMergeSelect(c.id)} onClick={e => e.stopPropagation()} style={{ width: 22, height: 22, cursor: "pointer" }} />
+                        </td>
+                      )}
+                      {!mergeMode && (
+                        <td data-label="" style={{ padding: "10px 4px 10px 0", width: 30 }}>
+                          <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title={isPinned ? "Unpin" : "Pin"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: isPinned ? "#B67A18" : "#D6D8DB", padding: 0, lineHeight: 1, opacity: isPinned ? 1 : 0.5, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => { if (!isPinned) e.currentTarget.style.opacity = "0.5"; }}>📌</button>
                         </td>
                       )}
                       <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
@@ -12495,14 +12615,12 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
   const [editingUser, setEditingUser] = useState(null);
   const canAdmin = isAppAdmin(currentUser);
   const [roleFilter, setRoleFilter] = useState("All");
-  const [pinnedIds, setPinnedIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("lextrack-pinned-staff") || "[]"); } catch { return []; }
-  });
+  const [pinnedIds, setPinnedIds] = useState(() => currentUser?.preferences?.pinnedStaff || []);
   const [pinnedExpanded, setPinnedExpanded] = useState(true);
 
   const [allStaffExpanded, setAllStaffExpanded] = useState(true);
 
-  const savePins = (next) => { setPinnedIds(next); localStorage.setItem("lextrack-pinned-staff", JSON.stringify(next)); };
+  const savePins = (next) => { setPinnedIds(next); apiSavePreferences({ pinnedStaff: next }).catch(() => {}); };
   const togglePin = (id) => { const next = pinnedIds.includes(id) ? pinnedIds.filter(x => x !== id) : [...pinnedIds, id]; savePins(next); };
 
   const activeUsers = allUsers.filter(u => !u.deletedAt);

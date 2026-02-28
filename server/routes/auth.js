@@ -48,6 +48,7 @@ function userPayload(user) {
     cell: user.cell,
     avatar: user.avatar,
     mustChangePassword: !!user.must_change_password,
+    preferences: user.preferences || {},
   };
 }
 
@@ -240,6 +241,39 @@ router.get("/me", async (req, res) => {
     return res.json(userPayload(rows[0]));
   } catch (err) {
     console.error("Me error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/preferences", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT preferences FROM users WHERE id = $1", [req.session.userId]);
+    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
+    return res.json(rows[0].preferences || {});
+  } catch (err) {
+    console.error("Get preferences error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/preferences", requireAuth, async (req, res) => {
+  try {
+    const incoming = req.body || {};
+    const { rows } = await pool.query("SELECT preferences FROM users WHERE id = $1", [req.session.userId]);
+    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
+    const current = rows[0].preferences || {};
+    const merged = { ...current };
+    for (const [key, val] of Object.entries(incoming)) {
+      if (val && typeof val === "object" && !Array.isArray(val) && current[key] && typeof current[key] === "object" && !Array.isArray(current[key])) {
+        merged[key] = { ...current[key], ...val };
+      } else {
+        merged[key] = val;
+      }
+    }
+    await pool.query("UPDATE users SET preferences = $1 WHERE id = $2", [JSON.stringify(merged), req.session.userId]);
+    return res.json(merged);
+  } catch (err) {
+    console.error("Save preferences error:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });
