@@ -688,7 +688,7 @@ body.dark-body { background: #0E1116; }
   50% { opacity: 0.3; }
 }
 .advocate-fab {
-  position: fixed; bottom: 24px; right: 24px; z-index: 9998;
+  position: fixed; bottom: 80px; right: 24px; z-index: 9998;
   width: 52px; height: 52px; border-radius: 50%;
   background: linear-gradient(135deg, #6366f1, #4f46e5);
   border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -698,7 +698,7 @@ body.dark-body { background: #0E1116; }
 }
 .advocate-fab:hover { transform: scale(1.08); }
 .advocate-panel {
-  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  position: fixed; bottom: 80px; right: 24px; z-index: 9999;
   width: 400px; height: 580px; max-height: calc(100vh - 48px);
   background: var(--c-bg); border: 1px solid var(--c-border);
   border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
@@ -724,7 +724,7 @@ body.dark-body { background: #0E1116; }
     padding: 14px 12px; gap: 6px;
     min-height: 54px;
   }
-  .advocate-fab { bottom: 16px; right: 16px; width: 48px; height: 48px; }
+  .advocate-fab { bottom: 72px; right: 16px; width: 48px; height: 48px; }
   .advocate-msg-area { padding: 10px 10px !important; }
   .advocate-input-bar { padding: 10px 10px !important; }
   .advocate-input-bar input { font-size: 16px !important; padding: 10px 12px !important; }
