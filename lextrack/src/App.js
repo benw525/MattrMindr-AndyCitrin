@@ -7350,7 +7350,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               {smsComposeSelected && smsComposeSelected.phones.length === 1 && (
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Number</label>
-                  <div style={{ fontSize: 13, color: "var(--c-text)", padding: "8px 10px", background: "var(--c-bg2)", borderRadius: 6, border: "1px solid var(--c-border)" }}>{smsComposeSelected.phones[0].label}: {smsComposePhone}</div>
+                  <div style={{ fontSize: 13, color: "var(--c-text)", padding: "8px 10px", background: "var(--c-bg2)", borderRadius: 6, border: "1px solid var(--c-border)" }}>{smsComposePhone}</div>
                 </div>
               )}
 

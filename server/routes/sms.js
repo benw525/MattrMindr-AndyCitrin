@@ -221,9 +221,9 @@ router.post("/draft", requireAuth, async (req, res) => {
     const userMap = {};
     usersRes.rows.forEach(u => { userMap[u.id] = u.name; });
 
-    const systemPrompt = `You are drafting a short, professional SMS text message for a criminal defense attorney's office (Mobile County Public Defender). The message is to a ${contactType || "client"} about an upcoming case event. Keep it under 300 characters. Use plain, simple language. Be warm but professional. Include the date and what they need to know. Do NOT include legal advice. Do NOT use emojis. Sign off with the attorney's name or "Mobile County Public Defender's Office".`;
+    const systemPrompt = `You are drafting a short, professional SMS text message for a criminal defense attorney's office (Mobile County Public Defender). The message is to a ${contactType || "client"} about an upcoming case event. Keep it under 160 characters so it fits in a single SMS segment. Use plain, simple language. Be warm but professional. Include the date and what they need to know. Do NOT include legal advice. Do NOT use emojis. Write exactly ONE text message — do not provide multiple options, alternatives, or variations.`;
 
-    const userPrompt = `Draft a text message reminder:
+    const userPrompt = `Draft a single text message reminder (under 160 characters):
 Recipient: ${contactName || "the client"} (${contactType || "client"})
 Case: ${c.title || c.case_num || ""}
 Defendant: ${c.defendant_name || ""}
@@ -232,7 +232,7 @@ Event: ${eventType || "hearing"} — ${eventTitle || "Court appearance"}
 Date: ${eventDate || "upcoming"}
 ${customInstructions ? `Special instructions: ${customInstructions}` : ""}
 
-Write ONLY the text message, nothing else.`;
+Write ONLY the text message, nothing else. Keep it under 160 characters.`;
 
     const resp = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -241,7 +241,7 @@ Write ONLY the text message, nothing else.`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0.4,
-      max_tokens: 500,
+      max_tokens: 200,
       store: false,
     });
 
