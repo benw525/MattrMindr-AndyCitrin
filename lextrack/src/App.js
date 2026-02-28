@@ -7281,24 +7281,32 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       const contactMatches = (allContacts || []).filter(ct => !ct.deletedAt && ct.name && ct.name.toLowerCase().includes(lower)).slice(0, 8);
                       const partyMatches = (parties || []).filter(p => p.name && p.name.toLowerCase().includes(lower) && !contactMatches.some(cm => cm.name.toLowerCase() === p.name.toLowerCase())).slice(0, 4);
                       const expertMatches = (experts || []).filter(ex => ex.name && ex.name.toLowerCase().includes(lower) && !contactMatches.some(cm => cm.name.toLowerCase() === ex.name.toLowerCase())).slice(0, 4);
+                      const fmtPhone = (num) => {
+                        if (!num) return null;
+                        const digits = num.replace(/\D/g, "");
+                        if (digits.length === 10) return "+1" + digits;
+                        if (digits.length === 11 && digits.startsWith("1")) return "+" + digits;
+                        if (num.startsWith("+") && digits.length >= 11) return "+" + digits;
+                        return digits.length >= 10 ? "+" + digits : null;
+                      };
                       const results = [];
                       contactMatches.forEach(ct => {
                         const phones = [];
-                        if (ct.phone) phones.push({ label: "Phone", number: ct.phone });
-                        if (ct.cell) phones.push({ label: "Cell", number: ct.cell });
+                        const p1 = fmtPhone(ct.phone); if (p1) phones.push({ label: "Phone", number: p1 });
+                        const p2 = fmtPhone(ct.cell); if (p2) phones.push({ label: "Cell", number: p2 });
                         results.push({ id: "ct-" + ct.id, name: ct.name, category: ct.category, phones, source: "Contact" });
                       });
                       partyMatches.forEach(p => {
                         const phones = [];
                         const d = p.data || {};
-                        if (d.phone) phones.push({ label: "Phone", number: d.phone });
-                        if (d.cell) phones.push({ label: "Cell", number: d.cell });
+                        const p1 = fmtPhone(d.phone); if (p1) phones.push({ label: "Phone", number: p1 });
+                        const p2 = fmtPhone(d.cell); if (p2) phones.push({ label: "Cell", number: p2 });
                         results.push({ id: "party-" + p.id, name: p.name, category: p.partyType || "Party", phones, source: "Case Party" });
                       });
                       expertMatches.forEach(ex => {
                         const phones = [];
-                        if (ex.phone) phones.push({ label: "Phone", number: ex.phone });
-                        if (ex.cell) phones.push({ label: "Cell", number: ex.cell });
+                        const p1 = fmtPhone(ex.phone); if (p1) phones.push({ label: "Phone", number: p1 });
+                        const p2 = fmtPhone(ex.cell); if (p2) phones.push({ label: "Cell", number: p2 });
                         results.push({ id: "expert-" + ex.id, name: ex.name, category: "Expert", phones, source: "Expert" });
                       });
                       setSmsComposeResults(results);
