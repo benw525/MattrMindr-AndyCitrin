@@ -71,7 +71,7 @@ router.post("/", requireAuth, async (req, res) => {
 
     if (rows[0].linked_case_id) {
       const { rows: caseRows } = await pool.query(
-        "SELECT case_num, title, defendant_name, charges, status, stage, court, county, assigned_attorney FROM cases WHERE id = $1",
+        "SELECT case_num, title, defendant_name, charges, status, stage, court, county, lead_attorney FROM cases WHERE id = $1",
         [rows[0].linked_case_id]
       );
       if (caseRows.length) {
@@ -84,7 +84,7 @@ router.post("/", requireAuth, async (req, res) => {
         rows[0].linked_stage = c.stage;
         rows[0].linked_court = c.court;
         rows[0].linked_county = c.county;
-        rows[0].linked_attorney = c.assigned_attorney;
+        rows[0].linked_attorney = c.lead_attorney;
       }
     }
 
