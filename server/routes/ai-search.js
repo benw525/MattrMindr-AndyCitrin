@@ -28,7 +28,7 @@ router.post("/", requireAuth, async (req, res) => {
       pool.query("SELECT case_id, party_type, data FROM case_parties"),
       pool.query("SELECT case_id, data FROM case_insurance"),
       pool.query("SELECT case_id, data FROM case_experts"),
-      pool.query("SELECT case_id, subject, from_email, to_email FROM case_correspondence ORDER BY received_at DESC"),
+      pool.query("SELECT case_id, subject, from_email, to_emails FROM case_correspondence ORDER BY received_at DESC"),
     ]);
 
     const cases = casesResult.rows;

@@ -398,6 +398,8 @@ async function createSchema() {
 
     await client.query(`ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL`).catch(() => {});
 
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS custody_tracking JSONB NOT NULL DEFAULT '{}'`).catch(() => {});
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

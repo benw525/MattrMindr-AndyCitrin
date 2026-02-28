@@ -3293,6 +3293,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                             <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
                             {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
+                            {(() => { const ct = c.custodyTracking || {}; const pend = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted); return pend ? <span title="Pending custody action" style={{ fontSize: 9, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>⚠ PENDING</span> : null; })()}
                           </div>
                           {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1 }}>{c.prosecutor}</div>}
                         </td>
@@ -3384,6 +3385,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                             <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
                             {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
+                            {(() => { const ct = c.custodyTracking || {}; const pend = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted); return pend ? <span title="Pending custody action" style={{ fontSize: 9, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>⚠ PENDING</span> : null; })()}
                           </div>
                           {c.prosecutor && <div style={{ fontSize: 12, color: "#1F2428", fontWeight: 500, marginTop: 1 }}>{c.prosecutor}</div>}
                         </td>
@@ -3463,7 +3465,7 @@ const CORE_FIELDS = [
   { key: "status",           label: "Status",               type: "select", section: "details", options: ["Active", "Closed", "Pending", "Disposed", "Transferred"] },
   { key: "stage",            label: "Stage",                type: "select", section: "details", options: ["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"] },
   // Info section
-  { key: "custodyStatus",    label: "Custody Status",       type: "select", section: "info", options: ["In Custody", "Out on Bond", "Released on Own Recognizance", "Supervision"] },
+  { key: "custodyStatus",    label: "Custody Status",       type: "select", section: "info", options: ["In Custody", "Out on Bond", "Released on Own Recognizance", "Supervision", "In Treatment"] },
   { key: "bondAmount",       label: "Bond Amount",          type: "text",   section: "info" },
   { key: "bondConditions",   label: "Bond Conditions",      type: "text",   section: "info" },
   { key: "jailLocation",     label: "Jail Location",        type: "text",   section: "info" },
@@ -5299,6 +5301,67 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
             </div>
+
+            {/* Custody Tracking Section */}
+            {(() => {
+              const ct = draft.custodyTracking || {};
+              const setCt = (key, val) => {
+                const updated = { ...(draft.custodyTracking || {}), [key]: val };
+                setAndLog("custodyTracking", updated);
+              };
+              const hasPending = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted);
+              const trackRow = (label, setKey, setDateKey, completeKey, completeDateKey, extraFields) => {
+                const isSet = !!ct[setKey];
+                const isComplete = !!ct[completeKey];
+                const isPending = isSet && !isComplete;
+                return (
+                  <div style={{ padding: "10px 0", borderBottom: "1px solid var(--c-border)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isPending || isSet ? 6 : 0 }}>
+                      {isPending && <span style={{ fontSize: 11, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>PENDING</span>}
+                      {isComplete && <span style={{ fontSize: 11, fontWeight: 700, background: "#16a34a", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>COMPLETED</span>}
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{label}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginTop: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: editMode ? "pointer" : "default" }}>
+                        <input type="checkbox" checked={isSet} onChange={e => setCt(setKey, e.target.checked)} disabled={!editMode} style={{ margin: 0 }} />
+                        {setKey === "bondSet" ? "Bond Set" : setKey === "releaseOrdered" ? "Release Ordered" : "Transport Ordered"}
+                      </label>
+                      <div>
+                        <input type="date" value={ct[setDateKey] || ""} onChange={e => setCt(setDateKey, e.target.value)} disabled={!editMode} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text2)" }} />
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: editMode ? "pointer" : "default" }}>
+                        <input type="checkbox" checked={isComplete} onChange={e => setCt(completeKey, e.target.checked)} disabled={!editMode || !isSet} style={{ margin: 0 }} />
+                        {completeKey === "bondPosted" ? "Bond Posted" : completeKey === "releaseCompleted" ? "Release Completed" : "Transport Completed"}
+                      </label>
+                      <div>
+                        <input type="date" value={ct[completeDateKey] || ""} onChange={e => setCt(completeDateKey, e.target.value)} disabled={!editMode || !isSet} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text2)" }} />
+                      </div>
+                      {extraFields}
+                    </div>
+                  </div>
+                );
+              };
+              return (
+                <div style={{ marginTop: 8 }}>
+                  <div className="case-overlay-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>Custody Tracking</span>
+                    {hasPending && <span style={{ fontSize: 10, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>ACTION NEEDED</span>}
+                  </div>
+                  <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: "4px 16px" }}>
+                    {trackRow("Bond Status", "bondSet", "bondSetDate", "bondPosted", "bondPostedDate")}
+                    {trackRow("Release Status", "releaseOrdered", "releaseOrderedDate", "releaseCompleted", "releaseCompletedDate")}
+                    {trackRow("Transport Status", "transportOrdered", "transportOrderedDate", "transportCompleted", "transportCompletedDate",
+                      <>
+                        <label style={{ fontSize: 12, color: "var(--c-text2)", gridColumn: "1 / -1", marginTop: 4 }}>
+                          <span style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Destination</span>
+                          <input type="text" value={ct.transportDestination || ""} onChange={e => setCt("transportDestination", e.target.value)} onBlur={() => handleBlur("custodyTracking")} disabled={!editMode} placeholder="Transport destination..." style={{ width: "100%", fontSize: 12, padding: "4px 6px", marginTop: 2, border: "1px solid var(--c-border)", borderRadius: 4, background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)" }} />
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
@@ -8309,6 +8372,20 @@ const REPORT_DEFS = [
     desc: "Cases sorted by arrest date. Useful for tracking case timelines and reviewing recent arrests.",
     params: ["courtDivision"],
   },
+  {
+    id: "custody_status",
+    icon: "🔓",
+    title: "Cases by Custody Status",
+    desc: "Active cases grouped by custody status. Shows bond amounts, jail locations, and assigned attorneys.",
+    params: ["courtDivision"],
+  },
+  {
+    id: "pending_custody",
+    icon: "⚠",
+    title: "Pending Custody Actions",
+    desc: "Cases with unresolved custody actions — bond set but not posted, release ordered but not completed, transport ordered but not completed.",
+    params: ["courtDivision"],
+  },
 ];
 
 function buildReport(id, allCases, tasks, deadlines, params) {
@@ -8506,6 +8583,32 @@ function buildReport(id, allCases, tasks, deadlines, params) {
         rows: rows.map(c => [c.caseNum || "—", c.title, fmt(c.arrestDate), c.status, c.stage || "—", getUserById(c.assignedAttorney)?.name || "—", c.defendantName || "—"]),
         caseIds: rows.map(c => c.id),
         count: rows.length,
+      };
+    }
+    case "custody_status": {
+      const rows = activeCases.slice().sort((a, b) => (a.custodyStatus || "").localeCompare(b.custodyStatus || "") || (a.caseNum || "").localeCompare(b.caseNum || ""));
+      return {
+        columns: ["Case Number", "Style", "Custody Status", "Bond Amount", "Jail Location", "Assigned Attorney", "Court Division"],
+        rows: rows.map(c => [c.caseNum || "—", c.title, c.custodyStatus || "Not Set", c.bondAmount || "—", c.jailLocation || "—", getUserById(c.assignedAttorney)?.name || "—", c.courtDivision || "—"]),
+        caseIds: rows.map(c => c.id),
+        count: rows.length,
+      };
+    }
+    case "pending_custody": {
+      const pending = [];
+      const daysSince = (dateStr) => dateStr ? -(daysUntil(dateStr)) : null;
+      activeCases.forEach(c => {
+        const ct = c.custodyTracking || {};
+        if (ct.bondSet && !ct.bondPosted) pending.push({ c, action: "Bond Set — Not Posted", date: ct.bondSetDate, daysPending: daysSince(ct.bondSetDate) });
+        if (ct.releaseOrdered && !ct.releaseCompleted) pending.push({ c, action: "Release Ordered — Not Completed", date: ct.releaseOrderedDate, daysPending: daysSince(ct.releaseOrderedDate) });
+        if (ct.transportOrdered && !ct.transportCompleted) pending.push({ c, action: "Transport Ordered — Not Completed", date: ct.transportOrderedDate, daysPending: daysSince(ct.transportOrderedDate) });
+      });
+      pending.sort((a, b) => (b.daysPending ?? -1) - (a.daysPending ?? -1));
+      return {
+        columns: ["Case Number", "Style", "Pending Action", "Date Ordered", "Days Pending", "Jail Location", "Assigned Attorney"],
+        rows: pending.map(p => [p.c.caseNum || "—", p.c.title, p.action, p.date ? fmt(p.date) : "—", p.daysPending !== null ? `${p.daysPending}d` : "—", p.c.jailLocation || "—", getUserById(p.c.assignedAttorney)?.name || "—"]),
+        caseIds: pending.map(p => p.c.id),
+        count: pending.length,
       };
     }
     default:
