@@ -1037,7 +1037,7 @@ export default function App() {
   if (!sessionChecked) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <img src="/logo.png" alt="MattrMindr" style={{ height: 40 }} />
-      <div style={{ fontSize: 10, color: "#8A9096", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#1E2A3A", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
       <div style={{ fontSize: 13, color: "#8A9096" }}>Restoring session…</div>
     </div>
   );
@@ -1051,7 +1051,7 @@ export default function App() {
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <img src="/logo.png" alt="MattrMindr" style={{ height: 40 }} />
-      <div style={{ fontSize: 10, color: "#8A9096", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#1E2A3A", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
       <div style={{ fontSize: 13, color: "#8A9096" }}>Loading case data…</div>
     </div>
   );
@@ -1059,7 +1059,7 @@ export default function App() {
   if (dataError) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <img src="/logo.png" alt="MattrMindr" style={{ height: 40 }} />
-      <div style={{ fontSize: 10, color: "#8A9096", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#1E2A3A", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
       <div style={{ fontSize: 13, color: "#e05252" }}>Failed to load data: {dataError}</div>
       <button className="btn btn-outline" onClick={() => setCurrentUser(null)}>Return to Login</button>
     </div>
@@ -1443,7 +1443,7 @@ export default function App() {
       <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
         <div className="sidebar-logo">
           <img src="/logo.png" alt="MattrMindr" style={{ height: 30 }} />
-          <div style={{ fontSize: 9, color: "#8A9096", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Mobile County Public Defender's Office</div>
+          <div style={{ fontSize: 9, color: "var(--c-text-h)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Mobile County Public Defender's Office</div>
         </div>
         <div className="sidebar-user">
           <Avatar userId={currentUser.id} size={34} />
@@ -1572,7 +1572,7 @@ function LoginScreen({ onLogin }) {
     <div className="login-bg">
       <div className="login-box">
         <img src="/logo.png" alt="MattrMindr" style={{ height: 48, marginBottom: 4 }} />
-        <div style={{ fontSize: 11, color: "#8A9096", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Mobile County Public Defender's Office</div>
+        <div style={{ fontSize: 11, color: "#1E2A3A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Mobile County Public Defender's Office</div>
         <div className="login-sub">Case Management System</div>
 
         {view === "login" && (<>
@@ -1665,7 +1665,7 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
   const content = (
     <>
       <img src="/logo.png" alt="MattrMindr" style={{ height: 36, marginBottom: 2 }} />
-      <div style={{ fontSize: 10, color: "#8A9096", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#1E2A3A", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mobile County Public Defender's Office</div>
       {forced && <div style={{ fontSize: 13, color: "#8A9096", margin: "8px 0 16px" }}>You must set a new password before continuing.</div>}
       {!forced && (
         <div className="form-group">
