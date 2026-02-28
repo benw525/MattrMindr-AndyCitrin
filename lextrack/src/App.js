@@ -955,6 +955,7 @@ export default function App() {
   const advocateLastOpenViewRef = useRef(null);
   const advocatePrevOpenRef = useRef(false);
   const [advocateScreenChips, setAdvocateScreenChips] = useState(null);
+  const [advocateFromHelpCenter, setAdvocateFromHelpCenter] = useState(false);
   useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading, advocateScreenChips]);
   const [contextContactsCache, setContextContactsCache] = useState(null);
   const [contextTemplatesCache, setContextTemplatesCache] = useState(null);
@@ -1194,8 +1195,13 @@ export default function App() {
       const staffWithLoad = active.filter(u => workload[u.id]).map(u => ({ name: u.name, cases: workload[u.id] })).sort((a, b) => b.cases - a.cases);
       if (staffWithLoad.length > 0) lines.push(`Active caseloads: ${staffWithLoad.slice(0, 10).map(s => `${s.name}: ${s.cases}`).join(", ")}`);
     }
+
+    if (advocateFromHelpCenter) {
+      lines.push(`User opened Advocate AI from the Help Center. They may need help learning how to use MattrMindr, understanding features, or getting started. Be welcoming and helpful — explain features clearly, offer to walk them through workflows, and suggest relevant tutorials. Available features include: Case Management, Calendar & Deadlines, Tasks, Documents & Templates, Correspondence (Email & SMS), AI Center, Contacts, Reports, Time Log, and Staff Management.`);
+    }
+
     return lines.join("\n").substring(0, 4000);
-  }, [view, allCases, tasks, allDeadlines, allUsers, currentUser, pinnedCaseIds, selectedCase, allCorrespondence, caseNotes, contextContactsCache, contextTemplatesCache, contextTimeManualCache]);
+  }, [view, allCases, tasks, allDeadlines, allUsers, currentUser, pinnedCaseIds, selectedCase, allCorrespondence, caseNotes, contextContactsCache, contextTemplatesCache, contextTimeManualCache, advocateFromHelpCenter]);
 
   const openAdvocateFromCase = useCallback((caseId) => {
     if (advocateCaseId !== caseId) {
@@ -1232,6 +1238,7 @@ export default function App() {
     setAdvocateInput("");
     setAdvocateLoading(false);
     setAdvocateScreenChips(null);
+    setAdvocateFromHelpCenter(false);
   }, []);
 
   useEffect(() => {
@@ -1240,6 +1247,7 @@ export default function App() {
 
     if (viewChanged) {
       advocatePrevViewRef.current = view;
+      if (advocateFromHelpCenter) setAdvocateFromHelpCenter(false);
     }
 
     if (showAdvocateGlobal) {
@@ -1252,6 +1260,7 @@ export default function App() {
     }
 
     advocatePrevOpenRef.current = showAdvocateGlobal;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, showAdvocateGlobal, advocateCaseId]);
 
   const ADVOCATE_SCREEN_CHIPS = {
@@ -1265,6 +1274,7 @@ export default function App() {
     aicenter: ["What AI tools are available?", "How do I train the AI agents?", "How do I run a batch operation?"],
     contacts: ["How do I add a new contact?", "How do I merge duplicate contacts?", "How do I pin a contact?"],
     staff: ["Show me the team workload", "How do I manage staff roles?", "Who has the most cases?"],
+    helpcenter: ["How do I get started with MattrMindr?", "What features are available?", "How do I manage my cases?"],
   };
 
   const SCREEN_LABELS = {
@@ -1278,6 +1288,7 @@ export default function App() {
     aicenter: { icon: "⚡", label: "AI Center" },
     contacts: { icon: "📇", label: "Contacts" },
     staff: { icon: "👥", label: "Staff" },
+    helpcenter: { icon: "❓", label: "Help Center" },
   };
 
   // shape: { target, caseForTask, updatedTasksAfterComplete, pendingChainSpawns, completedDate }
@@ -1846,7 +1857,7 @@ export default function App() {
         <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} />
       )}
       {showHelpCenter && (
-        <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setShowAdvocateGlobal(true); }} />
+        <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} />
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} />}
@@ -1887,7 +1898,7 @@ export default function App() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 600, color: "var(--c-text-h)" }}>Advocate AI</div>
                 <div style={{ fontSize: 10, color: "#8A9096", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {SCREEN_LABELS[view] && <span>{SCREEN_LABELS[view].icon} {SCREEN_LABELS[view].label}</span>}
+                  {advocateFromHelpCenter ? <span>{SCREEN_LABELS.helpcenter.icon} {SCREEN_LABELS.helpcenter.label}</span> : SCREEN_LABELS[view] && <span>{SCREEN_LABELS[view].icon} {SCREEN_LABELS[view].label}</span>}
                   {advocateCaseId && (() => { const ac = allCases.find(cs => cs.id === advocateCaseId); return ac ? <span style={{ fontWeight: 600 }}>· {ac.case_num || ac.title}</span> : null; })()}
                 </div>
               </div>
