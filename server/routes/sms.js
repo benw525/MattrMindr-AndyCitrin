@@ -12,7 +12,7 @@ const openai = new OpenAI({
 });
 
 router.get("/status", requireAuth, async (req, res) => {
-  res.json({ configured: isConfigured() });
+  res.json({ configured: await isConfigured() });
 });
 
 router.get("/configs/:caseId", requireAuth, async (req, res) => {
@@ -184,13 +184,13 @@ router.post("/send", requireAuth, async (req, res) => {
     const formatted = formatPhoneNumber(phoneNumber);
     if (!formatted) return res.status(400).json({ error: "Invalid phone number" });
 
-    if (!isConfigured()) {
+    if (!(await isConfigured())) {
       await pool.query(
         `INSERT INTO sms_messages (case_id, direction, phone_number, body, status, contact_name, sent_by)
          VALUES ($1, 'outbound', $2, $3, 'not_configured', $4, $5)`,
         [caseId || null, formatted, body, contactName || "", req.session.userId]
       );
-      return res.status(503).json({ error: "Twilio is not configured. Message saved but not sent. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER to environment variables." });
+      return res.status(503).json({ error: "Twilio is not configured. Please connect your Twilio account in the integrations panel." });
     }
 
     const result = await sendSMS(formatted, body);

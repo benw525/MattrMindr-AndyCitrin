@@ -1,19 +1,62 @@
 const twilio = require("twilio");
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+async function getCredentials() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? "repl " + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+    ? "depl " + process.env.WEB_REPL_RENEWAL
+    : null;
 
-let client = null;
+  if (!xReplitToken || !hostname) {
+    return null;
+  }
 
-function getClient() {
-  if (!accountSid || !authToken) return null;
-  if (!client) client = twilio(accountSid, authToken);
-  return client;
+  const res = await fetch(
+    "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=twilio",
+    {
+      headers: {
+        "Accept": "application/json",
+        "X-Replit-Token": xReplitToken,
+      },
+    }
+  );
+  const data = await res.json();
+  const connectionSettings = data.items?.[0];
+
+  if (
+    !connectionSettings ||
+    !connectionSettings.settings.account_sid ||
+    !connectionSettings.settings.api_key ||
+    !connectionSettings.settings.api_key_secret
+  ) {
+    return null;
+  }
+
+  return {
+    accountSid: connectionSettings.settings.account_sid,
+    apiKey: connectionSettings.settings.api_key,
+    apiKeySecret: connectionSettings.settings.api_key_secret,
+    phoneNumber: connectionSettings.settings.phone_number,
+  };
 }
 
-function isConfigured() {
-  return !!(accountSid && authToken && fromNumber);
+async function getClient() {
+  const creds = await getCredentials();
+  if (!creds) return null;
+  return twilio(creds.apiKey, creds.apiKeySecret, {
+    accountSid: creds.accountSid,
+  });
+}
+
+async function getFromNumber() {
+  const creds = await getCredentials();
+  return creds?.phoneNumber || null;
+}
+
+async function isConfigured() {
+  const creds = await getCredentials();
+  return !!(creds && creds.accountSid && creds.apiKey && creds.apiKeySecret && creds.phoneNumber);
 }
 
 function formatPhoneNumber(number) {
@@ -27,13 +70,15 @@ function formatPhoneNumber(number) {
 }
 
 async function sendSMS(to, body) {
-  const c = getClient();
-  if (!c) throw new Error("Twilio is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables.");
+  const client = await getClient();
+  if (!client) throw new Error("Twilio is not configured. Please connect your Twilio account in the integrations panel.");
+  const fromNumber = await getFromNumber();
+  if (!fromNumber) throw new Error("No Twilio phone number configured.");
   const formatted = formatPhoneNumber(to);
   if (!formatted) throw new Error(`Invalid phone number: "${to}". Expected 10-digit US number or E.164 format.`);
   if (!body || body.trim().length === 0) throw new Error("Message body cannot be empty.");
   try {
-    const message = await c.messages.create({
+    const message = await client.messages.create({
       body: body.trim(),
       from: fromNumber,
       to: formatted,
@@ -48,4 +93,4 @@ async function sendSMS(to, body) {
   }
 }
 
-module.exports = { sendSMS, formatPhoneNumber, isConfigured, getClient };
+module.exports = { sendSMS, formatPhoneNumber, isConfigured, getClient, getFromNumber };

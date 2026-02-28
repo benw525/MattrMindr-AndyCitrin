@@ -85,7 +85,7 @@ async function generateScheduledMessages(configId) {
 }
 
 async function processScheduledMessages() {
-  if (!isConfigured()) return;
+  if (!(await isConfigured())) return;
 
   try {
     const { rows } = await pool.query(
