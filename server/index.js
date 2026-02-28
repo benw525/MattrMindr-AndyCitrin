@@ -33,6 +33,7 @@ const calendarFeedsRoutes    = require("./routes/calendar-feeds");
 const probationRoutes        = require("./routes/probation");
 const linkedCasesRoutes      = require("./routes/linked-cases");
 const smsRoutes              = require("./routes/sms");
+const collaborateRoutes      = require("./routes/collaborate");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -97,6 +98,7 @@ app.use("/api/calendar-feeds", calendarFeedsRoutes);
 app.use("/api/probation", probationRoutes);
 app.use("/api/linked-cases", linkedCasesRoutes);
 app.use("/api/sms", smsRoutes);
+app.use("/api/collaborate", collaborateRoutes);
 
 app.post("/api/support", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });

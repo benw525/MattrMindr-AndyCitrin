@@ -478,6 +478,63 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_channels (
+        id          SERIAL PRIMARY KEY,
+        type        TEXT    NOT NULL,
+        name        TEXT,
+        case_id     INTEGER REFERENCES cases(id),
+        created_by  INTEGER REFERENCES users(id),
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_channel_members (
+        id          SERIAL PRIMARY KEY,
+        channel_id  INTEGER NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+        user_id     INTEGER NOT NULL REFERENCES users(id),
+        joined_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(channel_id, user_id)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id              SERIAL PRIMARY KEY,
+        channel_id      INTEGER NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+        sender_id       INTEGER NOT NULL REFERENCES users(id),
+        body            TEXT    NOT NULL,
+        mentions        INTEGER[] NOT NULL DEFAULT '{}',
+        attachment_name TEXT,
+        attachment_url  TEXT,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_groups (
+        id          SERIAL PRIMARY KEY,
+        channel_id  INTEGER NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+        name        TEXT    NOT NULL,
+        description TEXT    NOT NULL DEFAULT '',
+        avatar      TEXT    NOT NULL DEFAULT '#4C7AC9',
+        created_by  INTEGER NOT NULL REFERENCES users(id),
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_typing (
+        id          SERIAL PRIMARY KEY,
+        channel_id  INTEGER NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+        user_id     INTEGER NOT NULL REFERENCES users(id),
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(channel_id, user_id)
+      );
+    `);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

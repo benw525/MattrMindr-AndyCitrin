@@ -67,6 +67,7 @@ server/
     calendar-feeds.js — CRUD /api/calendar-feeds (per-user iCal feed persistence)
     probation.js    — CRUD /api/probation/:caseId/violations (probation violation records)
     sms.js          — SMS routes: configs CRUD, messages, send, draft, suggest-numbers, scheduled
+    collaborate.js  — Collaborate chat: channels, messages, groups, private chats, typing, file upload, search, unread counts
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
     case-signature.docx   — Attorney signature block (auto-appended to Pleadings)
@@ -76,6 +77,7 @@ server/
 lextrack/
   src/
     App.js          — All UI components and business logic
+    CollaborateView.js — Internal chat feature: Cases/Groups/Private channels, @mentions, file sharing, typing indicators
     api.js          — Thin fetch wrapper for all API calls
     firmData.js     — Static reference data: USERS display info (avatars, names)
     App.css         — Base reset styles
@@ -181,6 +183,17 @@ Two-tier system for customizing how AI agents behave by injecting training conte
 - Link/unlink gated behind edit mode
 - Routes: `server/routes/linked-cases.js` (GET/POST/DELETE)
 - API: `apiGetLinkedCases`, `apiCreateLinkedCase`, `apiDeleteLinkedCase`
+
+### Collaborate (Internal Chat)
+- Internal messaging system with three channel types: Cases, Groups, Private
+- **Cases tab**: Discuss specific cases; auto-creates channels on first message with all active users as members
+- **Groups tab**: Create named groups with selected members for team discussions; creator can edit/delete
+- **Private tab**: Direct messages between two users; find-or-create existing conversation
+- **Features**: @mention autocomplete with highlighted pills, file/document sharing (base64 upload), typing indicators (3s poll), message search across all channels, unread badges per channel and sidebar total (30s poll), date-grouped messages, responsive mobile layout
+- **Database tables**: `chat_channels`, `chat_channel_members`, `chat_messages`, `chat_groups`, `chat_typing`
+- **Routes**: `server/routes/collaborate.js` registered at `/api/collaborate`
+- **Component**: `lextrack/src/CollaborateView.js`
+- **API functions**: `apiGetCollabChannels`, `apiCreateCollabChannel`, `apiDeleteCollabChannel`, `apiGetCollabMessages`, `apiSendCollabMessage`, `apiMarkCollabRead`, `apiSearchCollabMessages`, `apiCreateCollabGroup`, `apiUpdateCollabGroup`, `apiGetCollabGroupMembers`, `apiAddCollabGroupMembers`, `apiRemoveCollabGroupMember`, `apiStartPrivateChat`, `apiGetCollabUnreadCount`, `apiCollabTyping`, `apiGetCollabTyping`, `apiUploadCollabFile`
 
 ### Default County/State
 - New cases default to county "Mobile" and court "Mobile County"

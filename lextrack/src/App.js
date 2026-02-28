@@ -33,7 +33,9 @@ import {
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
   apiSendSupport,
+  apiGetCollabUnreadCount,
 } from "./api.js";
+import CollaborateView from "./CollaborateView.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
 
@@ -1274,6 +1276,7 @@ export default function App() {
     aicenter: ["What AI tools are available?", "How do I train the AI agents?", "How do I run a batch operation?"],
     contacts: ["How do I add a new contact?", "How do I merge duplicate contacts?", "How do I pin a contact?"],
     staff: ["Show me the team workload", "How do I manage staff roles?", "Who has the most cases?"],
+    collaborate: ["How do I start a group chat?", "How do I message someone privately?", "How do I use case discussions?"],
     helpcenter: ["How do I get started with MattrMindr?", "What features are available?", "How do I manage my cases?"],
   };
 
@@ -1286,6 +1289,7 @@ export default function App() {
     timelog: { icon: "🕐", label: "Time Log" },
     reports: { icon: "📊", label: "Reports" },
     aicenter: { icon: "⚡", label: "AI Center" },
+    collaborate: { icon: "💬", label: "Collaborate" },
     contacts: { icon: "📇", label: "Contacts" },
     staff: { icon: "👥", label: "Staff" },
     helpcenter: { icon: "❓", label: "Help Center" },
@@ -1404,6 +1408,15 @@ export default function App() {
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [collabUnread, setCollabUnread] = useState(0);
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchUnread = () => apiGetCollabUnreadCount().then(r => setCollabUnread(r.unread || 0)).catch(() => {});
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   if (!sessionChecked) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
@@ -1833,6 +1846,7 @@ export default function App() {
             { id: "timelog", icon: "🕐", label: "Time Log" },
             { id: "reports", icon: "📊", label: "Reports" },
             { id: "aicenter", icon: "⚡", label: "AI Center" },
+            { id: "collaborate", icon: "💬", label: "Collaborate", badge: collabUnread > 0 ? collabUnread : null },
             { id: "contacts", icon: "📇", label: "Contacts" },
             { id: "staff", icon: "👥", label: "Staff" },
           ].map(item => (
@@ -1867,6 +1881,7 @@ export default function App() {
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} />}
         {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
+        {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} onMenuToggle={() => setSidebarOpen(true)} />}

@@ -281,3 +281,30 @@ export const apiGetProbationViolations    = (caseId)         => apiFetch(`/api/p
 export const apiCreateProbationViolation  = (caseId, data)   => apiFetch(`/api/probation/${caseId}/violations`, { method: "POST", body: data });
 export const apiUpdateProbationViolation  = (caseId, id, data) => apiFetch(`/api/probation/${caseId}/violations/${id}`, { method: "PUT", body: data });
 export const apiDeleteProbationViolation  = (caseId, id)     => apiFetch(`/api/probation/${caseId}/violations/${id}`, { method: "DELETE" });
+
+// Collaborate
+export const apiGetCollabChannels       = ()            => apiFetch("/api/collaborate/channels");
+export const apiCreateCollabChannel     = (data)        => apiFetch("/api/collaborate/channels",          { method: "POST",   body: data });
+export const apiDeleteCollabChannel     = (id)          => apiFetch(`/api/collaborate/channels/${id}`,    { method: "DELETE" });
+export const apiGetCollabMessages       = (id, before)  => apiFetch(`/api/collaborate/channels/${id}/messages${before ? `?before=${before}` : ""}`);
+export const apiSendCollabMessage       = (id, data)    => apiFetch(`/api/collaborate/channels/${id}/messages`, { method: "POST", body: data });
+export const apiMarkCollabRead          = (id)          => apiFetch(`/api/collaborate/channels/${id}/read`,     { method: "PUT" });
+export const apiSearchCollabMessages    = (q)           => apiFetch(`/api/collaborate/search?q=${encodeURIComponent(q)}`);
+export const apiGetCaseChannels         = ()            => apiFetch("/api/collaborate/case-channels");
+export const apiCreateCollabGroup       = (data)        => apiFetch("/api/collaborate/groups",            { method: "POST",   body: data });
+export const apiUpdateCollabGroup       = (id, data)    => apiFetch(`/api/collaborate/groups/${id}`,      { method: "PUT",    body: data });
+export const apiGetCollabGroupMembers   = (id)          => apiFetch(`/api/collaborate/groups/${id}/members`);
+export const apiAddCollabGroupMembers   = (id, data)    => apiFetch(`/api/collaborate/groups/${id}/members`, { method: "POST", body: data });
+export const apiRemoveCollabGroupMember = (id, userId)  => apiFetch(`/api/collaborate/groups/${id}/members/${userId}`, { method: "DELETE" });
+export const apiGetPrivateChats         = ()            => apiFetch("/api/collaborate/private");
+export const apiStartPrivateChat        = (data)        => apiFetch("/api/collaborate/private",           { method: "POST",   body: data });
+export const apiCollabTyping            = (id)          => apiFetch(`/api/collaborate/channels/${id}/typing`, { method: "POST" });
+export const apiGetCollabTyping         = (id)          => apiFetch(`/api/collaborate/channels/${id}/typing`);
+export const apiGetCollabUnreadCount    = ()            => apiFetch("/api/collaborate/unread");
+export async function apiUploadCollabFile(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/collaborate/upload", { method: "POST", body: fd, credentials: "include" });
+  if (!res.ok) { let msg = `Upload error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
