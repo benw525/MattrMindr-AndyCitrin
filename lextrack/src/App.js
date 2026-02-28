@@ -4060,7 +4060,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               const t = parsedTasks[ti];
                               const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
                               try {
-                                await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                                const saved = await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                                if (onAddTask) onAddTask(saved);
                                 setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
                               } catch (err) { alert("Failed: " + err.message); break; }
                             }
@@ -4086,7 +4087,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", flexShrink: 0 }} onClick={async () => {
                               const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
                               try {
-                                await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                                const saved = await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                                if (onAddTask) onAddTask(saved);
                                 setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
                               } catch (err) { alert("Failed: " + err.message); }
                             }}>+ Add</button>
