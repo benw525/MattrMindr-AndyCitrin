@@ -78,4 +78,15 @@ router.put("/:id", requireAuth, async (req, res) => {
   }
 });
 
+router.delete("/:id", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("DELETE FROM deadlines WHERE id = $1 RETURNING *", [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Deadline delete error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

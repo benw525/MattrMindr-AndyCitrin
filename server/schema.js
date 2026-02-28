@@ -372,6 +372,10 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney DROP DEFAULT`).catch(() => {});
+    await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney TYPE TEXT USING CASE WHEN attorney IS NOT NULL THEN attorney::TEXT ELSE NULL END`).catch(() => {});
+    await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney SET DEFAULT ''`).catch(() => {});
+
     await client.query(`ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL`).catch(() => {});
 
     await client.query("COMMIT");

@@ -5,7 +5,7 @@ import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
   apiGetTasks, apiGetCaseTasks, apiCreateTask, apiCreateTasks, apiUpdateTask, apiCompleteTask, apiReassignTasksByRole,
-  apiGetDeadlines, apiCreateDeadline, apiUpdateDeadline,
+  apiGetDeadlines, apiCreateDeadline, apiUpdateDeadline, apiDeleteDeadline,
   apiGetUsers, apiCreateUser, apiDeleteUser, apiGetDeletedUsers, apiRestoreUser, apiUpdateUserRoles, apiUpdateUser,
   apiGetNotes, apiGetQuickNotes, apiCreateNote, apiUpdateNote, apiDeleteNote,
   apiGetLinks, apiCreateLink, apiDeleteLink,
@@ -1412,7 +1412,7 @@ export default function App() {
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
@@ -2953,7 +2953,7 @@ function BatchStaffPicker({ staffList, value, onChange, inputValue, onInputChang
   );
 }
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin }) {
   const setSelectedCase = useCallback((c) => { if (clearPendingTab) clearPendingTab(); rawSetSelectedCase(c); }, [clearPendingTab, rawSetSelectedCase]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
@@ -3427,6 +3427,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           onRefreshActivity={(caseId, fresh) => setCaseActivity(prev => ({ ...prev, [caseId]: fresh }))}
           onAddDeadline={onAddDeadline}
           onUpdateDeadline={onUpdateDeadline}
+          onDeleteDeadline={onDeleteDeadline}
         />
       )}
     </>
@@ -3547,7 +3548,7 @@ const CONTACT_LINKABLE_KEYS = new Set(["defendantName", "prosecutor", "judge"]);
 const KEY_DATE_FIELDS = ["arrestDate", "arraignmentDate", "nextCourtDate", "trialDate", "sentencingDate", "dispositionDate"];
 const KEY_DATE_TYPES = { arrestDate: "Other", arraignmentDate: "Hearing", nextCourtDate: "Hearing", trialDate: "Hearing", sentencingDate: "Hearing", dispositionDate: "Other" };
 
-function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROBATION_TYPES, CONDITION_OPTIONS, VIOLATION_SOURCES, HEARING_TYPES, OUTCOMES, editMode }) {
+function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROBATION_TYPES, CONDITION_OPTIONS, VIOLATION_SOURCES, HEARING_TYPES, OUTCOMES, editMode, onSyncDeadlines, deadlines, allContacts, onContactClick }) {
   const [violations, setViolations] = useState([]);
   const [loadingV, setLoadingV] = useState(false);
   const [expandedV, setExpandedV] = useState(null);
@@ -3562,12 +3563,30 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
     apiGetProbationViolations(c.id).then(v => { setViolations(v); setLoadingV(false); }).catch(() => setLoadingV(false));
   }, [c?.id]);
 
+  const pvPrefix = (vId) => `PV#${vId}:`;
+
+  const syncViolationDeadlines = (vId, data) => {
+    if (!onSyncDeadlines) return;
+    const prefix = pvPrefix(vId);
+    const wantedDates = [];
+    if (data.preliminaryHearingDate) wantedDates.push({ label: "Preliminary Hearing", date: data.preliminaryHearingDate });
+    if (data.reconveningDate) wantedDates.push({ label: "Reconvening", date: data.reconveningDate });
+    (data.customDates || []).forEach(cd => { if (cd.date) wantedDates.push({ label: cd.label || "Hearing", date: cd.date }); });
+    onSyncDeadlines(prefix, wantedDates);
+  };
+
+  const removeViolationDeadlines = (vId) => {
+    if (!onSyncDeadlines) return;
+    onSyncDeadlines(pvPrefix(vId), []);
+  };
+
   const saveViolation = async (data) => {
     try {
       const saved = await apiCreateProbationViolation(c.id, data);
       setViolations(prev => [saved, ...prev]);
       setAddingV(false);
       setNewV({});
+      syncViolationDeadlines(saved.id, data);
     } catch (e) { alert("Failed to save: " + e.message); }
   };
 
@@ -3576,6 +3595,7 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
       const updated = await apiUpdateProbationViolation(c.id, id, data);
       setViolations(prev => prev.map(v => v.id === id ? updated : v));
       setEditingV(null);
+      syncViolationDeadlines(id, data);
     } catch (e) { alert("Failed to update: " + e.message); }
   };
 
@@ -3585,6 +3605,7 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
       await apiDeleteProbationViolation(c.id, id);
       setViolations(prev => prev.filter(v => v.id !== id));
       if (expandedV === id) setExpandedV(null);
+      removeViolationDeadlines(id);
     } catch (e) { alert("Failed to delete: " + e.message); }
   };
 
@@ -3635,6 +3656,8 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
 
   const typeColor = (t) => t === "Substantive" ? "#dc2626" : "#e07a30";
 
+  const judgeNames = [...new Set((allContacts || []).filter(ct => !ct.deletedAt && (ct.category === "Judge" || ct.category === "Miscellaneous")).map(ct => ct.name).filter(Boolean))];
+
   const ViolationForm = ({ data, onSave, onCancel, title }) => {
     const [form, setForm] = useState({ ...data });
     const cd = form.customDates || [];
@@ -3683,12 +3706,13 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
               </select>
             </div>
             <div className="form-group"><label>Attorney Assigned</label>
-              <select value={form.attorney || ""} onChange={e => setForm(p => ({ ...p, attorney: Number(e.target.value) || null }))}>
-                <option value="">Select...</option>
-                {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              <input list="pv-attorney-list" value={form.attorney || ""} onChange={e => setForm(p => ({ ...p, attorney: e.target.value }))} placeholder="Type or select..." />
+              <datalist id="pv-attorney-list">{USERS.map(u => <option key={u.id} value={u.name} />)}</datalist>
             </div>
-            <div className="form-group"><label>Judge</label><input value={form.judge || ""} onChange={e => setForm(p => ({ ...p, judge: e.target.value }))} /></div>
+            <div className="form-group"><label>Judge</label>
+              <input list="pv-judge-list" value={form.judge || ""} onChange={e => setForm(p => ({ ...p, judge: e.target.value }))} placeholder="Type or select..." />
+              <datalist id="pv-judge-list">{judgeNames.map(n => <option key={n} value={n} />)}</datalist>
+            </div>
           </div>
           <div className="form-row">
             <div className="form-group"><label>Outcome</label>
@@ -3854,8 +3878,8 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10, fontSize: 12 }}>
                       {v.hearingType && <div><span style={{ color: "#8A9096" }}>Hearing Type:</span> <span style={{ color: "var(--c-text)" }}>{v.hearingType}</span></div>}
-                      {v.attorney && <div><span style={{ color: "#8A9096" }}>Attorney:</span> <span style={{ color: "var(--c-text)" }}>{USERS.find(u => u.id === v.attorney)?.name || `#${v.attorney}`}</span></div>}
-                      {v.judge && <div><span style={{ color: "#8A9096" }}>Judge:</span> <span style={{ color: "var(--c-text)" }}>{v.judge}</span></div>}
+                      {v.attorney && <div><span style={{ color: "#8A9096" }}>Attorney:</span> <span style={{ color: "var(--c-text)" }}>{v.attorney}</span></div>}
+                      {v.judge && <div><span style={{ color: "#8A9096" }}>Judge:</span> {onContactClick ? <span onClick={(e) => { e.stopPropagation(); onContactClick(v.judge); }} style={{ color: "#1E2A3A", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }} title="View contact card">{v.judge}</span> : <span style={{ color: "var(--c-text)" }}>{v.judge}</span>}</div>}
                     </div>
 
                     {v.relatedCharges && <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 8 }}><strong>Related Charges:</strong> {v.relatedCharges}</div>}
@@ -3895,7 +3919,7 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
   );
 }
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, initialTab }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -5866,12 +5890,32 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           };
           const conditions = pd.additionalConditions || [];
 
+          const handleSyncDeadlines = async (prefix, wantedDates) => {
+            const existing = (deadlines || []).filter(d => d.caseId === c.id && d.title.startsWith(prefix));
+            const usedIds = new Set();
+            for (const w of wantedDates) {
+              const fullTitle = `${prefix} ${w.label}`;
+              const match = existing.find(e => e.title === fullTitle && !usedIds.has(e.id));
+              if (match) {
+                usedIds.add(match.id);
+                if (match.date !== w.date && onUpdateDeadline) await onUpdateDeadline(match.id, { date: w.date });
+              } else if (onAddDeadline) {
+                await onAddDeadline({ caseId: c.id, title: fullTitle, date: w.date, type: "Hearing" });
+              }
+            }
+            for (const e of existing.filter(e => !usedIds.has(e.id))) {
+              if (onDeleteDeadline) await onDeleteDeadline(e.id);
+            }
+          };
+
           return (
             <ProbationTabContent
               c={c} draft={draft} pd={pd} setPd={setPd} setPdBatch={setPdBatch} conditions={conditions}
               PROBATION_TYPES={PROBATION_TYPES} CONDITION_OPTIONS={CONDITION_OPTIONS}
               VIOLATION_SOURCES={VIOLATION_SOURCES} HEARING_TYPES={HEARING_TYPES} OUTCOMES={OUTCOMES}
               editMode={editMode}
+              onSyncDeadlines={handleSyncDeadlines} deadlines={deadlines}
+              allContacts={allContacts} onContactClick={handleContactClick}
             />
           );
         })()}

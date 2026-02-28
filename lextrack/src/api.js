@@ -57,6 +57,7 @@ export const apiReassignTasksByRole  = (caseId, role, userId)  => apiFetch("/api
 export const apiGetDeadlines    = ()         => apiFetch("/api/deadlines");
 export const apiCreateDeadline  = (data)     => apiFetch("/api/deadlines", { method: "POST", body: data });
 export const apiUpdateDeadline  = (id, data) => apiFetch(`/api/deadlines/${id}`, { method: "PUT", body: data });
+export const apiDeleteDeadline  = (id)       => apiFetch(`/api/deadlines/${id}`, { method: "DELETE" });
 
 // Notes
 export const apiGetNotes    = (caseId) => apiFetch(`/api/notes/${caseId}`);
