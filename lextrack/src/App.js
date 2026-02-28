@@ -5043,13 +5043,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsSuggestions, setSmsSuggestions] = useState([]);
   const [smsAddingRecipient, setSmsAddingRecipient] = useState(false);
   const [smsNewName, setSmsNewName] = useState("");
-  const [smsNewPhone, setSmsNewPhone] = useState("");
+  const [smsNewPhones, setSmsNewPhones] = useState([]);
   const [smsNewType, setSmsNewType] = useState("client");
   const [smsNewNotifyHearings, setSmsNewNotifyHearings] = useState(true);
   const [smsNewNotifyCourtDates, setSmsNewNotifyCourtDates] = useState(true);
   const [smsNewNotifyDeadlines, setSmsNewNotifyDeadlines] = useState(false);
   const [smsNewNotifyMeetings, setSmsNewNotifyMeetings] = useState(false);
   const [smsNewReminderDays, setSmsNewReminderDays] = useState([1, 7]);
+  const [smsNewCustomDay, setSmsNewCustomDay] = useState("");
+  const [smsContactSearch, setSmsContactSearch] = useState("");
+  const [smsContactResults, setSmsContactResults] = useState([]);
+  const [smsContactSelected, setSmsContactSelected] = useState(null);
+  const [smsContactDropdownOpen, setSmsContactDropdownOpen] = useState(false);
+  const [smsManualPhone, setSmsManualPhone] = useState("");
   const [smsCompose, setSmsCompose] = useState(false);
   const [smsComposePhone, setSmsComposePhone] = useState("");
   const [smsComposeBody, setSmsComposeBody] = useState("");
@@ -7302,38 +7308,125 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               {!smsAddingRecipient ? (
                 <button className="btn btn-outline btn-sm" style={{ fontSize: 12, width: "100%" }} onClick={() => {
                   setSmsAddingRecipient(true);
-                  setSmsNewName(""); setSmsNewPhone(""); setSmsNewType("client");
+                  setSmsNewName(""); setSmsNewPhones([]); setSmsNewType("client");
                   setSmsNewNotifyHearings(true); setSmsNewNotifyCourtDates(true);
                   setSmsNewNotifyDeadlines(false); setSmsNewNotifyMeetings(false);
-                  setSmsNewReminderDays([1, 7]);
+                  setSmsNewReminderDays([1, 7]); setSmsNewCustomDay("");
+                  setSmsContactSearch(""); setSmsContactSelected(null); setSmsContactResults([]); setSmsContactDropdownOpen(false); setSmsManualPhone("");
                 }}>+ Add Recipient</button>
               ) : (
                 <div style={{ padding: 16, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)" }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", marginBottom: 12 }}>Add Recipient</div>
 
-                  {smsSuggestions.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", marginBottom: 4 }}>Suggested Numbers</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {smsSuggestions.map((s, i) => (
-                          <button key={i} onClick={() => { setSmsNewPhone(s.phone); setSmsNewName(s.name); setSmsNewType(s.type === "expert" ? "expert" : s.type === "family" ? "family" : "client"); }} style={{ fontSize: 11, color: "#1e3a5f", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
-                            {s.name}: {s.phone} <span style={{ color: "#8A9096" }}>({s.source})</span>
-                          </button>
+                  <div style={{ marginBottom: 8, position: "relative" }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Contact</label>
+                    <input
+                      value={smsContactSelected ? smsNewName : smsContactSearch}
+                      onChange={e => {
+                        const q = e.target.value;
+                        setSmsContactSearch(q);
+                        setSmsContactSelected(null);
+                        setSmsNewName(q);
+                        setSmsNewPhones([]);
+                        setSmsManualPhone("");
+                        if (q.trim().length >= 1) {
+                          const lower = q.trim().toLowerCase();
+                          const contactMatches = (allContacts || []).filter(ct => !ct.deletedAt && ct.name && ct.name.toLowerCase().includes(lower)).slice(0, 8);
+                          const partyMatches = (parties || []).filter(p => p.name && p.name.toLowerCase().includes(lower) && !contactMatches.some(cm => cm.name.toLowerCase() === p.name.toLowerCase())).slice(0, 4);
+                          const expertMatches = (experts || []).filter(ex => ex.name && ex.name.toLowerCase().includes(lower) && !contactMatches.some(cm => cm.name.toLowerCase() === ex.name.toLowerCase())).slice(0, 4);
+                          const results = [];
+                          contactMatches.forEach(ct => {
+                            const phones = [];
+                            if (ct.phone) phones.push({ label: "Phone", number: ct.phone });
+                            if (ct.cell) phones.push({ label: "Cell", number: ct.cell });
+                            results.push({ id: "ct-" + ct.id, name: ct.name, category: ct.category, phones, source: "Contact" });
+                          });
+                          partyMatches.forEach(p => {
+                            const phones = [];
+                            const d = p.data || {};
+                            if (d.phone) phones.push({ label: "Phone", number: d.phone });
+                            if (d.cell) phones.push({ label: "Cell", number: d.cell });
+                            results.push({ id: "party-" + p.id, name: p.name, category: p.partyType || "Party", phones, source: "Case Party" });
+                          });
+                          expertMatches.forEach(ex => {
+                            const phones = [];
+                            if (ex.phone) phones.push({ label: "Phone", number: ex.phone });
+                            if (ex.cell) phones.push({ label: "Cell", number: ex.cell });
+                            results.push({ id: "expert-" + ex.id, name: ex.name, category: "Expert", phones, source: "Expert" });
+                          });
+                          setSmsContactResults(results);
+                          setSmsContactDropdownOpen(results.length > 0);
+                        } else {
+                          setSmsContactResults([]);
+                          setSmsContactDropdownOpen(false);
+                        }
+                      }}
+                      onFocus={() => { if (smsContactResults.length > 0 && !smsContactSelected) setSmsContactDropdownOpen(true); }}
+                      onBlur={() => { setTimeout(() => setSmsContactDropdownOpen(false), 200); }}
+                      placeholder="Search contacts or type a name..."
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
+                    />
+                    {smsContactSelected && (
+                      <button onClick={() => { setSmsContactSelected(null); setSmsContactSearch(""); setSmsNewName(""); setSmsNewPhones([]); setSmsNewType("client"); }} style={{ position: "absolute", right: 6, top: 20, background: "transparent", border: "none", fontSize: 14, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                    )}
+                    {smsContactDropdownOpen && smsContactResults.length > 0 && (
+                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
+                        {smsContactResults.map(r => (
+                          <div key={r.id} onClick={() => {
+                            setSmsContactSelected(r);
+                            setSmsNewName(r.name);
+                            setSmsContactSearch(r.name);
+                            setSmsContactDropdownOpen(false);
+                            const catMap = { Client: "client", Witness: "witness", "Family Member": "family", Expert: "expert" };
+                            setSmsNewType(catMap[r.category] || "client");
+                            if (r.phones.length === 1) setSmsNewPhones([r.phones[0].number]);
+                            else if (r.phones.length > 1) setSmsNewPhones(r.phones.map(p => p.number));
+                            else setSmsNewPhones([]);
+                          }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
+                            onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{r.name}</div>
+                            <div style={{ fontSize: 11, color: "#8A9096" }}>
+                              {r.category} {r.phones.length > 0 ? " — " + r.phones.map(p => `${p.label}: ${p.number}`).join(", ") : " — No phone on file"}
+                              <span style={{ marginLeft: 6, opacity: 0.7 }}>({r.source})</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {smsContactSelected && smsContactSelected.phones.length > 1 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Numbers</label>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {smsContactSelected.phones.map((p, pi) => (
+                          <label key={pi} style={{ fontSize: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                            <input type="checkbox" checked={smsNewPhones.includes(p.number)} onChange={e => {
+                              if (e.target.checked) setSmsNewPhones(prev => [...prev, p.number]);
+                              else setSmsNewPhones(prev => prev.filter(n => n !== p.number));
+                            }} />
+                            <span style={{ color: "var(--c-text3)", fontSize: 11, minWidth: 40 }}>{p.label}:</span> {p.number}
+                          </label>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Name</label>
-                      <input value={smsNewName} onChange={e => setSmsNewName(e.target.value)} placeholder="Recipient name" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
-                    </div>
-                    <div>
+                  {smsContactSelected && smsContactSelected.phones.length === 0 && (
+                    <div style={{ marginBottom: 8 }}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Phone</label>
-                      <input value={smsNewPhone} onChange={e => setSmsNewPhone(e.target.value)} placeholder="(251) 555-1234" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                      <input value={smsManualPhone} onChange={e => { setSmsManualPhone(e.target.value); setSmsNewPhones(e.target.value.trim() ? [e.target.value.trim()] : []); }} placeholder="(251) 555-1234" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                      <div style={{ fontSize: 10, color: "#e07a30", marginTop: 2 }}>No phone number on file — enter one manually</div>
                     </div>
-                  </div>
+                  )}
+
+                  {!smsContactSelected && smsNewName.trim() && (
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Phone</label>
+                      <input value={smsManualPhone} onChange={e => { setSmsManualPhone(e.target.value); setSmsNewPhones(e.target.value.trim() ? [e.target.value.trim()] : []); }} placeholder="(251) 555-1234" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                    </div>
+                  )}
 
                   <div style={{ marginBottom: 8 }}>
                     <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Contact Type</label>
@@ -7358,7 +7451,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Remind</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                       {[[0, "Day of"], [1, "1 day before"], [3, "3 days before"], [7, "1 week before"], [14, "2 weeks before"]].map(([val, lbl]) => (
                         <label key={val} style={{ fontSize: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
                           <input type="checkbox" checked={smsNewReminderDays.includes(val)} onChange={e => {
@@ -7367,16 +7460,45 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           }} /> {lbl}
                         </label>
                       ))}
+                      <span style={{ fontSize: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ color: "var(--c-text3)", fontSize: 11 }}>Other:</span>
+                        <input type="number" min="1" max="365" value={smsNewCustomDay} onChange={e => setSmsNewCustomDay(e.target.value)} onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            const num = parseInt(smsNewCustomDay);
+                            if (num > 0) {
+                              setSmsNewReminderDays(p => [...new Set([...p, num])].sort((a, b) => a - b));
+                              setSmsNewCustomDay("");
+                            }
+                          }
+                        }} onBlur={() => {
+                          const num = parseInt(smsNewCustomDay);
+                          if (num > 0) {
+                            setSmsNewReminderDays(p => [...new Set([...p, num])].sort((a, b) => a - b));
+                            setSmsNewCustomDay("");
+                          }
+                        }} placeholder="#" style={{ width: 44, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box", textAlign: "center" }} />
+                        <span style={{ fontSize: 11, color: "var(--c-text3)" }}>days</span>
+                      </span>
                     </div>
+                    {smsNewReminderDays.filter(d => ![0, 1, 3, 7, 14].includes(d)).length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                        {smsNewReminderDays.filter(d => ![0, 1, 3, 7, 14].includes(d)).map(d => (
+                          <span key={d} style={{ fontSize: 11, padding: "2px 8px", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4 }}>
+                            {d} days before
+                            <button onClick={() => setSmsNewReminderDays(p => p.filter(x => x !== d))} style={{ background: "transparent", border: "none", fontSize: 12, color: "#8A9096", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                     <button className="btn btn-outline btn-sm" onClick={() => setSmsAddingRecipient(false)}>Cancel</button>
-                    <button className="btn btn-sm" style={{ background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", cursor: "pointer", fontSize: 12, opacity: (!smsNewPhone || !smsNewName) ? 0.5 : 1 }} disabled={!smsNewPhone || !smsNewName} onClick={async () => {
+                    <button className="btn btn-sm" style={{ background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", cursor: "pointer", fontSize: 12, opacity: (smsNewPhones.length === 0 || !smsNewName) ? 0.5 : 1 }} disabled={smsNewPhones.length === 0 || !smsNewName} onClick={async () => {
                       try {
                         const created = await apiCreateSmsConfig({
                           caseId: c.id,
-                          phoneNumbers: [smsNewPhone],
+                          phoneNumbers: smsNewPhones,
                           contactName: smsNewName,
                           contactType: smsNewType,
                           notifyHearings: smsNewNotifyHearings,
@@ -7388,7 +7510,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         setSmsConfigs(p => [...p, created]);
                         setSmsAddingRecipient(false);
                         apiGetSmsScheduled(c.id).then(setSmsScheduled).catch(() => {});
-                        log("Auto Text Added", `Added ${smsNewName} (${smsNewPhone}) for auto text reminders`);
+                        log("Auto Text Added", `Added ${smsNewName} (${smsNewPhones.join(", ")}) for auto text reminders`);
                       } catch (err) { alert("Failed to add recipient: " + err.message); }
                     }}>Add Recipient</button>
                   </div>
@@ -11397,6 +11519,7 @@ const CONTACT_CAT_STYLE = {
   "Family Member":    { bg: "#ffe4e6", color: "#e05252", border: "#fecdd3" },
   "Social Worker":    { bg: "#E4E7EB", color: "#5599cc", border: "#D6D8DB" },
   "Treatment Provider": { bg: "#ccfbf1", color: "#44bbaa", border: "#ccfbf1" },
+  Miscellaneous:        { bg: "#E4E7EB", color: "#6B7280", border: "#D6D8DB" },
 };
 
 const CONTACT_NOTE_TYPES = [
