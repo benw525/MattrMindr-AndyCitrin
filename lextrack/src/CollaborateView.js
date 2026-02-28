@@ -286,8 +286,9 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
     (c.status === "Active" && [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(uid))
     || channels.some(ch => ch.type === "case" && ch.caseId === c.id)
   );
+  const allActiveCases = allCases.filter(c => c.status === "Active");
   const filteredCasesPre = caseFilter.trim()
-    ? casesForTab.filter(c => (c.case_num || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.defendant_name || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.title || "").toLowerCase().includes(caseFilter.toLowerCase()))
+    ? allActiveCases.filter(c => (c.case_num || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.defendant_name || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.title || "").toLowerCase().includes(caseFilter.toLowerCase()))
     : casesForTab;
   const filteredCases = [...filteredCasesPre].sort((a, b) => {
     const aPin = pinnedIds.includes(a.id) ? 0 : 1;
