@@ -949,6 +949,8 @@ export default function App() {
   const [advocateCaseId, setAdvocateCaseId] = useState(null);
   const advocateEndRef = useRef(null);
   const advocatePrevViewRef = useRef(view);
+  const advocateLastOpenViewRef = useRef(null);
+  const advocatePrevOpenRef = useRef(false);
   const [advocateScreenChips, setAdvocateScreenChips] = useState(null);
   useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading, advocateScreenChips]);
   const [contextContactsCache, setContextContactsCache] = useState(null);
@@ -1227,13 +1229,24 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (view !== advocatePrevViewRef.current) {
+    const justOpened = showAdvocateGlobal && !advocatePrevOpenRef.current;
+    const viewChanged = view !== advocatePrevViewRef.current;
+
+    if (viewChanged) {
       advocatePrevViewRef.current = view;
-      if (showAdvocateGlobal && advocateMessages.length > 0 && !advocateCaseId) {
+    }
+
+    if (showAdvocateGlobal) {
+      if (justOpened && advocateLastOpenViewRef.current && view !== advocateLastOpenViewRef.current && !advocateCaseId) {
+        setAdvocateScreenChips(view);
+      } else if (!justOpened && viewChanged && !advocateCaseId) {
         setAdvocateScreenChips(view);
       }
+      advocateLastOpenViewRef.current = view;
     }
-  }, [view, showAdvocateGlobal, advocateMessages.length, advocateCaseId]);
+
+    advocatePrevOpenRef.current = showAdvocateGlobal;
+  }, [view, showAdvocateGlobal, advocateCaseId]);
 
   const ADVOCATE_SCREEN_CHIPS = {
     dashboard: ["What needs my attention today?", "Summarize my upcoming deadlines", "Which cases are most urgent?"],
@@ -1910,7 +1923,7 @@ export default function App() {
             </div>
           )}
           <div className="advocate-msg-area" style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {advocateMessages.length === 0 && !advocateLoading && (
+            {advocateMessages.length === 0 && !advocateLoading && !advocateScreenChips && (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
                 <div style={{ fontSize: 36, opacity: 0.3 }}>🤖</div>
                 <div style={{ fontSize: 12, color: "#8A9096", textAlign: "center", maxWidth: 320, lineHeight: 1.5 }}>
@@ -2013,13 +2026,15 @@ export default function App() {
             )})}
             {advocateScreenChips && !advocateLoading && ADVOCATE_SCREEN_CHIPS[advocateScreenChips] && (
               <div style={{ padding: "6px 0" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
-                  <span style={{ fontSize: 10, color: "#8A9096", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
-                    {SCREEN_LABELS[advocateScreenChips]?.icon} Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
-                  </span>
-                  <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
-                </div>
+                {advocateMessages.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
+                    <span style={{ fontSize: 10, color: "#8A9096", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                      {SCREEN_LABELS[advocateScreenChips]?.icon} Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
+                    </span>
+                    <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
+                  </div>
+                )}
                 <div className="advocate-nav-chips" style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center" }}>
                   {ADVOCATE_SCREEN_CHIPS[advocateScreenChips].map(prompt => (
                     <button key={prompt} style={{ padding: "4px 9px", fontSize: 11, borderRadius: 14, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
