@@ -273,6 +273,9 @@ export const apiSendSms            = (data)     => apiFetch("/api/sms/send",    
 export const apiDraftSmsMessage    = (data)     => apiFetch("/api/sms/draft",          { method: "POST",   body: data });
 export const apiSuggestSmsNumbers  = (caseId)   => apiFetch(`/api/sms/suggest-numbers/${caseId}`);
 
+// Support
+export const apiSendSupport = (data) => apiFetch("/api/support", { method: "POST", body: data });
+
 // Probation Violations
 export const apiGetProbationViolations    = (caseId)         => apiFetch(`/api/probation/${caseId}/violations`);
 export const apiCreateProbationViolation  = (caseId, data)   => apiFetch(`/api/probation/${caseId}/violations`, { method: "POST", body: data });

@@ -32,6 +32,7 @@ import {
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage, apiSuggestSmsNumbers,
+  apiSendSupport,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -961,6 +962,9 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("lextrack-dark") === "1");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showChangePw, setShowChangePw] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
+  const [helpCenterTab, setHelpCenterTab] = useState("tutorials");
 
   useEffect(() => {
     apiMe().then(user => {
@@ -1829,17 +1833,20 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button className="dark-mode-btn" onClick={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })}>
-            {darkMode ? "☀️  Light Mode" : "🌙  Dark Mode"}
-          </button>
           <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Signed in as</div>
           <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 10 }}>{currentUser.email}</div>
-          <button className="btn btn-outline" style={{ width: "100%", fontSize: 12, marginBottom: 6 }} onClick={() => setShowChangePw(true)}>Change Password</button>
-          <button className="btn btn-outline" style={{ width: "100%", fontSize: 12 }} onClick={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }}>Sign Out</button>
+          <button className="btn btn-outline" style={{ width: "100%", fontSize: 12, marginBottom: 6 }} onClick={() => setShowSettings(true)}>⚙ Settings</button>
+          <button className="btn btn-outline" style={{ width: "100%", fontSize: 12 }} onClick={() => { setShowHelpCenter(true); setHelpCenterTab("tutorials"); }}>? Help Center</button>
         </div>
       </aside>
       {showChangePw && (
         <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
+      )}
+      {showSettings && (
+        <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} />
+      )}
+      {showHelpCenter && (
+        <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} />
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} />}
@@ -2279,6 +2286,366 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
         {content}
         <button className="btn btn-outline" style={{ width: "100%", marginTop: 10 }} onClick={onClose}>Cancel</button>
       </div>
+    </div>
+  );
+}
+
+// ─── Settings Modal ──────────────────────────────────────────────────────────
+function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, onSignOut, onClose }) {
+  return (
+    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="login-box" style={{ maxWidth: 400, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", padding: "28px 32px" }} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 20 }}>Settings</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, padding: "14px 16px", background: "var(--c-bg)", borderRadius: 10, border: "1px solid var(--c-border)" }}>
+          <Avatar userId={currentUser.id} size={40} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentUser.name}</div>
+            <div style={{ fontSize: 11, color: "var(--c-text3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentUser.email}</div>
+            <div style={{ fontSize: 10, color: "var(--c-text3)", marginTop: 2 }}>{(currentUser.roles && currentUser.roles.length > 1) ? currentUser.roles.join(" · ") : currentUser.role}</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Appearance</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", marginBottom: 16 }}>
+          <span style={{ fontSize: 13, color: "var(--c-text)" }}>{darkMode ? "Dark Mode" : "Light Mode"}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "var(--c-text3)" }}>☀️</span>
+            <Toggle on={darkMode} onChange={onToggleDark} />
+            <span style={{ fontSize: 11, color: "var(--c-text3)" }}>🌙</span>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Security</div>
+        <button className="btn btn-outline" style={{ width: "100%", fontSize: 12, marginBottom: 16 }} onClick={onChangePassword}>Change Password</button>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Session</div>
+        <button className="btn btn-outline" style={{ width: "100%", fontSize: 12, color: "#C94C4C", borderColor: "#C94C4C" }} onClick={onSignOut}>Sign Out</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Help Center Modal ──────────────────────────────────────────────────────
+function HelpCenterModal({ currentUser, tab, setTab, onClose }) {
+  const [expandedSections, setExpandedSections] = useState({});
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportStatus, setSupportStatus] = useState(null);
+  const [supportBusy, setSupportBusy] = useState(false);
+
+  const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const Accordion = ({ sectionKey, title, children, icon }) => (
+    <div style={{ borderBottom: "1px solid var(--c-border)" }}>
+      <div onClick={() => toggleSection(sectionKey)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", cursor: "pointer", userSelect: "none" }}>
+        {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{title}</span>
+        <span style={{ fontSize: 12, color: "var(--c-text3)", transform: expandedSections[sectionKey] ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>▼</span>
+      </div>
+      {expandedSections[sectionKey] && (
+        <div style={{ padding: "0 0 14px 22px", fontSize: 13, lineHeight: 1.7, color: "var(--c-text)" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+
+  const tabs = [
+    { id: "tutorials", label: "Tutorials" },
+    { id: "faq", label: "FAQ" },
+    { id: "changelog", label: "Change Log" },
+    { id: "contact", label: "Contact" },
+  ];
+
+  const handleSendSupport = async () => {
+    if (!supportMessage.trim()) return;
+    setSupportBusy(true);
+    setSupportStatus(null);
+    try {
+      await apiSendSupport({ subject: supportSubject, message: supportMessage });
+      setSupportStatus("success");
+      setSupportSubject("");
+      setSupportMessage("");
+    } catch (err) {
+      setSupportStatus(err.message || "Failed to send. Please try again.");
+    } finally {
+      setSupportBusy(false);
+    }
+  };
+
+  return (
+    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="login-box" style={{ maxWidth: 640, width: "calc(100vw - 32px)", borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", padding: "28px 32px" }} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 4 }}>Help Center</div>
+        <div style={{ fontSize: 12, color: "var(--c-text3)", marginBottom: 16 }}>Guides, answers, and support for MattrMindr</div>
+        <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--c-border)", marginBottom: 16, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          {tabs.map(t => (
+            <div key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: tab === t.id ? 600 : 400, color: tab === t.id ? "var(--c-text-h)" : "var(--c-text3)", borderBottom: tab === t.id ? "2px solid var(--c-accent)" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s", userSelect: "none", whiteSpace: "nowrap" }}>{t.label}</div>
+          ))}
+        </div>
+        <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
+          {tab === "tutorials" && <HelpTutorials Accordion={Accordion} />}
+          {tab === "faq" && <HelpFAQ Accordion={Accordion} />}
+          {tab === "changelog" && <HelpChangeLog />}
+          {tab === "contact" && (
+            <div>
+              <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", marginBottom: 4 }}>Name</div>
+                  <input type="text" value={currentUser.name} readOnly style={{ width: "100%", background: "var(--c-bg)", opacity: 0.7, cursor: "default" }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", marginBottom: 4 }}>Role</div>
+                  <input type="text" value={currentUser.role} readOnly style={{ width: "100%", background: "var(--c-bg)", opacity: 0.7, cursor: "default" }} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", marginBottom: 4 }}>Email</div>
+                <input type="text" value={currentUser.email} readOnly style={{ width: "100%", background: "var(--c-bg)", opacity: 0.7, cursor: "default" }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", marginBottom: 4 }}>Subject <span style={{ fontWeight: 400 }}>(optional)</span></div>
+                <input type="text" placeholder="Brief summary of your issue" value={supportSubject} onChange={e => { setSupportSubject(e.target.value); setSupportStatus(null); }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", marginBottom: 4 }}>Message</div>
+                <textarea placeholder="Describe your issue or suggestion..." rows={5} value={supportMessage} onChange={e => { setSupportMessage(e.target.value); setSupportStatus(null); }} style={{ width: "100%", resize: "vertical" }} />
+              </div>
+              {supportStatus === "success" && (
+                <div style={{ fontSize: 13, color: "#2F7A5F", marginBottom: 12, padding: "8px 12px", background: "var(--c-bg)", border: "1px solid #2F7A5F", borderRadius: 6 }}>Your message has been sent to support@mattrmindr.com. We'll get back to you soon.</div>
+              )}
+              {supportStatus && supportStatus !== "success" && (
+                <div style={{ fontSize: 13, color: "#C94C4C", marginBottom: 12 }}>{supportStatus}</div>
+              )}
+              <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={handleSendSupport} disabled={supportBusy || !supportMessage.trim()}>
+                {supportBusy ? "Sending..." : "Send to Support"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HelpTutorials({ Accordion }) {
+  return (
+    <div>
+      <Accordion sectionKey="tut-getting-started" title="Getting Started" icon="🚀">
+        <p><strong>First Login:</strong> Enter the email and temporary password provided by your administrator. You will be prompted to create a new password that meets security requirements (8+ characters, uppercase, lowercase, number, and special character).</p>
+        <p><strong>Navigating the Sidebar:</strong> The left sidebar contains all major sections — Dashboard, Cases, Calendar, Tasks, Templates, Time Log, Reports, AI Center, Contacts, and Staff. Click any item to switch views. On mobile, tap the menu icon (top-left) to open the sidebar.</p>
+        <p><strong>Understanding the Dashboard:</strong> Your dashboard shows personalized widgets including active case counts, upcoming deadlines, overdue tasks, and recent activity. Click "Customize" in the top-right to add, remove, or reorder widgets. Quick Notes lets you jot down thoughts and assign them to cases later.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-cases" title="Case Management" icon="⚖️">
+        <p><strong>Creating a New Case:</strong> Click "+ New Case" in the Cases view. Enter the defendant name, case number, charges, and assign team members. A conflict check runs automatically when you enter a defendant name. Fill in custody status, bond details, and court dates as available.</p>
+        <p><strong>Viewing & Editing Case Details:</strong> Click any case row to open the case detail overlay. The Details tab shows case info, charges, co-defendants, experts, and parties. Click any field value to edit it inline — changes save automatically.</p>
+        <p><strong>Managing Charges:</strong> On the Details tab, expand the Charges section. Add charges with statute, description, and class. The AI will attempt to look up the charge classification automatically. Track original vs. amended charges and dispositions.</p>
+        <p><strong>Custody Tracking:</strong> The Custody Tracking section (below Case Info) lets you track bond status, release orders, and transport requests. Each action has "ordered/set" and "completed/posted" date pairs. Pending actions show amber badges on the case row.</p>
+        <p><strong>Probation Module:</strong> Toggle "Probation" in the case header to enable the Probation tab. Enter probation type, officer, dates, conditions, and fees. Track violations with full hearing details, judges, attorneys, and outcomes.</p>
+        <p><strong>Linked Cases:</strong> The Linked Cases tab lets you link related cases — co-defendant cases, prior cases, appeals, or external cases from other jurisdictions. Search existing PD cases by number or enter external case details manually.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-calendar" title="Calendar & Deadlines" icon="📅">
+        <p><strong>Adding Deadlines:</strong> In the Calendar view, click "+ Add Deadline" or use the "Suggest" button in a case detail to let AI generate procedural deadlines. Each deadline includes a title, date, type, and optional case assignment.</p>
+        <p><strong>Court Rules Calculator:</strong> Open the "Rules Calc" tab in Calendar to calculate deadlines based on Alabama Rules of Criminal Procedure. Select a rule (e.g., Speedy Trial, Motion to Suppress), enter a reference date, and the calculator shows the resulting deadline.</p>
+        <p><strong>Importing Calendar Feeds:</strong> In the "Feeds" tab, paste an iCal URL (from AlaCourt, Outlook, Google Calendar, etc.) to import external events. The system auto-detects case numbers and defendant names in imported events. Feeds refresh each time you log in.</p>
+        <p><strong>Calendar Views:</strong> Toggle between calendar grid view and list view. Use the visibility checkboxes to show/hide deadlines, tasks, court dates, and imported events. Click any day in the grid to see a detailed breakdown of that day's events.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-tasks" title="Tasks" icon="✅">
+        <p><strong>Creating Tasks:</strong> Click "+ Add Task" in the Tasks view or in a case detail. Assign a title, priority, due date, case, and team member. Tasks can be created individually or in bulk via AI suggestions.</p>
+        <p><strong>AI Task Suggestions:</strong> In a case detail's Tasks section, click "Suggest Tasks" to have AI analyze the case and recommend concrete defense tasks with priorities, assignments, and due dates. Add individual suggestions or all at once.</p>
+        <p><strong>Completing Tasks:</strong> Click the checkbox next to any task to mark it complete. You'll be prompted to log time spent and optionally create a follow-up task. Completed tasks track who completed them and when.</p>
+        <p><strong>Recurring Tasks:</strong> When creating a task, set a recurrence pattern (daily, weekly, biweekly, or monthly). When you complete a recurring task, a new instance is automatically created with the next due date.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-documents" title="Documents & Filings" icon="📄">
+        <p><strong>Uploading Documents:</strong> In a case detail's Documents tab, click "Upload" to attach PDF, DOCX, DOC, or TXT files. Documents are stored securely and can be downloaded, summarized, or deleted.</p>
+        <p><strong>Generating Documents from Templates:</strong> Go to the Templates view to create reusable document templates with placeholders (e.g., defendant name, case number). Generate filled documents for any case with one click. Use "AI Draft" for AI-assisted document creation.</p>
+        <p><strong>Court Filings:</strong> The Filings tab in case detail manages court filings separately from general documents. Upload filings and use AI classification to auto-detect the filing type, party, date, and summary.</p>
+        <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI extracts key facts, timeline, people mentioned, inconsistencies, Miranda/constitutional issues, and a defense-relevant takeaway.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-correspondence" title="Correspondence & SMS" icon="💬">
+        <p><strong>Email Correspondence:</strong> The Correspondence tab in case detail shows all emails linked to the case (received via the office's inbound email system). View email threads, attachments, and manage correspondence history.</p>
+        <p><strong>Setting Up Auto Text:</strong> In the Texts sub-tab of Correspondence, open "Auto Text Settings" to add recipients for automated SMS reminders. Configure each recipient's phone number, notification types (hearings, court dates, deadlines), and reminder intervals (day of, 1/3/7/14 days before).</p>
+        <p><strong>Sending Text Messages:</strong> Click "Send Text" to compose a one-off text message. Select a recipient, type your message, or use "AI Draft" to generate a professional message based on the case context. Messages are logged in the case history.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-ai" title="AI Tools" icon="⚡">
+        <p><strong>Using Advocate AI:</strong> Click the floating AI button (bottom-right corner) on any screen to open Advocate AI. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature.</p>
+        <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Charge Analysis, Deadline Generator, Case Strategy, Document Drafting, Case Triage, Client Communication Summary, Document Summary, Task Suggestions, Filing Classifier, and Batch Case Manager.</p>
+        <p><strong>Training AI Agents:</strong> Use the "Advocate AI Trainer" tab in AI Center to customize AI behavior. Add personal or office-wide training entries with local rules, office policies, defense strategies, or court preferences. Target specific agents or apply to all. Upload documents or type instructions directly.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-contacts" title="Contacts & Staff" icon="📇">
+        <p><strong>Managing Contacts:</strong> The Contacts view stores judges, prosecutors, court clerks, witnesses, experts, and other contacts. Add contact details, notes, and associate contacts with cases. Pin frequently-used contacts for quick access.</p>
+        <p><strong>Staff Directory:</strong> The Staff view shows all office personnel with their roles and assignments. Administrators can manage roles, send temporary passwords, and remove staff members. Staff members can have multiple roles.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-reports" title="Reports & Time Log" icon="📊">
+        <p><strong>Running Reports:</strong> The Reports view offers pre-built report types including caseload analysis, deadline compliance, task completion, custody status, and pending actions. Filter by attorney, date range, or case type. Export results to CSV or print directly.</p>
+        <p><strong>Time Log Tracking:</strong> The Time Log view consolidates all time entries from task completions, case notes, and correspondence. Add manual time entries for activities not captured elsewhere. View entries by day, week, or custom date range. Filter by case or attorney.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-admin" title="Administration" icon="🔧">
+        <p><strong>Batch Operations:</strong> Authorized staff (Public Defender, Deputies, Senior Trial Attorneys, IT, App Admin) can perform bulk operations via the Batch Case Manager in AI Center. Operations include staff reassignment, status changes, stage advancement, court date updates, and division transfers.</p>
+        <p><strong>Staff Management:</strong> Administrators can add new staff members (who receive a temporary password via email), assign or modify roles, and remove staff. Use the "Send Temp Password" button to reset a staff member's credentials.</p>
+      </Accordion>
+    </div>
+  );
+}
+
+function HelpFAQ({ Accordion }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 4 }}>General</div>
+      <Accordion sectionKey="faq-what" title="What is MattrMindr?">
+        <p>MattrMindr is a case management system built specifically for the Mobile County Public Defender's Office. It tracks criminal defense cases, manages deadlines, assigns tasks, handles documents and court filings, and provides AI-powered tools for defense strategy, document drafting, and task management.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-reset-pw" title="How do I reset my password?">
+        <p>Click "Settings" in the sidebar footer, then "Change Password." If you've forgotten your password entirely, click "Forgot password?" on the login screen and enter your email. You'll receive a temporary reset code via email. If you still can't get in, contact your office administrator to send a new temporary password.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-mobile" title="Can I use this on my phone?">
+        <p>Yes. MattrMindr is fully responsive and works on phones and tablets. On mobile devices, the sidebar becomes a slide-out menu accessed via the hamburger icon. All features — case management, calendar, tasks, AI tools, and more — are available on mobile with touch-optimized controls.</p>
+      </Accordion>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Cases</div>
+      <Accordion sectionKey="faq-confidential" title="How do I mark a case as confidential?">
+        <p>Open the case detail and look for the "Confidential" toggle in the case header (next to the case number). Toggle it on to flag the case. Confidential cases are visually marked but remain accessible to assigned staff. This is an informational flag — it does not restrict access permissions.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-stages" title="What do the case stages mean?">
+        <p>Case stages track the procedural progress: Arraignment (initial appearance), Preliminary Hearing, Grand Jury/Indictment, Pre-Trial Motions, Plea Negotiations, Trial, Sentencing, Post-Conviction, and Appeal. Change the stage in case details as the case progresses — the AI agents use this information to provide stage-appropriate suggestions.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-conflict" title="How does conflict checking work?">
+        <p>When you create a new case and enter a defendant name, the system automatically searches all existing cases and contacts for matching or similar names. If potential conflicts are found, a warning panel appears showing the matches. You can proceed with case creation or investigate the conflicts first.</p>
+      </Accordion>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>AI Features</div>
+      <Accordion sectionKey="faq-ai-data" title="Is my case data used to train the AI?">
+        <p>No. All AI API calls are made with the <code>store: false</code> parameter, which prevents OpenAI from retaining or using your data for model training. Case data is sent to the AI only during your active session to generate responses, and is not stored on OpenAI's servers afterward.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-ai-customize" title="How do I customize AI behavior?">
+        <p>Use the "Advocate AI Trainer" tab in AI Center. You can add personal training entries (only affect your AI interactions) or office-wide entries (affect all staff). Add local rules, office policies, defense strategies, or court preferences. You can target specific AI agents or apply training to all agents.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-advocate" title="What can Advocate AI help with?">
+        <p>Advocate AI is a general-purpose assistant that can help with case strategy questions, explain MattrMindr features, summarize case details, draft communications, suggest next steps, and more. It's context-aware — it knows what screen you're on and can reference specific case data when a case is selected. It can also suggest actionable tasks that you can add to a case with one click.</p>
+      </Accordion>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Documents</div>
+      <Accordion sectionKey="faq-file-types" title="What file types can I upload?">
+        <p>MattrMindr supports PDF, DOCX, DOC, and TXT files for case documents and filings. For AI training documents, PDF, DOCX, and TXT files are supported. Scanned PDFs are processed using OCR (optical character recognition) to extract text for AI analysis.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-classify" title="How does the AI classify filings?">
+        <p>When you upload a court filing, the AI Filing Classifier extracts the document text and analyzes it to determine the filing party (State, Defendant, Court, etc.), document type, filing date, and a brief summary. Classification can also be triggered manually via the "Classify" button on any filing.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-templates" title="Can I create my own document templates?">
+        <p>Yes. Go to the Templates view and click "+ New Template." You can create templates with placeholders like {"{{defendant_name}}"}, {"{{case_number}}"}, etc., that auto-fill when generating a document for a specific case. Templates support categories like Motions, Letters, and Pleadings (which auto-include court caption and signature blocks).</p>
+      </Accordion>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Communication</div>
+      <Accordion sectionKey="faq-autotext" title="How do Auto Text reminders work?">
+        <p>Auto Text sends automated SMS reminders to configured recipients before case events. In the Correspondence Texts tab, open "Auto Text Settings" to add recipients and choose which event types trigger reminders (hearings, court dates, deadlines, meetings). Set reminder intervals like day-of, 1 day before, 3 days before, etc. The system automatically generates and sends texts on schedule.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-sms-schedule" title="How does SMS scheduling work?">
+        <p>When deadlines or court dates are created or updated, the system automatically generates scheduled SMS messages based on your Auto Text configurations. The scheduler processes pending messages periodically (every 60 seconds in production). Messages are sent via Twilio and logged in the case correspondence history.</p>
+      </Accordion>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Calendar</div>
+      <Accordion sectionKey="faq-ical" title="Can I import my court calendar?">
+        <p>Yes. In the Calendar view, go to the "Feeds" tab and add an iCal feed URL. MattrMindr supports feeds from AlaCourt, Outlook 365, Google Calendar, and any standard iCal/ICS source. Events are imported and displayed alongside your case deadlines and tasks. The system auto-detects case numbers and defendant names in imported events.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-deadlines-calc" title="How are deadlines calculated?">
+        <p>The Court Rules Calculator in the Calendar view uses Alabama Rules of Criminal Procedure to calculate procedural deadlines. Select a rule (e.g., Speedy Trial — 180 days, Motion to Suppress — 20 days before trial), enter a reference date, and the calculator shows the resulting deadline date. Some rules count forward, others count backward from a target date.</p>
+      </Accordion>
+
+      <div style={{ padding: "16px 0 4px", borderTop: "1px solid var(--c-border)", marginTop: 16, fontSize: 13, color: "var(--c-text3)", textAlign: "center" }}>
+        Still need help? Try asking <strong style={{ color: "var(--c-text-h)" }}>Advocate AI</strong> — click the floating button in the bottom-right corner.
+      </div>
+    </div>
+  );
+}
+
+function HelpChangeLog() {
+  const versions = [
+    {
+      version: "1.3",
+      date: "February 2026",
+      title: "SMS Notifications & Help Center",
+      changes: [
+        { text: "Twilio-based SMS auto-text reminder system", sub: ["Automated reminders for hearings, court dates, deadlines, and meetings", "Configurable recipient lists with phone number suggestions from case data", "Reminder intervals: day-of, 1, 3, 7, and 14 days before events", "AI-assisted message drafting for one-off text messages"] },
+        { text: "Correspondence tab split into Emails and Texts sub-tabs" },
+        { text: "Chat-style message bubbles for text message history" },
+        { text: "Settings popup consolidating appearance, password, and session controls" },
+        { text: "Help Center with Tutorials, FAQ, Change Log, and Contact Support" },
+      ]
+    },
+    {
+      version: "1.2",
+      date: "February 2026",
+      title: "Advocate AI & Advanced Training",
+      changes: [
+        { text: "Global Advocate AI assistant", sub: ["Floating button accessible from every screen", "Screen-aware context (knows your current view and visible data)", "Case-specific mode with full case file context", "Actionable task suggestions with one-click add", "Per-screen starter chips for common questions"] },
+        { text: "AI Agent Trainer", sub: ["Personal and office-wide training entries", "Target specific agents or apply to all", "Document upload support (PDF, DOCX, TXT) with OCR", "Categories: Local Rules, Office Policy, Defense Strategy, Court Preferences"] },
+        { text: "Batch Case Manager for bulk operations (staff reassignment, status changes, stage advancement)" },
+        { text: "Calendar feed imports (iCal) with auto case/defendant detection" },
+        { text: "Charge Class Lookup agent with auto-trigger on charge entry" },
+      ]
+    },
+    {
+      version: "1.1",
+      date: "January 2026",
+      title: "Probation, Linked Cases & Custody",
+      changes: [
+        { text: "Probation module", sub: ["Probation details: type, officer, dates, conditions, fees", "Violation tracking with hearing dates, attorneys, judges, outcomes", "Violation hearing dates auto-sync to calendar"] },
+        { text: "Linked Cases tab", sub: ["Link PD-represented or external cases", "Relationship types: Co-Defendant, Related Charges, Prior Case, Appeal, etc.", "Searchable case linking with collapsible detail cards"] },
+        { text: "Custody tracking with bond/release/transport status and pending action badges" },
+        { text: "Death penalty case flag with capital-specific AI analysis" },
+        { text: "Pinned contacts in Contacts view" },
+      ]
+    },
+    {
+      version: "1.0",
+      date: "January 2026",
+      title: "Initial Release",
+      changes: [
+        { text: "Core case management system", sub: ["Criminal defense case tracking with Alabama-specific fields", "Charge tracking with statute, class, disposition, and amended status", "Multi-role staff assignments (lead attorney, co-counsel, investigator, social worker, paralegal)"] },
+        { text: "Nine AI-powered agents", sub: ["Charge Analysis, Deadline Generator, Case Strategy, Document Drafting", "Case Triage, Client Communication Summary, Document Summary", "Task Suggestions, Filing Classifier"] },
+        { text: "Document management with AI summarization and OCR for scanned PDFs" },
+        { text: "Court filing management with AI auto-classification" },
+        { text: "Calendar with deadline tracking, court rules calculator, and task due dates" },
+        { text: "Task system with priorities, recurrence, and AI suggestions" },
+        { text: "Contact management with conflict checking" },
+        { text: "Staff directory with multi-role support and admin controls" },
+        { text: "Template-based document generation with placeholder auto-fill" },
+        { text: "Time log tracking from tasks, notes, and manual entries" },
+        { text: "Reports with CSV export and print functionality" },
+        { text: "Email correspondence via SendGrid inbound parse" },
+        { text: "Dark mode with per-user preference persistence" },
+        { text: "Full mobile responsive design with touch-optimized controls" },
+        { text: "Customizable dashboard with drag-and-drop widget system" },
+        { text: "Pinned cases across all views and dropdowns" },
+        { text: "Speech-to-text dictation for case notes" },
+      ]
+    },
+  ];
+
+  return (
+    <div>
+      {versions.map((v, vi) => (
+        <div key={v.version} style={{ marginBottom: vi < versions.length - 1 ? 24 : 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span style={{ display: "inline-block", padding: "3px 10px", background: vi === 0 ? "var(--c-accent)" : "var(--c-bg)", color: vi === 0 ? "#fff" : "var(--c-text-h)", borderRadius: 20, fontSize: 12, fontWeight: 700, border: vi === 0 ? "none" : "1px solid var(--c-border)" }}>v{v.version}</span>
+            <span style={{ fontSize: 12, color: "var(--c-text3)" }}>{v.date}</span>
+            {vi === 0 && <span style={{ fontSize: 10, padding: "2px 8px", background: "#E8F5E9", color: "#2F7A5F", borderRadius: 10, fontWeight: 600 }}>LATEST</span>}
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 8 }}>{v.title}</div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.7, color: "var(--c-text)" }}>
+            {v.changes.map((c, ci) => (
+              <li key={ci} style={{ marginBottom: c.sub ? 4 : 2 }}>
+                {c.text}
+                {c.sub && (
+                  <ul style={{ margin: "4px 0 0 0", paddingLeft: 16, listStyleType: "disc" }}>
+                    {c.sub.map((s, si) => <li key={si} style={{ fontSize: 12, color: "var(--c-text3)", marginBottom: 1 }}>{s}</li>)}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+          {vi < versions.length - 1 && <div style={{ borderBottom: "1px solid var(--c-border)", marginTop: 16 }} />}
+        </div>
+      ))}
     </div>
   );
 }

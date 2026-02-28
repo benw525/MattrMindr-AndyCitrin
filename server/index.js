@@ -33,6 +33,7 @@ const calendarFeedsRoutes    = require("./routes/calendar-feeds");
 const probationRoutes        = require("./routes/probation");
 const linkedCasesRoutes      = require("./routes/linked-cases");
 const smsRoutes              = require("./routes/sms");
+const { sendEmail }          = require("./email");
 
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
@@ -96,6 +97,35 @@ app.use("/api/calendar-feeds", calendarFeedsRoutes);
 app.use("/api/probation", probationRoutes);
 app.use("/api/linked-cases", linkedCasesRoutes);
 app.use("/api/sms", smsRoutes);
+
+app.post("/api/support", async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
+  const { subject, message } = req.body;
+  if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
+  try {
+    const { rows } = await pool.query("SELECT name, email, role FROM users WHERE id = $1", [req.session.userId]);
+    if (!rows.length) return res.status(401).json({ error: "User not found" });
+    const user = rows[0];
+    const subj = subject && subject.trim() ? `MattrMindr Support: ${subject.trim()}` : "MattrMindr Support Request";
+    const text = `Support request from ${user.name} (${user.email}, ${user.role}):\n\n${message.trim()}`;
+    const html = `
+      <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 30px;">
+        <h2 style="color: #1e3a5f; font-family: 'Playfair Display', Georgia, serif;">MattrMindr Support Request</h2>
+        <table style="margin: 16px 0; font-size: 14px;">
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 600;">From:</td><td>${user.name}</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 600;">Email:</td><td>${user.email}</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 600;">Role:</td><td>${user.role}</td></tr>
+        </table>
+        <div style="background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 8px; padding: 20px; margin: 20px 0; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${message.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">Sent from MattrMindr Case Management System</p>
+      </div>`;
+    await sendEmail({ to: "support@mattrmindr.com", subject: subj, text, html });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Support email error:", err.message);
+    res.status(500).json({ error: "Failed to send support request. Please try again." });
+  }
+});
 
 app.get("/api/health", async (req, res) => {
   try {
