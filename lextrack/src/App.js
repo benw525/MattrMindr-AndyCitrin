@@ -723,7 +723,6 @@ function TimePromptModal({ pending, onSubmit }) {
   const [time, setTime]           = useState("");
   const [claimIt, setClaimIt]     = useState(false);  // true | false (defaults no-claim)
   const [assignId, setAssignId]   = useState(0);
-  const [showAll, setShowAll]     = useState(false);
 
   if (!pending) return null;
 
@@ -788,26 +787,7 @@ function TimePromptModal({ pending, onSubmit }) {
             <p style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10 }}>
               Assign time credit to an attorney or trial coordinator?
             </p>
-            <select value={assignId} onChange={e => setAssignId(Number(e.target.value))}>
-              <option value={0}>— Keep in my log —</option>
-              {caseTeamUsers.length > 0 && (
-                <optgroup label="On this file">
-                  {caseTeamUsers.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
-                </optgroup>
-              )}
-              {showAll && otherAttyPara.length > 0 && (
-                <optgroup label="All attorneys / trial coordinators">
-                  {otherAttyPara.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
-                </optgroup>
-              )}
-            </select>
-            {!showAll && (
-              <button
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 6, fontSize: 11 }}
-                onClick={() => setShowAll(true)}
-              >Show all attorneys / paralegals</button>
-            )}
+            <StaffSearchField value={assignId} onChange={val => setAssignId(val)} placeholder="Search attorneys…" userList={[...caseTeamUsers, ...otherAttyPara]} />
           </div>
         )}
 
@@ -1738,33 +1718,19 @@ export default function App() {
             </div>
           </div>
           <div style={{ padding: "6px 14px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
-            <div style={{ position: "relative" }}>
-              <select
-                value={advocateCaseId || ""}
-                onChange={e => {
-                  const newId = e.target.value ? Number(e.target.value) : null;
-                  if (newId !== advocateCaseId) {
-                    advocateClearConversation();
-                    setAdvocateCaseId(newId);
-                  }
-                }}
-                style={{ width: "100%", padding: "5px 8px", fontSize: 11, borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer" }}
-              >
-                <option value="">No case selected — general assistant</option>
-                {pinnedCaseIds.length > 0 && (
-                  <optgroup label="📌 Pinned Cases">
-                    {allCases.filter(cs => pinnedCaseIds.includes(cs.id)).map(cs => (
-                      <option key={cs.id} value={cs.id}>{cs.case_num ? cs.case_num + " — " : ""}{cs.defendant_name || cs.title}</option>
-                    ))}
-                  </optgroup>
-                )}
-                <optgroup label="All Cases">
-                  {allCases.filter(cs => cs.status !== "Deleted").map(cs => (
-                    <option key={cs.id} value={cs.id}>{cs.case_num ? cs.case_num + " — " : ""}{cs.defendant_name || cs.title}</option>
-                  ))}
-                </optgroup>
-              </select>
-            </div>
+            <CaseSearchField
+              allCases={allCases}
+              value={advocateCaseId ? String(advocateCaseId) : ""}
+              onChange={val => {
+                const newId = val ? Number(val) : null;
+                if (newId !== advocateCaseId) {
+                  advocateClearConversation();
+                  setAdvocateCaseId(newId);
+                }
+              }}
+              placeholder="Search cases or type for general help…"
+              pinnedCaseIds={pinnedCaseIds}
+            />
           </div>
           {advocateStats && (
             <div style={{ padding: "4px 14px", fontSize: 10, color: "#8A9096", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2294,38 +2260,23 @@ function NewCaseModal({ onSave, onClose }) {
         </div>
         <div className="form-row">
           <div className="form-group"><label>Assigned Attorney</label>
-            <select value={form.assignedAttorney} onChange={e => set("assignedAttorney", Number(e.target.value))}>
-              <option value={0}>— Select —</option>
-              {USERS.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
-            </select>
+            <StaffSearchField value={form.assignedAttorney} onChange={val => set("assignedAttorney", val)} placeholder="Search attorneys…" />
           </div>
           <div className="form-group"><label>2nd Attorney</label>
-            <select value={form.secondAttorney} onChange={e => set("secondAttorney", Number(e.target.value))}>
-              <option value={0}>— None —</option>
-              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <StaffSearchField value={form.secondAttorney} onChange={val => set("secondAttorney", val)} placeholder="Search staff…" />
           </div>
         </div>
         <div className="form-row">
           <div className="form-group"><label>Trial Coordinator</label>
-            <select value={form.trialCoordinator} onChange={e => set("trialCoordinator", Number(e.target.value))}>
-              <option value={0}>— None —</option>
-              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <StaffSearchField value={form.trialCoordinator} onChange={val => set("trialCoordinator", val)} placeholder="Search staff…" />
           </div>
           <div className="form-group"><label>Investigator</label>
-            <select value={form.investigator} onChange={e => set("investigator", Number(e.target.value))}>
-              <option value={0}>— None —</option>
-              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <StaffSearchField value={form.investigator} onChange={val => set("investigator", val)} placeholder="Search staff…" />
           </div>
         </div>
         <div className="form-row">
           <div className="form-group"><label>Social Worker</label>
-            <select value={form.socialWorker} onChange={e => set("socialWorker", Number(e.target.value))}>
-              <option value={0}>— None —</option>
-              {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <StaffSearchField value={form.socialWorker} onChange={val => set("socialWorker", val)} placeholder="Search staff…" />
           </div>
           <div className="form-group" />
         </div>
@@ -2703,6 +2654,79 @@ function CaseSearchField({ allCases, value, onChange, placeholder, userId, pinne
             <div style={{ padding: "5px 10px", fontSize: 10, fontWeight: 700, color: "#5D6268", textTransform: "uppercase", letterSpacing: "0.06em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)", position: "sticky", top: pinned.length > 0 ? 24 : 0, zIndex: 1 }}>All Cases</div>
           )}
           {others.map(c => <CaseDropdownItem key={c.id} c={c} onClick={() => handleSelect(c)} showDetails />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaffSearchField({ value, onChange, placeholder, userList, showRole }) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const users = userList || USERS;
+  const selectedUser = value ? users.find(u => u.id === Number(value)) : null;
+
+  useEffect(() => {
+    const handleClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    const matched = q ? users.filter(u =>
+      (u.name || "").toLowerCase().includes(q) ||
+      (u.role || "").toLowerCase().includes(q)
+    ) : users;
+    return matched.slice(0, 30);
+  }, [users, search]);
+
+  const handleSelect = (u) => { onChange(u.id); setSearch(""); setOpen(false); };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {selectedUser ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", fontSize: 12 }}>
+          <span style={{ flex: 1, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedUser.name}{showRole !== false && selectedUser.role ? ` (${selectedUser.role})` : ""}</span>
+          <button onClick={() => { onChange(0); setSearch(""); }} style={{ background: "none", border: "none", color: "#8A9096", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder || "Search staff…"}
+          style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
+        />
+      )}
+      {open && !selectedUser && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, maxHeight: 220, overflowY: "auto", background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: 6, marginTop: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+          {filtered.length === 0 && <div style={{ padding: "8px 10px", fontSize: 12, color: "#8A9096" }}>No staff found</div>}
+          {filtered.map(u => {
+            const q = search.toLowerCase();
+            const name = u.name || "";
+            let nameEl;
+            if (q && name.toLowerCase().includes(q)) {
+              const idx = name.toLowerCase().indexOf(q);
+              nameEl = <>{name.slice(0, idx)}<strong>{name.slice(idx, idx + q.length)}</strong>{name.slice(idx + q.length)}</>;
+            } else {
+              nameEl = name;
+            }
+            return (
+              <div
+                key={u.id}
+                onClick={() => handleSelect(u)}
+                style={{ padding: "8px 10px", cursor: "pointer", borderBottom: "1px solid var(--c-border2)", fontSize: 12 }}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <div style={{ fontWeight: 500, color: "var(--c-text)" }}>{nameEl}</div>
+                {u.role && <div style={{ fontSize: 11, color: "#8A9096" }}>{u.role}</div>}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -4005,10 +4029,7 @@ function EditField({ fieldKey, label, type, options, value, onChange, onBlur, on
           </select>
         )}
         {type === "user" && (
-          <select value={userVal} onChange={e => onChange(Number(e.target.value))}>
-            <option value="">— None —</option>
-            {availableUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
-          </select>
+          <StaffSearchField value={userVal} onChange={val => onChange(Number(val))} placeholder="Search staff…" userList={availableUsers} />
         )}
         {type === "date" && (
           <input type="date" value={displayVal} onChange={e => onChange(e.target.value)} onBlur={onBlur} />
@@ -4856,14 +4877,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <span>{m.role}</span>
                   <button onClick={() => setCustomTeam(p => p.filter(t => t.id !== m.id))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
                 </div>
-                <select
-                  value={m.userId || 0}
-                  onChange={e => setCustomTeam(p => p.map(t => t.id === m.id ? { ...t, userId: parseInt(e.target.value) } : t))}
-                  className="edit-field-value"
-                >
-                  <option value={0}>— None —</option>
-                  {filteredUsersForTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
+                <StaffSearchField value={m.userId || 0} onChange={val => setCustomTeam(p => p.map(t => t.id === m.id ? { ...t, userId: val } : t))} placeholder="Search staff…" userList={filteredUsersForTeam} />
               </div>
             ))}
             <div style={{ marginTop: 10 }}>
@@ -4876,14 +4890,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", marginBottom: 6, boxSizing: "border-box" }}
                       autoFocus
                     />
-                    <select
-                      value={newTeamUserId}
-                      onChange={e => setNewTeamUserId(parseInt(e.target.value))}
-                      style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", marginBottom: 6 }}
-                    >
-                      <option value={0}>Select staff member</option>
-                      {filteredUsersForTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
+                    <StaffSearchField value={newTeamUserId} onChange={val => setNewTeamUserId(val)} placeholder="Search staff…" userList={filteredUsersForTeam} />
                     <button
                       className="btn btn-gold"
                       style={{ fontSize: 12, width: "100%" }}
@@ -7146,7 +7153,6 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
   const [expandedId, setExpandedId] = useState(null);
   const [form, setForm] = useState({ type: "General", body: "", time: "" });
   const [assignId, setAssignId] = useState(0);
-  const [showAllAssign, setShowAllAssign] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editBody, setEditBody] = useState("");
   const [editSaving, setEditSaving] = useState(false);
@@ -7286,27 +7292,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
           {currentIsSupportStaff && (
             <div className="form-group" style={{ marginBottom: 10 }}>
               <label>Assign Time Credit To <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>(optional)</span></label>
-              <select value={assignId} onChange={e => setAssignId(Number(e.target.value))}>
-                <option value={0}>— Keep in my log —</option>
-                {caseTeamUsers.length > 0 && (
-                  <optgroup label="On this file">
-                    {caseTeamUsers.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
-                  </optgroup>
-                )}
-                {showAllAssign && otherAttyPara.length > 0 && (
-                  <optgroup label="All attorneys / trial coordinators">
-                    {otherAttyPara.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
-                  </optgroup>
-                )}
-              </select>
-              {!showAllAssign && (
-                <button
-                  className="btn btn-outline btn-sm"
-                  style={{ marginTop: 4, fontSize: 11 }}
-                  onClick={() => setShowAllAssign(true)}
-                  type="button"
-                >Show all attorneys / paralegals</button>
-              )}
+              <StaffSearchField value={assignId} onChange={val => setAssignId(val)} placeholder="Search attorneys…" userList={[...caseTeamUsers, ...otherAttyPara]} />
             </div>
           )}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -8228,9 +8214,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
               <div className="form-row">
                 <div className="form-group"><label>Rule / Authority</label><input value={newDl.rule} onChange={e => setNewDl(p => ({ ...p, rule: e.target.value }))} placeholder="e.g. ARCP 56" /></div>
                 <div className="form-group"><label>Assigned To</label>
-                  <select value={newDl.assigned} onChange={e => setNewDl(p => ({ ...p, assigned: Number(e.target.value) }))}>
-                    {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
+                  <StaffSearchField value={newDl.assigned} onChange={val => setNewDl(p => ({ ...p, assigned: val }))} placeholder="Search staff…" />
                 </div>
               </div>
               <button className="btn btn-gold" onClick={() => { if (!newDl.title || !newDl.date) return; onAddDeadline({ ...newDl }); setNewDl(prev => ({ ...prev, title: "", date: today, rule: "" })); setTab("calendar"); }}>Add Deadline</button>
@@ -8387,9 +8371,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
               </div>
               <div className="form-row">
                 <div className="form-group"><label>Assigned To</label>
-                  <select value={newTask.assigned} onChange={e => setNewTask(p => ({ ...p, assigned: Number(e.target.value) }))}>
-                    {USERS.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
-                  </select>
+                  <StaffSearchField value={newTask.assigned} onChange={val => setNewTask(p => ({ ...p, assigned: val }))} placeholder="Search staff…" />
                 </div>
                 <div className="form-group"><label>Due Date</label><input type="date" value={newTask.due} onChange={e => setNewTask(p => ({ ...p, due: e.target.value }))} /></div>
               </div>
@@ -8520,12 +8502,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                                 {["Urgent", "High", "Medium", "Low"].map(p => <option key={p}>{p}</option>)}
                               </select>
                               <label style={{ fontSize: 11, color: "#8A9096" }}>Assigned to</label>
-                              <select
-                                value={t.assigned || ""}
-                                onChange={e => onUpdateTask(t.id, { assigned: Number(e.target.value) })}
-                              >
-                                {USERS.map(u => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
-                              </select>
+                              <StaffSearchField value={t.assigned || 0} onChange={val => onUpdateTask(t.id, { assigned: val })} placeholder="Search staff…" />
                               <button
                                 className="btn btn-outline btn-sm"
                                 style={{ fontSize: 11, marginLeft: 4 }}
@@ -8954,10 +8931,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                 {def?.params.includes("attorney") && (
                   <div className="form-group" style={{ marginBottom: 0, minWidth: 200 }}>
                     <label>Attorney</label>
-                    <select value={params.attorney || ""} onChange={e => setParams(p => ({ ...p, attorney: Number(e.target.value) }))}>
-                      <option value="">— Select attorney —</option>
-                      {USERS.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
-                    </select>
+                    <StaffSearchField value={params.attorney || 0} onChange={val => setParams(p => ({ ...p, attorney: val }))} placeholder="Search attorneys…" />
                   </div>
                 )}
                 {def?.params.includes("window") && (
