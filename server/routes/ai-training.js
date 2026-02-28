@@ -33,15 +33,16 @@ router.post("/", requireAuth, async (req, res) => {
   try {
     const userId = req.session.userId;
     const userRoles = req.session.userRoles || [req.session.userRole];
-    const { scope, category, title, content } = req.body;
+    const { scope, category, title, content, target_agents } = req.body;
     if (!title || !content) return res.status(400).json({ error: "Title and content required" });
     if (scope === "office" && !canManageOffice(userRoles)) {
       return res.status(403).json({ error: "Insufficient permissions for office-wide training" });
     }
+    const agents = Array.isArray(target_agents) && target_agents.length > 0 ? target_agents : ['all'];
     const result = await pool.query(
-      `INSERT INTO ai_training (user_id, scope, category, title, content, source_type)
-       VALUES ($1, $2, $3, $4, $5, 'text') RETURNING *`,
-      [userId, scope || "personal", category || "General", title, content]
+      `INSERT INTO ai_training (user_id, scope, category, title, content, source_type, target_agents)
+       VALUES ($1, $2, $3, $4, $5, 'text', $6) RETURNING *`,
+      [userId, scope || "personal", category || "General", title, content, agents]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -60,6 +61,8 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     if (scope === "office" && !canManageOffice(userRoles)) {
       return res.status(403).json({ error: "Insufficient permissions for office-wide training" });
     }
+    const target_agents = req.body.target_agents ? (typeof req.body.target_agents === 'string' ? JSON.parse(req.body.target_agents) : req.body.target_agents) : ['all'];
+    const agents = Array.isArray(target_agents) && target_agents.length > 0 ? target_agents : ['all'];
 
     let extractedText = "";
     const filename = req.file.originalname;
@@ -82,9 +85,9 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     if (!extractedText.trim()) return res.status(400).json({ error: "Could not extract text from file" });
 
     const result = await pool.query(
-      `INSERT INTO ai_training (user_id, scope, category, title, content, source_type, filename)
-       VALUES ($1, $2, $3, $4, $5, 'document', $6) RETURNING *`,
-      [userId, scope || "personal", category || "General", title, extractedText.substring(0, 50000), filename]
+      `INSERT INTO ai_training (user_id, scope, category, title, content, source_type, filename, target_agents)
+       VALUES ($1, $2, $3, $4, $5, 'document', $6, $7) RETURNING *`,
+      [userId, scope || "personal", category || "General", title, extractedText.substring(0, 50000), filename, agents]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -110,16 +113,18 @@ router.put("/:id", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Insufficient permissions to edit office training" });
     }
 
-    const { title, content, category, active } = req.body;
+    const { title, content, category, active, target_agents } = req.body;
+    const agents = Array.isArray(target_agents) && target_agents.length > 0 ? target_agents : null;
     const result = await pool.query(
       `UPDATE ai_training SET
         title = COALESCE($1, title),
         content = COALESCE($2, content),
         category = COALESCE($3, category),
         active = COALESCE($4, active),
+        target_agents = COALESCE($5, target_agents),
         updated_at = NOW()
-       WHERE id = $5 RETURNING *`,
-      [title || null, content || null, category || null, active !== undefined ? active : null, id]
+       WHERE id = $6 RETURNING *`,
+      [title || null, content || null, category || null, active !== undefined ? active : null, agents, id]
     );
     res.json(result.rows[0]);
   } catch (err) {

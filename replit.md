@@ -116,16 +116,17 @@ Nine AI-powered agents using OpenAI (`gpt-4o-mini`) via existing integration. Al
 
 All agents accessible via `/api/ai-agents/*` endpoints (except Batch Case Manager at `/api/batch-cases`), require authentication. Frontend API helpers in `api.js`. Reusable `AiPanel` component for consistent UI rendering. Charge Analysis and Deadline Generator endpoints accept `caseId` to auto-load case data server-side.
 
-### AI Agent Trainer
-Two-tier system for customizing how all AI agents behave by injecting training context into every agent's system prompt:
+### Advocate AI Trainer
+Two-tier system for customizing how AI agents behave by injecting training context into agent system prompts. Each training entry can target specific agents:
 - **Personal Training**: Per-user entries that only affect that user's AI interactions. Available to all staff
 - **Office Training**: Office-wide entries that affect all users' AI interactions. Create/edit restricted to: Public Defender, Chief Deputy Public Defender, Deputy Public Defender, Senior Trial Attorney, App Admin
 - **Categories**: General, Local Rules, Office Policy, Defense Strategy, Court Preferences, Sentencing, Procedures
 - **Source Types**: Text (written instructions) or Document (uploaded PDF/TXT/DOCX — text extracted via pdf-parse/mammoth, with OCR fallback for scanned PDFs)
+- **Target Agents**: `target_agents TEXT[]` column on `ai_training` table. Users can select one or more agents (or "All Agents") per training entry via pill/chip multi-select. **Advocate AI always receives ALL training** regardless of targeting (it's the general-purpose agent). Other agents only receive entries tagged with their ID or "all"
 - **Active Toggle**: Enable/disable individual entries without deleting them
-- **Context Injection**: `getTrainingContext(userId)` in ai-agents.js loads all active entries (personal for user + all office entries), concatenates them as `=== CUSTOM TRAINING & GUIDELINES ===` block appended to system prompts, capped at 8000 chars
-- **Backend**: `server/routes/ai-training.js` — full CRUD + document upload with multer. Registered in server/index.js
-- **Frontend**: Tab in AI Center view ("AI Agents" | "AI Trainer"), with sub-tabs "My Training" / "Office Training", add modal with text/document modes, inline edit, active toggle, delete
+- **Context Injection**: `getTrainingContext(userId, agentId)` in ai-agents.js loads active entries filtered by agent. When `agentId === 'advocate'`, no agent filter applied (gets everything). For other agents, filters to `WHERE 'all' = ANY(target_agents) OR $agentId = ANY(target_agents)`. Concatenates as `=== CUSTOM TRAINING & GUIDELINES ===` block appended to system prompts, capped at 8000 chars. `aiCall()` accepts 5th parameter `agentId` to pass through
+- **Backend**: `server/routes/ai-training.js` — full CRUD + document upload with multer. POST/PUT accept `target_agents` array. Registered in server/index.js
+- **Frontend**: Tab in AI Center view ("AI Agents" | "Advocate AI Trainer"), with sub-tabs "My Training" / "Office Training", add modal with text/document modes + target agent multi-select, inline edit with target agent selector, active toggle, delete. Agent badges shown on each entry
 - **API helpers**: `apiGetTraining`, `apiCreateTraining`, `apiUploadTrainingDoc`, `apiUpdateTraining`, `apiDeleteTraining` in api.js
 
 ### AI Center

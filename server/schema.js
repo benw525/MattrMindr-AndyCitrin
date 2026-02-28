@@ -329,9 +329,21 @@ async function createSchema() {
         source_type VARCHAR(20) NOT NULL DEFAULT 'text' CHECK (source_type IN ('text', 'document')),
         filename    VARCHAR(255),
         active      BOOLEAN NOT NULL DEFAULT true,
+        target_agents TEXT[] NOT NULL DEFAULT '{all}',
         created_at  TIMESTAMPTZ DEFAULT NOW(),
         updated_at  TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'ai_training' AND column_name = 'target_agents'
+        ) THEN
+          ALTER TABLE ai_training ADD COLUMN target_agents TEXT[] NOT NULL DEFAULT '{all}';
+        END IF;
+      END $$;
     `);
 
     await client.query(`

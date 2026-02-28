@@ -2132,7 +2132,7 @@ function MyTimeWidget({ currentUser }) {
         <div className="card-title">My Time</div>
         <div style={{ display: "flex", gap: 2 }}>
           {periods.map(p => (
-            <button key={p} onClick={() => setPeriod(p)} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: period === p ? "var(--c-brand)" : "transparent", color: period === p ? "#fff" : "var(--c-text2)", cursor: "pointer", fontWeight: period === p ? 600 : 400 }}>{p}</button>
+            <button key={p} onClick={() => setPeriod(p)} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: period === p ? "#1E2A3A" : "transparent", color: period === p ? "#fff" : "var(--c-text2)", cursor: "pointer", fontWeight: period === p ? 600 : 400 }}>{p}</button>
           ))}
         </div>
       </div>
@@ -2775,6 +2775,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
             {!triageLoading && !triageResults && !triageError && (
               <div style={{ fontSize: 12, color: "#8A9096", padding: "16px 0", textAlign: "center" }}>Click "Run Triage" to get AI-powered case prioritization</div>
             )}
+            <div style={{ padding: "0 20px" }}>
             {triageResults && triageResults.map((t, i) => {
               const caseObj = allCases.find(cc => cc.id === t.id);
               return (
@@ -2788,6 +2789,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                 </div>
               );
             })}
+            </div>
           </div>
         );
       case "quick-notes":
@@ -8944,7 +8946,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   const [trainingTab, setTrainingTab] = useState("personal");
   const [showAddTraining, setShowAddTraining] = useState(false);
   const [addMode, setAddMode] = useState("text");
-  const [addForm, setAddForm] = useState({ title: "", content: "", category: "General", scope: "personal" });
+  const [addForm, setAddForm] = useState({ title: "", content: "", category: "General", scope: "personal", target_agents: ["all"] });
   const [addFile, setAddFile] = useState(null);
   const [addSaving, setAddSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -8975,6 +8977,12 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
     { id: "docsummary", icon: "📋", title: "Document Summary", desc: "Summarize police reports, witness statements, lab reports, and other case documents for defense-relevant details.", needsCase: true },
     { id: "tasksuggestions", icon: "✅", title: "Task Suggestions", desc: "Suggest concrete defense tasks based on case stage, charges, deadlines, and existing work — one-click to add.", needsCase: true },
     { id: "filingclassifier", icon: "📁", title: "Filing Classifier", desc: "Classify court filings — auto-name, identify filing party (State, Defendant, Court), and summarize significance.", needsCase: true },
+  ];
+
+  const TRAINING_AGENT_OPTIONS = [
+    { id: "all", label: "All Agents" },
+    { id: "advocate", label: "Advocate AI" },
+    ...agents.map(a => ({ id: a.id, label: a.title })),
   ];
 
   const BATCH_ALLOWED_ROLES = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "IT Specialist", "App Admin"];
@@ -9089,20 +9097,21 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
     try {
       let newEntry;
       if (addMode === "text") {
-        newEntry = await apiCreateTraining(addForm);
+        newEntry = await apiCreateTraining({ ...addForm, target_agents: addForm.target_agents });
       } else {
         const fd = new FormData();
         fd.append("file", addFile);
         fd.append("title", addForm.title);
         fd.append("category", addForm.category);
         fd.append("scope", addForm.scope);
+        fd.append("target_agents", JSON.stringify(addForm.target_agents || ["all"]));
         newEntry = await apiUploadTrainingDoc(fd);
       }
       if (newEntry && newEntry.id) {
         setTrainingEntries(prev => [{ ...newEntry, created_by_name: currentUser?.name || "" }, ...prev]);
       }
       setShowAddTraining(false);
-      setAddForm({ title: "", content: "", category: "General", scope: "personal" });
+      setAddForm({ title: "", content: "", category: "General", scope: "personal", target_agents: ["all"] });
       setAddFile(null);
       setAddMode("text");
       loadTraining();
@@ -9151,7 +9160,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
       <div className="content" style={{ maxWidth: 900 }}>
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
           <button onClick={() => setAiCenterTab("agents")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "agents" ? "#b8860b" : "var(--c-text2)", borderBottom: aiCenterTab === "agents" ? "2px solid #b8860b" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>AI Agents</button>
-          <button onClick={() => setAiCenterTab("trainer")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "trainer" ? "#6366f1" : "var(--c-text2)", borderBottom: aiCenterTab === "trainer" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>🧠 AI Trainer</button>
+          <button onClick={() => setAiCenterTab("trainer")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "trainer" ? "#6366f1" : "var(--c-text2)", borderBottom: aiCenterTab === "trainer" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>🧠 Advocate AI Trainer</button>
         </div>
 
         {aiCenterTab === "agents" && <>
@@ -9674,7 +9683,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
         {aiCenterTab === "trainer" && (
           <>
             <div style={{ marginBottom: 16, fontSize: 13, color: "var(--c-text2)", lineHeight: 1.6 }}>
-              Add instructions or upload documents to customize how all AI agents work. Training content is injected into every AI agent's context.
+              Add instructions or upload documents to customize how AI agents work. You can target training to specific agents, or apply it to all. <strong style={{ color: "var(--c-text)" }}>Advocate AI always receives all training</strong> since it is a general-purpose assistant.
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--c-border)" }}>
@@ -9712,6 +9721,29 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                             {entry.source_type === "text" && (
                               <textarea value={editForm.content || ""} onChange={e => setEditForm(f => ({ ...f, content: e.target.value }))} style={{ fontSize: 12, minHeight: 100, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", fontFamily: "inherit" }} />
                             )}
+                            <div>
+                              <label style={{ fontSize: 11, fontWeight: 500, color: "var(--c-text2)", marginBottom: 4, display: "block" }}>Target Agents</label>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                {TRAINING_AGENT_OPTIONS.map(opt => {
+                                  const eTa = editForm.target_agents || ["all"];
+                                  const isAll = eTa.includes("all");
+                                  const isSel = isAll || eTa.includes(opt.id);
+                                  return (
+                                    <button key={opt.id} type="button" onClick={() => {
+                                      setEditForm(f => {
+                                        const cur = f.target_agents || ["all"];
+                                        if (opt.id === "all") return { ...f, target_agents: ["all"] };
+                                        let next = cur.filter(a => a !== "all");
+                                        if (next.includes(opt.id)) { next = next.filter(a => a !== opt.id); if (next.length === 0) next = ["all"]; } else { next = [...next, opt.id]; }
+                                        return { ...f, target_agents: next };
+                                      });
+                                    }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 12, border: `1px solid ${isSel ? "#6366f1" : "var(--c-border)"}`, background: isSel ? "#6366f118" : "transparent", color: isSel ? "#6366f1" : "var(--c-text2)", cursor: "pointer", fontWeight: isSel ? 600 : 400 }}>
+                                      {isSel ? "✓ " : ""}{opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
                             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                               <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setEditingId(null)}>Cancel</button>
                               <button className="btn btn-sm" style={{ fontSize: 11, background: "#6366f1", color: "#fff", border: "none" }} onClick={() => handleSaveEdit(entry.id)}>Save</button>
@@ -9721,11 +9753,19 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                           <>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                                   <span style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{entry.title}</span>
                                   <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: entry.scope === "office" ? "#05966918" : "#2563eb18", color: entry.scope === "office" ? "#059669" : "#2563eb" }}>{entry.scope === "office" ? "Office" : "Personal"}</span>
                                   <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "var(--c-bg)", color: "var(--c-text2)", border: "1px solid var(--c-border)" }}>{entry.category}</span>
                                   <span style={{ fontSize: 10, color: "#8A9096" }}>{entry.source_type === "document" ? "📄" : "📝"}</span>
+                                  {(() => {
+                                    const ta = entry.target_agents || ["all"];
+                                    if (ta.includes("all")) return <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#6366f118", color: "#6366f1", fontWeight: 500 }}>All Agents</span>;
+                                    return ta.map(a => {
+                                      const opt = TRAINING_AGENT_OPTIONS.find(o => o.id === a);
+                                      return <span key={a} style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#6366f118", color: "#6366f1", fontWeight: 500 }}>{opt ? opt.label : a}</span>;
+                                    });
+                                  })()}
                                 </div>
                                 <div style={{ fontSize: 12, color: "var(--c-text2)", lineHeight: 1.5, maxHeight: 60, overflow: "hidden" }}>
                                   {entry.source_type === "document" && entry.filename && <span style={{ fontSize: 11, color: "#8A9096", marginRight: 6 }}>[{entry.filename}]</span>}
@@ -9736,7 +9776,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                               {canEdit && (
                                 <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, marginLeft: 8 }}>
                                   <button onClick={() => handleToggleActive(entry)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px", color: entry.active ? "#059669" : "#8A9096" }} title={entry.active ? "Active — click to disable" : "Inactive — click to enable"}>{entry.active ? "✓" : "○"}</button>
-                                  <button onClick={() => { setEditingId(entry.id); setEditForm(entry.source_type === "document" ? { title: entry.title, category: entry.category } : { title: entry.title, category: entry.category, content: entry.content }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#8A9096" }}>✎</button>
+                                  <button onClick={() => { setEditingId(entry.id); setEditForm(entry.source_type === "document" ? { title: entry.title, category: entry.category, target_agents: entry.target_agents || ["all"] } : { title: entry.title, category: entry.category, content: entry.content, target_agents: entry.target_agents || ["all"] }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#8A9096" }}>✎</button>
                                   <button onClick={() => handleDeleteTraining(entry.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#e05252" }}>✕</button>
                                 </div>
                               )}
@@ -9754,7 +9794,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
               <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAddTraining(false)}>
                 <div className="modal" style={{ maxWidth: 540 }}>
                   <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Add Training</span>
+                    <span>Add Agent Training</span>
                     <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096" }} onClick={() => setShowAddTraining(false)}>✕</button>
                   </div>
                   <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "1px solid var(--c-border)" }}>
@@ -9781,10 +9821,37 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                         </select>
                       </div>
                     </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 6, display: "block" }}>Target Agents</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {TRAINING_AGENT_OPTIONS.map(opt => {
+                          const isAll = addForm.target_agents.includes("all");
+                          const isSelected = isAll || addForm.target_agents.includes(opt.id);
+                          return (
+                            <button key={opt.id} type="button" onClick={() => {
+                              setAddForm(f => {
+                                if (opt.id === "all") return { ...f, target_agents: ["all"] };
+                                let next = f.target_agents.filter(a => a !== "all");
+                                if (next.includes(opt.id)) {
+                                  next = next.filter(a => a !== opt.id);
+                                  if (next.length === 0) next = ["all"];
+                                } else {
+                                  next = [...next, opt.id];
+                                }
+                                return { ...f, target_agents: next };
+                              });
+                            }} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, border: `1px solid ${isSelected ? "#6366f1" : "var(--c-border)"}`, background: isSelected ? "#6366f118" : "transparent", color: isSelected ? "#6366f1" : "var(--c-text2)", cursor: "pointer", fontWeight: isSelected ? 600 : 400, transition: "all 0.15s" }}>
+                              {isSelected ? "✓ " : ""}{opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ fontSize: 10, color: "#8A9096", marginTop: 4 }}>Advocate AI always receives all training regardless of selection</div>
+                    </div>
                     {addMode === "text" ? (
                       <div>
                         <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Instructions</label>
-                        <textarea value={addForm.content} onChange={e => setAddForm(f => ({ ...f, content: e.target.value }))} placeholder="Write specific instructions, guidelines, or knowledge that should inform all AI agents. For example: local court rules, office procedures, defense strategies, or judge preferences." style={{ width: "100%", minHeight: 150, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                        <textarea value={addForm.content} onChange={e => setAddForm(f => ({ ...f, content: e.target.value }))} placeholder="Write specific instructions, guidelines, or knowledge that should inform AI agents. For example: local court rules, office procedures, defense strategies, or judge preferences." style={{ width: "100%", minHeight: 150, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
                       </div>
                     ) : (
                       <div>
