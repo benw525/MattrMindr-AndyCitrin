@@ -285,6 +285,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
   const casesForTab = allCases.filter(c =>
     (c.status === "Active" && [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(uid))
     || channels.some(ch => ch.type === "case" && ch.caseId === c.id)
+    || pinnedIds.includes(c.id)
   );
   const allActiveCases = allCases.filter(c => c.status === "Active");
   const filteredCasesPre = caseFilter.trim()
