@@ -557,6 +557,9 @@ body.dark-body { background: #0E1116; }
 .dark .dark-mode-btn:hover { border-color: #4F7393; color: #4F7393; }
 .hamburger-btn { display: none; background: none; border: 1px solid var(--c-border); border-radius: 6px; padding: 6px 10px; font-size: 20px; cursor: pointer; color: var(--c-text); line-height: 1; }
 .sidebar-backdrop { display: none; }
+.cal-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.cal-grid-wrap > div { min-width: 320px; }
+.cal-card { overflow: hidden; min-width: 0; }
 .hide-mobile { }
 @media (max-width: 768px) {
   .hamburger-btn { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
@@ -629,8 +632,9 @@ body.dark-body { background: #0E1116; }
   .info-val { text-align: left; }
   .mobile-grid-1 { grid-template-columns: 1fr !important; display: grid !important; }
   .mobile-full { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
-  .cal-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .cal-grid-wrap > div { min-width: 350px; }
+  .cal-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .cal-grid-wrap > div { min-width: 320px; }
+  .cal-card { overflow: hidden; min-width: 0; }
   .activity-entry { gap: 10px; }
   .activity-avatar-col { width: 28px; }
   .toggle { width: 44px; height: 24px; }
@@ -7376,10 +7380,14 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
   const [calMonth, setCalMonth] = useState(now.getMonth());
   const [selected, setSelected] = useState(null);
 
-  const [showDeadlines, setShowDeadlines] = useState(true);
-  const [showTasks, setShowTasks] = useState(true);
-  const [showCourtDates, setShowCourtDates] = useState(true);
-  const [showExternal, setShowExternal] = useState(true);
+  const [showDeadlines, setShowDeadlines] = useState(() => { try { const v = localStorage.getItem("cal_showDeadlines"); return v === null ? true : v === "true"; } catch { return true; } });
+  const [showTasks, setShowTasks] = useState(() => { try { const v = localStorage.getItem("cal_showTasks"); return v === null ? true : v === "true"; } catch { return true; } });
+  const [showCourtDates, setShowCourtDates] = useState(() => { try { const v = localStorage.getItem("cal_showCourtDates"); return v === null ? true : v === "true"; } catch { return true; } });
+  const [showExternal, setShowExternal] = useState(() => { try { const v = localStorage.getItem("cal_showExternal"); return v === null ? true : v === "true"; } catch { return true; } });
+  useEffect(() => { try { localStorage.setItem("cal_showDeadlines", showDeadlines); } catch {} }, [showDeadlines]);
+  useEffect(() => { try { localStorage.setItem("cal_showTasks", showTasks); } catch {} }, [showTasks]);
+  useEffect(() => { try { localStorage.setItem("cal_showCourtDates", showCourtDates); } catch {} }, [showCourtDates]);
+  useEffect(() => { try { localStorage.setItem("cal_showExternal", showExternal); } catch {} }, [showExternal]);
 
   const monthName = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -7432,8 +7440,8 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
 
   return (
     <div className="mobile-grid-1" style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-      <div className="card" style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div className="card cal-card" style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <button className="btn btn-outline btn-sm" onClick={prevMonth}>← Prev</button>
           <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "var(--c-text-h)", fontWeight: 600 }}>{monthName}</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
