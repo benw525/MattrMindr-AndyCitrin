@@ -708,8 +708,33 @@ body.dark-body { background: #0E1116; }
   background: var(--c-card); flex-shrink: 0;
 }
 @media (max-width: 768px) {
-  .advocate-panel { width: 100vw; height: 100vh; max-height: 100vh; bottom: 0; right: 0; border-radius: 0; }
+  .advocate-panel {
+    position: fixed;
+    width: 100vw; height: 100dvh; max-height: 100dvh;
+    bottom: 0; right: 0; left: 0; top: 0;
+    border-radius: 0; border: none;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .advocate-panel-header {
+    padding: 14px 12px; gap: 6px;
+    min-height: 54px;
+  }
   .advocate-fab { bottom: 16px; right: 16px; width: 48px; height: 48px; }
+  .advocate-msg-area { padding: 10px 10px !important; }
+  .advocate-input-bar { padding: 10px 10px !important; }
+  .advocate-input-bar input { font-size: 16px !important; padding: 10px 12px !important; }
+  .advocate-input-bar button { min-width: 44px; min-height: 44px; font-size: 16px !important; }
+  .advocate-case-search { padding: 6px 10px !important; }
+  .advocate-case-search input { font-size: 16px !important; }
+  .advocate-stats-bar { padding: 4px 10px !important; }
+  .advocate-starter-chips { max-width: 100% !important; padding: 0 6px; }
+  .advocate-starter-chips button { font-size: 12px !important; padding: 8px 14px !important; min-height: 36px; }
+  .advocate-panel-header .advocate-header-actions button { min-width: 40px; min-height: 40px; font-size: 18px !important; display: flex; align-items: center; justify-content: center; }
+  .advocate-panel-header .advocate-header-actions .btn { min-width: unset; min-height: 36px; font-size: 11px !important; padding: 4px 10px !important; }
+  .advocate-msg-area > div > div > div { max-width: 92% !important; }
+  .advocate-nav-chips button { font-size: 12px !important; padding: 7px 12px !important; min-height: 36px; }
 }
 `;
 
@@ -1845,7 +1870,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+            <div className="advocate-header-actions" style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
               {advocateMessages.length > 0 && advocateCaseId && (
                 <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "2px 6px" }} onClick={() => {
                   const thread = advocateMessages.map(m => m.role === "user" ? `**You:** ${m.content}` : `**Advocate AI:** ${m.content}`).join("\n\n---\n\n");
@@ -1858,7 +1883,7 @@ export default function App() {
               <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#8A9096", padding: "2px 4px" }} onClick={() => setShowAdvocateGlobal(false)}>✕</button>
             </div>
           </div>
-          <div style={{ padding: "6px 14px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
+          <div className="advocate-case-search" style={{ padding: "6px 14px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
             <CaseSearchField
               allCases={allCases}
               value={advocateCaseId ? String(advocateCaseId) : ""}
@@ -1874,7 +1899,7 @@ export default function App() {
             />
           </div>
           {advocateStats && (
-            <div style={{ padding: "4px 14px", fontSize: 10, color: "#8A9096", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div className="advocate-stats-bar" style={{ padding: "4px 14px", fontSize: 10, color: "#8A9096", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6, flexWrap: "wrap" }}>
               {advocateStats.notes > 0 && <span>📋 {advocateStats.notes}</span>}
               {advocateStats.tasks > 0 && <span>✓ {advocateStats.tasks}</span>}
               {advocateStats.deadlines > 0 && <span>📅 {advocateStats.deadlines}</span>}
@@ -1884,14 +1909,14 @@ export default function App() {
               {advocateStats.parties > 0 && <span>👥 {advocateStats.parties}</span>}
             </div>
           )}
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="advocate-msg-area" style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             {advocateMessages.length === 0 && !advocateLoading && (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
                 <div style={{ fontSize: 36, opacity: 0.3 }}>🤖</div>
                 <div style={{ fontSize: 12, color: "#8A9096", textAlign: "center", maxWidth: 320, lineHeight: 1.5 }}>
                   {advocateCaseId ? "Ask me anything about this case. I have access to all case data." : "Ask me anything — Alabama law, office procedures, or how to use MattrMindr."}
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", maxWidth: 360 }}>
+                <div className="advocate-starter-chips" style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", maxWidth: 360 }}>
                   {(advocateCaseId ? ["Analyze defense strategies", "Summarize key evidence", "What motions should I consider?"] : (ADVOCATE_SCREEN_CHIPS[view] || ADVOCATE_SCREEN_CHIPS.dashboard)).map(prompt => (
                     <button key={prompt} style={{ padding: "5px 10px", fontSize: 11, borderRadius: 14, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.target.style.background = "rgba(99,102,241,0.18)"; }}
@@ -1995,7 +2020,7 @@ export default function App() {
                   </span>
                   <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center" }}>
+                <div className="advocate-nav-chips" style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center" }}>
                   {ADVOCATE_SCREEN_CHIPS[advocateScreenChips].map(prompt => (
                     <button key={prompt} style={{ padding: "4px 9px", fontSize: 11, borderRadius: 14, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.target.style.background = "rgba(99,102,241,0.18)"; }}
@@ -2016,7 +2041,7 @@ export default function App() {
             )}
             <div ref={advocateEndRef} />
           </div>
-          <div style={{ padding: "10px 14px", borderTop: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6 }}>
+          <div className="advocate-input-bar" style={{ padding: "10px 14px", borderTop: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6 }}>
             <input
               style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, outline: "none" }}
               placeholder={advocateCaseId ? "Ask about this case..." : "Ask anything..."}
