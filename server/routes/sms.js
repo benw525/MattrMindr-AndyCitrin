@@ -316,4 +316,64 @@ router.get("/suggest-numbers/:caseId", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/inbound", async (req, res) => {
+  try {
+    const from = req.body.From || "";
+    const to = req.body.To || "";
+    const body = req.body.Body || "";
+    const sid = req.body.MessageSid || req.body.SmsSid || "";
+
+    console.log(`Inbound SMS: from=${from}, to=${to}, body="${body.substring(0, 80)}"`);
+
+    const formatted = formatPhoneNumber(from);
+    if (!formatted || !body.trim()) {
+      console.log("Inbound SMS: missing phone or body, ignoring");
+      res.type("text/xml").send("<Response></Response>");
+      return;
+    }
+
+    const caseMatch = await pool.query(
+      `SELECT DISTINCT case_id, contact_name FROM sms_messages
+       WHERE phone_number = $1 AND case_id IS NOT NULL AND direction = 'outbound'
+       ORDER BY case_id DESC`,
+      [formatted]
+    );
+
+    if (caseMatch.rows.length === 0) {
+      const configMatch = await pool.query(
+        `SELECT case_id, contact_name FROM sms_configs
+         WHERE $1 = ANY(phone_numbers) AND case_id IS NOT NULL
+         ORDER BY case_id DESC`,
+        [formatted]
+      );
+      if (configMatch.rows.length > 0) {
+        caseMatch.rows.push(...configMatch.rows);
+      }
+    }
+
+    if (caseMatch.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO sms_messages (case_id, direction, phone_number, body, twilio_sid, status, contact_name)
+         VALUES (NULL, 'inbound', $1, $2, $3, 'received', '')`,
+        [formatted, body.trim(), sid]
+      );
+      console.log("Inbound SMS: no matching case, stored as unlinked");
+    } else {
+      for (const match of caseMatch.rows) {
+        await pool.query(
+          `INSERT INTO sms_messages (case_id, direction, phone_number, body, twilio_sid, status, contact_name)
+           VALUES ($1, 'inbound', $2, $3, $4, 'received', $5)`,
+          [match.case_id, formatted, body.trim(), sid, match.contact_name || ""]
+        );
+        console.log(`Inbound SMS: stored for case ${match.case_id}`);
+      }
+    }
+
+    res.type("text/xml").send("<Response></Response>");
+  } catch (err) {
+    console.error("Inbound SMS error:", err);
+    res.type("text/xml").send("<Response></Response>");
+  }
+});
+
 module.exports = router;
