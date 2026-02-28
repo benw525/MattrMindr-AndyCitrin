@@ -63,4 +63,32 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/proxy", requireAuth, async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url) return res.status(400).json({ error: "url parameter is required" });
+    const parsed = new URL(url);
+    if (!["http:", "https:", "webcal:"].includes(parsed.protocol)) {
+      return res.status(400).json({ error: "Invalid URL protocol" });
+    }
+    const fetchUrl = url.replace(/^webcal:\/\//i, "https://");
+    const response = await fetch(fetchUrl, {
+      headers: {
+        "User-Agent": "MattrMindr/1.0 (Calendar Sync)",
+        "Accept": "text/calendar, text/plain, */*",
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error(`Remote server returned HTTP ${response.status}`);
+    const text = await response.text();
+    if (!text.includes("BEGIN:VCALENDAR")) throw new Error("Response is not a valid iCal feed");
+    res.set("Content-Type", "text/calendar; charset=utf-8");
+    res.send(text);
+  } catch (err) {
+    console.error("Calendar proxy error:", err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 module.exports = router;

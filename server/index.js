@@ -31,6 +31,7 @@ const aiTrainingRoutes       = require("./routes/ai-training");
 const batchCasesRoutes       = require("./routes/batch-cases");
 const calendarFeedsRoutes    = require("./routes/calendar-feeds");
 const probationRoutes        = require("./routes/probation");
+const linkedCasesRoutes      = require("./routes/linked-cases");
 
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
@@ -92,6 +93,7 @@ app.use("/api/ai-training",    aiTrainingRoutes);
 app.use("/api/batch-cases",    batchCasesRoutes);
 app.use("/api/calendar-feeds", calendarFeedsRoutes);
 app.use("/api/probation", probationRoutes);
+app.use("/api/linked-cases", linkedCasesRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

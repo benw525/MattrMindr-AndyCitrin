@@ -254,6 +254,11 @@ export const apiCreateCalendarFeed  = (data)     => apiFetch("/api/calendar-feed
 export const apiUpdateCalendarFeed  = (id, data) => apiFetch(`/api/calendar-feeds/${id}`, { method: "PATCH", body: data });
 export const apiDeleteCalendarFeed  = (id)       => apiFetch(`/api/calendar-feeds/${id}`, { method: "DELETE" });
 
+// Linked Cases
+export const apiGetLinkedCases    = (caseId) => apiFetch(`/api/linked-cases/${caseId}`);
+export const apiCreateLinkedCase  = (data)   => apiFetch("/api/linked-cases", { method: "POST", body: data });
+export const apiDeleteLinkedCase  = (id)     => apiFetch(`/api/linked-cases/${id}`, { method: "DELETE" });
+
 // Probation Violations
 export const apiGetProbationViolations    = (caseId)         => apiFetch(`/api/probation/${caseId}/violations`);
 export const apiCreateProbationViolation  = (caseId, data)   => apiFetch(`/api/probation/${caseId}/violations`, { method: "POST", body: data });

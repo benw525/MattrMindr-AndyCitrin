@@ -155,6 +155,28 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - **Edit fields**: Stack label/value vertically at 480px via `flex-wrap: wrap`
 - **Utility classes**: `.mobile-grid-1` (force single column), `.mobile-full` (force full width), `.hide-mobile` / `.show-mobile` (visibility toggles)
 
+### Rules Calculator
+- Alabama Rules of Criminal Procedure — 14 rules including: Speedy Trial (ARCrP 8.1), Preliminary Hearing in/out of custody (ARCrP 5.1), Grand Jury Indictment (§15-8-30), Motion to Suppress (ARCrP 15.4), Notice of Alibi/Insanity Defense (ARCrP 16.4/16.3), Discovery Response (ARCrP 16), Motion to Dismiss (ARCrP 13.5), Motion for New Trial (ARCrP 24), Notice of Appeal (ARAP 4(b)(1)), Bond Reduction (ARCrP 7.2(d)), Habeas Corpus (§15-21-1), Youthful Offender (§15-19-1)
+- Supports negative-day rules (e.g., "20 days before Trial Date") and zero-day rules (same day)
+- Disclaimer references Alabama Rules of Criminal Procedure
+
+### Linked Cases
+- `linked_cases` table: links between cases (PD-represented or external)
+- Tab appears last in case detail overlay (after Activity)
+- Two link modes: (1) PD case — searchable by case number/title/defendant from existing cases; (2) External case — manual entry with case number, style, court, county, charges, attorney, status, notes
+- Relationship types: Co-Defendant, Related Charges, Prior Case, Companion Case, Probation Revocation, Appeal, Re-Indictment, Other
+- Collapsible cards showing case number, style, charges summary, relationship badge
+- Expanded view shows full details; PD cases have "Go to Case" navigation button
+- Link/unlink gated behind edit mode
+- Routes: `server/routes/linked-cases.js` (GET/POST/DELETE)
+- API: `apiGetLinkedCases`, `apiCreateLinkedCase`, `apiDeleteLinkedCase`
+
+### Default County/State
+- New cases default to county "Mobile" and court "Mobile County"
+- New contacts default to county "Mobile"
+- Document template state placeholder hardcoded to "Alabama"
+- All defaults are editable for exceptions
+
 ### Conflict Check
 - Automatic on new case creation: triggered when defendant name is entered
 - Searches existing cases (defendant names, titles) and contacts for matches
@@ -165,7 +187,7 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - Customizable Dashboard: per-user widget system with add/remove/reorder (drag-and-drop); Quick Notes widget for unassigned notes with speech-to-text, later assignable to cases with time tracking; Recent Activity widget clicks navigate to case detail with context-appropriate tab
 - Cases view with filtering, sorting, pagination (no "matters" concept — everything is a case)
 - Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, Documents tab (formerly Files — document upload/summary, inline-editable name/type), Correspondence tab, Filings tab (court filing management with AI classification). Details tab layout: top-left = Charges, top-right = Case Info + Offices, below = Co-Defendants, Misc Contacts, Experts. Notes: speech-to-text dictation via Web Speech API (browser-native, no external service)
-- Calendar (formerly Deadline Tracker): unified calendar grid with deadlines, tasks (due dates), case court/trial/arraignment/sentencing dates, and imported external iCal feeds. Visibility toggles per event type. Day detail panel groups events by type with clickable case links. Persistent iCal feed storage via `calendar_feeds` DB table (auto-imports on session load). Auto-detects case numbers and defendant names in imported calendar events. List view, add deadline form, iCal manager tab, court rules calculator
+- Calendar (formerly Deadline Tracker): unified calendar grid with deadlines, tasks (due dates), case court/trial/arraignment/sentencing dates, and imported external iCal feeds. Visibility toggles per event type. Day detail panel groups events by type with clickable case links. Persistent iCal feed storage via `calendar_feeds` DB table (auto-imports on session load). Auto-detects case numbers and defendant names in imported calendar events. List view, add deadline form, iCal manager tab, court rules calculator. Calendar grid is responsive — wraps in a scrollable container at narrow widths via `.cal-grid-wrap` class. iCal feeds are fetched via server-side proxy (`GET /api/calendar-feeds/proxy?url=...`) to avoid CORS issues and 403 errors from court calendar servers (AlaCourt, Outlook 365, etc.)
 - Tasks View: filterable task list with inline editing, auto-escalation, recurring tasks
 - Reports: pre-built report types with CSV export and print
 - Time Log: unified time tracking view; derives entries from task completions, notes, and correspondence; supports manual time entries

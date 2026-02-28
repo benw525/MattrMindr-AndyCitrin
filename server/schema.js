@@ -372,6 +372,26 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS linked_cases (
+        id                  SERIAL PRIMARY KEY,
+        case_id             INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        is_pd_case          BOOLEAN NOT NULL DEFAULT false,
+        linked_case_id      INTEGER REFERENCES cases(id) ON DELETE SET NULL,
+        external_case_number TEXT NOT NULL DEFAULT '',
+        external_case_style  TEXT NOT NULL DEFAULT '',
+        external_court       TEXT NOT NULL DEFAULT '',
+        external_county      TEXT NOT NULL DEFAULT 'Mobile',
+        external_charges     TEXT NOT NULL DEFAULT '',
+        external_attorney    TEXT NOT NULL DEFAULT '',
+        external_status      TEXT NOT NULL DEFAULT '',
+        external_notes       TEXT NOT NULL DEFAULT '',
+        relationship         TEXT NOT NULL DEFAULT '',
+        added_by             TEXT NOT NULL DEFAULT '',
+        added_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
     await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney DROP DEFAULT`).catch(() => {});
     await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney TYPE TEXT USING CASE WHEN attorney IS NOT NULL THEN attorney::TEXT ELSE NULL END`).catch(() => {});
     await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney SET DEFAULT ''`).catch(() => {});

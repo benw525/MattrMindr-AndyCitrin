@@ -29,6 +29,7 @@ import {
   apiBatchPreview, apiBatchApply,
   apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
   apiGetProbationViolations, apiCreateProbationViolation, apiUpdateProbationViolation, apiDeleteProbationViolation,
+  apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -215,16 +216,20 @@ const SortTh = ({ col, label, sortCol, sortDir, onSort, style, className }) => (
 );
 
 const COURT_RULES = [
-  { id: 1, name: "Answer to Complaint (FRCP)", days: 21, from: "Service Date", rule: "FRCP 12(a)(1)(A)" },
-  { id: 2, name: "Reply to Answer", days: 21, from: "Answer Filed", rule: "FRCP 7(a)" },
-  { id: 3, name: "Motion to Dismiss Response", days: 14, from: "Motion Served", rule: "FRCP 12(b)" },
-  { id: 4, name: "Summary Judgment Opposition", days: 21, from: "Motion Filed", rule: "FRCP 56(c)(1)" },
-  { id: 5, name: "Notice of Appeal", days: 30, from: "Judgment Entry", rule: "FRAP 4(a)(1)" },
-  { id: 6, name: "Expert Disclosure (Plaintiff)", days: 90, from: "Scheduling Order", rule: "FRCP 26(a)(2)(D)" },
-  { id: 7, name: "Rebuttal Expert Disclosure", days: 30, from: "Plaintiff Expert Disclosure", rule: "FRCP 26(a)(2)(D)(ii)" },
-  { id: 8, name: "Daubert Motion", days: 30, from: "Expert Discovery Close", rule: "FRCP 702" },
-  { id: 9, name: "Answer to Complaint (Alabama)", days: 30, from: "Service Date", rule: "ARCP 12(a)" },
-  { id: 10, name: "Motion for Summary Judgment (Alabama)", days: 45, from: "Scheduling Order", rule: "ARCP 56" },
+  { id: 1, name: "Speedy Trial (from Demand)", days: 180, from: "Demand Filed", rule: "ARCrP 8.1" },
+  { id: 2, name: "Preliminary Hearing (In Custody)", days: 30, from: "Arrest Date", rule: "ARCrP 5.1" },
+  { id: 3, name: "Preliminary Hearing (Out on Bond)", days: 60, from: "Arrest Date", rule: "ARCrP 5.1" },
+  { id: 4, name: "Grand Jury Indictment Deadline", days: 180, from: "Arrest Date", rule: "ARCrP 5.1 / Ala. Code §15-8-30" },
+  { id: 5, name: "Motion to Suppress", days: -20, from: "Trial Date", rule: "ARCrP 15.4" },
+  { id: 6, name: "Notice of Alibi Defense", days: -10, from: "Trial Date", rule: "ARCrP 16.4" },
+  { id: 7, name: "Notice of Insanity Defense", days: -30, from: "Trial Date", rule: "ARCrP 16.3" },
+  { id: 8, name: "Discovery Response", days: 14, from: "Request Served", rule: "ARCrP 16" },
+  { id: 9, name: "Motion to Dismiss Response", days: 14, from: "Motion Filed", rule: "ARCrP 13.5" },
+  { id: 10, name: "Motion for New Trial", days: 30, from: "Judgment/Verdict Date", rule: "ARCrP 24" },
+  { id: 11, name: "Notice of Appeal", days: 42, from: "Judgment/Sentence Date", rule: "ARAP 4(b)(1)" },
+  { id: 12, name: "Bond Reduction Hearing (In Custody)", days: 3, from: "Motion Filed", rule: "ARCrP 7.2(d)" },
+  { id: 13, name: "Petition for Writ of Habeas Corpus", days: 0, from: "Filing Date", rule: "Ala. Code §15-21-1" },
+  { id: 14, name: "Youthful Offender Application", days: 0, from: "At or Before Arraignment", rule: "Ala. Code §15-19-1" },
 ];
 
 const CSS = `
@@ -624,6 +629,8 @@ body.dark-body { background: #0E1116; }
   .info-val { text-align: left; }
   .mobile-grid-1 { grid-template-columns: 1fr !important; display: grid !important; }
   .mobile-full { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+  .cal-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .cal-grid-wrap > div { min-width: 350px; }
   .activity-entry { gap: 10px; }
   .activity-avatar-col { width: 28px; }
   .toggle { width: 44px; height: 24px; }
@@ -1682,7 +1689,7 @@ function AiPanel({ title, result, loading, error, onRun, onClose, actions, child
 
 // ─── New Case Modal ──────────────────────────────────────────────────────────
 function NewCaseModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "", court: "", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, arrestDate: "", notes: "", deathPenalty: false });
+  const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "Mobile", court: "Mobile County", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, arrestDate: "", notes: "", deathPenalty: false });
   const [autoTasks, setAutoTasks] = useState(true);
   const [conflicts, setConflicts] = useState(null);
   const [conflictChecking, setConflictChecking] = useState(false);
@@ -3428,6 +3435,8 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           onAddDeadline={onAddDeadline}
           onUpdateDeadline={onUpdateDeadline}
           onDeleteDeadline={onDeleteDeadline}
+          allCases={allCases}
+          onSelectCase={(target) => { setSelectedCase(target); }}
         />
       )}
     </>
@@ -3919,7 +3928,7 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
   );
 }
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -4016,6 +4025,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [editingFilingData, setEditingFilingData] = useState({});
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingDocData, setEditingDocData] = useState({});
+  const [linkedCases, setLinkedCases] = useState([]);
+  const [linkedCasesLoading, setLinkedCasesLoading] = useState(false);
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [linkIsPd, setLinkIsPd] = useState(null);
+  const [linkCaseSearch, setLinkCaseSearch] = useState("");
+  const [linkExternalForm, setLinkExternalForm] = useState({ externalCaseNumber: "", externalCaseStyle: "", externalCourt: "", externalCounty: "Mobile", externalCharges: "", externalAttorney: "", externalStatus: "Active", externalNotes: "", relationship: "" });
+  const [expandedLinkedId, setExpandedLinkedId] = useState(null);
+  const [linkRelationship, setLinkRelationship] = useState("");
   const canRemove = isAttorney(currentUser) || isAppAdmin(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -4037,6 +4054,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     apiGetExperts(c.id).then(setExperts).catch(() => {}).finally(() => setExpertsLoading(false));
     setMiscContactsLoading(true);
     apiGetMiscContacts(c.id).then(setMiscContacts).catch(() => {}).finally(() => setMiscContactsLoading(false));
+    setLinkedCasesLoading(true);
+    apiGetLinkedCases(c.id).then(setLinkedCases).catch(() => {}).finally(() => setLinkedCasesLoading(false));
     const timersRef = partyTimers.current;
     const pendingRef = partyPendingData.current;
 
@@ -4756,6 +4775,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
           <div className={`case-overlay-tab ${activeTab === "activity" ? "active" : ""}`} onClick={() => setActiveTab("activity")}>
             Activity {activity.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({activity.length})</span>}
+          </div>
+          <div className={`case-overlay-tab ${activeTab === "linked" ? "active" : ""}`} onClick={() => setActiveTab("linked")}>
+            Linked Cases {linkedCases.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({linkedCases.length})</span>}
           </div>
         </div>
 
@@ -6371,6 +6393,198 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         )}
 
         {/* ── Activity Tab ── */}
+        {/* ── Linked Cases Tab ── */}
+        {activeTab === "linked" && (
+          <div className="case-overlay-body">
+            <div className="case-overlay-section">
+              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>
+                <span>Linked Cases</span>
+                <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>{linkedCases.length} linked</span>
+              </div>
+              {editMode && !showLinkForm && (
+                <button className="btn btn-outline btn-sm" style={{ marginBottom: 16 }} onClick={() => { setShowLinkForm(true); setLinkIsPd(null); setLinkCaseSearch(""); setLinkRelationship(""); setLinkExternalForm({ externalCaseNumber: "", externalCaseStyle: "", externalCourt: "", externalCounty: "Mobile", externalCharges: "", externalAttorney: "", externalStatus: "Active", externalNotes: "", relationship: "" }); }}>+ Link a Case</button>
+              )}
+              {showLinkForm && (
+                <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>Link a Case</div>
+                  {linkIsPd === null && (
+                    <div>
+                      <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 12 }}>Does the Public Defender's Office represent the defendant in the linked case?</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff" }} onClick={() => setLinkIsPd(true)}>Yes</button>
+                        <button className="btn btn-sm btn-outline" onClick={() => setLinkIsPd(false)}>No</button>
+                        <button className="btn btn-sm btn-outline" style={{ marginLeft: "auto" }} onClick={() => setShowLinkForm(false)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                  {linkIsPd === true && (() => {
+                    const q = linkCaseSearch.toLowerCase().trim();
+                    const matches = q.length >= 2 ? (allCases || []).filter(ac => ac.id !== c.id && !linkedCases.some(lc => lc.linkedCaseId === ac.id) && (
+                      (ac.caseNum || "").toLowerCase().includes(q) || (ac.title || "").toLowerCase().includes(q) || (ac.defendantName || "").toLowerCase().includes(q)
+                    )).slice(0, 8) : [];
+                    return (
+                      <div>
+                        <div className="form-group">
+                          <label>Search cases by number, title, or defendant</label>
+                          <input value={linkCaseSearch} onChange={e => setLinkCaseSearch(e.target.value)} placeholder="Start typing to search..." autoFocus />
+                        </div>
+                        <div className="form-group">
+                          <label>Relationship</label>
+                          <select value={linkRelationship} onChange={e => setLinkRelationship(e.target.value)}>
+                            <option value="">Select relationship...</option>
+                            <option>Co-Defendant</option>
+                            <option>Related Charges</option>
+                            <option>Prior Case</option>
+                            <option>Companion Case</option>
+                            <option>Probation Revocation</option>
+                            <option>Appeal</option>
+                            <option>Re-Indictment</option>
+                            <option>Other</option>
+                          </select>
+                        </div>
+                        {matches.length > 0 && (
+                          <div style={{ border: "1px solid var(--c-border)", borderRadius: 6, maxHeight: 240, overflowY: "auto", marginBottom: 8 }}>
+                            {matches.map(ac => (
+                              <div key={ac.id} style={{ padding: "8px 12px", borderBottom: "1px solid var(--c-border2)", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                                onClick={async () => {
+                                  try {
+                                    const saved = await apiCreateLinkedCase({ caseId: c.id, isPdCase: true, linkedCaseId: ac.id, relationship: linkRelationship });
+                                    setLinkedCases(p => [saved, ...p]);
+                                    setShowLinkForm(false);
+                                  } catch (err) { alert("Failed to link case: " + err.message); }
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
+                                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{ac.caseNum || "No Case #"}</div>
+                                  <div style={{ fontSize: 12, color: "var(--c-text2)" }}>{ac.title || ac.defendantName || "Untitled"}</div>
+                                </div>
+                                <div style={{ fontSize: 11, color: "#8A9096" }}>{ac.status || ""}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {q.length >= 2 && matches.length === 0 && <div style={{ fontSize: 12, color: "#8A9096", fontStyle: "italic", marginBottom: 8 }}>No matching cases found.</div>}
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                          <button className="btn btn-sm btn-outline" onClick={() => { setLinkIsPd(null); setLinkCaseSearch(""); }}>Back</button>
+                          <button className="btn btn-sm btn-outline" onClick={() => setShowLinkForm(false)}>Cancel</button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {linkIsPd === false && (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div className="form-group"><label>Case Number</label><input value={linkExternalForm.externalCaseNumber} onChange={e => setLinkExternalForm(p => ({ ...p, externalCaseNumber: e.target.value }))} placeholder="e.g. CC-2025-001234" /></div>
+                        <div className="form-group"><label>Case Style (Parties)</label><input value={linkExternalForm.externalCaseStyle} onChange={e => setLinkExternalForm(p => ({ ...p, externalCaseStyle: e.target.value }))} placeholder="e.g. State v. John Doe" /></div>
+                        <div className="form-group"><label>Court</label><input value={linkExternalForm.externalCourt} onChange={e => setLinkExternalForm(p => ({ ...p, externalCourt: e.target.value }))} placeholder="e.g. Mobile County Circuit Court" /></div>
+                        <div className="form-group"><label>County</label><input value={linkExternalForm.externalCounty} onChange={e => setLinkExternalForm(p => ({ ...p, externalCounty: e.target.value }))} /></div>
+                        <div className="form-group" style={{ gridColumn: "1 / -1" }}><label>Charges (brief description)</label><input value={linkExternalForm.externalCharges} onChange={e => setLinkExternalForm(p => ({ ...p, externalCharges: e.target.value }))} placeholder="e.g. Possession of Controlled Substance" /></div>
+                        <div className="form-group"><label>Attorney / Counsel</label><input value={linkExternalForm.externalAttorney} onChange={e => setLinkExternalForm(p => ({ ...p, externalAttorney: e.target.value }))} placeholder="e.g. Private counsel name" /></div>
+                        <div className="form-group"><label>Status</label>
+                          <select value={linkExternalForm.externalStatus} onChange={e => setLinkExternalForm(p => ({ ...p, externalStatus: e.target.value }))}>
+                            <option>Active</option><option>Closed</option><option>Pending</option><option>Disposed</option><option>Transferred</option><option>Unknown</option>
+                          </select>
+                        </div>
+                        <div className="form-group"><label>Relationship</label>
+                          <select value={linkExternalForm.relationship} onChange={e => setLinkExternalForm(p => ({ ...p, relationship: e.target.value }))}>
+                            <option value="">Select relationship...</option>
+                            <option>Co-Defendant</option><option>Related Charges</option><option>Prior Case</option><option>Companion Case</option><option>Probation Revocation</option><option>Appeal</option><option>Re-Indictment</option><option>Other</option>
+                          </select>
+                        </div>
+                        <div className="form-group"><label>Notes</label><input value={linkExternalForm.externalNotes} onChange={e => setLinkExternalForm(p => ({ ...p, externalNotes: e.target.value }))} placeholder="Optional notes" /></div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+                        <button className="btn btn-sm btn-outline" onClick={() => { setLinkIsPd(null); }}>Back</button>
+                        <button className="btn btn-sm btn-outline" onClick={() => setShowLinkForm(false)}>Cancel</button>
+                        <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff" }} disabled={!linkExternalForm.externalCaseNumber.trim() && !linkExternalForm.externalCaseStyle.trim()} onClick={async () => {
+                          try {
+                            const saved = await apiCreateLinkedCase({ caseId: c.id, isPdCase: false, ...linkExternalForm });
+                            setLinkedCases(p => [saved, ...p]);
+                            setShowLinkForm(false);
+                          } catch (err) { alert("Failed to link case: " + err.message); }
+                        }}>Link Case</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {linkedCasesLoading && <div style={{ fontSize: 13, color: "#8A9096", padding: "20px 0" }}>Loading linked cases...</div>}
+              {!linkedCasesLoading && linkedCases.length === 0 && !showLinkForm && (
+                <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>No linked cases yet. {editMode ? 'Click "Link a Case" to connect related cases.' : "Enable edit mode to link cases."}</div>
+              )}
+              {linkedCases.map(lc => {
+                const isExpanded = expandedLinkedId === lc.id;
+                const caseNum = lc.isPdCase ? (lc.linkedCaseNum || "—") : (lc.externalCaseNumber || "—");
+                const caseStyle = lc.isPdCase ? (lc.linkedCaseTitle || lc.linkedDefendant || "—") : (lc.externalCaseStyle || "—");
+                const charges = lc.isPdCase ? (() => { try { const ch = typeof lc.linkedCharges === "string" ? JSON.parse(lc.linkedCharges) : lc.linkedCharges; return Array.isArray(ch) ? ch.map(x => x.description || x.statute || "").filter(Boolean).join(", ") : ""; } catch { return ""; } })() : (lc.externalCharges || "");
+                const status = lc.isPdCase ? (lc.linkedStatus || "") : (lc.externalStatus || "");
+                return (
+                  <div key={lc.id} className="card" style={{ marginBottom: 8 }}>
+                    <div style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }} onClick={() => setExpandedLinkedId(isExpanded ? null : lc.id)}>
+                      <span style={{ fontSize: 11, color: "#8A9096", flexShrink: 0 }}>{isExpanded ? "▼" : "▶"}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{caseNum}</span>
+                          {lc.relationship && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#1E2A3A15", color: "#1E2A3A", fontWeight: 600 }}>{lc.relationship}</span>}
+                          {lc.isPdCase && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#2F7A5F18", color: "#2F7A5F", fontWeight: 600 }}>PD Case</span>}
+                          {status && <span style={{ fontSize: 10, color: "#8A9096" }}>{status}</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 2 }}>{caseStyle}</div>
+                        {charges && <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{charges}</div>}
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div style={{ padding: "0 14px 12px 34px", borderTop: "1px solid var(--c-border2)" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 10 }}>
+                          {lc.isPdCase ? (<>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Case Number:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.linkedCaseNum || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Defendant:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.linkedDefendant || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Court:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.linkedCourt || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>County:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.linkedCounty || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Status:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.linkedStatus || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Stage:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.linkedStage || "—"}</div></div>
+                            <div style={{ gridColumn: "1 / -1" }}><span style={{ fontSize: 11, color: "#8A9096" }}>Charges:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{charges || "—"}</div></div>
+                          </>) : (<>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Case Number:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalCaseNumber || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Case Style:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalCaseStyle || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Court:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalCourt || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>County:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalCounty || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Status:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalStatus || "—"}</div></div>
+                            <div><span style={{ fontSize: 11, color: "#8A9096" }}>Attorney:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalAttorney || "—"}</div></div>
+                            <div style={{ gridColumn: "1 / -1" }}><span style={{ fontSize: 11, color: "#8A9096" }}>Charges:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalCharges || "—"}</div></div>
+                            {lc.externalNotes && <div style={{ gridColumn: "1 / -1" }}><span style={{ fontSize: 11, color: "#8A9096" }}>Notes:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.externalNotes}</div></div>}
+                          </>)}
+                          {lc.relationship && <div><span style={{ fontSize: 11, color: "#8A9096" }}>Relationship:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.relationship}</div></div>}
+                          <div><span style={{ fontSize: 11, color: "#8A9096" }}>Added by:</span><div style={{ fontSize: 13, color: "var(--c-text)" }}>{lc.addedBy || "—"} on {lc.addedAt ? new Date(lc.addedAt).toLocaleDateString() : "—"}</div></div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                          {lc.isPdCase && lc.linkedCaseId && onSelectCase && (
+                            <button className="btn btn-sm" style={{ background: "#1E2A3A", color: "#fff" }} onClick={() => {
+                              const target = (allCases || []).find(ac => ac.id === lc.linkedCaseId);
+                              if (target) onSelectCase(target);
+                            }}>Go to Case</button>
+                          )}
+                          {editMode && (
+                            <button className="btn btn-sm btn-outline" style={{ color: "#e05252", borderColor: "#e0525233" }} onClick={async () => {
+                              if (!window.confirm("Remove this linked case?")) return;
+                              try {
+                                await apiDeleteLinkedCase(lc.id);
+                                setLinkedCases(p => p.filter(x => x.id !== lc.id));
+                              } catch (err) { alert("Failed to remove: " + err.message); }
+                            }}>Unlink</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Activity Tab ── */}
         {activeTab === "activity" && (() => {
           const ACTIVITY_FILTERS = [
             { key: "all", label: "All" },
@@ -7248,6 +7462,8 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
           </div>
         </div>
 
+        <div className="cal-grid-wrap">
+        <div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: "1px solid var(--c-border)" }}>
           {DOW.map(d => <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "#8A9096", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>{d}</div>)}
         </div>
@@ -7280,6 +7496,8 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
               </div>
             );
           })}
+        </div>
+        </div>
         </div>
       </div>
 
@@ -7357,12 +7575,15 @@ function ICalManager({ externalEvents, setExternalEvents, allCases }) {
     setImporting(feed.id);
     setError("");
     try {
-      let url = feed.url.trim().replace(/^webcal:\/\//i, "https://");
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-      const res = await fetch(proxyUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let url = feed.url.trim();
+      const proxyUrl = `/api/calendar-feeds/proxy?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl, { credentials: "include" });
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}`;
+        try { const j = await res.json(); errMsg = j.error || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
       const text = await res.text();
-      if (!text.includes("BEGIN:VCALENDAR")) throw new Error("Not a valid iCal feed");
       const events = parseICalText(text, feed.name, allCases);
       setExternalEvents(prev => [...prev.filter(e => e.source !== feed.name), ...events]);
       setFeeds(f => f.map(x => x.id === feed.id ? { ...x, status: "ok", count: events.length, lastSync: new Date().toLocaleTimeString() } : x));
@@ -7692,7 +7913,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
               <div style={{ padding: 20 }}>
                 <div className="form-group"><label>Select Rule</label>
                   <select value={calcInputs.ruleId} onChange={e => setCalcInputs(p => ({ ...p, ruleId: Number(e.target.value) }))}>
-                    {COURT_RULES.map(r => <option key={r.id} value={r.id}>{r.name} ({r.days}d) — {r.rule}</option>)}
+                    {COURT_RULES.map(r => <option key={r.id} value={r.id}>{r.name} ({r.days < 0 ? `${Math.abs(r.days)}d before` : r.days === 0 ? "same day" : `${r.days}d`}) — {r.rule}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
@@ -7704,8 +7925,8 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                   <div className="calc-result">
                     <div style={{ fontSize: 11, color: "#1E2A3A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Result</div>
                     <div style={{ fontSize: 24, fontFamily: "'Playfair Display',serif", color: "var(--c-text-h)", marginBottom: 8 }}>{fmt(calcResult.result)}</div>
-                    <div style={{ fontSize: 13, color: "var(--c-text2)" }}><strong style={{ color: "#1E2A3A" }}>{calcResult.rule.name}</strong><br />{calcResult.rule.days} days from {fmt(calcResult.from)} · <span style={{ fontFamily: "monospace", fontSize: 12 }}>{calcResult.rule.rule}</span></div>
-                    <div style={{ marginTop: 10, fontSize: 12, color: "#e07a30", fontStyle: "italic" }}>⚠ Always verify against court orders and local rules.</div>
+                    <div style={{ fontSize: 13, color: "var(--c-text2)" }}><strong style={{ color: "#1E2A3A" }}>{calcResult.rule.name}</strong><br />{calcResult.rule.days < 0 ? `${Math.abs(calcResult.rule.days)} days before` : calcResult.rule.days === 0 ? "Same day as" : `${calcResult.rule.days} days from`} {fmt(calcResult.from)} · <span style={{ fontFamily: "monospace", fontSize: 12 }}>{calcResult.rule.rule}</span></div>
+                    <div style={{ marginTop: 10, fontSize: 12, color: "#e07a30", fontStyle: "italic" }}>⚠ Always verify against current court orders and Alabama Rules of Criminal Procedure.</div>
                   </div>
                 )}
               </div>
@@ -7715,7 +7936,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Action</th><th>Days</th><th>From</th><th>Rule</th></tr></thead>
-                  <tbody>{COURT_RULES.map(r => <tr key={r.id}><td style={{ color: "var(--c-text)" }}>{r.name}</td><td style={{ color: "#1E2A3A", fontWeight: 700 }}>{r.days}</td><td style={{ fontSize: 12, color: "var(--c-text2)" }}>{r.from}</td><td style={{ fontFamily: "monospace", fontSize: 11, color: "#8A9096" }}>{r.rule}</td></tr>)}</tbody>
+                  <tbody>{COURT_RULES.map(r => <tr key={r.id}><td style={{ color: "var(--c-text)" }}>{r.name}</td><td style={{ color: "#1E2A3A", fontWeight: 700 }}>{r.days < 0 ? `${Math.abs(r.days)} before` : r.days === 0 ? "—" : r.days}</td><td style={{ fontSize: 12, color: "var(--c-text2)" }}>{r.from}</td><td style={{ fontFamily: "monospace", fontSize: 11, color: "#8A9096" }}>{r.rule}</td></tr>)}</tbody>
                 </table>
               </div>
             </div>
@@ -8512,6 +8733,8 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             onRefreshActivity={(caseId, fresh) => setCaseActivity(prev => ({ ...prev, [caseId]: fresh }))}
             onAddDeadline={onAddDeadline}
             onUpdateDeadline={onUpdateDeadline}
+            allCases={allCases}
+            onSelectCase={(target) => { setSelectedCase(target); }}
           />
         );
       })()}
@@ -9895,7 +10118,7 @@ const CONTACT_NOTE_TYPES = [
 ];
 
 function NewContactModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ name: "", category: "Client", phone: "", email: "", fax: "", address: "", firm: "", company: "", county: "" });
+  const [form, setForm] = useState({ name: "", category: "Client", phone: "", email: "", fax: "", address: "", firm: "", company: "", county: "Mobile" });
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   return (
     <div className="modal-overlay" onClick={onClose}>
