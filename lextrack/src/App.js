@@ -926,6 +926,9 @@ export default function App() {
   const advocatePrevViewRef = useRef(view);
   const [advocateScreenChips, setAdvocateScreenChips] = useState(null);
   useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading, advocateScreenChips]);
+  const [contextContactsCache, setContextContactsCache] = useState(null);
+  const [contextTemplatesCache, setContextTemplatesCache] = useState(null);
+  const [contextTimeManualCache, setContextTimeManualCache] = useState(null);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("lextrack-dark") === "1");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showChangePw, setShowChangePw] = useState(false);
@@ -952,21 +955,44 @@ export default function App() {
       document.body.classList.remove("dark-body");
     }
   }, [darkMode]);
+  useEffect(() => {
+    if (view === "contacts" && !contextContactsCache) {
+      apiGetContacts().then(setContextContactsCache).catch(() => {});
+    }
+    if (view === "documents" && !contextTemplatesCache) {
+      apiGetTemplates().then(setContextTemplatesCache).catch(() => {});
+    }
+    if (view === "timelog" && currentUser) {
+      const now = new Date();
+      const day = now.getDay();
+      const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7));
+      const from = mon.toISOString().split("T")[0];
+      const to = now.toISOString().split("T")[0];
+      apiGetTimeEntries(currentUser.id, from, to).then(setContextTimeManualCache).catch(() => {});
+    }
+  }, [view, currentUser, contextContactsCache, contextTemplatesCache]);
+
   const buildScreenContext = useCallback(() => {
     const v = view;
     const lines = [];
     const caseMap = {};
     allCases.forEach(cs => { caseMap[cs.id] = cs.case_num || cs.title; });
 
+    const nowDate = new Date();
+    const thisWeekStart = new Date(nowDate); thisWeekStart.setDate(nowDate.getDate() - ((nowDate.getDay() + 6) % 7));
+    const nextWeekEnd = new Date(thisWeekStart); nextWeekEnd.setDate(thisWeekStart.getDate() + 13);
+    const inRange = (dateStr, from, to) => { if (!dateStr) return false; const d = new Date(dateStr); return d >= from && d <= to; };
+
     if (v === "dashboard") {
       lines.push(`Screen: Dashboard`);
       const myTasks = tasks.filter(t => t.assigned === currentUser?.id && t.status !== "Completed");
-      const overdue = myTasks.filter(t => t.due && new Date(t.due) < new Date());
+      const overdue = myTasks.filter(t => t.due && new Date(t.due) < nowDate);
       const activeCases = allCases.filter(c => c.status === "Active");
       lines.push(`Active cases: ${activeCases.length}`);
       lines.push(`My open tasks: ${myTasks.length} (${overdue.length} overdue)`);
-      const upcoming = allDeadlines.filter(d => { const dd = new Date(d.date); return dd >= new Date() && dd <= new Date(Date.now() + 7 * 86400000); });
+      const upcoming = allDeadlines.filter(d => { const dd = new Date(d.date); return dd >= nowDate && dd <= new Date(Date.now() + 7 * 86400000); });
       lines.push(`Upcoming deadlines (7 days): ${upcoming.length}`);
+      if (upcoming.length > 0) lines.push(`Next deadlines: ${upcoming.sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0, 8).map(d => `${d.title} (${d.date}, case: ${caseMap[d.caseId] || d.caseId})`).join("; ")}`);
       if (pinnedCaseIds.length > 0) {
         const pinned = allCases.filter(c => pinnedCaseIds.includes(c.id));
         lines.push(`Pinned cases: ${pinned.map(c => `${c.case_num || ""} ${c.defendant_name || c.title}`).join("; ")}`);
@@ -989,42 +1015,138 @@ export default function App() {
     } else if (v === "deadlines") {
       lines.push(`Screen: Calendar`);
       lines.push(`Total deadlines: ${allDeadlines.length}`);
-      const upcoming = allDeadlines.filter(d => new Date(d.date) >= new Date()).sort((a, b) => new Date(a.date) - new Date(b.date));
-      lines.push(`Upcoming deadlines: ${upcoming.slice(0, 15).map(d => `${d.title} (${d.date}, case: ${caseMap[d.case_id] || d.case_id})`).join("; ")}`);
-      const tasksDue = tasks.filter(t => t.due && t.status !== "Completed").sort((a, b) => new Date(a.due) - new Date(b.due));
-      lines.push(`Tasks with due dates: ${tasksDue.length}`);
+      const overdueDl = allDeadlines.filter(d => new Date(d.date) < nowDate && !d.completed).sort((a, b) => new Date(a.date) - new Date(b.date));
+      if (overdueDl.length > 0) lines.push(`OVERDUE deadlines (${overdueDl.length}): ${overdueDl.slice(0, 8).map(d => `${d.title} (${d.date}, case: ${caseMap[d.caseId] || d.caseId})`).join("; ")}`);
+      const thisWeekDl = allDeadlines.filter(d => inRange(d.date, thisWeekStart, new Date(thisWeekStart.getTime() + 6 * 86400000)));
+      if (thisWeekDl.length > 0) lines.push(`This week (${thisWeekDl.length}): ${thisWeekDl.sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0, 10).map(d => `${d.title} (${d.date}, case: ${caseMap[d.caseId] || d.caseId})`).join("; ")}`);
+      const nextWeekDl = allDeadlines.filter(d => { const dd = new Date(d.date); return dd > new Date(thisWeekStart.getTime() + 6 * 86400000) && dd <= nextWeekEnd; });
+      if (nextWeekDl.length > 0) lines.push(`Next week (${nextWeekDl.length}): ${nextWeekDl.sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0, 10).map(d => `${d.title} (${d.date}, case: ${caseMap[d.caseId] || d.caseId})`).join("; ")}`);
+      const courtDates = allDeadlines.filter(d => /court|hearing|trial|arraign/i.test(d.title) && new Date(d.date) >= nowDate);
+      if (courtDates.length > 0) lines.push(`Upcoming court dates (${courtDates.length}): ${courtDates.sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0, 8).map(d => `${d.title} (${d.date}, case: ${caseMap[d.caseId] || d.caseId})`).join("; ")}`);
+      const tasksDue = tasks.filter(t => t.due && t.status !== "Completed" && new Date(t.due) >= nowDate).sort((a, b) => new Date(a.due) - new Date(b.due));
+      lines.push(`Tasks with upcoming due dates: ${tasksDue.length}`);
+      if (tasksDue.length > 0) lines.push(`Next task deadlines: ${tasksDue.slice(0, 8).map(t => `"${t.title}" (due ${t.due}, case: ${caseMap[t.caseId] || ""})`).join("; ")}`);
     } else if (v === "tasks") {
       lines.push(`Screen: Tasks`);
       const open = tasks.filter(t => t.status !== "Completed");
-      const overdue = open.filter(t => t.due && new Date(t.due) < new Date());
+      const overdue = open.filter(t => t.due && new Date(t.due) < nowDate);
       lines.push(`Total tasks: ${tasks.length}, Open: ${open.length}, Overdue: ${overdue.length}`);
       const byPriority = {};
       open.forEach(t => { byPriority[t.priority || "Medium"] = (byPriority[t.priority || "Medium"] || 0) + 1; });
       lines.push(`Open by priority: ${Object.entries(byPriority).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
       const myTasks = open.filter(t => t.assigned === currentUser?.id);
       lines.push(`My open tasks: ${myTasks.length}`);
-      if (overdue.length > 0) lines.push(`Overdue: ${overdue.slice(0, 10).map(t => `"${t.title}" (due ${t.due}, case: ${caseMap[t.case_id] || ""})`).join("; ")}`);
+      if (overdue.length > 0) lines.push(`Overdue: ${overdue.slice(0, 10).map(t => `"${t.title}" (due ${t.due}, case: ${caseMap[t.caseId] || ""})`).join("; ")}`);
     } else if (v === "documents") {
       lines.push(`Screen: Templates`);
       lines.push(`This screen shows document templates (.docx) that can be used to generate documents for cases.`);
-      lines.push(`Templates support placeholders like {{defendant_name}}, {{case_number}} that auto-fill with case data.`);
-      lines.push(`Users can upload templates, define categories, and generate documents from case detail view.`);
+      if (contextTemplatesCache && contextTemplatesCache.length > 0) {
+        lines.push(`Total templates: ${contextTemplatesCache.length}`);
+        const byCat = {};
+        contextTemplatesCache.forEach(t => { byCat[t.category || "General"] = (byCat[t.category || "General"] || 0) + 1; });
+        lines.push(`By category: ${Object.entries(byCat).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+        const catGroups = {};
+        contextTemplatesCache.forEach(t => { const cat = t.category || "General"; if (!catGroups[cat]) catGroups[cat] = []; catGroups[cat].push(t.name); });
+        Object.entries(catGroups).forEach(([cat, names]) => { lines.push(`  ${cat}: ${names.join(", ")}`); });
+        const allPlaceholders = new Set();
+        contextTemplatesCache.forEach(t => { (t.placeholders || []).forEach(p => allPlaceholders.add(p)); });
+        if (allPlaceholders.size > 0) lines.push(`Available placeholders: ${[...allPlaceholders].slice(0, 30).join(", ")}`);
+      } else {
+        lines.push(`Templates support placeholders like {{defendant_name}}, {{case_number}} that auto-fill with case data.`);
+      }
     } else if (v === "timelog") {
       lines.push(`Screen: Time Log`);
-      lines.push(`This screen shows time entries derived from completed tasks, notes with time logged, correspondence, and manual entries.`);
-      const completedTasks = tasks.filter(t => t.status === "Completed" && t.time_logged);
-      lines.push(`Tasks with time logged: ${completedTasks.length}`);
+      const timeRows = [];
+      const from = new Date(thisWeekStart); from.setHours(0,0,0,0);
+      const to = new Date(); to.setHours(23,59,59,999);
+      const findCase = (id) => allCases.find(c => c.id === id);
+      const inTR = (dateStr) => { if (!dateStr) return false; const d = new Date(dateStr); return d >= from && d <= to; };
+
+      tasks.forEach(t => {
+        const creditId = t.timeLogUser || t.completedBy || t.assigned;
+        if (creditId !== currentUser?.id) return;
+        if (t.status !== "Completed" || !t.completedAt) return;
+        if (!inTR(t.completedAt)) return;
+        const cs = findCase(t.caseId);
+        timeRows.push({ source: "task", date: t.completedAt, caseTitle: cs?.title || `Case #${t.caseId}`, detail: t.title, time: t.timeLogged || "" });
+      });
+
+      Object.entries(caseNotes).forEach(([caseId, notes]) => {
+        (notes || []).forEach(note => {
+          const creditId = note.timeLogUser || note.authorId;
+          if (creditId !== currentUser?.id) return;
+          if (!inTR(note.createdAt)) return;
+          const cs = findCase(Number(caseId));
+          timeRows.push({ source: "note", date: note.createdAt, caseTitle: cs?.title || `Case #${caseId}`, detail: (note.body || "").slice(0, 60), time: note.timeLogged || "" });
+        });
+      });
+
+      const myCaseIds = new Set(allCases.filter(c => [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(currentUser?.id)).map(c => c.id));
+      allCorrespondence.forEach(email => {
+        if (!myCaseIds.has(email.caseId)) return;
+        if (!inTR(email.receivedAt)) return;
+        const cs = findCase(email.caseId);
+        timeRows.push({ source: "email", date: email.receivedAt, caseTitle: cs?.title || `Case #${email.caseId}`, detail: email.subject || "(no subject)", time: "" });
+      });
+
+      if (contextTimeManualCache) {
+        contextTimeManualCache.forEach(me => {
+          timeRows.push({ source: "manual", date: me.date, caseTitle: me.caseTitle || `Case #${me.caseId || "?"}`, detail: me.detail, time: me.time || "" });
+        });
+      }
+
+      timeRows.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const totalHours = timeRows.reduce((s, r) => s + (parseFloat(r.time) || 0), 0);
+      const bySrc = {};
+      timeRows.forEach(r => { bySrc[r.source] = (bySrc[r.source] || 0) + 1; });
+      const byCase = {};
+      timeRows.forEach(r => { byCase[r.caseTitle] = (byCase[r.caseTitle] || 0) + (parseFloat(r.time) || 0); });
+      const topCases = Object.entries(byCase).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      lines.push(`Date range: ${from.toISOString().split("T")[0]} to ${to.toISOString().split("T")[0]} (this week)`);
+      lines.push(`Total entries: ${timeRows.length}, Total hours: ${totalHours.toFixed(1)}`);
+      lines.push(`By source: ${Object.entries(bySrc).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      if (topCases.length > 0) lines.push(`Hours by case: ${topCases.map(([c, h]) => `${c}: ${h.toFixed(1)}h`).join(", ")}`);
+      if (timeRows.length > 0) lines.push(`Recent entries:\n${timeRows.slice(0, 15).map(r => `  ${r.date?.split("T")[0] || "?"} | ${r.source} | ${r.caseTitle} | ${r.detail?.slice(0, 50) || ""} | ${r.time || "—"}`).join("\n")}`);
     } else if (v === "reports") {
       lines.push(`Screen: Reports`);
       lines.push(`Available report types: Overdue Tasks, Upcoming Hearings, Workload Report, Cases by Status, Cases by Stage, Cases by Custody Status, Pending Custody Actions, Caseload Summary`);
-      lines.push(`Reports can be filtered by attorney, date range, and exported to CSV or printed.`);
+      const overdueTasks = tasks.filter(t => t.status !== "Completed" && t.due && new Date(t.due) < nowDate);
+      lines.push(`Overdue tasks: ${overdueTasks.length}`);
+      if (overdueTasks.length > 0) lines.push(`Top overdue: ${overdueTasks.sort((a,b) => new Date(a.due) - new Date(b.due)).slice(0, 5).map(t => `"${t.title}" (due ${t.due}, case: ${caseMap[t.caseId] || ""})`).join("; ")}`);
+      const upcomingHearings = allDeadlines.filter(d => /hearing|court|trial|arraign/i.test(d.title) && new Date(d.date) >= nowDate).sort((a,b) => new Date(a.date) - new Date(b.date));
+      lines.push(`Upcoming hearings: ${upcomingHearings.length}`);
+      if (upcomingHearings.length > 0) lines.push(`Next hearings: ${upcomingHearings.slice(0, 5).map(d => `${d.title} (${d.date}, case: ${caseMap[d.caseId] || d.caseId})`).join("; ")}`);
+      const byStatus = {};
+      allCases.forEach(c => { byStatus[c.status || "Unknown"] = (byStatus[c.status || "Unknown"] || 0) + 1; });
+      lines.push(`Cases by status: ${Object.entries(byStatus).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      const byStage = {};
+      allCases.forEach(c => { byStage[c.stage || "Unknown"] = (byStage[c.stage || "Unknown"] || 0) + 1; });
+      lines.push(`Cases by stage: ${Object.entries(byStage).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      const byCustody = {};
+      allCases.forEach(c => { byCustody[c.custodyStatus || "Unknown"] = (byCustody[c.custodyStatus || "Unknown"] || 0) + 1; });
+      lines.push(`Cases by custody: ${Object.entries(byCustody).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
     } else if (v === "aicenter") {
       lines.push(`Screen: AI Center`);
       lines.push(`Available AI agents: Charge Analysis, Deadline Generator, Case Strategy, Document Drafting, Case Triage, Client Communication Summary, Document Summary, Task Suggestions, Filing Classifier, Charge Class Lookup, Advocate AI, Batch Case Manager`);
       lines.push(`The "Advocate AI Trainer" tab allows creating training entries to customize AI behavior.`);
     } else if (v === "contacts") {
       lines.push(`Screen: Contacts`);
-      lines.push(`Contact directory for prosecutors, judges, courts, witnesses, experts, clients, and more.`);
+      if (contextContactsCache && contextContactsCache.length > 0) {
+        lines.push(`Total contacts: ${contextContactsCache.length}`);
+        const byCat = {};
+        contextContactsCache.forEach(c => { byCat[c.category || "Other"] = (byCat[c.category || "Other"] || 0) + 1; });
+        lines.push(`By category: ${Object.entries(byCat).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+        const pinnedContactIds = currentUser?.preferences?.pinnedContacts || [];
+        if (pinnedContactIds.length > 0) {
+          const pinned = contextContactsCache.filter(c => pinnedContactIds.includes(c.id));
+          if (pinned.length > 0) lines.push(`Pinned contacts: ${pinned.map(c => `${c.name} (${c.category || "Other"})`).join(", ")}`);
+        }
+        const recent = contextContactsCache.slice(0, 10);
+        lines.push(`Sample contacts: ${recent.map(c => `${c.name} (${c.category || "Other"})`).join(", ")}`);
+      } else {
+        lines.push(`Contact directory for prosecutors, judges, courts, witnesses, experts, clients, and more.`);
+      }
     } else if (v === "staff") {
       lines.push(`Screen: Staff`);
       const active = allUsers.filter(u => !u.deleted);
@@ -1032,9 +1154,15 @@ export default function App() {
       const byRole = {};
       active.forEach(u => { byRole[u.role || "Unknown"] = (byRole[u.role || "Unknown"] || 0) + 1; });
       lines.push(`By role: ${Object.entries(byRole).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      const workload = {};
+      allCases.filter(c => c.status === "Active").forEach(c => {
+        if (c.assignedAttorney) workload[c.assignedAttorney] = (workload[c.assignedAttorney] || 0) + 1;
+      });
+      const staffWithLoad = active.filter(u => workload[u.id]).map(u => ({ name: u.name, cases: workload[u.id] })).sort((a, b) => b.cases - a.cases);
+      if (staffWithLoad.length > 0) lines.push(`Active caseloads: ${staffWithLoad.slice(0, 10).map(s => `${s.name}: ${s.cases}`).join(", ")}`);
     }
     return lines.join("\n").substring(0, 4000);
-  }, [view, allCases, tasks, allDeadlines, allUsers, currentUser, pinnedCaseIds, selectedCase]);
+  }, [view, allCases, tasks, allDeadlines, allUsers, currentUser, pinnedCaseIds, selectedCase, allCorrespondence, caseNotes, contextContactsCache, contextTemplatesCache, contextTimeManualCache]);
 
   const openAdvocateFromCase = useCallback((caseId) => {
     if (advocateCaseId !== caseId) {
