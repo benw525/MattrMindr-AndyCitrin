@@ -67,7 +67,7 @@ function renderBody(body, allUsers) {
   return parts;
 }
 
-export default function CollaborateView({ currentUser, allUsers, allCases, onMenuToggle }) {
+export default function CollaborateView({ currentUser, allUsers, allCases, pinnedCaseIds, onMenuToggle }) {
   const [tab, setTab] = useState("cases");
   const [channels, setChannels] = useState([]);
   const [activeChannel, setActiveChannel] = useState(null);
@@ -92,6 +92,8 @@ export default function CollaborateView({ currentUser, allUsers, allCases, onMen
   const [editGroupDesc, setEditGroupDesc] = useState("");
   const [addMemberSearch, setAddMemberSearch] = useState("");
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [newGroupSearch, setNewGroupSearch] = useState("");
+  const [newGroupDropdown, setNewGroupDropdown] = useState(false);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -278,10 +280,17 @@ export default function CollaborateView({ currentUser, allUsers, allCases, onMen
     inputRef.current?.focus();
   }, [mentionDropdown, msgInput]);
 
+  const pinnedIds = pinnedCaseIds || [];
   const casesForTab = allCases.filter(c => c.status === "Active" || channels.some(ch => ch.type === "case" && ch.caseId === c.id));
-  const filteredCases = caseFilter.trim()
+  const filteredCasesPre = caseFilter.trim()
     ? casesForTab.filter(c => (c.case_num || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.defendant_name || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.title || "").toLowerCase().includes(caseFilter.toLowerCase()))
     : casesForTab;
+  const filteredCases = [...filteredCasesPre].sort((a, b) => {
+    const aPin = pinnedIds.includes(a.id) ? 0 : 1;
+    const bPin = pinnedIds.includes(b.id) ? 0 : 1;
+    if (aPin !== bPin) return aPin - bPin;
+    return (a.case_num || "").localeCompare(b.case_num || "");
+  });
   const groupChannels = channels.filter(c => c.type === "group");
   const privateChannels = channels.filter(c => c.type === "private");
   const activeChannelData = channels.find(c => c.id === activeChannel);
@@ -363,7 +372,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, onMen
                         }}
                           onMouseEnter={e => { if (!(activeChannel && ch && ch.id === activeChannel)) e.currentTarget.style.background = "var(--c-bg2)"; }}
                           onMouseLeave={e => { if (!(activeChannel && ch && ch.id === activeChannel)) e.currentTarget.style.background = "transparent"; }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#1e3a5f", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, flexShrink: 0 }}>⚖️</div>
+                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#1e3a5f", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, flexShrink: 0, position: "relative" }}>⚖️{pinnedIds.includes(c.id) && <span style={{ position: "absolute", top: -2, right: -2, fontSize: 10 }}>📌</span>}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.case_num || c.title}</div>
                             <div style={{ fontSize: 11, color: "var(--c-text3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.defendant_name || ""}</div>
@@ -382,7 +391,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, onMen
                 {tab === "groups" && (
                   <div>
                     <div style={{ padding: "8px 12px" }}>
-                      <button onClick={() => setShowNewGroup(true)} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px dashed var(--c-border)", background: "transparent", color: "var(--c-accent, #1e3a5f)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ New Group</button>
+                      <button onClick={() => { setShowNewGroup(true); setNewGroupSearch(""); setNewGroupDropdown(false); setNewGroupName(""); setNewGroupDesc(""); setNewGroupMembers([]); }} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px dashed var(--c-border)", background: "transparent", color: "var(--c-accent, #1e3a5f)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ New Group</button>
                     </div>
                     {groupChannels.map(ch => (
                       <div key={ch.id} onClick={() => openChannel(ch.id)} style={{
@@ -572,18 +581,52 @@ export default function CollaborateView({ currentUser, allUsers, allCases, onMen
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Members ({newGroupMembers.length} selected)</label>
-              <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg2)" }}>
-                {activeUsers.filter(u => u.id !== currentUser?.id).map(u => (
-                  <label key={u.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}>
-                    <input type="checkbox" checked={newGroupMembers.includes(u.id)} onChange={e => {
-                      if (e.target.checked) setNewGroupMembers(p => [...p, u.id]);
-                      else setNewGroupMembers(p => p.filter(x => x !== u.id));
-                    }} />
-                    <Avatar name={u.name} avatar={u.avatar} initials={u.initials} size={24} />
-                    <span style={{ color: "var(--c-text)" }}>{u.name}</span>
-                    <span style={{ color: "var(--c-text3)", fontSize: 11 }}>{u.role}</span>
-                  </label>
-                ))}
+              {newGroupMembers.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                  {newGroupMembers.map(uid => {
+                    const u = activeUsers.find(x => x.id === uid);
+                    if (!u) return null;
+                    return (
+                      <span key={uid} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 16, padding: "3px 8px 3px 4px", fontSize: 12, color: "var(--c-text)" }}>
+                        <Avatar name={u.name} avatar={u.avatar} initials={u.initials} size={18} />
+                        {u.name}
+                        <button onClick={() => setNewGroupMembers(p => p.filter(x => x !== uid))} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--c-text3)", fontSize: 14, padding: 0, marginLeft: 2, lineHeight: 1 }}>×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ position: "relative" }}>
+                <input
+                  value={newGroupSearch}
+                  onChange={e => { setNewGroupSearch(e.target.value); setNewGroupDropdown(e.target.value.trim().length > 0); }}
+                  onFocus={() => { if (newGroupSearch.trim()) setNewGroupDropdown(true); }}
+                  onBlur={() => setTimeout(() => setNewGroupDropdown(false), 200)}
+                  placeholder="Search staff to add..."
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }}
+                />
+                {newGroupDropdown && (() => {
+                  const results = activeUsers.filter(u => u.id !== currentUser?.id && !newGroupMembers.includes(u.id) && u.name.toLowerCase().includes(newGroupSearch.toLowerCase()));
+                  return results.length > 0 ? (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
+                      {results.map(u => (
+                        <div key={u.id} onMouseDown={e => e.preventDefault()} onClick={() => {
+                          setNewGroupMembers(p => [...p, u.id]);
+                          setNewGroupSearch("");
+                          setNewGroupDropdown(false);
+                        }} style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <Avatar name={u.name} avatar={u.avatar} initials={u.initials} size={24} />
+                          <div>
+                            <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{u.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--c-text3)" }}>{u.role}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
