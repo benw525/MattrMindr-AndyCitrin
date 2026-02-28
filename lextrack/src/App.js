@@ -705,7 +705,7 @@ function TimePromptModal({ pending, onSubmit }) {
   };
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onSubmit(pending.taskId, time.trim() || null, null, task?.assigned > 0 ? task.assigned : null)}>
       <div className="modal" style={{ maxWidth: 430 }}>
         <div className="modal-title" style={{ marginBottom: 6 }}>Log Time</div>
         <p style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 14 }}>
@@ -809,7 +809,7 @@ function FollowUpPromptModal({ prompt, onDecide }) {
   };
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onDecide(false, null, null)}>
       <div className="modal" style={{ width: 460, maxWidth: "calc(100vw - 24px)" }}>
         <div className="modal-title" style={{ marginBottom: 6 }}>Follow-up Task Completed</div>
         <div style={{ fontSize: 13, color: "#8A9096", marginBottom: 20 }}>
@@ -2028,7 +2028,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   };
   const handleDragEnd = () => { setDragIdx(null); setOverIdx(null); };
   return (
-    <div className="login-bg" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }}>
+    <div className="login-bg" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="login-box" style={{ width: 480, maxWidth: "calc(100vw - 24px)", maxHeight: "80vh", overflow: "auto" }}>
         <div className="login-title" style={{ fontSize: 20, marginBottom: 4 }}>Customize Dashboard</div>
         <div className="login-sub" style={{ marginBottom: 20 }}>Drag to reorder, add or remove widgets</div>
@@ -4409,7 +4409,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         </div>
       )}
       {showAdvocate && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && { }}>
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setShowAdvocate(false); setAdvocateMessages([]); setAdvocateInput(""); setAdvocateStats(null); setAdvocateLoading(false); setAdvocateTasksAdded({}); } }}>
           <div className="modal" style={{ maxWidth: 600, height: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
