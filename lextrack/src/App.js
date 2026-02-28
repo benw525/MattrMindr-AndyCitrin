@@ -3547,7 +3547,7 @@ const CONTACT_LINKABLE_KEYS = new Set(["defendantName", "prosecutor", "judge"]);
 const KEY_DATE_FIELDS = ["arrestDate", "arraignmentDate", "nextCourtDate", "trialDate", "sentencingDate", "dispositionDate"];
 const KEY_DATE_TYPES = { arrestDate: "Other", arraignmentDate: "Hearing", nextCourtDate: "Hearing", trialDate: "Hearing", sentencingDate: "Hearing", dispositionDate: "Other" };
 
-function ProbationTabContent({ c, draft, pd, setPd, conditions, PROBATION_TYPES, CONDITION_OPTIONS, VIOLATION_SOURCES, HEARING_TYPES, OUTCOMES, editMode }) {
+function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROBATION_TYPES, CONDITION_OPTIONS, VIOLATION_SOURCES, HEARING_TYPES, OUTCOMES, editMode }) {
   const [violations, setViolations] = useState([]);
   const [loadingV, setLoadingV] = useState(false);
   const [expandedV, setExpandedV] = useState(null);
@@ -3594,6 +3594,36 @@ function ProbationTabContent({ c, draft, pd, setPd, conditions, PROBATION_TYPES,
     setPd("additionalConditions", [...conditions, cond.trim()]);
   };
   const removeCondition = (cond) => setPd("additionalConditions", conditions.filter(c2 => c2 !== cond));
+
+  const parseTermMonths = (term) => {
+    if (!term) return null;
+    const s = String(term).trim().toLowerCase();
+    const ym = s.match(/^(\d+)\s*year/);
+    if (ym) return parseInt(ym[1], 10) * 12;
+    const mm = s.match(/^(\d+)/);
+    if (mm) return parseInt(mm[1], 10);
+    return null;
+  };
+
+  const calcEndDate = (start, term) => {
+    if (!start || !term) return "";
+    const months = parseTermMonths(term);
+    if (!months) return "";
+    const d = new Date(start + "T00:00:00");
+    if (isNaN(d.getTime())) return "";
+    const origDay = d.getDate();
+    d.setMonth(d.getMonth() + months);
+    if (d.getDate() !== origDay) d.setDate(0);
+    return d.toISOString().split("T")[0];
+  };
+
+  const handleStartDateChange = (val) => {
+    setPdBatch({ startDate: val, endDate: calcEndDate(val, pd.termLength) });
+  };
+
+  const handleTermChange = (val) => {
+    setPdBatch({ termLength: val, endDate: calcEndDate(pd.startDate, val) });
+  };
 
   const outcomeColor = (o) => {
     if (!o || o === "Pending") return "#8A9096";
@@ -3715,18 +3745,18 @@ function ProbationTabContent({ c, draft, pd, setPd, conditions, PROBATION_TYPES,
           </div>
           <div className="form-row">
             <div className="form-group"><label>Start Date</label>
-              {editMode ? <input type="date" value={pd.startDate || ""} onChange={e => setPd("startDate", e.target.value)} />
+              {editMode ? <input type="date" value={pd.startDate || ""} onChange={e => handleStartDateChange(e.target.value)} />
               : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.startDate ? fmt(pd.startDate) : "—"}</div>}
             </div>
-            <div className="form-group"><label>End Date</label>
-              {editMode ? <input type="date" value={pd.endDate || ""} onChange={e => setPd("endDate", e.target.value)} />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.endDate ? fmt(pd.endDate) : "—"}</div>}
+            <div className="form-group"><label>Term Length</label>
+              {editMode ? <input value={pd.termLength || ""} onChange={e => handleTermChange(e.target.value)} placeholder="e.g. 24 months" />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.termLength || "—"}</div>}
             </div>
           </div>
           <div className="form-row">
-            <div className="form-group"><label>Term Length</label>
-              {editMode ? <input value={pd.termLength || ""} onChange={e => setPd("termLength", e.target.value)} placeholder="e.g. 24 months" />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.termLength || "—"}</div>}
+            <div className="form-group"><label>End Date {editMode && pd.startDate && pd.termLength && <span style={{ fontSize: 10, color: "#8A9096", fontWeight: 400, fontStyle: "italic" }}>(auto-calculated)</span>}</label>
+              {editMode ? <input type="date" value={pd.endDate || ""} readOnly style={{ background: "#f3f4f6", cursor: "default" }} tabIndex={-1} />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.endDate ? fmt(pd.endDate) : "—"}</div>}
             </div>
             <div className="form-group"><label>Supervising Agency</label>
               {editMode ? <input value={pd.supervisingAgency || ""} onChange={e => setPd("supervisingAgency", e.target.value)} placeholder="Agency name" />
@@ -5830,11 +5860,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             const updated = { ...(draft.probationData || {}), [key]: val };
             setAndLog("probationData", updated);
           };
+          const setPdBatch = (updates) => {
+            const updated = { ...(draft.probationData || {}), ...updates };
+            setAndLog("probationData", updated);
+          };
           const conditions = pd.additionalConditions || [];
 
           return (
             <ProbationTabContent
-              c={c} draft={draft} pd={pd} setPd={setPd} conditions={conditions}
+              c={c} draft={draft} pd={pd} setPd={setPd} setPdBatch={setPdBatch} conditions={conditions}
               PROBATION_TYPES={PROBATION_TYPES} CONDITION_OPTIONS={CONDITION_OPTIONS}
               VIOLATION_SOURCES={VIOLATION_SOURCES} HEARING_TYPES={HEARING_TYPES} OUTCOMES={OUTCOMES}
               editMode={editMode}
