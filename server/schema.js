@@ -405,15 +405,78 @@ async function createSchema() {
       );
     `);
 
-    await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney DROP DEFAULT`).catch(() => {});
-    await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney TYPE TEXT USING CASE WHEN attorney IS NOT NULL THEN attorney::TEXT ELSE NULL END`).catch(() => {});
-    await client.query(`ALTER TABLE case_probation_violations ALTER COLUMN attorney SET DEFAULT ''`).catch(() => {});
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE case_probation_violations ALTER COLUMN attorney DROP DEFAULT;
+        ALTER TABLE case_probation_violations ALTER COLUMN attorney TYPE TEXT USING CASE WHEN attorney IS NOT NULL THEN attorney::TEXT ELSE NULL END;
+        ALTER TABLE case_probation_violations ALTER COLUMN attorney SET DEFAULT '';
+      EXCEPTION WHEN others THEN NULL;
+      END $$;
+    `);
 
-    await client.query(`ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL`).catch(() => {});
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL;
+      EXCEPTION WHEN others THEN NULL;
+      END $$;
+    `);
 
-    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS custody_tracking JSONB NOT NULL DEFAULT '{}'`).catch(() => {});
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS custody_tracking JSONB NOT NULL DEFAULT '{}'`);
 
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'`).catch(() => {});
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sms_configs (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        phone_numbers   TEXT[]  NOT NULL DEFAULT '{}',
+        contact_name    TEXT    NOT NULL DEFAULT '',
+        contact_type    TEXT    NOT NULL DEFAULT 'client',
+        notify_hearings    BOOLEAN NOT NULL DEFAULT true,
+        notify_deadlines   BOOLEAN NOT NULL DEFAULT false,
+        notify_court_dates BOOLEAN NOT NULL DEFAULT true,
+        notify_meetings    BOOLEAN NOT NULL DEFAULT false,
+        reminder_days   INT[]   NOT NULL DEFAULT '{1,7}',
+        custom_message  TEXT    NOT NULL DEFAULT '',
+        enabled         BOOLEAN NOT NULL DEFAULT true,
+        created_by      INTEGER REFERENCES users(id),
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sms_scheduled (
+        id              SERIAL PRIMARY KEY,
+        sms_config_id   INTEGER REFERENCES sms_configs(id) ON DELETE CASCADE,
+        case_id         INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+        event_type      TEXT    NOT NULL DEFAULT 'hearing',
+        event_title     TEXT    NOT NULL DEFAULT '',
+        event_date      DATE,
+        send_at         TIMESTAMPTZ,
+        phone_number    TEXT    NOT NULL DEFAULT '',
+        message_body    TEXT    NOT NULL DEFAULT '',
+        status          TEXT    NOT NULL DEFAULT 'pending',
+        twilio_sid      TEXT    NOT NULL DEFAULT '',
+        error           TEXT    NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        sent_at         TIMESTAMPTZ
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sms_messages (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER REFERENCES cases(id) ON DELETE SET NULL,
+        direction       TEXT    NOT NULL DEFAULT 'outbound',
+        phone_number    TEXT    NOT NULL DEFAULT '',
+        body            TEXT    NOT NULL DEFAULT '',
+        twilio_sid      TEXT    NOT NULL DEFAULT '',
+        status          TEXT    NOT NULL DEFAULT 'sent',
+        contact_name    TEXT    NOT NULL DEFAULT '',
+        sent_by         INTEGER REFERENCES users(id),
+        sent_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
 
     await client.query("COMMIT");
     console.log("Schema created successfully.");

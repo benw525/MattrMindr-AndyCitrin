@@ -261,6 +261,18 @@ export const apiGetLinkedCases    = (caseId) => apiFetch(`/api/linked-cases/${ca
 export const apiCreateLinkedCase  = (data)   => apiFetch("/api/linked-cases", { method: "POST", body: data });
 export const apiDeleteLinkedCase  = (id)     => apiFetch(`/api/linked-cases/${id}`, { method: "DELETE" });
 
+// SMS / Auto Text
+export const apiGetSmsStatus       = ()         => apiFetch("/api/sms/status");
+export const apiGetSmsConfigs      = (caseId)   => apiFetch(`/api/sms/configs/${caseId}`);
+export const apiCreateSmsConfig    = (data)     => apiFetch("/api/sms/configs",       { method: "POST",   body: data });
+export const apiUpdateSmsConfig    = (id, data) => apiFetch(`/api/sms/configs/${id}`,  { method: "PUT",    body: data });
+export const apiDeleteSmsConfig    = (id)       => apiFetch(`/api/sms/configs/${id}`,  { method: "DELETE" });
+export const apiGetSmsMessages     = (caseId)   => apiFetch(`/api/sms/messages/${caseId}`);
+export const apiGetSmsScheduled    = (caseId)   => apiFetch(`/api/sms/scheduled/${caseId}`);
+export const apiSendSms            = (data)     => apiFetch("/api/sms/send",           { method: "POST",   body: data });
+export const apiDraftSmsMessage    = (data)     => apiFetch("/api/sms/draft",          { method: "POST",   body: data });
+export const apiSuggestSmsNumbers  = (caseId)   => apiFetch(`/api/sms/suggest-numbers/${caseId}`);
+
 // Probation Violations
 export const apiGetProbationViolations    = (caseId)         => apiFetch(`/api/probation/${caseId}/violations`);
 export const apiCreateProbationViolation  = (caseId, data)   => apiFetch(`/api/probation/${caseId}/violations`, { method: "POST", body: data });

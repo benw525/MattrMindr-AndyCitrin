@@ -36,6 +36,8 @@ server/
   export-data.js    — Exports dev DB table data to seed-data.json (run manually to refresh)
   seed-data.json    — Exported table data (cases, tasks, deadlines, notes, etc.) for production seeding
   email.js          — SendGrid email utility (temp passwords, password resets)
+  sms.js            — Twilio SMS utility (sendSMS, formatPhoneNumber, isConfigured)
+  sms-scheduler.js  — SMS scheduler (generateScheduledMessages, processScheduledMessages, scheduleForNewEvent, cancelForEvent)
   utils/
     extract-text.js — Text extraction from PDF/DOCX/TXT with OCR fallback (tesseract.js + pdftoppm) for scanned PDFs
   middleware/
@@ -64,6 +66,7 @@ server/
     batch-cases.js — POST /api/batch-cases (preview + apply batch operations on cases)
     calendar-feeds.js — CRUD /api/calendar-feeds (per-user iCal feed persistence)
     probation.js    — CRUD /api/probation/:caseId/violations (probation violation records)
+    sms.js          — SMS routes: configs CRUD, messages, send, draft, suggest-numbers, scheduled
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
     case-signature.docx   — Attorney signature block (auto-appended to Pleadings)
@@ -206,6 +209,7 @@ Two-tier system for customizing how AI agents behave by injecting training conte
 - Co-Defendants: accordion-style co-defendant management on Details tab (below Charges/Case Info grid). Fields: name (first/middle/last), DOB, case number, charges, attorney, status (Pre-Trial/Pled Out/Convicted/Acquitted/Charges Dismissed/Cooperating Witness/Fugitive), joint/severed (Joint/Severed/Pending Severance Motion), cooperation notes, general notes. Uses `case_parties` table with partyType="Co-Defendant", entityKind="individual", all fields in JSONB `data` column
 - Case Experts: accordion-style expert management on Details tab
 - Document Generator: unified Generate modal with two modes — "From Template" (upload .docx templates with placeholder auto-detection; template categories: Motions, Orders, Notices, Subpoenas, Client Letters, General) and "AI Draft" (AI-generated first drafts of motions, pleas, memoranda tailored to case details; results can be copied or saved as case notes)
+- SMS / Auto Text: Twilio-powered automated text message reminders for clients, witnesses, and family members about hearing dates, court dates, deadlines, and meetings. Per-case SMS configs define recipients (name, phone, contact type), notification types (hearings, court dates, deadlines, meetings), and reminder intervals (day of, 1/3/7/14 days before). Auto-generates scheduled messages when configs are created or new events are added. SMS scheduler runs every 60s in production (300s in dev) to process pending messages. Correspondence tab split into Emails/Texts sub-tabs with chat-style message display. Send Text compose modal with AI-assisted message drafting via Client Communication agent. Suggested phone numbers pulled from case parties, experts, misc contacts, and contacts database. Twilio credentials via environment variables (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`). Backend: `server/sms.js` (Twilio utility), `server/sms-scheduler.js` (scheduler), `server/routes/sms.js` (CRUD + send + draft + suggest). DB tables: `sms_configs`, `sms_scheduled`, `sms_messages`. Deadline creation/deletion auto-triggers SMS schedule generation/cancellation via hooks in `server/routes/deadlines.js`
 - Email Correspondence: SendGrid Inbound Parse captures emails to case-{id}@mcpd.mattrmindr.com
 - Filings: court filing management in dedicated Filings tab. PDF-only upload with auto AI classification (names filing, identifies filing party, extracts filing date, extracts hearing dates → auto-creates deadlines). Inbound email PDF attachments are triaged deterministically: PDFs with "NOTICE OF ELECTRONIC FILING" in the first page (AlaCourt NEF coversheet) → Filings tab; all other PDFs → Documents tab. Scanned/image-based PDFs are OCR'd automatically (tesseract.js + pdftoppm, up to 10 pages). Per-filing actions: view (opens in new browser tab), classify, summarize, delete. Filter by filing party. Source tracking (email vs upload). Color-coded party badges (State=red, Defendant=blue, Co-Defendant=purple, Court=green). Inline editing of filing name, filed by, doc type, filing date (click to edit). Non-PDF email attachments (DOCX, DOC, TXT) auto-create documents in Documents tab with AI doc-type classification. **Hearing Date Auto-Extraction**: Filing classification (email, manual classify) and summarization all extract hearing dates/court dates from the filing text and automatically create deadline entries (type="Hearing") with duplicate detection
 

@@ -32,6 +32,7 @@ const batchCasesRoutes       = require("./routes/batch-cases");
 const calendarFeedsRoutes    = require("./routes/calendar-feeds");
 const probationRoutes        = require("./routes/probation");
 const linkedCasesRoutes      = require("./routes/linked-cases");
+const smsRoutes              = require("./routes/sms");
 
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
@@ -94,6 +95,7 @@ app.use("/api/batch-cases",    batchCasesRoutes);
 app.use("/api/calendar-feeds", calendarFeedsRoutes);
 app.use("/api/probation", probationRoutes);
 app.use("/api/linked-cases", linkedCasesRoutes);
+app.use("/api/sms", smsRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -132,4 +134,11 @@ app.listen(listenPort, "0.0.0.0", async () => {
   } catch (err) {
     console.error("Database connectivity check failed:", err.message);
   }
+
+  const { processScheduledMessages } = require("./sms-scheduler");
+  const smsInterval = isProd ? 60000 : 300000;
+  setInterval(() => {
+    processScheduledMessages().catch(err => console.error("SMS scheduler tick error:", err));
+  }, smsInterval);
+  console.log(`SMS scheduler started (interval: ${smsInterval / 1000}s)`);
 });

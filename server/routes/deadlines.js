@@ -47,7 +47,15 @@ router.post("/", requireAuth, async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [d.caseId, d.title, d.date, d.type || "Filing", d.rule || "", d.assigned || null]
     );
-    return res.status(201).json(toFrontend(rows[0]));
+    const created = rows[0];
+    const type = (created.type || "").toLowerCase();
+    let eventType = "deadline";
+    if (type === "hearing" || type === "court appearance") eventType = "hearing";
+    if (type === "court date") eventType = "court_date";
+    const { scheduleForNewEvent } = require("../sms-scheduler");
+    scheduleForNewEvent(created.case_id, eventType, created.title, created.date).catch(err => console.error("SMS auto-schedule error:", err));
+
+    return res.status(201).json(toFrontend(created));
   } catch (err) {
     console.error("Deadline create error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -57,6 +65,9 @@ router.post("/", requireAuth, async (req, res) => {
 router.put("/:id", requireAuth, async (req, res) => {
   const { date, title, type, rule, assigned } = req.body;
   try {
+    const oldRes = await pool.query("SELECT * FROM deadlines WHERE id = $1", [req.params.id]);
+    const oldRow = oldRes.rows[0];
+
     const sets = [];
     const vals = [];
     let idx = 1;
@@ -71,7 +82,19 @@ router.put("/:id", requireAuth, async (req, res) => {
       `UPDATE deadlines SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`, vals
     );
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
-    return res.json(toFrontend(rows[0]));
+
+    const updated = rows[0];
+    if (oldRow && (date !== undefined || title !== undefined || type !== undefined)) {
+      const { cancelForEvent, scheduleForNewEvent } = require("../sms-scheduler");
+      cancelForEvent(oldRow.case_id, oldRow.title, oldRow.date).catch(err => console.error("SMS cancel error:", err));
+      const t = (updated.type || "").toLowerCase();
+      let eventType = "deadline";
+      if (t === "hearing" || t === "court appearance") eventType = "hearing";
+      if (t === "court date") eventType = "court_date";
+      scheduleForNewEvent(updated.case_id, eventType, updated.title, updated.date).catch(err => console.error("SMS reschedule error:", err));
+    }
+
+    return res.json(toFrontend(updated));
   } catch (err) {
     console.error("Deadline update error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -82,6 +105,8 @@ router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query("DELETE FROM deadlines WHERE id = $1 RETURNING *", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+    const { cancelForEvent } = require("../sms-scheduler");
+    cancelForEvent(rows[0].case_id, rows[0].title, rows[0].date).catch(err => console.error("SMS cancel error:", err));
     return res.json({ ok: true });
   } catch (err) {
     console.error("Deadline delete error:", err);

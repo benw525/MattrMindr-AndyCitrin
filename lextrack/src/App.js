@@ -30,6 +30,8 @@ import {
   apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
   apiGetProbationViolations, apiCreateProbationViolation, apiUpdateProbationViolation, apiDeleteProbationViolation,
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
+  apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
+  apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage, apiSuggestSmsNumbers,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -4666,6 +4668,27 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [expandedEmail, setExpandedEmail] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [corrCopied, setCorrCopied] = useState(false);
+  const [corrSubTab, setCorrSubTab] = useState("emails");
+  const [smsConfigs, setSmsConfigs] = useState([]);
+  const [smsMessages, setSmsMessages] = useState([]);
+  const [smsScheduled, setSmsScheduled] = useState([]);
+  const [showAutoText, setShowAutoText] = useState(false);
+  const [smsSuggestions, setSmsSuggestions] = useState([]);
+  const [smsAddingRecipient, setSmsAddingRecipient] = useState(false);
+  const [smsNewName, setSmsNewName] = useState("");
+  const [smsNewPhone, setSmsNewPhone] = useState("");
+  const [smsNewType, setSmsNewType] = useState("client");
+  const [smsNewNotifyHearings, setSmsNewNotifyHearings] = useState(true);
+  const [smsNewNotifyCourtDates, setSmsNewNotifyCourtDates] = useState(true);
+  const [smsNewNotifyDeadlines, setSmsNewNotifyDeadlines] = useState(false);
+  const [smsNewNotifyMeetings, setSmsNewNotifyMeetings] = useState(false);
+  const [smsNewReminderDays, setSmsNewReminderDays] = useState([1, 7]);
+  const [smsCompose, setSmsCompose] = useState(false);
+  const [smsComposePhone, setSmsComposePhone] = useState("");
+  const [smsComposeBody, setSmsComposeBody] = useState("");
+  const [smsComposeName, setSmsComposeName] = useState("");
+  const [smsDrafting, setSmsDrafting] = useState(false);
+  const [smsSending, setSmsSending] = useState(false);
   const [parties, setParties] = useState([]);
   const [partiesLoading, setPartiesLoading] = useState(false);
   const [expandedParty, setExpandedParty] = useState(null);
@@ -4750,6 +4773,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     apiGetMiscContacts(c.id).then(setMiscContacts).catch(() => {}).finally(() => setMiscContactsLoading(false));
     setLinkedCasesLoading(true);
     apiGetLinkedCases(c.id).then(setLinkedCases).catch(() => {}).finally(() => setLinkedCasesLoading(false));
+    apiGetSmsConfigs(c.id).then(setSmsConfigs).catch(() => {});
+    apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
+    apiGetSmsScheduled(c.id).then(setSmsScheduled).catch(() => {});
     const timersRef = partyTimers.current;
     const pendingRef = partyPendingData.current;
 
@@ -5241,7 +5267,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           {draft.probation && <div className={`case-overlay-tab ${activeTab === "probation" ? "active" : ""}`} onClick={() => setActiveTab("probation")} style={{ color: activeTab === "probation" ? "#1e3a5f" : undefined }}>Probation</div>}
           <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Documents</div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
-            Correspondence {correspondence.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({correspondence.length})</span>}
+            Correspondence {(correspondence.length + smsMessages.length) > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({correspondence.length + smsMessages.length})</span>}
           </div>
           <div className={`case-overlay-tab ${activeTab === "filings" ? "active" : ""}`} onClick={() => setActiveTab("filings")}>
             Filings {filings.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({filings.length})</span>}
@@ -6607,130 +6633,400 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         {activeTab === "correspondence" && (
           <div className="case-overlay-body">
             <div className="case-overlay-section">
-              <div className="case-overlay-section-title" style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>Correspondence</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>
-                    Email: <span style={{ fontFamily: "monospace", color: "#1E2A3A", cursor: "pointer" }} onClick={() => {
-                      navigator.clipboard.writeText(`case-${c.id}@mcpd.mattrmindr.com`);
-                      setCorrCopied(true);
-                      setTimeout(() => setCorrCopied(false), 2000);
-                    }}>{corrCopied ? "Copied!" : `case-${c.id}@mcpd.mattrmindr.com`}</span>
-                  </span>
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
-                    setCorrLoading(true);
-                    apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
-                  }}>↻ Refresh</button>
-                </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 12, borderBottom: "1px solid var(--c-border2)" }}>
+                <button onClick={() => setCorrSubTab("emails")} style={{ padding: "8px 16px", fontSize: 13, fontWeight: corrSubTab === "emails" ? 600 : 400, color: corrSubTab === "emails" ? "#1e3a5f" : "#8A9096", background: "transparent", border: "none", borderBottom: corrSubTab === "emails" ? "2px solid #1e3a5f" : "2px solid transparent", cursor: "pointer" }}>
+                  Emails {correspondence.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({correspondence.length})</span>}
+                </button>
+                <button onClick={() => setCorrSubTab("texts")} style={{ padding: "8px 16px", fontSize: 13, fontWeight: corrSubTab === "texts" ? 600 : 400, color: corrSubTab === "texts" ? "#1e3a5f" : "#8A9096", background: "transparent", border: "none", borderBottom: corrSubTab === "texts" ? "2px solid #1e3a5f" : "2px solid transparent", cursor: "pointer" }}>
+                  Texts {smsMessages.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({smsMessages.length})</span>}
+                </button>
+                <div style={{ flex: 1 }} />
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", marginBottom: 4 }} onClick={() => {
+                  setShowAutoText(true);
+                  apiSuggestSmsNumbers(c.id).then(setSmsSuggestions).catch(() => {});
+                }}>Auto Text Settings</button>
               </div>
 
-              {corrLoading && <div style={{ fontSize: 13, color: "#8A9096", padding: "20px 0" }}>Loading correspondence...</div>}
-
-              {!corrLoading && correspondence.length === 0 && (
-                <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>
-                  No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "#1E2A3A" }}>case-{c.id}@mcpd.mattrmindr.com</span> and they will appear here, including any attachments.
-                </div>
-              )}
-
-              {!corrLoading && correspondence.map(email => {
-                const isExpanded = expandedEmail === email.id;
-                const dateStr = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : "";
-                return (
-                  <div key={email.id} style={{ borderBottom: "1px solid var(--c-border2)", padding: "10px 0" }}>
-                    <div
-                      style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }}
-                      onClick={() => setExpandedEmail(isExpanded ? null : email.id)}
-                    >
-                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1E2A3A", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
-                        {(email.fromName || email.fromEmail || "?")[0].toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{email.fromName || email.fromEmail}</div>
-                          <div style={{ fontSize: 11, color: "#8A9096", whiteSpace: "nowrap" }}>{dateStr}</div>
-                        </div>
-                        <div style={{ fontSize: 13, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</div>
-                        {!isExpanded && (
-                          <div style={{ fontSize: 12, color: "#8A9096", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
-                            {(email.bodyText || "").substring(0, 120)}
-                          </div>
-                        )}
-                        {email.hasAttachments && (
-                          <div style={{ fontSize: 11, color: "#1E2A3A", marginTop: 2 }}>📎 {email.attachments.length} attachment{email.attachments.length !== 1 ? "s" : ""}</div>
-                        )}
-                      </div>
+              {corrSubTab === "emails" && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>
+                      Email: <span style={{ fontFamily: "monospace", color: "var(--c-text)", cursor: "pointer" }} onClick={() => {
+                        navigator.clipboard.writeText(`case-${c.id}@mcpd.mattrmindr.com`);
+                        setCorrCopied(true);
+                        setTimeout(() => setCorrCopied(false), 2000);
+                      }}>{corrCopied ? "Copied!" : `case-${c.id}@mcpd.mattrmindr.com`}</span>
+                    </span>
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                      setCorrLoading(true);
+                      apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
+                    }}>Refresh</button>
+                  </div>
+                  {corrLoading && <div style={{ fontSize: 13, color: "#8A9096", padding: "20px 0" }}>Loading correspondence...</div>}
+                  {!corrLoading && correspondence.length === 0 && (
+                    <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>
+                      No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "var(--c-text)" }}>case-{c.id}@mcpd.mattrmindr.com</span> and they will appear here.
                     </div>
-                    {isExpanded && (
-                      <div style={{ marginTop: 10, marginLeft: 42 }}>
-                        <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 4 }}>
-                          <div>From: {email.fromName} &lt;{email.fromEmail}&gt;</div>
-                          {email.toEmails && <div>To: {email.toEmails}</div>}
-                          {email.ccEmails && <div>CC: {email.ccEmails}</div>}
+                  )}
+                  {!corrLoading && correspondence.map(email => {
+                    const isExpanded = expandedEmail === email.id;
+                    const dateStr = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : "";
+                    return (
+                      <div key={email.id} style={{ borderBottom: "1px solid var(--c-border2)", padding: "10px 0" }}>
+                        <div style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }} onClick={() => setExpandedEmail(isExpanded ? null : email.id)}>
+                          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1E2A3A", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                            {(email.fromName || email.fromEmail || "?")[0].toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{email.fromName || email.fromEmail}</div>
+                              <div style={{ fontSize: 11, color: "#8A9096", whiteSpace: "nowrap" }}>{dateStr}</div>
+                            </div>
+                            <div style={{ fontSize: 13, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</div>
+                            {!isExpanded && <div style={{ fontSize: 12, color: "#8A9096", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{(email.bodyText || "").substring(0, 120)}</div>}
+                            {email.hasAttachments && <div style={{ fontSize: 11, color: "var(--c-text)", marginTop: 2 }}>Attachments: {email.attachments.length}</div>}
+                          </div>
                         </div>
-                        {email.attachments.length > 0 && (
-                          <div style={{ marginTop: 8, marginBottom: 8 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", marginBottom: 6 }}>Attachments</div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                              {email.attachments.map((att, idx) => {
-                                const isImage = att.contentType?.startsWith("image/");
-                                const isPdf = att.contentType === "application/pdf";
-                                const isPreviewable = isImage || isPdf;
-                                const icon = isImage ? "🖼" : isPdf ? "📄" : "📎";
-                                return (
-                                  <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                                    <button
-                                      onClick={async () => {
-                                        try {
-                                          const res = await fetch(`/api/correspondence/attachment/${email.id}/${idx}?inline=true`, { credentials: "include" });
-                                          if (!res.ok) throw new Error("Failed to load attachment");
-                                          const blob = await res.blob();
-                                          const typedBlob = new Blob([blob], { type: att.contentType || "application/octet-stream" });
-                                          const blobUrl = URL.createObjectURL(typedBlob);
-                                          if (isPdf) {
-                                            window.open(blobUrl, "_blank");
-                                          } else if (isImage) {
-                                            setAttachmentPreview({ url: blobUrl, filename: att.filename, contentType: att.contentType, blobUrl });
-                                          } else {
-                                            const a = document.createElement("a"); a.href = blobUrl; a.download = att.filename; a.click(); URL.revokeObjectURL(blobUrl);
-                                          }
-                                        } catch (err) { alert("Failed to load attachment: " + err.message); }
-                                      }}
-                                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 14px", background: "#E4E7EB", borderRadius: 6, border: "1px solid #D6D8DB", cursor: "pointer", minWidth: 90, textAlign: "center" }}
-                                      title={isPreviewable ? "Click to preview" : "Click to download"}
-                                    >
-                                      <span style={{ fontSize: 22 }}>{icon}</span>
-                                      <span style={{ fontSize: 11, color: "#1E2A3A", fontWeight: 600, wordBreak: "break-all", maxWidth: 120 }}>{att.filename}</span>
-                                      <span style={{ fontSize: 10, color: "#8A9096" }}>{(att.size / 1024).toFixed(0)} KB</span>
-                                    </button>
-                                  </div>
-                                );
-                              })}
+                        {isExpanded && (
+                          <div style={{ marginTop: 10, marginLeft: 42 }}>
+                            <div style={{ fontSize: 11, color: "#8A9096", marginBottom: 4 }}>
+                              <div>From: {email.fromName} &lt;{email.fromEmail}&gt;</div>
+                              {email.toEmails && <div>To: {email.toEmails}</div>}
+                              {email.ccEmails && <div>CC: {email.ccEmails}</div>}
+                            </div>
+                            {email.attachments.length > 0 && (
+                              <div style={{ marginTop: 8, marginBottom: 8 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", marginBottom: 6 }}>Attachments</div>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                  {email.attachments.map((att, idx) => {
+                                    const isImage = att.contentType?.startsWith("image/");
+                                    const isPdf = att.contentType === "application/pdf";
+                                    const isPreviewable = isImage || isPdf;
+                                    const icon = isImage ? "img" : isPdf ? "pdf" : "file";
+                                    return (
+                                      <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                                        <button onClick={async () => {
+                                          try {
+                                            const res = await fetch(`/api/correspondence/attachment/${email.id}/${idx}?inline=true`, { credentials: "include" });
+                                            if (!res.ok) throw new Error("Failed to load attachment");
+                                            const blob = await res.blob();
+                                            const typedBlob = new Blob([blob], { type: att.contentType || "application/octet-stream" });
+                                            const blobUrl = URL.createObjectURL(typedBlob);
+                                            if (isPdf) { window.open(blobUrl, "_blank"); }
+                                            else if (isImage) { setAttachmentPreview({ url: blobUrl, filename: att.filename, contentType: att.contentType, blobUrl }); }
+                                            else { const a = document.createElement("a"); a.href = blobUrl; a.download = att.filename; a.click(); URL.revokeObjectURL(blobUrl); }
+                                          } catch (err) { alert("Failed to load attachment: " + err.message); }
+                                        }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 14px", background: "var(--c-bg2)", borderRadius: 6, border: "1px solid var(--c-border)", cursor: "pointer", minWidth: 90, textAlign: "center" }} title={isPreviewable ? "Click to preview" : "Click to download"}>
+                                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", textTransform: "uppercase" }}>{icon}</span>
+                                          <span style={{ fontSize: 11, color: "var(--c-text)", fontWeight: 600, wordBreak: "break-all", maxWidth: 120 }}>{att.filename}</span>
+                                          <span style={{ fontSize: 10, color: "#8A9096" }}>{(att.size / 1024).toFixed(0)} KB</span>
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            <div style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", background: "var(--c-bg2)", borderRadius: 6, padding: 12, marginTop: 8, maxHeight: 400, overflow: "auto", border: "1px solid var(--c-border)" }}>
+                              {email.bodyText || "(empty)"}
+                            </div>
+                            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
+                                if (!window.confirm("Delete this email from correspondence?")) return;
+                                try {
+                                  await apiDeleteCorrespondence(email.id);
+                                  setCorrespondence(p => p.filter(e => e.id !== email.id));
+                                  setExpandedEmail(null);
+                                  log("Correspondence Removed", `Deleted email from ${email.fromName || email.fromEmail}: "${email.subject || "(no subject)"}"`)
+                                } catch (err) { console.error(err); }
+                              }}>Delete</button>
                             </div>
                           </div>
                         )}
-                        <div style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", background: "var(--c-bg2)", borderRadius: 6, padding: 12, marginTop: 8, maxHeight: 400, overflow: "auto", border: "1px solid var(--c-border)" }}>
-                          {email.bodyText || "(empty)"}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {corrSubTab === "texts" && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: "#8A9096" }}>
+                      {smsConfigs.length > 0 ? `${smsConfigs.filter(sc => sc.enabled).length} active auto-text recipient${smsConfigs.filter(sc => sc.enabled).length !== 1 ? "s" : ""}` : "No auto-text configured"}
+                    </span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                        setSmsCompose(true);
+                        setSmsComposePhone("");
+                        setSmsComposeBody("");
+                        setSmsComposeName("");
+                      }}>Send Text</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                        apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
+                      }}>Refresh</button>
+                    </div>
+                  </div>
+
+                  {smsMessages.length === 0 && (
+                    <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>
+                      No text messages yet. Configure Auto Text settings to send automated reminders, or click "Send Text" to send a one-off message.
+                    </div>
+                  )}
+
+                  {smsMessages.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 500, overflow: "auto" }}>
+                      {smsMessages.map(msg => {
+                        const isOut = msg.direction === "outbound";
+                        const time = msg.sentAt ? new Date(msg.sentAt).toLocaleString() : "";
+                        return (
+                          <div key={msg.id} style={{ display: "flex", justifyContent: isOut ? "flex-end" : "flex-start" }}>
+                            <div style={{
+                              maxWidth: "75%", padding: "8px 12px", borderRadius: 12,
+                              background: isOut ? "#1e3a5f" : "var(--c-bg2)",
+                              color: isOut ? "#fff" : "var(--c-text)",
+                              border: isOut ? "none" : "1px solid var(--c-border)",
+                              borderBottomRightRadius: isOut ? 4 : 12,
+                              borderBottomLeftRadius: isOut ? 12 : 4,
+                            }}>
+                              <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{msg.body}</div>
+                              <div style={{ fontSize: 10, color: isOut ? "rgba(255,255,255,0.6)" : "#8A9096", marginTop: 4, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                <span>{msg.contactName || msg.phoneNumber}</span>
+                                <span>{time}</span>
+                              </div>
+                              {msg.status === "failed" && <div style={{ fontSize: 10, color: "#e05252", marginTop: 2 }}>Failed to send</div>}
+                              {msg.status === "not_configured" && <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>Saved (Twilio not configured)</div>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {smsScheduled.length > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", marginBottom: 6 }}>Upcoming Scheduled Texts</div>
+                      {smsScheduled.slice(0, 10).map(s => (
+                        <div key={s.id} style={{ fontSize: 12, color: "var(--c-text)", padding: "4px 0", borderBottom: "1px solid var(--c-border2)", display: "flex", justifyContent: "space-between" }}>
+                          <span>{s.eventTitle} — {s.phoneNumber}</span>
+                          <span style={{ color: "#8A9096" }}>{s.sendAt ? new Date(s.sendAt).toLocaleDateString() : ""}</span>
                         </div>
-                        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }}
-                            onClick={async () => {
-                              if (!window.confirm("Delete this email from correspondence?")) return;
-                              try {
-                                await apiDeleteCorrespondence(email.id);
-                                setCorrespondence(p => p.filter(e => e.id !== email.id));
-                                setExpandedEmail(null);
-                                log("Correspondence Removed", `Deleted email from ${email.fromName || email.fromEmail}: "${email.subject || "(no subject)"}"`)
-                              } catch (err) { console.error(err); }
-                            }}
-                          >Delete</button>
+                      ))}
+                      {smsScheduled.length > 10 && <div style={{ fontSize: 11, color: "#8A9096", marginTop: 4 }}>+{smsScheduled.length - 10} more</div>}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Send Text Compose Modal ── */}
+        {smsCompose && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setSmsCompose(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--c-bg)", borderRadius: 10, width: 440, maxWidth: "95vw", padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text)", marginBottom: 16 }}>Send Text Message</div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Recipient Name</label>
+                <input value={smsComposeName} onChange={e => setSmsComposeName(e.target.value)} placeholder="Contact name" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Number</label>
+                <input value={smsComposePhone} onChange={e => setSmsComposePhone(e.target.value)} placeholder="(251) 555-1234" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }} />
+                {smsSuggestions.length > 0 && !smsComposePhone && (
+                  <div style={{ marginTop: 4 }}>
+                    {smsSuggestions.slice(0, 5).map((s, i) => (
+                      <button key={i} onClick={() => { setSmsComposePhone(s.phone); setSmsComposeName(s.name); }} style={{ fontSize: 11, color: "#1e3a5f", background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 4, padding: "2px 8px", margin: "2px 4px 2px 0", cursor: "pointer" }}>
+                        {s.name}: {s.phone}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Message</label>
+                <textarea value={smsComposeBody} onChange={e => setSmsComposeBody(e.target.value)} placeholder="Type your message..." rows={4} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} disabled={smsDrafting} onClick={async () => {
+                    setSmsDrafting(true);
+                    try {
+                      const res = await apiDraftSmsMessage({ caseId: c.id, contactName: smsComposeName, contactType: "client" });
+                      setSmsComposeBody(res.draft);
+                    } catch (err) { alert("Draft failed: " + err.message); }
+                    setSmsDrafting(false);
+                  }}>{smsDrafting ? "Drafting..." : "Draft with AI"}</button>
+                  <span style={{ fontSize: 11, color: smsComposeBody.length > 160 ? "#f59e0b" : "#8A9096" }}>
+                    {smsComposeBody.length}/160 {smsComposeBody.length > 160 ? `(${Math.ceil(smsComposeBody.length / 153)} segments)` : ""}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setSmsCompose(false)}>Cancel</button>
+                <button className="btn btn-sm" style={{ background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", cursor: "pointer", fontSize: 13, opacity: (!smsComposePhone || !smsComposeBody || smsSending) ? 0.5 : 1 }} disabled={!smsComposePhone || !smsComposeBody || smsSending} onClick={async () => {
+                  setSmsSending(true);
+                  try {
+                    await apiSendSms({ caseId: c.id, phoneNumber: smsComposePhone, body: smsComposeBody, contactName: smsComposeName });
+                    setSmsCompose(false);
+                    apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
+                    log("SMS Sent", `Text to ${smsComposeName || smsComposePhone}: "${smsComposeBody.substring(0, 80)}..."`);
+                  } catch (err) { alert("Send failed: " + err.message); }
+                  setSmsSending(false);
+                }}>{smsSending ? "Sending..." : "Send"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Auto Text Settings Modal ── */}
+        {showAutoText && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowAutoText(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--c-bg)", borderRadius: 10, width: 520, maxWidth: "95vw", maxHeight: "85vh", overflow: "auto", padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text)" }}>Auto Text Settings</div>
+                <button onClick={() => setShowAutoText(false)} style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: "var(--c-text2)" }}>x</button>
+              </div>
+
+              <div style={{ fontSize: 12, color: "#8A9096", marginBottom: 16 }}>
+                Configure automatic text message reminders for hearing dates, court dates, and deadlines. Recipients will receive SMS reminders at the intervals you choose.
+              </div>
+
+              {smsConfigs.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text2)", marginBottom: 8 }}>Active Recipients</div>
+                  {smsConfigs.map(cfg => (
+                    <div key={cfg.id} style={{ padding: "10px 12px", background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)", marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{cfg.contactName || "Unnamed"}</div>
+                          <div style={{ fontSize: 11, color: "#8A9096" }}>
+                            {cfg.contactType} — {(cfg.phoneNumbers || []).join(", ")}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>
+                            Reminders: {[cfg.notifyHearings && "Hearings", cfg.notifyCourtDates && "Court Dates", cfg.notifyDeadlines && "Deadlines", cfg.notifyMeetings && "Meetings"].filter(Boolean).join(", ") || "None"}
+                            {" | "}{(cfg.reminderDays || []).map(d => d === 0 ? "Day of" : d === 1 ? "1 day before" : `${d} days before`).join(", ")}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <button onClick={async () => {
+                            try {
+                              await apiUpdateSmsConfig(cfg.id, { enabled: !cfg.enabled });
+                              setSmsConfigs(p => p.map(x => x.id === cfg.id ? { ...x, enabled: !x.enabled } : x));
+                            } catch (err) { console.error(err); }
+                          }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: cfg.enabled ? "#059669" : "var(--c-bg2)", color: cfg.enabled ? "#fff" : "var(--c-text2)", cursor: "pointer" }}>
+                            {cfg.enabled ? "On" : "Off"}
+                          </button>
+                          <button onClick={async () => {
+                            if (!window.confirm(`Remove ${cfg.contactName || "this recipient"} from auto-text?`)) return;
+                            try {
+                              await apiDeleteSmsConfig(cfg.id);
+                              setSmsConfigs(p => p.filter(x => x.id !== cfg.id));
+                              apiGetSmsScheduled(c.id).then(setSmsScheduled).catch(() => {});
+                            } catch (err) { console.error(err); }
+                          }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #fca5a5", background: "transparent", color: "#e05252", cursor: "pointer" }}>
+                            Remove
+                          </button>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!smsAddingRecipient ? (
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 12, width: "100%" }} onClick={() => {
+                  setSmsAddingRecipient(true);
+                  setSmsNewName(""); setSmsNewPhone(""); setSmsNewType("client");
+                  setSmsNewNotifyHearings(true); setSmsNewNotifyCourtDates(true);
+                  setSmsNewNotifyDeadlines(false); setSmsNewNotifyMeetings(false);
+                  setSmsNewReminderDays([1, 7]);
+                }}>+ Add Recipient</button>
+              ) : (
+                <div style={{ padding: 16, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", marginBottom: 12 }}>Add Recipient</div>
+
+                  {smsSuggestions.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", marginBottom: 4 }}>Suggested Numbers</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {smsSuggestions.map((s, i) => (
+                          <button key={i} onClick={() => { setSmsNewPhone(s.phone); setSmsNewName(s.name); setSmsNewType(s.type === "expert" ? "expert" : s.type === "family" ? "family" : "client"); }} style={{ fontSize: 11, color: "#1e3a5f", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
+                            {s.name}: {s.phone} <span style={{ color: "#8A9096" }}>({s.source})</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Name</label>
+                      <input value={smsNewName} onChange={e => setSmsNewName(e.target.value)} placeholder="Recipient name" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Phone</label>
+                      <input value={smsNewPhone} onChange={e => setSmsNewPhone(e.target.value)} placeholder="(251) 555-1234" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                    </div>
                   </div>
-                );
-              })}
+
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Contact Type</label>
+                    <select value={smsNewType} onChange={e => setSmsNewType(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12 }}>
+                      <option value="client">Client</option>
+                      <option value="witness">Witness</option>
+                      <option value="family">Family Member</option>
+                      <option value="expert">Expert</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Notify About</label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {[["Hearings", smsNewNotifyHearings, setSmsNewNotifyHearings], ["Court Dates", smsNewNotifyCourtDates, setSmsNewNotifyCourtDates], ["Deadlines", smsNewNotifyDeadlines, setSmsNewNotifyDeadlines], ["Meetings", smsNewNotifyMeetings, setSmsNewNotifyMeetings]].map(([lbl, val, set]) => (
+                        <label key={lbl} style={{ fontSize: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                          <input type="checkbox" checked={val} onChange={e => set(e.target.checked)} /> {lbl}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Remind</label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {[[0, "Day of"], [1, "1 day before"], [3, "3 days before"], [7, "1 week before"], [14, "2 weeks before"]].map(([val, lbl]) => (
+                        <label key={val} style={{ fontSize: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                          <input type="checkbox" checked={smsNewReminderDays.includes(val)} onChange={e => {
+                            if (e.target.checked) setSmsNewReminderDays(p => [...p, val].sort((a, b) => a - b));
+                            else setSmsNewReminderDays(p => p.filter(d => d !== val));
+                          }} /> {lbl}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                    <button className="btn btn-outline btn-sm" onClick={() => setSmsAddingRecipient(false)}>Cancel</button>
+                    <button className="btn btn-sm" style={{ background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", cursor: "pointer", fontSize: 12, opacity: (!smsNewPhone || !smsNewName) ? 0.5 : 1 }} disabled={!smsNewPhone || !smsNewName} onClick={async () => {
+                      try {
+                        const created = await apiCreateSmsConfig({
+                          caseId: c.id,
+                          phoneNumbers: [smsNewPhone],
+                          contactName: smsNewName,
+                          contactType: smsNewType,
+                          notifyHearings: smsNewNotifyHearings,
+                          notifyCourtDates: smsNewNotifyCourtDates,
+                          notifyDeadlines: smsNewNotifyDeadlines,
+                          notifyMeetings: smsNewNotifyMeetings,
+                          reminderDays: smsNewReminderDays,
+                        });
+                        setSmsConfigs(p => [...p, created]);
+                        setSmsAddingRecipient(false);
+                        apiGetSmsScheduled(c.id).then(setSmsScheduled).catch(() => {});
+                        log("Auto Text Added", `Added ${smsNewName} (${smsNewPhone}) for auto text reminders`);
+                      } catch (err) { alert("Failed to add recipient: " + err.message); }
+                    }}>Add Recipient</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
