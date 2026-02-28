@@ -1410,7 +1410,7 @@ export default function App() {
         <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
       )}
       <div className="main">
-        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
+        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
@@ -2465,7 +2465,7 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds }
   );
 }
 
-function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, onMenuToggle, pinnedCaseIds }) {
+function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, onMenuToggle, pinnedCaseIds, onNavigate }) {
   const [showModal, setShowModal] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null);
@@ -2496,7 +2496,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
         );
       case "stat-deadlines":
         return (
-          <div className="stat-card" key={widgetId}>
+          <div className="stat-card" key={widgetId} onClick={() => onNavigate && onNavigate("deadlines")} style={{ cursor: "pointer" }}>
             <div className="stat-label">Upcoming Deadlines</div>
             <div className="stat-value" style={{ color: upcomingDl.length > 5 ? "#e07a30" : "var(--c-text-h)" }}>{upcomingDl.length}</div>
             <div className="stat-sub">Next 30 days</div>
@@ -2504,7 +2504,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
         );
       case "stat-tasks":
         return (
-          <div className="stat-card" key={widgetId}>
+          <div className="stat-card" key={widgetId} onClick={() => onNavigate && onNavigate("tasks")} style={{ cursor: "pointer" }}>
             <div className="stat-label">My Open Tasks</div>
             <div className="stat-value" style={{ color: myTasks.filter(t => daysUntil(t.due) < 0).length > 0 ? "#e05252" : "var(--c-text-h)" }}>{myTasks.length}</div>
             <div className="stat-sub">{myTasks.filter(t => daysUntil(t.due) < 0).length} overdue</div>
@@ -2521,7 +2521,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
       case "deadlines":
         return (
           <div className="card" key={widgetId}>
-            <div className="card-header"><div className="card-title">Upcoming Deadlines</div><span style={{ fontSize: 12, color: "#8A9096" }}>30 days</span></div>
+            <div className="card-header" onClick={() => onNavigate && onNavigate("deadlines")} style={{ cursor: "pointer" }}><div className="card-title">Upcoming Deadlines</div><span style={{ fontSize: 12, color: "#8A9096" }}>30 days</span></div>
             {upcomingDl.length === 0 && <div className="empty">No upcoming deadlines</div>}
             {upcomingDl.slice(0, 7).map(d => {
               const days = daysUntil(d.date); const col = urgencyColor(days);
@@ -2662,7 +2662,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
       case "overdue":
         return (
           <div className="card" key={widgetId}>
-            <div className="card-header"><div className="card-title">Overdue Tasks</div><Badge label={`${overdueTasks.length}`} /></div>
+            <div className="card-header" onClick={() => onNavigate && onNavigate("tasks")} style={{ cursor: "pointer" }}><div className="card-title">Overdue Tasks</div><Badge label={`${overdueTasks.length}`} /></div>
             {overdueTasks.length === 0 && <div className="empty">No overdue tasks</div>}
             {overdueTasks.sort((a, b) => daysUntil(a.due) - daysUntil(b.due)).slice(0, 8).map(t => {
               const days = daysUntil(t.due);
