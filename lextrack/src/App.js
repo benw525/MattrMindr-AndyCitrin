@@ -5055,7 +5055,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsContactResults, setSmsContactResults] = useState([]);
   const [smsContactSelected, setSmsContactSelected] = useState(null);
   const [smsContactDropdownOpen, setSmsContactDropdownOpen] = useState(false);
-  const [smsManualPhone, setSmsManualPhone] = useState("");
+  const [smsOtherChecked, setSmsOtherChecked] = useState(false);
+  const [smsAddPhone, setSmsAddPhone] = useState("");
   const [smsCompose, setSmsCompose] = useState(false);
   const [smsComposePhone, setSmsComposePhone] = useState("");
   const [smsComposeBody, setSmsComposeBody] = useState("");
@@ -7311,8 +7312,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   setSmsNewName(""); setSmsNewPhones([]); setSmsNewType("client");
                   setSmsNewNotifyHearings(true); setSmsNewNotifyCourtDates(true);
                   setSmsNewNotifyDeadlines(false); setSmsNewNotifyMeetings(false);
-                  setSmsNewReminderDays([1, 7]); setSmsNewCustomDay("");
-                  setSmsContactSearch(""); setSmsContactSelected(null); setSmsContactResults([]); setSmsContactDropdownOpen(false); setSmsManualPhone("");
+                  setSmsNewReminderDays([1, 7]); setSmsNewCustomDay(""); setSmsOtherChecked(false); setSmsAddPhone("");
+                  setSmsContactSearch(""); setSmsContactSelected(null); setSmsContactResults([]); setSmsContactDropdownOpen(false); setSmsAddPhone("");
                 }}>+ Add Recipient</button>
               ) : (
                 <div style={{ padding: 16, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)" }}>
@@ -7328,7 +7329,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         setSmsContactSelected(null);
                         setSmsNewName(q);
                         setSmsNewPhones([]);
-                        setSmsManualPhone("");
+                        setSmsAddPhone("");
                         if (q.trim().length >= 1) {
                           const lower = q.trim().toLowerCase();
                           const contactMatches = (allContacts || []).filter(ct => !ct.deletedAt && ct.name && ct.name.toLowerCase().includes(lower)).slice(0, 8);
@@ -7414,17 +7415,37 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   )}
 
                   {smsContactSelected && smsContactSelected.phones.length === 0 && (
-                    <div style={{ marginBottom: 8 }}>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Phone</label>
-                      <input value={smsManualPhone} onChange={e => { setSmsManualPhone(e.target.value); setSmsNewPhones(e.target.value.trim() ? [e.target.value.trim()] : []); }} placeholder="(251) 555-1234" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
-                      <div style={{ fontSize: 10, color: "#e07a30", marginTop: 2 }}>No phone number on file — enter one manually</div>
-                    </div>
+                    <div style={{ fontSize: 10, color: "#e07a30", marginBottom: 4 }}>No phone number on file — add one below</div>
                   )}
 
-                  {!smsContactSelected && smsNewName.trim() && (
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Add Number</label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input value={smsAddPhone} onChange={e => setSmsAddPhone(e.target.value)} onKeyDown={e => {
+                        if (e.key === "Enter" && smsAddPhone.trim()) {
+                          if (!smsNewPhones.includes(smsAddPhone.trim())) setSmsNewPhones(p => [...p, smsAddPhone.trim()]);
+                          setSmsAddPhone("");
+                        }
+                      }} placeholder="(251) 555-1234" style={{ flex: 1, padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                      <button onClick={() => {
+                        if (smsAddPhone.trim() && !smsNewPhones.includes(smsAddPhone.trim())) setSmsNewPhones(p => [...p, smsAddPhone.trim()]);
+                        setSmsAddPhone("");
+                      }} className="btn btn-sm" style={{ fontSize: 11, padding: "4px 12px", background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap" }}>Add</button>
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--c-text3)", marginTop: 2 }}>1 text will be sent to each number</div>
+                  </div>
+
+                  {smsNewPhones.length > 0 && (
                     <div style={{ marginBottom: 8 }}>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Phone</label>
-                      <input value={smsManualPhone} onChange={e => { setSmsManualPhone(e.target.value); setSmsNewPhones(e.target.value.trim() ? [e.target.value.trim()] : []); }} placeholder="(251) 555-1234" style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Numbers to Text ({smsNewPhones.length})</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {smsNewPhones.map((ph, i) => (
+                          <span key={i} style={{ fontSize: 11, padding: "2px 8px", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4 }}>
+                            {ph}
+                            <button onClick={() => setSmsNewPhones(p => p.filter((_, idx) => idx !== i))} style={{ background: "transparent", border: "none", fontSize: 12, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -7460,8 +7481,18 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           }} /> {lbl}
                         </label>
                       ))}
-                      <span style={{ fontSize: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ color: "var(--c-text3)", fontSize: 11 }}>Other:</span>
+                      <label style={{ fontSize: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                        <input type="checkbox" checked={smsOtherChecked} onChange={e => {
+                          setSmsOtherChecked(e.target.checked);
+                          if (!e.target.checked) {
+                            setSmsNewReminderDays(p => p.filter(d => [0, 1, 3, 7, 14].includes(d)));
+                            setSmsNewCustomDay("");
+                          }
+                        }} /> Other
+                      </label>
+                    </div>
+                    {smsOtherChecked && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                         <input type="number" min="1" max="365" value={smsNewCustomDay} onChange={e => setSmsNewCustomDay(e.target.value)} onKeyDown={e => {
                           if (e.key === "Enter") {
                             const num = parseInt(smsNewCustomDay);
@@ -7470,22 +7501,22 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               setSmsNewCustomDay("");
                             }
                           }
-                        }} onBlur={() => {
+                        }} placeholder="# of days" style={{ width: 80, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }} />
+                        <button onClick={() => {
                           const num = parseInt(smsNewCustomDay);
                           if (num > 0) {
                             setSmsNewReminderDays(p => [...new Set([...p, num])].sort((a, b) => a - b));
                             setSmsNewCustomDay("");
                           }
-                        }} placeholder="#" style={{ width: 44, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box", textAlign: "center" }} />
-                        <span style={{ fontSize: 11, color: "var(--c-text3)" }}>days</span>
-                      </span>
-                    </div>
+                        }} className="btn btn-sm" style={{ fontSize: 11, padding: "3px 10px", background: "#1e3a5f", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Add</button>
+                      </div>
+                    )}
                     {smsNewReminderDays.filter(d => ![0, 1, 3, 7, 14].includes(d)).length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
                         {smsNewReminderDays.filter(d => ![0, 1, 3, 7, 14].includes(d)).map(d => (
                           <span key={d} style={{ fontSize: 11, padding: "2px 8px", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4 }}>
                             {d} days before
-                            <button onClick={() => setSmsNewReminderDays(p => p.filter(x => x !== d))} style={{ background: "transparent", border: "none", fontSize: 12, color: "#8A9096", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
+                            <button onClick={() => setSmsNewReminderDays(p => p.filter(x => x !== d))} style={{ background: "transparent", border: "none", fontSize: 12, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
                           </span>
                         ))}
                       </div>
