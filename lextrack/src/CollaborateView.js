@@ -281,7 +281,11 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
   }, [mentionDropdown, msgInput]);
 
   const pinnedIds = pinnedCaseIds || [];
-  const casesForTab = allCases.filter(c => c.status === "Active" || channels.some(ch => ch.type === "case" && ch.caseId === c.id));
+  const uid = currentUser?.id;
+  const casesForTab = allCases.filter(c =>
+    (c.status === "Active" && [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(uid))
+    || channels.some(ch => ch.type === "case" && ch.caseId === c.id)
+  );
   const filteredCasesPre = caseFilter.trim()
     ? casesForTab.filter(c => (c.case_num || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.defendant_name || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.title || "").toLowerCase().includes(caseFilter.toLowerCase()))
     : casesForTab;
@@ -289,7 +293,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
     const aPin = pinnedIds.includes(a.id) ? 0 : 1;
     const bPin = pinnedIds.includes(b.id) ? 0 : 1;
     if (aPin !== bPin) return aPin - bPin;
-    return (a.case_num || "").localeCompare(b.case_num || "");
+    return (a.defendant_name || a.title || "").localeCompare(b.defendant_name || b.title || "");
   });
   const groupChannels = channels.filter(c => c.type === "group");
   const privateChannels = channels.filter(c => c.type === "private");
