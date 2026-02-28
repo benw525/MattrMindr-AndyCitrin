@@ -1846,7 +1846,7 @@ export default function App() {
         <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} />
       )}
       {showHelpCenter && (
-        <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} />
+        <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setShowAdvocateGlobal(true); }} />
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} />}
@@ -2324,7 +2324,7 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
 }
 
 // ─── Help Center Modal ──────────────────────────────────────────────────────
-function HelpCenterModal({ currentUser, tab, setTab, onClose }) {
+function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) {
   const [expandedSections, setExpandedSections] = useState({});
   const [supportSubject, setSupportSubject] = useState("");
   const [supportMessage, setSupportMessage] = useState("");
@@ -2351,6 +2351,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose }) {
   const tabs = [
     { id: "tutorials", label: "Tutorials" },
     { id: "faq", label: "FAQ" },
+    { id: "advocate", label: "Advocate AI" },
     { id: "changelog", label: "Change Log" },
     { id: "contact", label: "Contact" },
   ];
@@ -2385,6 +2386,42 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose }) {
         <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
           {tab === "tutorials" && <HelpTutorials Accordion={Accordion} />}
           {tab === "faq" && <HelpFAQ Accordion={Accordion} />}
+          {tab === "advocate" && (
+            <div>
+              <div style={{ textAlign: "center", padding: "24px 16px" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🤖</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 8 }}>Advocate AI</div>
+                <div style={{ fontSize: 13, color: "var(--c-text)", lineHeight: 1.7, maxWidth: 440, margin: "0 auto", marginBottom: 20 }}>
+                  Your AI-powered legal assistant. Advocate AI is context-aware and can help with case strategy, explain MattrMindr features, draft communications, suggest next steps, and answer questions about your cases.
+                </div>
+                <button onClick={() => onOpenAdvocate && onOpenAdvocate()} style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, boxShadow: "0 2px 8px rgba(99,102,241,0.3)" }}>
+                  <span style={{ fontSize: 18 }}>🤖</span> Open Advocate AI
+                </button>
+              </div>
+              <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 10 }}>What can Advocate AI do?</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[
+                    { icon: "⚖️", title: "Case Strategy", desc: "Get strategic recommendations based on charges, evidence, and case details" },
+                    { icon: "📋", title: "Task Suggestions", desc: "Receive actionable task suggestions you can add to a case with one click" },
+                    { icon: "💬", title: "Draft Messages", desc: "Draft client communications, letters, and court documents" },
+                    { icon: "🔍", title: "Feature Help", desc: "Ask how to use any MattrMindr feature and get step-by-step guidance" },
+                    { icon: "📅", title: "Deadline Guidance", desc: "Get help with court rules, filing deadlines, and scheduling" },
+                    { icon: "🧠", title: "Custom Training", desc: "Trained with your office's local rules, policies, and defense strategies" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ padding: 12, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)" }}>
+                      <div style={{ fontSize: 16, marginBottom: 4 }}>{item.icon}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)", marginBottom: 2 }}>{item.title}</div>
+                      <div style={{ fontSize: 11, color: "var(--c-text3)", lineHeight: 1.5 }}>{item.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginTop: 16, padding: 12, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)", fontSize: 12, color: "var(--c-text)", lineHeight: 1.6 }}>
+                <strong>Tip:</strong> Advocate AI is also available from the floating button in the bottom-right corner of every screen. When opened from a case, it automatically has access to all case details for context-aware assistance.
+              </div>
+            </div>
+          )}
           {tab === "changelog" && <HelpChangeLog />}
           {tab === "contact" && (
             <div>
@@ -2467,7 +2504,7 @@ function HelpTutorials({ Accordion }) {
         <p><strong>Sending Text Messages:</strong> Click "Send Text" to compose a one-off text message. Select a recipient, type your message, or use "AI Draft" to generate a professional message based on the case context. Messages are logged in the case history.</p>
       </Accordion>
       <Accordion sectionKey="tut-ai" title="AI Tools" icon="⚡">
-        <p><strong>Using Advocate AI:</strong> Click the floating AI button (bottom-right corner) on any screen to open Advocate AI. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature.</p>
+        <p><strong>Using Advocate AI:</strong> Open Advocate AI from the Help Center's "Advocate AI" tab, or click the floating AI button (bottom-right corner) on any screen. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature.</p>
         <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Charge Analysis, Deadline Generator, Case Strategy, Document Drafting, Case Triage, Client Communication Summary, Document Summary, Task Suggestions, Filing Classifier, and Batch Case Manager.</p>
         <p><strong>Training AI Agents:</strong> Use the "Advocate AI Trainer" tab in AI Center to customize AI behavior. Add personal or office-wide training entries with local rules, office policies, defense strategies, or court preferences. Target specific agents or apply to all. Upload documents or type instructions directly.</p>
       </Accordion>
@@ -2551,7 +2588,7 @@ function HelpFAQ({ Accordion }) {
       </Accordion>
 
       <div style={{ padding: "16px 0 4px", borderTop: "1px solid var(--c-border)", marginTop: 16, fontSize: 13, color: "var(--c-text3)", textAlign: "center" }}>
-        Still need help? Try asking <strong style={{ color: "var(--c-text-h)" }}>Advocate AI</strong> — click the floating button in the bottom-right corner.
+        Still need help? Try asking <strong style={{ color: "var(--c-text-h)" }}>Advocate AI</strong> — go to the Advocate AI tab above or click the floating button in the bottom-right corner.
       </div>
     </div>
   );
@@ -5628,7 +5665,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               setAiStrategy(p => ({ ...p, show: true, loading: true, result: null, error: null }));
               apiCaseStrategy({ caseId: c.id }).then(r => setAiStrategy(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiStrategy(p => ({ ...p, loading: false, error: e.message })));
             }}>⚡ Strategy</button>
-            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", color: "#6366f1", borderColor: "#a5b4fc" }} onClick={() => onOpenAdvocate && onOpenAdvocate(c.id)}>🤖 Advocate AI</button>
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowPrint(true)}>🖨 Print</button>
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); }}>📄 Generate</button>
             {canDelete && (
