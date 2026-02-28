@@ -671,6 +671,46 @@ body.dark-body { background: #0E1116; }
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+@keyframes advocate-fab-pulse {
+  0% { box-shadow: 0 2px 12px rgba(99,102,241,0.3); }
+  50% { box-shadow: 0 2px 20px rgba(99,102,241,0.6); }
+  100% { box-shadow: 0 2px 12px rgba(99,102,241,0.3); }
+}
+@keyframes advocate-slide-up {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.advocate-fab {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9998;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(99,102,241,0.3);
+  animation: advocate-fab-pulse 2.5s ease-in-out infinite;
+  transition: transform 0.2s;
+}
+.advocate-fab:hover { transform: scale(1.08); }
+.advocate-panel {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  width: 400px; height: 580px; max-height: calc(100vh - 48px);
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: advocate-slide-up 0.25s ease-out;
+}
+.advocate-panel-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--c-border);
+  background: var(--c-card); flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .advocate-panel { width: 100vw; height: 100vh; max-height: 100vh; bottom: 0; right: 0; border-radius: 0; }
+  .advocate-fab { bottom: 16px; right: 16px; width: 48px; height: 48px; }
+}
 `;
 
 
@@ -894,6 +934,16 @@ export default function App() {
   const [calcResult, setCalcResult] = useState(null);
   const [followUpPrompt,   setFollowUpPrompt]   = useState(null);
   const [pendingTimePrompt, setPendingTimePrompt] = useState(null);
+
+  const [showAdvocateGlobal, setShowAdvocateGlobal] = useState(false);
+  const [advocateMessages, setAdvocateMessages] = useState([]);
+  const [advocateLoading, setAdvocateLoading] = useState(false);
+  const [advocateInput, setAdvocateInput] = useState("");
+  const [advocateStats, setAdvocateStats] = useState(null);
+  const [advocateTasksAdded, setAdvocateTasksAdded] = useState({});
+  const [advocateCaseId, setAdvocateCaseId] = useState(null);
+  const advocateEndRef = useRef(null);
+  useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading]);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("lextrack-dark") === "1");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showChangePw, setShowChangePw] = useState(false);
@@ -920,6 +970,151 @@ export default function App() {
       document.body.classList.remove("dark-body");
     }
   }, [darkMode]);
+  const buildScreenContext = useCallback(() => {
+    const v = view;
+    const lines = [];
+    const caseMap = {};
+    allCases.forEach(cs => { caseMap[cs.id] = cs.case_num || cs.title; });
+
+    if (v === "dashboard") {
+      lines.push(`Screen: Dashboard`);
+      const myTasks = tasks.filter(t => t.assigned === currentUser?.id && t.status !== "Completed");
+      const overdue = myTasks.filter(t => t.due && new Date(t.due) < new Date());
+      const activeCases = allCases.filter(c => c.status === "Active");
+      lines.push(`Active cases: ${activeCases.length}`);
+      lines.push(`My open tasks: ${myTasks.length} (${overdue.length} overdue)`);
+      const upcoming = allDeadlines.filter(d => { const dd = new Date(d.date); return dd >= new Date() && dd <= new Date(Date.now() + 7 * 86400000); });
+      lines.push(`Upcoming deadlines (7 days): ${upcoming.length}`);
+      if (pinnedCaseIds.length > 0) {
+        const pinned = allCases.filter(c => pinnedCaseIds.includes(c.id));
+        lines.push(`Pinned cases: ${pinned.map(c => `${c.case_num || ""} ${c.defendant_name || c.title}`).join("; ")}`);
+      }
+    } else if (v === "cases") {
+      lines.push(`Screen: Cases`);
+      lines.push(`Total cases: ${allCases.length}`);
+      const byStatus = {};
+      allCases.forEach(c => { byStatus[c.status || "Unknown"] = (byStatus[c.status || "Unknown"] || 0) + 1; });
+      lines.push(`By status: ${Object.entries(byStatus).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      const byStage = {};
+      allCases.forEach(c => { byStage[c.stage || "Unknown"] = (byStage[c.stage || "Unknown"] || 0) + 1; });
+      lines.push(`By stage: ${Object.entries(byStage).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      if (selectedCase) {
+        const sc = selectedCase;
+        lines.push(`\nViewing case: ${sc.case_num || ""} — ${sc.title}`);
+        lines.push(`Defendant: ${sc.defendant_name || "Unknown"}, Type: ${sc.case_type || "Unknown"}, Stage: ${sc.stage || "Unknown"}, Status: ${sc.status || "Unknown"}`);
+        if (sc.charges?.length) lines.push(`Charges: ${sc.charges.map(ch => ch.description || ch.statute || "").join("; ")}`);
+      }
+    } else if (v === "deadlines") {
+      lines.push(`Screen: Calendar`);
+      lines.push(`Total deadlines: ${allDeadlines.length}`);
+      const upcoming = allDeadlines.filter(d => new Date(d.date) >= new Date()).sort((a, b) => new Date(a.date) - new Date(b.date));
+      lines.push(`Upcoming deadlines: ${upcoming.slice(0, 15).map(d => `${d.title} (${d.date}, case: ${caseMap[d.case_id] || d.case_id})`).join("; ")}`);
+      const tasksDue = tasks.filter(t => t.due && t.status !== "Completed").sort((a, b) => new Date(a.due) - new Date(b.due));
+      lines.push(`Tasks with due dates: ${tasksDue.length}`);
+    } else if (v === "tasks") {
+      lines.push(`Screen: Tasks`);
+      const open = tasks.filter(t => t.status !== "Completed");
+      const overdue = open.filter(t => t.due && new Date(t.due) < new Date());
+      lines.push(`Total tasks: ${tasks.length}, Open: ${open.length}, Overdue: ${overdue.length}`);
+      const byPriority = {};
+      open.forEach(t => { byPriority[t.priority || "Medium"] = (byPriority[t.priority || "Medium"] || 0) + 1; });
+      lines.push(`Open by priority: ${Object.entries(byPriority).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      const myTasks = open.filter(t => t.assigned === currentUser?.id);
+      lines.push(`My open tasks: ${myTasks.length}`);
+      if (overdue.length > 0) lines.push(`Overdue: ${overdue.slice(0, 10).map(t => `"${t.title}" (due ${t.due}, case: ${caseMap[t.case_id] || ""})`).join("; ")}`);
+    } else if (v === "documents") {
+      lines.push(`Screen: Templates`);
+      lines.push(`This screen shows document templates (.docx) that can be used to generate documents for cases.`);
+      lines.push(`Templates support placeholders like {{defendant_name}}, {{case_number}} that auto-fill with case data.`);
+      lines.push(`Users can upload templates, define categories, and generate documents from case detail view.`);
+    } else if (v === "timelog") {
+      lines.push(`Screen: Time Log`);
+      lines.push(`This screen shows time entries derived from completed tasks, notes with time logged, correspondence, and manual entries.`);
+      const completedTasks = tasks.filter(t => t.status === "Completed" && t.time_logged);
+      lines.push(`Tasks with time logged: ${completedTasks.length}`);
+    } else if (v === "reports") {
+      lines.push(`Screen: Reports`);
+      lines.push(`Available report types: Overdue Tasks, Upcoming Hearings, Workload Report, Cases by Status, Cases by Stage, Cases by Custody Status, Pending Custody Actions, Caseload Summary`);
+      lines.push(`Reports can be filtered by attorney, date range, and exported to CSV or printed.`);
+    } else if (v === "aicenter") {
+      lines.push(`Screen: AI Center`);
+      lines.push(`Available AI agents: Charge Analysis, Deadline Generator, Case Strategy, Document Drafting, Case Triage, Client Communication Summary, Document Summary, Task Suggestions, Filing Classifier, Charge Class Lookup, Advocate AI, Batch Case Manager`);
+      lines.push(`The "Advocate AI Trainer" tab allows creating training entries to customize AI behavior.`);
+    } else if (v === "contacts") {
+      lines.push(`Screen: Contacts`);
+      lines.push(`Contact directory for prosecutors, judges, courts, witnesses, experts, clients, and more.`);
+    } else if (v === "staff") {
+      lines.push(`Screen: Staff`);
+      const active = allUsers.filter(u => !u.deleted);
+      lines.push(`Active staff members: ${active.length}`);
+      const byRole = {};
+      active.forEach(u => { byRole[u.role || "Unknown"] = (byRole[u.role || "Unknown"] || 0) + 1; });
+      lines.push(`By role: ${Object.entries(byRole).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+    }
+    return lines.join("\n").substring(0, 4000);
+  }, [view, allCases, tasks, allDeadlines, allUsers, currentUser, pinnedCaseIds, selectedCase]);
+
+  const openAdvocateFromCase = useCallback((caseId) => {
+    if (advocateCaseId !== caseId) {
+      setAdvocateMessages([]);
+      setAdvocateStats(null);
+      setAdvocateTasksAdded({});
+      setAdvocateInput("");
+      setAdvocateLoading(false);
+    }
+    setAdvocateCaseId(caseId);
+    setShowAdvocateGlobal(true);
+  }, [advocateCaseId]);
+
+  const advocateSend = useCallback((text) => {
+    if (!text.trim() || advocateLoading) return;
+    const newMsgs = [...advocateMessages, { role: "user", content: text.trim() }];
+    setAdvocateMessages(newMsgs);
+    setAdvocateLoading(true);
+    setAdvocateInput("");
+    const sc = buildScreenContext();
+    apiAdvocateChat({ caseId: advocateCaseId || null, messages: newMsgs, screenContext: sc }).then(r => {
+      setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
+      if (r.contextStats) setAdvocateStats(r.contextStats);
+    }).catch(() => {
+      setAdvocateMessages(p => [...p, { role: "assistant", content: "I encountered an error. Please try again." }]);
+    }).finally(() => setAdvocateLoading(false));
+  }, [advocateMessages, advocateLoading, advocateCaseId, buildScreenContext]);
+
+  const advocateClearConversation = useCallback(() => {
+    setAdvocateMessages([]);
+    setAdvocateStats(null);
+    setAdvocateTasksAdded({});
+    setAdvocateInput("");
+    setAdvocateLoading(false);
+  }, []);
+
+  const ADVOCATE_SCREEN_CHIPS = {
+    dashboard: ["What needs my attention today?", "Summarize my upcoming deadlines", "Which cases are most urgent?"],
+    cases: ["Help me analyze this case", "What motions should I consider?", "Summarize the defense strategy"],
+    deadlines: ["What deadlines are coming up?", "How do I use the rules calculator?", "What court dates do I have this week?"],
+    tasks: ["What tasks are overdue?", "Suggest tasks for my active cases", "Help me prioritize my work"],
+    documents: ["How do I create a template?", "What placeholders are available?", "Help me generate a document"],
+    timelog: ["Summarize my time this week", "Which cases have the most time logged?", "How do I add a time entry?"],
+    reports: ["What reports are available?", "How do I run a workload report?", "How do I export report data?"],
+    aicenter: ["What AI tools are available?", "How do I train the AI agents?", "How do I run a batch operation?"],
+    contacts: ["How do I add a new contact?", "How do I merge duplicate contacts?", "How do I pin a contact?"],
+    staff: ["Show me the team workload", "How do I manage staff roles?", "Who has the most cases?"],
+  };
+
+  const SCREEN_LABELS = {
+    dashboard: { icon: "⬛", label: "Dashboard" },
+    cases: { icon: "⚖️", label: "Cases" },
+    deadlines: { icon: "📅", label: "Calendar" },
+    tasks: { icon: "✅", label: "Tasks" },
+    documents: { icon: "📄", label: "Templates" },
+    timelog: { icon: "🕐", label: "Time Log" },
+    reports: { icon: "📊", label: "Reports" },
+    aicenter: { icon: "⚡", label: "AI Center" },
+    contacts: { icon: "📇", label: "Contacts" },
+    staff: { icon: "👥", label: "Staff" },
+  };
+
   // shape: { target, caseForTask, updatedTasksAfterComplete, pendingChainSpawns, completedDate }
 
   useEffect(() => {
@@ -1487,11 +1682,11 @@ export default function App() {
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} />}
         {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} />}
@@ -1507,6 +1702,217 @@ export default function App() {
         pending={pendingTimePrompt}
         onSubmit={(taskId, timeLogged, completedBy, timeLogUser) => finishCompleteTask(taskId, timeLogged, completedBy, timeLogUser)}
       />
+      {!showAdvocateGlobal && (
+        <button
+          className="advocate-fab"
+          onClick={() => setShowAdvocateGlobal(true)}
+          title="Advocate AI"
+        >
+          <span style={{ fontSize: 22 }}>🤖</span>
+        </button>
+      )}
+      {showAdvocateGlobal && (
+        <div className="advocate-panel">
+          <div className="advocate-panel-header">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 18 }}>🤖</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, fontWeight: 600, color: "var(--c-text-h)" }}>Advocate AI</div>
+                <div style={{ fontSize: 10, color: "#8A9096", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  {SCREEN_LABELS[view] && <span>{SCREEN_LABELS[view].icon} {SCREEN_LABELS[view].label}</span>}
+                  {advocateCaseId && (() => { const ac = allCases.find(cs => cs.id === advocateCaseId); return ac ? <span style={{ fontWeight: 600 }}>· {ac.case_num || ac.title}</span> : null; })()}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+              {advocateMessages.length > 0 && advocateCaseId && (
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "2px 6px" }} onClick={() => {
+                  const thread = advocateMessages.map(m => m.role === "user" ? `**You:** ${m.content}` : `**Advocate AI:** ${m.content}`).join("\n\n---\n\n");
+                  apiCreateNote({ caseId: advocateCaseId, body: thread, type: "AI Consultation" }).then(() => alert("Saved as case note.")).catch(e => alert("Failed: " + e.message));
+                }}>Save as Note</button>
+              )}
+              {advocateMessages.length > 0 && (
+                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#8A9096", padding: "2px 4px" }} title="New conversation" onClick={advocateClearConversation}>🗑</button>
+              )}
+              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#8A9096", padding: "2px 4px" }} onClick={() => setShowAdvocateGlobal(false)}>✕</button>
+            </div>
+          </div>
+          <div style={{ padding: "6px 14px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
+            <div style={{ position: "relative" }}>
+              <select
+                value={advocateCaseId || ""}
+                onChange={e => {
+                  const newId = e.target.value ? Number(e.target.value) : null;
+                  if (newId !== advocateCaseId) {
+                    advocateClearConversation();
+                    setAdvocateCaseId(newId);
+                  }
+                }}
+                style={{ width: "100%", padding: "5px 8px", fontSize: 11, borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer" }}
+              >
+                <option value="">No case selected — general assistant</option>
+                {pinnedCaseIds.length > 0 && (
+                  <optgroup label="📌 Pinned Cases">
+                    {allCases.filter(cs => pinnedCaseIds.includes(cs.id)).map(cs => (
+                      <option key={cs.id} value={cs.id}>{cs.case_num ? cs.case_num + " — " : ""}{cs.defendant_name || cs.title}</option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="All Cases">
+                  {allCases.filter(cs => cs.status !== "Deleted").map(cs => (
+                    <option key={cs.id} value={cs.id}>{cs.case_num ? cs.case_num + " — " : ""}{cs.defendant_name || cs.title}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+          </div>
+          {advocateStats && (
+            <div style={{ padding: "4px 14px", fontSize: 10, color: "#8A9096", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {advocateStats.notes > 0 && <span>📋 {advocateStats.notes}</span>}
+              {advocateStats.tasks > 0 && <span>✓ {advocateStats.tasks}</span>}
+              {advocateStats.deadlines > 0 && <span>📅 {advocateStats.deadlines}</span>}
+              {advocateStats.documents > 0 && <span>📄 {advocateStats.documents}</span>}
+              {advocateStats.filings > 0 && <span>⚖ {advocateStats.filings}</span>}
+              {advocateStats.emails > 0 && <span>✉ {advocateStats.emails}</span>}
+              {advocateStats.parties > 0 && <span>👥 {advocateStats.parties}</span>}
+            </div>
+          )}
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {advocateMessages.length === 0 && !advocateLoading && (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+                <div style={{ fontSize: 36, opacity: 0.3 }}>🤖</div>
+                <div style={{ fontSize: 12, color: "#8A9096", textAlign: "center", maxWidth: 320, lineHeight: 1.5 }}>
+                  {advocateCaseId ? "Ask me anything about this case. I have access to all case data." : "Ask me anything — Alabama law, office procedures, or how to use MattrMindr."}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", maxWidth: 360 }}>
+                  {(advocateCaseId ? ["Analyze defense strategies", "Summarize key evidence", "What motions should I consider?"] : (ADVOCATE_SCREEN_CHIPS[view] || ADVOCATE_SCREEN_CHIPS.dashboard)).map(prompt => (
+                    <button key={prompt} style={{ padding: "5px 10px", fontSize: 11, borderRadius: 14, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
+                      onMouseEnter={e => { e.target.style.background = "rgba(99,102,241,0.18)"; }}
+                      onMouseLeave={e => { e.target.style.background = "rgba(99,102,241,0.08)"; }}
+                      onClick={() => advocateSend(prompt)}>{prompt}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {advocateMessages.map((msg, i) => {
+              const displayText = msg.content;
+              const parsedTasks = msg.suggestedTasks && Array.isArray(msg.suggestedTasks) && msg.suggestedTasks.length > 0 ? msg.suggestedTasks : null;
+              const msgAdded = advocateTasksAdded[i] || {};
+              const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
+              return (
+              <div key={i}>
+              <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+                <div style={{
+                  maxWidth: "88%", padding: "8px 12px", borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+                  background: msg.role === "user" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "var(--c-card-alt, #1a2332)",
+                  color: msg.role === "user" ? "#fff" : "#E6EDF3",
+                  fontSize: 12, lineHeight: 1.6, position: "relative",
+                  border: msg.role === "user" ? "none" : "1px solid var(--c-border)"
+                }}>
+                  {msg.role === "assistant" && (
+                    <button style={{ position: "absolute", top: 3, right: 3, background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#8A9096", opacity: 0.5, padding: "2px" }}
+                      title="Copy" onClick={() => { navigator.clipboard.writeText(displayText); }}>📋</button>
+                  )}
+                  {msg.role === "user" ? (
+                    <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
+                  ) : (
+                    <div>
+                      {displayText.split("\n").map((line, li) => {
+                        if (line.startsWith("## ")) return <div key={li} style={{ fontWeight: 700, fontSize: 13, marginTop: 8, marginBottom: 3 }}>{line.replace(/^## /, "")}</div>;
+                        if (line.startsWith("### ")) return <div key={li} style={{ fontWeight: 600, fontSize: 12, marginTop: 6, marginBottom: 2 }}>{line.replace(/^### /, "")}</div>;
+                        if (line.startsWith("**") && line.endsWith("**")) return <div key={li} style={{ fontWeight: 700, marginTop: 5, marginBottom: 2 }}>{line.replace(/\*\*/g, "")}</div>;
+                        if (line.startsWith("- ") || line.startsWith("* ")) return <div key={li} style={{ paddingLeft: 10, position: "relative" }}><span style={{ position: "absolute", left: 0 }}>•</span>{line.replace(/^[-*] /, "").replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
+                        if (line.match(/^\d+\.\s/)) return <div key={li} style={{ paddingLeft: 4 }}>{line.replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
+                        if (line.trim() === "") return <div key={li} style={{ height: 3 }} />;
+                        return <div key={li}>{line.replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {parsedTasks && parsedTasks.length > 0 && advocateCaseId && (
+                <div style={{ maxWidth: "88%", marginTop: 4, padding: "8px 10px", borderRadius: 8, background: "var(--c-card)", border: "1px solid var(--c-border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text-h)" }}>⚡ Suggested Tasks</span>
+                    {Object.keys(msgAdded).length < parsedTasks.length && (
+                      <button className="btn btn-sm" style={{ fontSize: 9, padding: "1px 8px", background: "#6366f1", color: "#fff", border: "none" }} onClick={async () => {
+                        for (let ti = 0; ti < parsedTasks.length; ti++) {
+                          if (msgAdded[ti]) continue;
+                          const t = parsedTasks[ti];
+                          const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                          try {
+                            const saved = await apiCreateTask({ caseId: advocateCaseId, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                            setTasks(p => [...p, saved]);
+                            setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
+                          } catch (err) { alert("Failed: " + err.message); break; }
+                        }
+                      }}>+ Add All</button>
+                    )}
+                  </div>
+                  {parsedTasks.map((t, ti) => {
+                    const added = msgAdded[ti];
+                    return (
+                      <div key={ti} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", borderTop: ti > 0 ? "1px solid var(--c-border)" : "none", opacity: added ? 0.45 : 1 }}>
+                        <span style={{ fontSize: 11, marginTop: 1 }}>{added ? "✓" : "⚡"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
+                          <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
+                            <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[t.priority] || "#b8860b") + "18", color: priorityColors[t.priority] || "#b8860b" }}>{t.priority}</span>
+                            {t.assignedRole && <span style={{ fontSize: 9, color: "#8A9096" }}>{t.assignedRole}</span>}
+                            {t.dueInDays && <span style={{ fontSize: 9, color: "#8A9096" }}>{t.dueInDays}d</span>}
+                          </div>
+                        </div>
+                        {!added && (
+                          <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }} onClick={async () => {
+                            const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
+                            try {
+                              const saved = await apiCreateTask({ caseId: advocateCaseId, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
+                              setTasks(p => [...p, saved]);
+                              setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
+                            } catch (err) { alert("Failed: " + err.message); }
+                          }}>+ Add</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              </div>
+            )})}
+            {advocateLoading && (
+              <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                <div style={{ padding: "10px 14px", borderRadius: "12px 12px 12px 4px", background: "var(--c-card-alt, #1a2332)", border: "1px solid var(--c-border)", display: "flex", gap: 4, alignItems: "center" }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out infinite" }} />
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out 0.2s infinite" }} />
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out 0.4s infinite" }} />
+                </div>
+              </div>
+            )}
+            <div ref={advocateEndRef} />
+          </div>
+          <div style={{ padding: "10px 14px", borderTop: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6 }}>
+            <input
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, outline: "none" }}
+              placeholder={advocateCaseId ? "Ask about this case..." : "Ask anything..."}
+              value={advocateInput}
+              onChange={e => setAdvocateInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey && advocateInput.trim() && !advocateLoading) {
+                  e.preventDefault();
+                  advocateSend(advocateInput);
+                }
+              }}
+              disabled={advocateLoading}
+            />
+            <button
+              className="btn btn-sm"
+              style={{ background: advocateInput.trim() && !advocateLoading ? "#6366f1" : "#4b5563", color: "#fff", border: "none", padding: "7px 14px", borderRadius: 8, cursor: advocateInput.trim() && !advocateLoading ? "pointer" : "not-allowed", fontSize: 12 }}
+              disabled={!advocateInput.trim() || advocateLoading}
+              onClick={() => advocateSend(advocateInput)}
+            >Send</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3032,7 +3438,7 @@ function BatchStaffPicker({ staffList, value, onChange, inputValue, onInputChang
   );
 }
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin, onOpenAdvocate }) {
   const setSelectedCase = useCallback((c) => { if (clearPendingTab) clearPendingTab(); rawSetSelectedCase(c); }, [clearPendingTab, rawSetSelectedCase]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
@@ -3511,6 +3917,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           onDeleteDeadline={onDeleteDeadline}
           allCases={allCases}
           onSelectCase={(target) => { setSelectedCase(target); }}
+          onOpenAdvocate={onOpenAdvocate}
         />
       )}
     </>
@@ -4002,7 +4409,7 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
   );
 }
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -4072,14 +4479,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [classifyingChargeIdx, setClassifyingChargeIdx] = useState(null);
   const chargesRef = useRef(c.charges);
   chargesRef.current = c.charges;
-  const [showAdvocate, setShowAdvocate] = useState(false);
-  const [advocateMessages, setAdvocateMessages] = useState([]);
-  const [advocateLoading, setAdvocateLoading] = useState(false);
-  const [advocateInput, setAdvocateInput] = useState("");
-  const [advocateStats, setAdvocateStats] = useState(null);
-  const [advocateTasksAdded, setAdvocateTasksAdded] = useState({});
-  const advocateEndRef = useRef(null);
-  useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading]);
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docUploadType, setDocUploadType] = useState("Police Report");
@@ -4416,213 +4815,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
         </div>
       )}
-      {showAdvocate && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setShowAdvocate(false); setAdvocateMessages([]); setAdvocateInput(""); setAdvocateStats(null); setAdvocateLoading(false); setAdvocateTasksAdded({}); } }}>
-          <div className="modal" style={{ maxWidth: 600, height: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 18 }}>🤖</span>
-                <div>
-                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, color: "var(--c-text-h)" }}>Advocate AI</div>
-                  <div style={{ fontSize: 11, color: "#8A9096" }}>{draft.title} — {draft.defendantName || "Defendant"}</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {advocateMessages.length > 0 && (
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => {
-                    const thread = advocateMessages.map(m => m.role === "user" ? `**You:** ${m.content}` : `**Advocate AI:** ${m.content}`).join("\n\n---\n\n");
-                    onAddNote({ caseId: c.id, body: thread, type: "AI Consultation" });
-                    onLogActivity("AI Consultation Saved", "Advocate AI conversation saved as note");
-                    alert("Conversation saved as case note.");
-                  }}>Save as Note</button>
-                )}
-                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8A9096" }} onClick={() => { setShowAdvocate(false); setAdvocateMessages([]); setAdvocateInput(""); setAdvocateStats(null); setAdvocateLoading(false); setAdvocateTasksAdded({}); }}>✕</button>
-              </div>
-            </div>
-            {advocateStats && (
-              <div style={{ padding: "6px 18px", fontSize: 11, color: "#8A9096", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {advocateStats.notes > 0 && <span>📋 {advocateStats.notes} notes</span>}
-                {advocateStats.tasks > 0 && <span>✓ {advocateStats.tasks} tasks</span>}
-                {advocateStats.deadlines > 0 && <span>📅 {advocateStats.deadlines} deadlines</span>}
-                {advocateStats.documents > 0 && <span>📄 {advocateStats.documents} docs</span>}
-                {advocateStats.filings > 0 && <span>⚖ {advocateStats.filings} filings</span>}
-                {advocateStats.emails > 0 && <span>✉ {advocateStats.emails} emails</span>}
-                {advocateStats.parties > 0 && <span>👥 {advocateStats.parties} parties</span>}
-              </div>
-            )}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-              {advocateMessages.length === 0 && !advocateLoading && (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-                  <div style={{ fontSize: 40, opacity: 0.3 }}>🤖</div>
-                  <div style={{ fontSize: 14, color: "#8A9096", textAlign: "center", maxWidth: 360, lineHeight: 1.6 }}>
-                    Ask me anything about this case. I have access to all notes, documents, filings, emails, and case details.
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 420 }}>
-                    {["Analyze defense strategies", "Summarize key evidence", "Identify weaknesses in the State's case", "What motions should I consider?"].map(prompt => (
-                      <button key={prompt} style={{ padding: "6px 12px", fontSize: 12, borderRadius: 16, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
-                        onMouseEnter={e => { e.target.style.background = "rgba(99,102,241,0.18)"; }}
-                        onMouseLeave={e => { e.target.style.background = "rgba(99,102,241,0.08)"; }}
-                        onClick={() => {
-                          const msgs = [{ role: "user", content: prompt }];
-                          setAdvocateMessages(msgs);
-                          setAdvocateLoading(true);
-                          setAdvocateInput("");
-                          apiAdvocateChat({ caseId: c.id, messages: msgs }).then(r => {
-                            setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
-                            if (r.contextStats) setAdvocateStats(r.contextStats);
-                          }).catch(e => {
-                            setAdvocateMessages(p => [...p, { role: "assistant", content: "I encountered an error. Please try again." }]);
-                          }).finally(() => setAdvocateLoading(false));
-                        }}>{prompt}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {advocateMessages.map((msg, i) => {
-                const displayText = msg.content;
-                const parsedTasks = msg.suggestedTasks && Array.isArray(msg.suggestedTasks) && msg.suggestedTasks.length > 0 ? msg.suggestedTasks : null;
-                const msgAdded = advocateTasksAdded[i] || {};
-                const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
-                return (
-                <div key={i}>
-                <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
-                  <div style={{
-                    maxWidth: "85%", padding: "10px 14px", borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                    background: msg.role === "user" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "var(--c-card-alt, #1a2332)",
-                    color: msg.role === "user" ? "#fff" : "#E6EDF3",
-                    fontSize: 13, lineHeight: 1.7, position: "relative",
-                    border: msg.role === "user" ? "none" : "1px solid var(--c-border)"
-                  }}>
-                    {msg.role === "assistant" && (
-                      <button style={{ position: "absolute", top: 4, right: 4, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#8A9096", opacity: 0.6, padding: "2px 4px" }}
-                        title="Copy response"
-                        onClick={() => { navigator.clipboard.writeText(displayText); }}>📋</button>
-                    )}
-                    {msg.role === "user" ? (
-                      <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
-                    ) : (
-                      <div>
-                        {displayText.split("\n").map((line, li) => {
-                          if (line.startsWith("## ")) return <div key={li} style={{ fontWeight: 700, fontSize: 14, marginTop: 10, marginBottom: 4 }}>{line.replace(/^## /, "")}</div>;
-                          if (line.startsWith("### ")) return <div key={li} style={{ fontWeight: 600, fontSize: 13, marginTop: 8, marginBottom: 2 }}>{line.replace(/^### /, "")}</div>;
-                          if (line.startsWith("**") && line.endsWith("**")) return <div key={li} style={{ fontWeight: 700, marginTop: 6, marginBottom: 2 }}>{line.replace(/\*\*/g, "")}</div>;
-                          if (line.startsWith("- ") || line.startsWith("* ")) return <div key={li} style={{ paddingLeft: 12, position: "relative" }}><span style={{ position: "absolute", left: 0 }}>•</span>{line.replace(/^[-*] /, "").replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
-                          if (line.match(/^\d+\.\s/)) return <div key={li} style={{ paddingLeft: 4 }}>{line.replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
-                          if (line.trim() === "") return <div key={li} style={{ height: 4 }} />;
-                          return <div key={li}>{line.replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {parsedTasks && parsedTasks.length > 0 && (
-                  <div style={{ maxWidth: "85%", marginTop: 6, padding: "10px 14px", borderRadius: 10, background: "var(--c-card)", border: "1px solid var(--c-border)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text-h)" }}>⚡ Suggested Tasks</span>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {Object.keys(msgAdded).length < parsedTasks.length && (
-                          <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 10px", background: "#6366f1", color: "#fff", border: "none" }} onClick={async () => {
-                            for (let ti = 0; ti < parsedTasks.length; ti++) {
-                              if (msgAdded[ti]) continue;
-                              const t = parsedTasks[ti];
-                              const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
-                              try {
-                                const saved = await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
-                                if (onAddTask) onAddTask(saved);
-                                setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
-                              } catch (err) { alert("Failed: " + err.message); break; }
-                            }
-                          }}>+ Add All</button>
-                        )}
-                      </div>
-                    </div>
-                    {parsedTasks.map((t, ti) => {
-                      const added = msgAdded[ti];
-                      return (
-                        <div key={ti} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", borderTop: ti > 0 ? "1px solid var(--c-border)" : "none", opacity: added ? 0.45 : 1 }}>
-                          <span style={{ fontSize: 12, marginTop: 1 }}>{added ? "✓" : "⚡"}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
-                            <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
-                              <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: (priorityColors[t.priority] || "#b8860b") + "18", color: priorityColors[t.priority] || "#b8860b" }}>{t.priority}</span>
-                              {t.assignedRole && <span style={{ fontSize: 10, color: "#8A9096" }}>{t.assignedRole}</span>}
-                              {t.dueInDays && <span style={{ fontSize: 10, color: "#8A9096" }}>Due in {t.dueInDays} days</span>}
-                            </div>
-                            {t.rationale && <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 3, lineHeight: 1.4 }}>{t.rationale}</div>}
-                          </div>
-                          {!added && (
-                            <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", flexShrink: 0 }} onClick={async () => {
-                              const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
-                              try {
-                                const saved = await apiCreateTask({ caseId: c.id, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
-                                if (onAddTask) onAddTask(saved);
-                                setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
-                              } catch (err) { alert("Failed: " + err.message); }
-                            }}>+ Add</button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                </div>
-              )})}
-              {advocateLoading && (
-                <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                  <div style={{ padding: "12px 18px", borderRadius: "14px 14px 14px 4px", background: "var(--c-card-alt, #1a2332)", border: "1px solid var(--c-border)", display: "flex", gap: 4, alignItems: "center" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out infinite" }} />
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out 0.2s infinite" }} />
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out 0.4s infinite" }} />
-                  </div>
-                </div>
-              )}
-              <div ref={advocateEndRef} />
-            </div>
-            <div style={{ padding: "12px 18px", borderTop: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 8 }}>
-              <input
-                style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 13, outline: "none" }}
-                placeholder="Ask about this case..."
-                value={advocateInput}
-                onChange={e => setAdvocateInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && !e.shiftKey && advocateInput.trim() && !advocateLoading) {
-                    e.preventDefault();
-                    const newMsgs = [...advocateMessages, { role: "user", content: advocateInput.trim() }];
-                    setAdvocateMessages(newMsgs);
-                    setAdvocateLoading(true);
-                    setAdvocateInput("");
-                    apiAdvocateChat({ caseId: c.id, messages: newMsgs }).then(r => {
-                      setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
-                      if (r.contextStats && !advocateStats) setAdvocateStats(r.contextStats);
-                    }).catch(() => {
-                      setAdvocateMessages(p => [...p, { role: "assistant", content: "I encountered an error. Please try again." }]);
-                    }).finally(() => setAdvocateLoading(false));
-                  }
-                }}
-                disabled={advocateLoading}
-              />
-              <button
-                className="btn btn-sm"
-                style={{ background: advocateInput.trim() && !advocateLoading ? "#6366f1" : "#4b5563", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, cursor: advocateInput.trim() && !advocateLoading ? "pointer" : "not-allowed" }}
-                disabled={!advocateInput.trim() || advocateLoading}
-                onClick={() => {
-                  if (!advocateInput.trim() || advocateLoading) return;
-                  const newMsgs = [...advocateMessages, { role: "user", content: advocateInput.trim() }];
-                  setAdvocateMessages(newMsgs);
-                  setAdvocateLoading(true);
-                  setAdvocateInput("");
-                  apiAdvocateChat({ caseId: c.id, messages: newMsgs }).then(r => {
-                    setAdvocateMessages(p => [...p, { role: "assistant", content: r.reply, suggestedTasks: r.suggestedTasks || null }]);
-                    if (r.contextStats && !advocateStats) setAdvocateStats(r.contextStats);
-                  }).catch(() => {
-                    setAdvocateMessages(p => [...p, { role: "assistant", content: "I encountered an error. Please try again." }]);
-                  }).finally(() => setAdvocateLoading(false));
-                }}
-              >Send</button>
-            </div>
-          </div>
-        </div>
-      )}
       {showDeleteConfirm && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
           <div className="modal-box" style={{ maxWidth: 440 }}>
@@ -4825,7 +5017,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               setAiStrategy(p => ({ ...p, show: true, loading: true, result: null, error: null }));
               apiCaseStrategy({ caseId: c.id }).then(r => setAiStrategy(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiStrategy(p => ({ ...p, loading: false, error: e.message })));
             }}>⚡ Strategy</button>
-            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", color: "#6366f1", borderColor: "#a5b4fc" }} onClick={() => setShowAdvocate(true)}>🤖 Advocate AI</button>
+            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", color: "#6366f1", borderColor: "#a5b4fc" }} onClick={() => onOpenAdvocate && onOpenAdvocate(c.id)}>🤖 Advocate AI</button>
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowPrint(true)}>🖨 Print</button>
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); }}>📄 Generate</button>
             {canDelete && (
@@ -8691,7 +8883,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
   }
 }
 
-function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle }) {
+function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle, onOpenAdvocate }) {
   const [activeReport, setActiveReport] = useState(null);
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
@@ -8931,6 +9123,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             onUpdateDeadline={onUpdateDeadline}
             allCases={allCases}
             onSelectCase={(target) => { setSelectedCase(target); }}
+            onOpenAdvocate={onOpenAdvocate}
           />
         );
       })()}

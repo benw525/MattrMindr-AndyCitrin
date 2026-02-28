@@ -653,76 +653,189 @@ Be concise but thorough. Flag anything that could help the defense.`;
   }
 });
 
+const APP_KNOWLEDGE_BASE = `
+=== MATTRMINDR APPLICATION GUIDE ===
+You are also the built-in help assistant for MattrMindr, a criminal defense case management system used by the Mobile County Public Defender's Office. When users ask "how do I..." questions about the software, give specific step-by-step instructions based on this guide.
+
+NAVIGATION: The app has a left sidebar with these sections: Dashboard, Cases, Calendar, Tasks, Templates, Time Log, Reports, AI Center, Contacts, Staff. Click any item to navigate.
+
+DASHBOARD:
+- Shows widgets: My Tasks, My Upcoming Deadlines, Recent Activity, Pinned Cases, My Time, AI Triage
+- Click "Customize" (top-right) to add/remove/reorder widgets via drag-and-drop
+- Quick Notes widget: type notes without assigning to a case; assign later from the note itself
+- Quick Notes support speech-to-text: click the microphone icon to dictate
+
+CASES:
+- "New Case" button (top-right) opens the creation form. Fill in case number, title, defendant name, case type, division, and charges
+- Conflict Check: automatically runs when you enter a defendant name — shows matching cases/contacts
+- Filter cases by status tabs: All, Active, Monitoring, Closed, Deleted
+- Search bar filters by case number, title, or defendant name
+- Click any case row to open the Case Detail Overlay
+- Pin important cases: click the pin icon on any case row; pinned cases appear at the top and in dropdown selectors
+- Case Detail Overlay has tabs: Overview, Details, Documents, Filings, Correspondence, Tasks, Deadlines, Notes, Activity, Linked Cases, Probation (if enabled)
+- Edit mode: click "Edit" button in case header to enable field editing; click "Done" to save
+- Mark cases Confidential or Death Penalty via toggle buttons in the case header
+- Enable Probation tab via the Probation checkbox in the case header
+- Delete a case: click "Delete" in edit mode; case moves to Deleted tab (30-day retention, then permanent deletion; can restore within window)
+
+CHARGES:
+- On the Details tab, charges are listed in an accordion section at the top-left
+- Add charges: click "+ Add Charge" button, fill in statute, description, and class
+- The system auto-looks up the charge class when you enter a statute or description
+- Edit charges inline: click any charge field to modify. Set disposition and disposition date when resolved
+- Each charge tracks: statute, description, class (Class A/B/C Felony, Misdemeanor A/B/C, Violation), original/amended, disposition, disposition date
+
+CO-DEFENDANTS:
+- On the Details tab, below the Charges section
+- Click "+ Add Co-Defendant" to add. Fields: name, DOB, case number, charges, attorney, status, joint/severed, notes
+- Expand/collapse each co-defendant card to see full details
+
+DOCUMENTS:
+- Documents tab in Case Detail: upload PDF, DOCX, DOC, or TXT files
+- Each document can be AI-summarized (click "Summarize" button)
+- Edit document name and type inline by clicking on them
+- Download or delete documents via action buttons
+
+FILINGS:
+- Filings tab in Case Detail: upload court filings (PDF only)
+- AI auto-classifies uploaded filings (name, filing party, type, date, hearing dates)
+- Filings received via email (AlaCourt NEF) are auto-triaged to this tab
+- Filter filings by filing party (State, Defendant, Court, etc.)
+- Click "Classify" to re-run AI classification; "Summarize" for a detailed summary
+
+CALENDAR:
+- Monthly grid showing deadlines, task due dates, court dates, and imported calendar events
+- Toggle event types on/off using the visibility toggles
+- Click any day to see all events for that day with clickable case links
+- "Add Deadline" tab: create new deadlines linked to cases
+- "Rules Calculator" tab: calculate dates using Alabama Rules of Criminal Procedure (speedy trial, preliminary hearing, etc.)
+- "Feeds" tab: import external iCal feeds (e.g., from AlaCourt, Outlook)
+- List view: toggle between calendar grid and sortable deadline list
+
+TASKS:
+- View all tasks across all cases
+- Filter by assignee, priority, status, or search
+- Create tasks: click "+ New Task", select a case, fill in title, priority, due date, assignee
+- Complete tasks: click the checkbox; you'll be prompted to log time
+- Edit tasks inline by clicking on fields
+- Tasks can be auto-suggested by the AI Task Suggestions agent
+
+TEMPLATES:
+- Upload .docx template files with placeholders like {{defendant_name}}, {{case_number}}, etc.
+- Create a template: click "+ New Template", upload your .docx file, set category and name
+- The system auto-detects placeholders in the document
+- Generate documents: from a case's detail view, click "Generate" and choose a template; placeholders auto-fill with case data
+- Categories: Motions, Orders, Notices, Subpoenas, Client Letters, General
+- AI Draft mode: alternatively, use "AI Draft" tab to generate documents from scratch using AI
+
+TIME LOG:
+- Shows all time entries: auto-derived from completed tasks, notes with time logged, and correspondence
+- Also supports manual time entries: click "+ Add Entry" to log time manually
+- Filter by date range (This Week, This Month, Last Month, Custom)
+- Export time data for billing purposes
+
+REPORTS:
+- Click any report card to generate that report type
+- Available reports: Overdue Tasks, Upcoming Hearings, Workload Report, Cases by Status, Cases by Stage, Cases by Custody Status, Pending Custody Actions, and more
+- Reports support attorney/staff filtering and date range parameters
+- Export to CSV or Print directly from the report view
+
+AI CENTER:
+- Access all AI agents from one place
+- Agent cards in a grid; click one to open it
+- Most agents require selecting a case first (except Case Triage and Batch Case Manager)
+- "Advocate AI Trainer" tab: create training entries to customize how AI agents behave
+- Training entries can target specific agents or all agents
+- Two scopes: Personal (only affects your AI) and Office (affects everyone's AI, admin-only)
+
+CONTACTS:
+- Directory of all contacts: Clients, Prosecutors, Judges, Courts, Witnesses, Experts, etc.
+- Add new contact: click "+ New Contact", fill in details
+- Click a contact to open their detail overlay with notes and linked cases
+- Pin frequently used contacts for quick access
+- Merge duplicate contacts: select two contacts and use the merge function
+- Deleted contacts have 30-day retention
+
+STAFF:
+- View all staff members with their roles, contact info, and active case counts
+- Admins can: change roles, toggle offices, send temporary passwords, deactivate staff
+- Pin staff members for quick access at the top of the list
+
+KEYBOARD & TIPS:
+- Press Enter in search fields to filter immediately
+- Speech-to-text available in notes (click microphone icon)
+- Dark/Light mode toggle in sidebar footer
+- All modals can be closed by clicking outside them or pressing the X button
+`;
+
 router.post("/advocate", requireAuth, async (req, res) => {
   try {
-    const { caseId, messages } = req.body;
-    if (!caseId) return res.status(400).json({ error: "caseId required" });
+    const { caseId, messages, screenContext } = req.body;
     if (!messages || !Array.isArray(messages) || messages.length === 0) return res.status(400).json({ error: "messages required" });
 
-    const [caseRes, notesRes, tasksRes, deadlinesRes, partiesRes, docsRes, filingsRes, corrRes] = await Promise.all([
-      pool.query("SELECT * FROM cases WHERE id = $1", [caseId]),
-      pool.query("SELECT body, type, created_at FROM case_notes WHERE case_id = $1 ORDER BY created_at DESC", [caseId]),
-      pool.query("SELECT title, status, priority, notes, due FROM tasks WHERE case_id = $1 ORDER BY due ASC NULLS LAST", [caseId]),
-      pool.query("SELECT title, date, type, rule FROM deadlines WHERE case_id = $1 ORDER BY date ASC", [caseId]),
-      pool.query("SELECT party_type, data FROM case_parties WHERE case_id = $1", [caseId]),
-      pool.query("SELECT filename, doc_type, summary, extracted_text FROM case_documents WHERE case_id = $1 ORDER BY created_at DESC", [caseId]),
-      pool.query("SELECT filename, doc_type, filed_by, filing_date, summary FROM case_filings WHERE case_id = $1 ORDER BY filing_date DESC NULLS LAST", [caseId]),
-      pool.query("SELECT subject, from_name, body_text, received_at FROM case_correspondence WHERE case_id = $1 ORDER BY received_at DESC", [caseId]),
-    ]);
+    let contextBlock = "";
+    let contextStats = null;
+    let isCapital = false;
 
-    const c = caseRes.rows[0];
-    if (!c) return res.status(404).json({ error: "Case not found" });
+    if (caseId) {
+      const [caseRes, notesRes, tasksRes, deadlinesRes, partiesRes, docsRes, filingsRes, corrRes] = await Promise.all([
+        pool.query("SELECT * FROM cases WHERE id = $1", [caseId]),
+        pool.query("SELECT body, type, created_at FROM case_notes WHERE case_id = $1 ORDER BY created_at DESC", [caseId]),
+        pool.query("SELECT title, status, priority, notes, due FROM tasks WHERE case_id = $1 ORDER BY due ASC NULLS LAST", [caseId]),
+        pool.query("SELECT title, date, type, rule FROM deadlines WHERE case_id = $1 ORDER BY date ASC", [caseId]),
+        pool.query("SELECT party_type, data FROM case_parties WHERE case_id = $1", [caseId]),
+        pool.query("SELECT filename, doc_type, summary, extracted_text FROM case_documents WHERE case_id = $1 ORDER BY created_at DESC", [caseId]),
+        pool.query("SELECT filename, doc_type, filed_by, filing_date, summary FROM case_filings WHERE case_id = $1 ORDER BY filing_date DESC NULLS LAST", [caseId]),
+        pool.query("SELECT subject, from_name, body_text, received_at FROM case_correspondence WHERE case_id = $1 ORDER BY received_at DESC", [caseId]),
+      ]);
 
-    const contextStats = {
-      notes: notesRes.rows.length,
-      tasks: tasksRes.rows.length,
-      deadlines: deadlinesRes.rows.length,
-      documents: docsRes.rows.length,
-      filings: filingsRes.rows.length,
-      emails: corrRes.rows.length,
-      parties: partiesRes.rows.length,
-    };
+      const c = caseRes.rows[0];
+      if (!c) return res.status(404).json({ error: "Case not found" });
+      isCapital = !!c.death_penalty;
 
-    const charges = c.charges || [];
-    const chargesText = charges.map((ch, i) =>
-      `${i + 1}. ${ch.description || ""} (${ch.statute || ""}) — ${ch.chargeClass || ch.class || ""}, Disposition: ${ch.disposition || "None"}`
-    ).join("\n") || "No charges entered";
+      contextStats = {
+        notes: notesRes.rows.length,
+        tasks: tasksRes.rows.length,
+        deadlines: deadlinesRes.rows.length,
+        documents: docsRes.rows.length,
+        filings: filingsRes.rows.length,
+        emails: corrRes.rows.length,
+        parties: partiesRes.rows.length,
+      };
 
-    const notesText = notesRes.rows.map(n => `[${n.type || "Note"}] ${(n.body || "").substring(0, 800)}`).join("\n\n") || "No notes";
+      const charges = c.charges || [];
+      const chargesText = charges.map((ch, i) =>
+        `${i + 1}. ${ch.description || ""} (${ch.statute || ""}) — ${ch.chargeClass || ch.class || ""}, Disposition: ${ch.disposition || "None"}`
+      ).join("\n") || "No charges entered";
+      const notesText = notesRes.rows.map(n => `[${n.type || "Note"}] ${(n.body || "").substring(0, 800)}`).join("\n\n") || "No notes";
+      const tasksText = tasksRes.rows.map(t =>
+        `- ${t.title} (${t.status}, ${t.priority}${t.due ? ", due " + t.due : ""}${t.notes ? ": " + t.notes.substring(0, 200) : ""})`
+      ).join("\n") || "No tasks";
+      const deadlinesText = deadlinesRes.rows.map(d =>
+        `- ${d.title} — ${d.date || "No date"} (${d.type || ""}${d.rule ? ", Rule: " + d.rule : ""})`
+      ).join("\n") || "No deadlines";
+      const partiesText = partiesRes.rows.map(p => {
+        const d = p.data || {};
+        const name = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || "Unknown";
+        let info = `${name} (${p.party_type || "Party"})`;
+        if (d.charges) info += ` — Charges: ${d.charges}`;
+        if (d.status) info += ` — Status: ${d.status}`;
+        if (d.attorney) info += ` — Attorney: ${d.attorney}`;
+        if (d.jointSevered) info += ` — ${d.jointSevered}`;
+        return `- ${info}`;
+      }).join("\n") || "No parties";
+      const docsText = docsRes.rows.map(d => {
+        const summary = d.summary || (d.extracted_text ? d.extracted_text.substring(0, 400) + "..." : "No summary available");
+        return `- [${d.doc_type || "Other"}] ${d.filename}: ${summary}`;
+      }).join("\n\n") || "No documents";
+      const filingsText = filingsRes.rows.map(f =>
+        `- [${f.doc_type || "Filing"}] ${f.filename} — Filed by: ${f.filed_by || "Unknown"}, Date: ${f.filing_date || "Unknown"}${f.summary ? "\n  Summary: " + f.summary : ""}`
+      ).join("\n\n") || "No filings";
+      const emailsText = corrRes.rows.map(e =>
+        `- From: ${e.from_name || "Unknown"} — Subject: ${e.subject || "(no subject)"}\n  ${(e.body_text || "").substring(0, 500)}`
+      ).join("\n\n") || "No correspondence";
 
-    const tasksText = tasksRes.rows.map(t =>
-      `- ${t.title} (${t.status}, ${t.priority}${t.due ? ", due " + t.due : ""}${t.notes ? ": " + t.notes.substring(0, 200) : ""})`
-    ).join("\n") || "No tasks";
-
-    const deadlinesText = deadlinesRes.rows.map(d =>
-      `- ${d.title} — ${d.date || "No date"} (${d.type || ""}${d.rule ? ", Rule: " + d.rule : ""})`
-    ).join("\n") || "No deadlines";
-
-    const partiesText = partiesRes.rows.map(p => {
-      const d = p.data || {};
-      const name = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || "Unknown";
-      let info = `${name} (${p.party_type || "Party"})`;
-      if (d.charges) info += ` — Charges: ${d.charges}`;
-      if (d.status) info += ` — Status: ${d.status}`;
-      if (d.attorney) info += ` — Attorney: ${d.attorney}`;
-      if (d.jointSevered) info += ` — ${d.jointSevered}`;
-      return `- ${info}`;
-    }).join("\n") || "No parties";
-
-    const docsText = docsRes.rows.map(d => {
-      const summary = d.summary || (d.extracted_text ? d.extracted_text.substring(0, 400) + "..." : "No summary available");
-      return `- [${d.doc_type || "Other"}] ${d.filename}: ${summary}`;
-    }).join("\n\n") || "No documents";
-
-    const filingsText = filingsRes.rows.map(f =>
-      `- [${f.doc_type || "Filing"}] ${f.filename} — Filed by: ${f.filed_by || "Unknown"}, Date: ${f.filing_date || "Unknown"}${f.summary ? "\n  Summary: " + f.summary : ""}`
-    ).join("\n\n") || "No filings";
-
-    const emailsText = corrRes.rows.map(e =>
-      `- From: ${e.from_name || "Unknown"} — Subject: ${e.subject || "(no subject)"}\n  ${(e.body_text || "").substring(0, 500)}`
-    ).join("\n\n") || "No correspondence";
-
-    let contextBlock = `
+      contextBlock = `
 === CASE INFORMATION ===
 Title: ${c.title || ""}
 Case Number: ${c.case_num || ""}
@@ -759,31 +872,39 @@ ${filingsText}
 === EMAIL CORRESPONDENCE (${contextStats.emails} total) ===
 ${emailsText}`;
 
-    const MAX_CONTEXT_CHARS = 60000;
-    if (contextBlock.length > MAX_CONTEXT_CHARS) {
-      const emailsTrunc = corrRes.rows.slice(0, 10).map(e =>
-        `- From: ${e.from_name || "Unknown"} — Subject: ${e.subject || "(no subject)"}\n  ${(e.body_text || "").substring(0, 200)}`
-      ).join("\n") || "No correspondence";
-      contextBlock = contextBlock.replace(/=== EMAIL CORRESPONDENCE[\s\S]*$/, `=== EMAIL CORRESPONDENCE (${contextStats.emails} total, showing recent 10) ===\n${emailsTrunc}`);
+      const MAX_CONTEXT_CHARS = 60000;
+      if (contextBlock.length > MAX_CONTEXT_CHARS) {
+        const emailsTrunc = corrRes.rows.slice(0, 10).map(e =>
+          `- From: ${e.from_name || "Unknown"} — Subject: ${e.subject || "(no subject)"}\n  ${(e.body_text || "").substring(0, 200)}`
+        ).join("\n") || "No correspondence";
+        contextBlock = contextBlock.replace(/=== EMAIL CORRESPONDENCE[\s\S]*$/, `=== EMAIL CORRESPONDENCE (${contextStats.emails} total, showing recent 10) ===\n${emailsTrunc}`);
+      }
+      if (contextBlock.length > MAX_CONTEXT_CHARS) {
+        const notesTrunc = notesRes.rows.slice(0, 20).map(n => `[${n.type || "Note"}] ${(n.body || "").substring(0, 400)}`).join("\n\n");
+        contextBlock = contextBlock.replace(/=== CASE NOTES[\s\S]*?=== TASKS/, `=== CASE NOTES (${contextStats.notes} total, showing recent 20) ===\n${notesTrunc}\n\n=== TASKS`);
+      }
+      if (contextBlock.length > MAX_CONTEXT_CHARS) {
+        const docsTrunc = docsRes.rows.map(d => `- [${d.doc_type || "Other"}] ${d.filename}: ${(d.summary || "No summary").substring(0, 200)}`).join("\n");
+        contextBlock = contextBlock.replace(/=== DOCUMENTS[\s\S]*?=== COURT FILINGS/, `=== DOCUMENTS (${contextStats.documents} total, truncated) ===\n${docsTrunc}\n\n=== COURT FILINGS`);
+      }
+      if (contextBlock.length > MAX_CONTEXT_CHARS) {
+        const filTrunc = filingsRes.rows.slice(0, 15).map(f => `- [${f.doc_type || "Filing"}] ${f.filename} — Filed by: ${f.filed_by || "Unknown"}`).join("\n");
+        contextBlock = contextBlock.replace(/=== COURT FILINGS[\s\S]*?=== EMAIL/, `=== COURT FILINGS (${contextStats.filings} total, truncated) ===\n${filTrunc}\n\n=== EMAIL`);
+      }
+      if (contextBlock.length > MAX_CONTEXT_CHARS) {
+        contextBlock = contextBlock.substring(0, MAX_CONTEXT_CHARS) + "\n[Context truncated due to case size]";
+      }
     }
-    if (contextBlock.length > MAX_CONTEXT_CHARS) {
-      const notesTrunc = notesRes.rows.slice(0, 20).map(n => `[${n.type || "Note"}] ${(n.body || "").substring(0, 400)}`).join("\n\n");
-      contextBlock = contextBlock.replace(/=== CASE NOTES[\s\S]*?=== TASKS/, `=== CASE NOTES (${contextStats.notes} total, showing recent 20) ===\n${notesTrunc}\n\n=== TASKS`);
-    }
-    if (contextBlock.length > MAX_CONTEXT_CHARS) {
-      const docsTrunc = docsRes.rows.map(d => `- [${d.doc_type || "Other"}] ${d.filename}: ${(d.summary || "No summary").substring(0, 200)}`).join("\n");
-      contextBlock = contextBlock.replace(/=== DOCUMENTS[\s\S]*?=== COURT FILINGS/, `=== DOCUMENTS (${contextStats.documents} total, truncated) ===\n${docsTrunc}\n\n=== COURT FILINGS`);
-    }
-    if (contextBlock.length > MAX_CONTEXT_CHARS) {
-      const filTrunc = filingsRes.rows.slice(0, 15).map(f => `- [${f.doc_type || "Filing"}] ${f.filename} — Filed by: ${f.filed_by || "Unknown"}`).join("\n");
-      contextBlock = contextBlock.replace(/=== COURT FILINGS[\s\S]*?=== EMAIL/, `=== COURT FILINGS (${contextStats.filings} total, truncated) ===\n${filTrunc}\n\n=== EMAIL`);
-    }
-    if (contextBlock.length > MAX_CONTEXT_CHARS) {
-      contextBlock = contextBlock.substring(0, MAX_CONTEXT_CHARS) + "\n[Context truncated due to case size]";
+
+    if (screenContext) {
+      contextBlock += `\n\n=== CURRENT SCREEN CONTEXT ===\nThe user is currently viewing the following screen/data in the application:\n${screenContext.substring(0, 6000)}`;
     }
 
     const trainingContext = await getTrainingContext(req.session.userId, 'advocate');
-    const systemPrompt = `You are Advocate AI, a senior criminal defense advisor assisting a public defender at the Mobile County Public Defender's Office in Alabama. You have access to the complete case file below. Answer questions thoughtfully using specific details from the case. Be practical, strategic, and action-oriented. Reference specific evidence, documents, filings, and notes when relevant. Format responses with markdown for readability.${c.death_penalty ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Always consider capital defense strategies, mitigation investigation, Eighth Amendment issues, and the heightened standards required in capital proceedings." : ""}
+
+    let basePrompt;
+    if (caseId) {
+      basePrompt = `You are Advocate AI, a senior criminal defense advisor assisting a public defender at the Mobile County Public Defender's Office in Alabama. You have access to the complete case file below. Answer questions thoughtfully using specific details from the case. Be practical, strategic, and action-oriented. Reference specific evidence, documents, filings, and notes when relevant. Format responses with markdown for readability.${isCapital ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Always consider capital defense strategies, mitigation investigation, Eighth Amendment issues, and the heightened standards required in capital proceedings." : ""}
 
 TASK SUGGESTIONS: When your response includes specific action items, tasks, or recommended next steps for the defense team, you MUST append a hidden structured JSON block at the very end of your response using this exact format:
 <!-- TASKS_JSON [{"title":"Task title","priority":"Medium","assignedRole":"Lead Attorney","rationale":"Why this task matters","dueInDays":14}] -->
@@ -793,9 +914,20 @@ Rules for the TASKS_JSON block:
 - assignedRole must be one of: "Lead Attorney", "2nd Attorney", "Investigator", "Social Worker", "Paralegal", "Trial Coordinator"
 - dueInDays is the number of days from today the task should be due (use your judgment based on urgency)
 - Include 1-8 tasks per response as appropriate
-- The JSON block is metadata only — your natural language response should still describe the tasks/steps normally
+- The JSON block is metadata only — your natural language response should still describe the tasks/steps normally`;
+    } else {
+      basePrompt = `You are Advocate AI, a senior criminal defense advisor and application assistant for the Mobile County Public Defender's Office in Alabama. You help public defenders with:
+1. General criminal defense questions about Alabama law, procedures, and strategy
+2. Office policies and procedures
+3. Navigating and using the MattrMindr case management system — always give specific, step-by-step instructions for this application when users ask how to do something
+4. Answering questions about data currently visible on their screen
 
-${contextBlock}${trainingContext}`;
+You have access to the user's current screen context below (if any). When answering questions about their data, reference specific items from the screen context. When answering "how do I..." questions, give step-by-step instructions specific to the MattrMindr application. Format responses with markdown for readability.
+
+Do NOT suggest task actions (TASKS_JSON) when no case is selected.`;
+    }
+
+    const systemPrompt = `${basePrompt}\n\n${APP_KNOWLEDGE_BASE}${contextBlock}${trainingContext}`;
 
     const apiMessages = [
       { role: "system", content: systemPrompt },
