@@ -344,6 +344,34 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS probation BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {});
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS probation_data JSONB NOT NULL DEFAULT '{}'`).catch(() => {});
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_probation_violations (
+        id                      SERIAL PRIMARY KEY,
+        case_id                 INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        violation_date          DATE,
+        violation_type          TEXT NOT NULL DEFAULT 'Technical',
+        description             TEXT NOT NULL DEFAULT '',
+        source                  TEXT NOT NULL DEFAULT '',
+        related_charges         TEXT NOT NULL DEFAULT '',
+        preliminary_hearing_date DATE,
+        reconvening_date        DATE,
+        custom_dates            JSONB NOT NULL DEFAULT '[]',
+        hearing_type            TEXT NOT NULL DEFAULT '',
+        attorney                INTEGER REFERENCES users(id),
+        judge                   TEXT NOT NULL DEFAULT '',
+        outcome                 TEXT NOT NULL DEFAULT 'Pending',
+        jail_time_imposed       TEXT NOT NULL DEFAULT '',
+        jail_credit             TEXT NOT NULL DEFAULT '',
+        remaining_probation     TEXT NOT NULL DEFAULT '',
+        sentence_imposed        TEXT NOT NULL DEFAULT '',
+        notes                   TEXT NOT NULL DEFAULT '',
+        created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
     await client.query(`ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL`).catch(() => {});
 
     await client.query("COMMIT");

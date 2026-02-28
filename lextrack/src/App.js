@@ -28,6 +28,7 @@ import {
   apiGetPinnedCases, apiSetPinnedCases,
   apiBatchPreview, apiBatchApply,
   apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
+  apiGetProbationViolations, apiCreateProbationViolation, apiUpdateProbationViolation, apiDeleteProbationViolation,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -3546,6 +3547,324 @@ const CONTACT_LINKABLE_KEYS = new Set(["defendantName", "prosecutor", "judge"]);
 const KEY_DATE_FIELDS = ["arrestDate", "arraignmentDate", "nextCourtDate", "trialDate", "sentencingDate", "dispositionDate"];
 const KEY_DATE_TYPES = { arrestDate: "Other", arraignmentDate: "Hearing", nextCourtDate: "Hearing", trialDate: "Hearing", sentencingDate: "Hearing", dispositionDate: "Other" };
 
+function ProbationTabContent({ c, draft, pd, setPd, conditions, PROBATION_TYPES, CONDITION_OPTIONS, VIOLATION_SOURCES, HEARING_TYPES, OUTCOMES, editMode }) {
+  const [violations, setViolations] = useState([]);
+  const [loadingV, setLoadingV] = useState(false);
+  const [expandedV, setExpandedV] = useState(null);
+  const [editingV, setEditingV] = useState(null);
+  const [addingV, setAddingV] = useState(false);
+  const [newV, setNewV] = useState({});
+  const [condInput, setCondInput] = useState("");
+
+  useEffect(() => {
+    if (!c?.id) return;
+    setLoadingV(true);
+    apiGetProbationViolations(c.id).then(v => { setViolations(v); setLoadingV(false); }).catch(() => setLoadingV(false));
+  }, [c?.id]);
+
+  const saveViolation = async (data) => {
+    try {
+      const saved = await apiCreateProbationViolation(c.id, data);
+      setViolations(prev => [saved, ...prev]);
+      setAddingV(false);
+      setNewV({});
+    } catch (e) { alert("Failed to save: " + e.message); }
+  };
+
+  const updateViolation = async (id, data) => {
+    try {
+      const updated = await apiUpdateProbationViolation(c.id, id, data);
+      setViolations(prev => prev.map(v => v.id === id ? updated : v));
+      setEditingV(null);
+    } catch (e) { alert("Failed to update: " + e.message); }
+  };
+
+  const deleteViolation = async (id) => {
+    if (!window.confirm("Delete this violation record?")) return;
+    try {
+      await apiDeleteProbationViolation(c.id, id);
+      setViolations(prev => prev.filter(v => v.id !== id));
+      if (expandedV === id) setExpandedV(null);
+    } catch (e) { alert("Failed to delete: " + e.message); }
+  };
+
+  const addCondition = (cond) => {
+    if (!cond.trim()) return;
+    if (conditions.includes(cond.trim())) return;
+    setPd("additionalConditions", [...conditions, cond.trim()]);
+  };
+  const removeCondition = (cond) => setPd("additionalConditions", conditions.filter(c2 => c2 !== cond));
+
+  const outcomeColor = (o) => {
+    if (!o || o === "Pending") return "#8A9096";
+    if (o === "Warning" || o === "Modified Conditions") return "#e07a30";
+    if (o.startsWith("Revoked")) return "#dc2626";
+    if (o === "Reinstated" || o === "Time Served") return "#2F7A5F";
+    return "#4F7393";
+  };
+
+  const typeColor = (t) => t === "Substantive" ? "#dc2626" : "#e07a30";
+
+  const ViolationForm = ({ data, onSave, onCancel, title }) => {
+    const [form, setForm] = useState({ ...data });
+    const cd = form.customDates || [];
+    return (
+      <div className="card" style={{ marginBottom: 16, border: "2px solid #1e3a5f33" }}>
+        <div className="card-header"><div className="card-title">{title}</div></div>
+        <div style={{ padding: 16 }}>
+          <div className="form-row">
+            <div className="form-group"><label>Violation Date</label><input type="date" value={form.violationDate || ""} onChange={e => setForm(p => ({ ...p, violationDate: e.target.value }))} /></div>
+            <div className="form-group"><label>Type</label>
+              <select value={form.violationType || "Technical"} onChange={e => setForm(p => ({ ...p, violationType: e.target.value }))}>
+                <option>Technical</option><option>Substantive</option>
+              </select>
+            </div>
+            <div className="form-group"><label>Source</label>
+              <select value={form.source || ""} onChange={e => setForm(p => ({ ...p, source: e.target.value }))}>
+                <option value="">Select...</option>
+                {VIOLATION_SOURCES.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-group"><label>Description</label><textarea rows={3} value={form.description || ""} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Describe the alleged violation..." /></div>
+          {form.violationType === "Substantive" && (
+            <div className="form-group"><label>Related New Charges</label><input value={form.relatedCharges || ""} onChange={e => setForm(p => ({ ...p, relatedCharges: e.target.value }))} placeholder="New charges if applicable..." /></div>
+          )}
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1e3a5f", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, marginTop: 12 }}>Key Dates</div>
+          <div className="form-row">
+            <div className="form-group"><label>Preliminary Hearing</label><input type="date" value={form.preliminaryHearingDate || ""} onChange={e => setForm(p => ({ ...p, preliminaryHearingDate: e.target.value }))} /></div>
+            <div className="form-group"><label>Reconvening Date</label><input type="date" value={form.reconveningDate || ""} onChange={e => setForm(p => ({ ...p, reconveningDate: e.target.value }))} /></div>
+          </div>
+          {cd.map((d, i) => (
+            <div key={i} className="form-row" style={{ alignItems: "flex-end" }}>
+              <div className="form-group"><label>Date Label</label><input value={d.label || ""} onChange={e => { const up = [...cd]; up[i] = { ...up[i], label: e.target.value }; setForm(p => ({ ...p, customDates: up })); }} placeholder="e.g. Status Conference" /></div>
+              <div className="form-group"><label>Date</label><input type="date" value={d.date || ""} onChange={e => { const up = [...cd]; up[i] = { ...up[i], date: e.target.value }; setForm(p => ({ ...p, customDates: up })); }} /></div>
+              <button className="btn btn-outline btn-sm" style={{ marginBottom: 16, color: "#e05252" }} onClick={() => { const up = cd.filter((_, j) => j !== i); setForm(p => ({ ...p, customDates: up })); }}>✕</button>
+            </div>
+          ))}
+          <button className="btn btn-outline btn-sm" style={{ marginBottom: 12, fontSize: 11 }} onClick={() => setForm(p => ({ ...p, customDates: [...(p.customDates || []), { label: "", date: "" }] }))}>+ Add Date</button>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1e3a5f", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, marginTop: 8 }}>Hearing & Outcome</div>
+          <div className="form-row">
+            <div className="form-group"><label>Hearing Type</label>
+              <select value={form.hearingType || ""} onChange={e => setForm(p => ({ ...p, hearingType: e.target.value }))}>
+                <option value="">Select...</option>
+                {HEARING_TYPES.map(h => <option key={h}>{h}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label>Attorney Assigned</label>
+              <select value={form.attorney || ""} onChange={e => setForm(p => ({ ...p, attorney: Number(e.target.value) || null }))}>
+                <option value="">Select...</option>
+                {USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label>Judge</label><input value={form.judge || ""} onChange={e => setForm(p => ({ ...p, judge: e.target.value }))} /></div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Outcome</label>
+              <select value={form.outcome || "Pending"} onChange={e => setForm(p => ({ ...p, outcome: e.target.value }))}>
+                {OUTCOMES.map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+          {(form.outcome === "Revoked — Partial") && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, marginTop: 8 }}>Partial Revocation Details</div>
+              <div className="form-row">
+                <div className="form-group"><label>Jail Time Imposed</label><input value={form.jailTimeImposed || ""} onChange={e => setForm(p => ({ ...p, jailTimeImposed: e.target.value }))} placeholder="e.g. 6 months" /></div>
+                <div className="form-group"><label>Jail Credit (Time Served)</label><input value={form.jailCredit || ""} onChange={e => setForm(p => ({ ...p, jailCredit: e.target.value }))} placeholder="e.g. 45 days" /></div>
+                <div className="form-group"><label>Remaining Probation</label><input value={form.remainingProbation || ""} onChange={e => setForm(p => ({ ...p, remainingProbation: e.target.value }))} placeholder="e.g. 18 months" /></div>
+              </div>
+            </>
+          )}
+          {(form.outcome === "Revoked — Full") && (
+            <div className="form-group"><label>Sentence Imposed</label><textarea rows={2} value={form.sentenceImposed || ""} onChange={e => setForm(p => ({ ...p, sentenceImposed: e.target.value }))} placeholder="Sentence details..." /></div>
+          )}
+          <div className="form-group"><label>Notes</label><textarea rows={2} value={form.notes || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} /></div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button className="btn btn-gold" onClick={() => onSave(form)}>Save Violation</button>
+            <button className="btn btn-outline" onClick={onCancel}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="case-overlay-body">
+      <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="case-overlay-section">
+          <div className="case-overlay-section-title">Probation Details</div>
+          <div className="form-group"><label>Probation Type</label>
+            {editMode ? (
+              <select value={pd.probationType || ""} onChange={e => setPd("probationType", e.target.value)}>
+                <option value="">Select...</option>
+                {PROBATION_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            ) : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.probationType || "—"}</div>}
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Officer Name</label>
+              {editMode ? <input value={pd.officerName || ""} onChange={e => setPd("officerName", e.target.value)} placeholder="Probation officer name" />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.officerName || "—"}</div>}
+            </div>
+            <div className="form-group"><label>Officer Contact</label>
+              {editMode ? <input value={pd.officerContact || ""} onChange={e => setPd("officerContact", e.target.value)} placeholder="Phone or email" />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.officerContact || "—"}</div>}
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Start Date</label>
+              {editMode ? <input type="date" value={pd.startDate || ""} onChange={e => setPd("startDate", e.target.value)} />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.startDate ? fmt(pd.startDate) : "—"}</div>}
+            </div>
+            <div className="form-group"><label>End Date</label>
+              {editMode ? <input type="date" value={pd.endDate || ""} onChange={e => setPd("endDate", e.target.value)} />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.endDate ? fmt(pd.endDate) : "—"}</div>}
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Term Length</label>
+              {editMode ? <input value={pd.termLength || ""} onChange={e => setPd("termLength", e.target.value)} placeholder="e.g. 24 months" />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.termLength || "—"}</div>}
+            </div>
+            <div className="form-group"><label>Supervising Agency</label>
+              {editMode ? <input value={pd.supervisingAgency || ""} onChange={e => setPd("supervisingAgency", e.target.value)} placeholder="Agency name" />
+              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.supervisingAgency || "—"}</div>}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="case-overlay-section">
+            <div className="case-overlay-section-title">Additional Conditions</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: editMode ? 10 : 0 }}>
+              {conditions.length === 0 && !editMode && <span style={{ fontSize: 12, color: "#8A9096" }}>None specified.</span>}
+              {conditions.map(cond => (
+                <span key={cond} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#1e3a5f15", color: "#1e3a5f", border: "1px solid #1e3a5f33", borderRadius: 4, padding: "3px 8px", fontSize: 12, fontWeight: 500 }}>
+                  {cond}
+                  {editMode && <span style={{ cursor: "pointer", marginLeft: 2, color: "#e05252", fontWeight: 700 }} onClick={() => removeCondition(cond)}>×</span>}
+                </span>
+              ))}
+            </div>
+            {editMode && (
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <select value="" onChange={e => { if (e.target.value) { addCondition(e.target.value); e.target.value = ""; } }} style={{ flex: 1 }}>
+                  <option value="">Add a condition...</option>
+                  {CONDITION_OPTIONS.filter(o => !conditions.includes(o)).map(o => <option key={o}>{o}</option>)}
+                </select>
+                <input value={condInput} onChange={e => setCondInput(e.target.value)} placeholder="Custom..." style={{ flex: 1 }} onKeyDown={e => { if (e.key === "Enter" && condInput.trim()) { addCondition(condInput.trim()); setCondInput(""); } }} />
+                {condInput.trim() && <button className="btn btn-outline btn-sm" onClick={() => { addCondition(condInput.trim()); setCondInput(""); }}>Add</button>}
+              </div>
+            )}
+          </div>
+
+          <div className="case-overlay-section" style={{ marginTop: 12 }}>
+            <div className="case-overlay-section-title">Fees & Obligations</div>
+            <div className="form-group"><label>Total Owed</label>
+              {editMode ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 14, color: "#8A9096" }}>$</span>
+                  <input type="text" value={pd.totalFeesOwed || ""} onChange={e => setPd("totalFeesOwed", e.target.value)} placeholder="0.00" style={{ flex: 1 }} />
+                </div>
+              ) : <div style={{ fontSize: 15, color: "var(--c-text)", fontWeight: 600 }}>{pd.totalFeesOwed ? `$${pd.totalFeesOwed}` : "—"}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="case-overlay-section" style={{ marginTop: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Violations ({violations.length})</div>
+          {!addingV && editMode && <button className="btn btn-gold btn-sm" onClick={() => { setAddingV(true); setNewV({ violationType: "Technical", outcome: "Pending", violationDate: today }); }}>+ Add Violation</button>}
+        </div>
+
+        {addingV && (
+          <ViolationForm data={newV} title="New Violation" onSave={saveViolation} onCancel={() => { setAddingV(false); setNewV({}); }} />
+        )}
+
+        {loadingV && <div className="empty">Loading violations...</div>}
+        {!loadingV && violations.length === 0 && !addingV && <div className="empty">No violations recorded.</div>}
+
+        {violations.map(v => {
+          const isExpanded = expandedV === v.id;
+          const isEditing = editingV === v.id;
+
+          if (isEditing) {
+            return <ViolationForm key={v.id} data={v} title="Edit Violation" onSave={(data) => updateViolation(v.id, data)} onCancel={() => setEditingV(null)} />;
+          }
+
+          return (
+            <div key={v.id} className="card" style={{ marginBottom: 10, borderLeft: `3px solid ${typeColor(v.violationType)}` }}>
+              <div style={{ padding: "12px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }} onClick={() => setExpandedV(isExpanded ? null : v.id)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>
+                      {v.violationDate ? fmt(v.violationDate) : "No date"}
+                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: typeColor(v.violationType), padding: "1px 7px", borderRadius: 3, textTransform: "uppercase" }}>{v.violationType}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: outcomeColor(v.outcome), background: outcomeColor(v.outcome) + "18", padding: "1px 7px", borderRadius: 3 }}>{v.outcome}</span>
+                    {v.source && <span style={{ fontSize: 10, color: "#8A9096" }}>via {v.source}</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.description || "No description"}</div>
+                </div>
+                <span style={{ fontSize: 14, color: "#8A9096", flexShrink: 0 }}>{isExpanded ? "▾" : "▸"}</span>
+              </div>
+
+              {isExpanded && (
+                <div style={{ padding: "0 16px 14px", borderTop: "1px solid var(--c-border2)" }}>
+                  <div style={{ paddingTop: 12 }}>
+                    {v.description && <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10, lineHeight: 1.5 }}>{v.description}</div>}
+
+                    <div className="form-row" style={{ fontSize: 12, color: "var(--c-text2)" }}>
+                      {v.preliminaryHearingDate && <div><strong>Preliminary Hearing:</strong> {fmt(v.preliminaryHearingDate)}</div>}
+                      {v.reconveningDate && <div><strong>Reconvening:</strong> {fmt(v.reconveningDate)}</div>}
+                      {(v.customDates || []).map((cd, i) => cd.date && <div key={i}><strong>{cd.label || "Date"}:</strong> {fmt(cd.date)}</div>)}
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10, fontSize: 12 }}>
+                      {v.hearingType && <div><span style={{ color: "#8A9096" }}>Hearing Type:</span> <span style={{ color: "var(--c-text)" }}>{v.hearingType}</span></div>}
+                      {v.attorney && <div><span style={{ color: "#8A9096" }}>Attorney:</span> <span style={{ color: "var(--c-text)" }}>{USERS.find(u => u.id === v.attorney)?.name || `#${v.attorney}`}</span></div>}
+                      {v.judge && <div><span style={{ color: "#8A9096" }}>Judge:</span> <span style={{ color: "var(--c-text)" }}>{v.judge}</span></div>}
+                    </div>
+
+                    {v.relatedCharges && <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 8 }}><strong>Related Charges:</strong> {v.relatedCharges}</div>}
+
+                    {v.outcome === "Revoked — Partial" && (v.jailTimeImposed || v.jailCredit || v.remainingProbation) && (
+                      <div style={{ background: "#dc262610", border: "1px solid #dc262633", borderRadius: 6, padding: "10px 12px", marginTop: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Partial Revocation</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, fontSize: 12 }}>
+                          {v.jailTimeImposed && <div><span style={{ color: "#8A9096" }}>Jail Time:</span> <span style={{ color: "var(--c-text)", fontWeight: 600 }}>{v.jailTimeImposed}</span></div>}
+                          {v.jailCredit && <div><span style={{ color: "#8A9096" }}>Jail Credit:</span> <span style={{ color: "var(--c-text)", fontWeight: 600 }}>{v.jailCredit}</span></div>}
+                          {v.remainingProbation && <div><span style={{ color: "#8A9096" }}>Remaining:</span> <span style={{ color: "var(--c-text)", fontWeight: 600 }}>{v.remainingProbation}</span></div>}
+                        </div>
+                      </div>
+                    )}
+
+                    {v.outcome === "Revoked — Full" && v.sentenceImposed && (
+                      <div style={{ background: "#dc262610", border: "1px solid #dc262633", borderRadius: 6, padding: "10px 12px", marginTop: 10, fontSize: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Full Revocation — Sentence</div>
+                        <div style={{ color: "var(--c-text)" }}>{v.sentenceImposed}</div>
+                      </div>
+                    )}
+
+                    {v.notes && <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 8, fontStyle: "italic" }}>{v.notes}</div>}
+
+                    {editMode && <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); setEditingV(v.id); }}>Edit</button>
+                      <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={(e) => { e.stopPropagation(); deleteViolation(v.id); }}>Delete</button>
+                    </div>}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, initialTab }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
@@ -4339,6 +4658,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <input type="checkbox" checked={!!draft.deathPenalty} onChange={e => setAndLog("deathPenalty", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#991b1b" }} />
                 {draft.deathPenalty ? "DEATH PENALTY" : "Death Penalty"}
               </label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: draft.probation ? 700 : 400, color: draft.probation ? "#fff" : "#8A9096", background: draft.probation ? "#1e3a5f" : "transparent", padding: draft.probation ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none", marginLeft: 4, letterSpacing: "0.03em" }} title="Flag this case as a probation case">
+                <input type="checkbox" checked={!!draft.probation} onChange={e => setAndLog("probation", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#1e3a5f" }} />
+                {draft.probation ? "PROBATION" : "Probation"}
+              </label>
             </div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
               {draft.title || "Untitled"}
@@ -4369,6 +4692,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="case-overlay-tabs">
           <div className={`case-overlay-tab ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}>Overview</div>
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
+          {draft.probation && <div className={`case-overlay-tab ${activeTab === "probation" ? "active" : ""}`} onClick={() => setActiveTab("probation")} style={{ color: activeTab === "probation" ? "#1e3a5f" : undefined }}>Probation</div>}
           <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Documents</div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
             Correspondence {correspondence.length > 0 && <span style={{ fontSize: 10, color: "#8A9096", marginLeft: 4 }}>({correspondence.length})</span>}
@@ -5493,6 +5817,30 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
           </div>
         )}
+
+        {/* ── Probation Tab ── */}
+        {activeTab === "probation" && draft.probation && (() => {
+          const PROBATION_TYPES = ["State Probation", "Community Corrections", "Court Referral Office", "Unsupervised"];
+          const CONDITION_OPTIONS = ["Community Service", "Drug Treatment", "Mental Health Treatment", "Anger Management", "Sex Offender Treatment", "Electronic Monitoring", "No Contact Order", "Curfew", "Employment Requirement", "Education Requirement", "Other"];
+          const VIOLATION_SOURCES = ["Probation Officer", "Law Enforcement", "Court", "Self-Report"];
+          const HEARING_TYPES = ["Preliminary", "Revocation", "Modification"];
+          const OUTCOMES = ["Pending", "Warning", "Modified Conditions", "Reinstated", "Revoked — Partial", "Revoked — Full", "Extended", "Time Served"];
+          const pd = draft.probationData || {};
+          const setPd = (key, val) => {
+            const updated = { ...(draft.probationData || {}), [key]: val };
+            setAndLog("probationData", updated);
+          };
+          const conditions = pd.additionalConditions || [];
+
+          return (
+            <ProbationTabContent
+              c={c} draft={draft} pd={pd} setPd={setPd} conditions={conditions}
+              PROBATION_TYPES={PROBATION_TYPES} CONDITION_OPTIONS={CONDITION_OPTIONS}
+              VIOLATION_SOURCES={VIOLATION_SOURCES} HEARING_TYPES={HEARING_TYPES} OUTCOMES={OUTCOMES}
+              editMode={editMode}
+            />
+          );
+        })()}
 
         {/* ── Files Tab ── */}
         {activeTab === "files" && (

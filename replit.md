@@ -63,6 +63,7 @@ server/
     ai-training.js — CRUD /api/ai-training + document upload (AI Agent Trainer entries)
     batch-cases.js — POST /api/batch-cases (preview + apply batch operations on cases)
     calendar-feeds.js — CRUD /api/calendar-feeds (per-user iCal feed persistence)
+    probation.js    — CRUD /api/probation/:caseId/violations (probation violation records)
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
     case-signature.docx   — Attorney signature block (auto-appended to Pleadings)
@@ -87,6 +88,7 @@ lextrack/
 - **Case Statuses**: Active, Closed, Pending, Disposed, Transferred
 - **Criminal-Specific Fields**: Defendant name, prosecutor, charge description/statute/class, court division (Circuit/District/Juvenile), custody status, bond amount/conditions, jail location, arrest/arraignment/next court/trial/sentencing/disposition dates, investigator, social worker
 - **Death Penalty Flag**: `death_penalty BOOLEAN` column on cases table (JS: `deathPenalty`). Toggle in case detail header (next to Confidential), checkbox in New Case modal. Red "DP" badge shown in main/pinned/deleted table rows and AI search results. 5 demo Circuit Court Class A Felony cases seeded with flag enabled
+- **Probation Flag & Tab**: `probation BOOLEAN` + `probation_data JSONB` columns on cases table (JS: `probation`, `probationData`). Toggle checkbox in case detail header (next to Death Penalty). When enabled, "Probation" tab appears between Details and Documents. Tab sections: (1) Probation Details — type (State Probation/Community Corrections/Court Referral Office/Unsupervised), officer name/contact, start/end dates, term length, supervising agency; (2) Additional Conditions — chip picker from predefined list + custom entries; (3) Fees & Obligations — total owed; (4) Violations — full CRUD via `case_probation_violations` table, supports violation date, type (Technical/Substantive), description, source, related charges, key dates (preliminary hearing, reconvening + custom label/date pairs), hearing type, attorney, judge, outcome (with partial/full revocation detail fields), sentence, notes. Routes: `server/routes/probation.js`
 
 ### Charge Tracking
 - Multiple charges per case stored as JSONB array

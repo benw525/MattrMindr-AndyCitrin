@@ -252,3 +252,9 @@ export const apiGetCalendarFeeds    = ()         => apiFetch("/api/calendar-feed
 export const apiCreateCalendarFeed  = (data)     => apiFetch("/api/calendar-feeds", { method: "POST", body: data });
 export const apiUpdateCalendarFeed  = (id, data) => apiFetch(`/api/calendar-feeds/${id}`, { method: "PATCH", body: data });
 export const apiDeleteCalendarFeed  = (id)       => apiFetch(`/api/calendar-feeds/${id}`, { method: "DELETE" });
+
+// Probation Violations
+export const apiGetProbationViolations    = (caseId)         => apiFetch(`/api/probation/${caseId}/violations`);
+export const apiCreateProbationViolation  = (caseId, data)   => apiFetch(`/api/probation/${caseId}/violations`, { method: "POST", body: data });
+export const apiUpdateProbationViolation  = (caseId, id, data) => apiFetch(`/api/probation/${caseId}/violations/${id}`, { method: "PUT", body: data });
+export const apiDeleteProbationViolation  = (caseId, id)     => apiFetch(`/api/probation/${caseId}/violations/${id}`, { method: "DELETE" });

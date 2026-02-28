@@ -46,6 +46,8 @@ const toFrontend = (row) => ({
   _hiddenFields: Array.isArray(row.hidden_fields) ? row.hidden_fields : [],
   confidential: !!row.confidential,
   deathPenalty: !!row.death_penalty,
+  probation: !!row.probation,
+  probationData: row.probation_data && typeof row.probation_data === "object" ? row.probation_data : {},
   _customTeam: Array.isArray(row.custom_team) ? row.custom_team : [],
   deletedAt: row.deleted_at ? row.deleted_at.toISOString() : null,
 });
@@ -162,8 +164,9 @@ router.post("/", requireAuth, async (req, res) => {
          custody_status, bond_amount, bond_conditions, jail_location, disposition_type,
          lead_attorney, second_attorney, trial_coordinator, investigator, social_worker,
          arrest_date, arraignment_date, next_court_date, trial_date, sentencing_date, disposition_date,
-         judge, charges, custom_fields, custom_dates, hidden_fields, offices, confidential, custom_team, death_penalty)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
+         judge, charges, custom_fields, custom_dates, hidden_fields, offices, confidential, custom_team, death_penalty,
+         probation, probation_data)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41)
        RETURNING *`,
       [
         d.caseNum || "", d.title, d.defendantName || "", d.prosecutor || "",
@@ -179,6 +182,7 @@ router.post("/", requireAuth, async (req, res) => {
         JSON.stringify(d._hiddenFields || []), d.offices || [],
         !!d.confidential, JSON.stringify(d._customTeam || []),
         !!d.deathPenalty,
+        !!d.probation, JSON.stringify(d.probationData || {}),
       ]
     );
     return res.status(201).json(toFrontend(rows[0]));
@@ -201,8 +205,9 @@ router.put("/:id", requireAuth, async (req, res) => {
         custody_status=$15, bond_amount=$16, bond_conditions=$17, jail_location=$18, disposition_type=$19,
         lead_attorney=$20, second_attorney=$21, trial_coordinator=$22, investigator=$23, social_worker=$24,
         arrest_date=$25, arraignment_date=$26, next_court_date=$27, trial_date=$28, sentencing_date=$29, disposition_date=$30,
-        judge=$31, charges=$32, custom_fields=$33, custom_dates=$34, hidden_fields=$35, offices=$36, confidential=$37, custom_team=$38, death_penalty=$39
-       WHERE id=$40 AND deleted_at IS NULL RETURNING *`,
+        judge=$31, charges=$32, custom_fields=$33, custom_dates=$34, hidden_fields=$35, offices=$36, confidential=$37, custom_team=$38, death_penalty=$39,
+        probation=$40, probation_data=$41
+       WHERE id=$42 AND deleted_at IS NULL RETURNING *`,
       [
         d.caseNum || "", d.title, d.defendantName || "", d.prosecutor || "",
         d.county || "", d.court || "", d.courtDivision || "",
@@ -217,6 +222,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         JSON.stringify(d._hiddenFields || []), d.offices || [],
         !!d.confidential, JSON.stringify(d._customTeam || []),
         !!d.deathPenalty,
+        !!d.probation, JSON.stringify(d.probationData || {}),
         req.params.id,
       ]
     );
