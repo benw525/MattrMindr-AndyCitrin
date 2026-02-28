@@ -62,6 +62,7 @@ server/
     time-entries.js — CRUD /api/time-entries (manual time log entries per user/case)
     ai-training.js — CRUD /api/ai-training + document upload (AI Agent Trainer entries)
     batch-cases.js — POST /api/batch-cases (preview + apply batch operations on cases)
+    calendar-feeds.js — CRUD /api/calendar-feeds (per-user iCal feed persistence)
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
     case-signature.docx   — Attorney signature block (auto-appended to Pleadings)
@@ -162,7 +163,7 @@ Two-tier system for customizing how all AI agents behave by injecting training c
 - Customizable Dashboard: per-user widget system with add/remove/reorder (drag-and-drop); Quick Notes widget for unassigned notes with speech-to-text, later assignable to cases with time tracking; Recent Activity widget clicks navigate to case detail with context-appropriate tab
 - Cases view with filtering, sorting, pagination (no "matters" concept — everything is a case)
 - Case Detail Overlay: editable criminal defense fields, task/note/link management, activity log, Documents tab (formerly Files — document upload/summary, inline-editable name/type), Correspondence tab, Filings tab (court filing management with AI classification). Details tab layout: top-left = Charges, top-right = Case Info + Offices, below = Co-Defendants, Misc Contacts, Experts. Notes: speech-to-text dictation via Web Speech API (browser-native, no external service)
-- Deadline Tracker: calendar grid, list view, iCal feed import, court rules calculator
+- Calendar (formerly Deadline Tracker): unified calendar grid with deadlines, tasks (due dates), case court/trial/arraignment/sentencing dates, and imported external iCal feeds. Visibility toggles per event type. Day detail panel groups events by type with clickable case links. Persistent iCal feed storage via `calendar_feeds` DB table (auto-imports on session load). Auto-detects case numbers and defendant names in imported calendar events. List view, add deadline form, iCal manager tab, court rules calculator
 - Tasks View: filterable task list with inline editing, auto-escalation, recurring tasks
 - Reports: pre-built report types with CSV export and print
 - Time Log: unified time tracking view; derives entries from task completions, notes, and correspondence; supports manual time entries
@@ -280,3 +281,4 @@ General, Motions, Discovery, Police Reports, Photographs, Expert Reports, Court 
 | case_documents | Uploaded case documents (PDF, DOCX, DOC, TXT) with BYTEA file storage, extracted text, AI summaries |
 | case_filings | Court filings (PDF only) with BYTEA storage, extracted text, AI classification (filed_by, doc_type, filing_date), AI summaries. Source tracking (email/upload) |
 | ai_training | AI training entries for customizing agent behavior. Fields: user_id, scope (personal/office), category, title, content (text or extracted document text), source_type (text/document), filename, active. Personal entries affect only owner's AI; office entries affect all users |
+| calendar_feeds | Per-user iCal feed URLs for the Calendar view. Fields: user_id, name, url, active (boolean). Feeds persist across sessions and auto-import on load |

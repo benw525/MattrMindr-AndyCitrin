@@ -27,6 +27,7 @@ import {
   apiGetTraining, apiCreateTraining, apiUploadTrainingDoc, apiUpdateTraining, apiDeleteTraining,
   apiGetPinnedCases, apiSetPinnedCases,
   apiBatchPreview, apiBatchApply,
+  apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
 } from "./api.js";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');`;
@@ -1379,7 +1380,7 @@ export default function App() {
           {[
             { id: "dashboard", icon: "⬛", label: "Dashboard" },
             { id: "cases", icon: "⚖️", label: "Cases" },
-            { id: "deadlines", icon: "📅", label: "Deadlines" },
+            { id: "deadlines", icon: "📅", label: "Calendar" },
             { id: "tasks", icon: "✅", label: "Tasks", badge: overdueBadge || null },
             { id: "documents", icon: "📄", label: "Templates" },
             { id: "timelog", icon: "🕐", label: "Time Log" },
@@ -1411,7 +1412,7 @@ export default function App() {
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} />}
-        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
+        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} />}
@@ -6686,7 +6687,7 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
 }
 
 // ─── iCal parser (client-side, no network needed for stored data) ─────────────
-function parseICalText(text, calName) {
+function parseICalText(text, calName, allCases) {
   const events = [];
   const lines = text.replace(/\r\n /g, "").replace(/\r\n\t/g, "").split(/\r?\n/);
   let inEvent = false, cur = {};
@@ -6694,7 +6695,24 @@ function parseICalText(text, calName) {
     const line = raw.trim();
     if (line === "BEGIN:VEVENT") { inEvent = true; cur = {}; }
     else if (line === "END:VEVENT") {
-      if (cur.date && cur.title) events.push({ ...cur, id: newId(), source: calName, isExternal: true });
+      if (cur.date && cur.title) {
+        let matchedCaseId = null;
+        if (allCases && allCases.length) {
+          const titleLower = cur.title.toLowerCase();
+          const descLower = (cur.notes || "").toLowerCase();
+          const combined = titleLower + " " + descLower;
+          for (const c of allCases) {
+            if (c.caseNum && combined.includes(c.caseNum.toLowerCase())) { matchedCaseId = c.id; break; }
+            if (c.shortCaseNum && combined.includes(c.shortCaseNum.toLowerCase())) { matchedCaseId = c.id; break; }
+          }
+          if (!matchedCaseId) {
+            for (const c of allCases) {
+              if (c.defendantName && c.defendantName.length > 3 && combined.includes(c.defendantName.toLowerCase())) { matchedCaseId = c.id; break; }
+            }
+          }
+        }
+        events.push({ ...cur, id: newId(), source: calName, isExternal: true, caseId: matchedCaseId });
+      }
       inEvent = false; cur = {};
     } else if (inEvent) {
       if (line.startsWith("SUMMARY:")) cur.title = line.slice(8).trim();
@@ -6712,16 +6730,20 @@ function parseICalText(text, calName) {
 }
 
 // ─── Calendar Grid ────────────────────────────────────────────────────────────
-function CalendarGrid({ deadlines, allCases, externalEvents }) {
+function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase }) {
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
-  const [calMonth, setCalMonth] = useState(now.getMonth()); // 0-indexed
-  const [selected, setSelected] = useState(null); // date string "YYYY-MM-DD"
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const [selected, setSelected] = useState(null);
+
+  const [showDeadlines, setShowDeadlines] = useState(true);
+  const [showTasks, setShowTasks] = useState(true);
+  const [showCourtDates, setShowCourtDates] = useState(true);
+  const [showExternal, setShowExternal] = useState(true);
 
   const monthName = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  // Build day grid: always 6 rows × 7 cols
-  const firstDow = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const firstDow = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const cells = [];
   for (let i = 0; i < 42; i++) {
@@ -6731,14 +6753,25 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
     cells.push(dateStr);
   }
 
-  // Index all events by date
+  const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#b8860b", trial: "#dc2626", arraignment: "#0891b2", sentencing: "#7c3aed", external: "#5588cc" };
+  const KIND_ICONS = { deadline: "📋", task: "✅", "court-date": "⚖", trial: "⚖", arraignment: "⚖", sentencing: "⚖", external: "📅" };
+  const KIND_LABELS = { deadline: "Deadline", task: "Task", "court-date": "Court Date", trial: "Trial", arraignment: "Arraignment", sentencing: "Sentencing", external: "External" };
+
   const eventsByDate = useMemo(() => {
     const map = {};
-    const addTo = (dateStr, item) => { if (!map[dateStr]) map[dateStr] = []; map[dateStr].push(item); };
-    deadlines.forEach(d => { if (d.date) addTo(d.date, { ...d, kind: "deadline" }); });
-    externalEvents.forEach(e => { if (e.date) addTo(e.date, { ...e, kind: "external" }); });
+    const addTo = (dateStr, item) => { if (!dateStr) return; if (!map[dateStr]) map[dateStr] = []; map[dateStr].push(item); };
+    if (showDeadlines) deadlines.forEach(d => { if (d.date) addTo(d.date, { ...d, kind: "deadline" }); });
+    if (showTasks) (tasks || []).forEach(t => { if (t.due && t.status !== "Completed") addTo(t.due, { id: t.id, title: t.title, date: t.due, kind: "task", priority: t.priority, status: t.status, caseId: t.caseId, assigned: t.assigned }); });
+    if (showCourtDates) (allCases || []).forEach(c => {
+      if (c.status !== "Active") return;
+      if (c.nextCourtDate) addTo(c.nextCourtDate, { id: `court-${c.id}`, title: `${c.defendantName || c.title} — Court Date`, date: c.nextCourtDate, kind: "court-date", caseId: c.id });
+      if (c.trialDate) addTo(c.trialDate, { id: `trial-${c.id}`, title: `${c.defendantName || c.title} — Trial`, date: c.trialDate, kind: "trial", caseId: c.id });
+      if (c.arraignmentDate) addTo(c.arraignmentDate, { id: `arraign-${c.id}`, title: `${c.defendantName || c.title} — Arraignment`, date: c.arraignmentDate, kind: "arraignment", caseId: c.id });
+      if (c.sentencingDate) addTo(c.sentencingDate, { id: `sent-${c.id}`, title: `${c.defendantName || c.title} — Sentencing`, date: c.sentencingDate, kind: "sentencing", caseId: c.id });
+    });
+    if (showExternal) externalEvents.forEach(e => { if (e.date) addTo(e.date, { ...e, kind: "external" }); });
     return map;
-  }, [deadlines, externalEvents]);
+  }, [deadlines, tasks, allCases, externalEvents, showDeadlines, showTasks, showCourtDates, showExternal]);
 
   const selectedEvents = selected ? (eventsByDate[selected] || []) : [];
 
@@ -6749,15 +6782,17 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
   const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); setSelected(null); };
 
   const chipColor = (item) => {
-    if (item.kind === "external") return "#5588cc";
+    if (KIND_COLORS[item.kind]) return KIND_COLORS[item.kind];
     return urgencyColor(daysUntil(item.date));
   };
 
+  const chipPrefix = (item) => KIND_ICONS[item.kind] || "";
+
+  const toggleStyle = (active) => ({ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", opacity: active ? 1 : 0.4, transition: "opacity 0.15s", userSelect: "none" });
+
   return (
     <div className="mobile-grid-1" style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-      {/* Calendar */}
       <div className="card" style={{ flex: 1, minWidth: 0 }}>
-        {/* Month nav */}
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <button className="btn btn-outline btn-sm" onClick={prevMonth}>← Prev</button>
           <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "var(--c-text-h)", fontWeight: 600 }}>{monthName}</div>
@@ -6767,22 +6802,30 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
           </div>
         </div>
 
-        {/* Legend */}
-        <div style={{ padding: "8px 18px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 16, flexWrap: "wrap" }}>
-          {[["#e05252","Overdue"],["#e07a30","≤7 days"],["#1E2A3A","≤21 days"],["#4CAE72","Upcoming"],["#5588cc","External Cal"]].map(([col,lbl]) => (
-            <div key={lbl} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: col, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: "#8A9096" }}>{lbl}</span>
-            </div>
-          ))}
+        <div style={{ padding: "8px 18px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#8A9096", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 2 }}>Show:</span>
+          <div style={toggleStyle(showDeadlines)} onClick={() => setShowDeadlines(v => !v)}>
+            <input type="checkbox" checked={showDeadlines} readOnly style={{ accentColor: "#e07a30", width: 13, height: 13, cursor: "pointer" }} />
+            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>📋 Deadlines</span>
+          </div>
+          <div style={toggleStyle(showTasks)} onClick={() => setShowTasks(v => !v)}>
+            <input type="checkbox" checked={showTasks} readOnly style={{ accentColor: "#8b5cf6", width: 13, height: 13, cursor: "pointer" }} />
+            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>✅ Tasks</span>
+          </div>
+          <div style={toggleStyle(showCourtDates)} onClick={() => setShowCourtDates(v => !v)}>
+            <input type="checkbox" checked={showCourtDates} readOnly style={{ accentColor: "#b8860b", width: 13, height: 13, cursor: "pointer" }} />
+            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>⚖ Court Dates</span>
+          </div>
+          <div style={toggleStyle(showExternal)} onClick={() => setShowExternal(v => !v)}>
+            <input type="checkbox" checked={showExternal} readOnly style={{ accentColor: "#5588cc", width: 13, height: 13, cursor: "pointer" }} />
+            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>📅 External</span>
+          </div>
         </div>
 
-        {/* Day headers */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: "1px solid var(--c-border)" }}>
           {DOW.map(d => <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "#8A9096", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>{d}</div>)}
         </div>
 
-        {/* Day cells */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
           {cells.map((dateStr, i) => {
             if (!dateStr) return <div key={i} style={{ minHeight: 80, borderRight: "1px solid var(--c-border2)", borderBottom: "1px solid var(--c-border2)", background: "var(--c-card)" }} />;
@@ -6793,16 +6836,19 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
             const borderR = (i + 1) % 7 !== 0 ? "1px solid var(--c-border2)" : "none";
             return (
               <div key={dateStr} onClick={() => setSelected(isSelected ? null : dateStr)}
-                style={{ minHeight: 80, borderRight: borderR, borderBottom: "1px solid var(--c-border2)", padding: "6px 7px", cursor: events.length ? "pointer" : "default", background: isSelected ? "#E4E7EB" : isToday ? "#E4E7EB" : "transparent", transition: "background 0.1s", position: "relative" }}>
+                style={{ minHeight: 80, borderRight: borderR, borderBottom: "1px solid var(--c-border2)", padding: "6px 7px", cursor: "pointer", background: isSelected ? "#E4E7EB" : isToday ? "#E4E7EB" : "transparent", transition: "background 0.1s", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? "#1E2A3A" : "#8A9096", width: 22, height: 22, borderRadius: "50%", background: isToday ? "#1E2A3A12" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{dayNum}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {events.slice(0, 3).map((ev, ei) => (
-                    <div key={ei} style={{ background: chipColor(ev) + "22", border: `1px solid ${chipColor(ev)}55`, borderRadius: 3, padding: "1px 4px", fontSize: 10, color: chipColor(ev), fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {ev.title}
-                    </div>
-                  ))}
+                  {events.slice(0, 3).map((ev, ei) => {
+                    const col = chipColor(ev);
+                    return (
+                      <div key={ei} style={{ background: col + "22", border: `1px solid ${col}55`, borderRadius: 3, padding: "1px 4px", fontSize: 10, color: col, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {chipPrefix(ev)} {ev.title?.slice(0, 22)}
+                      </div>
+                    );
+                  })}
                   {events.length > 3 && <div style={{ fontSize: 10, color: "#8A9096", paddingLeft: 2 }}>+{events.length - 3} more</div>}
                 </div>
               </div>
@@ -6811,79 +6857,129 @@ function CalendarGrid({ deadlines, allCases, externalEvents }) {
         </div>
       </div>
 
-      {/* Day detail panel */}
-      <div className="card mobile-full" style={{ width: 300, flexShrink: 0 }}>
+      <div className="card mobile-full" style={{ width: 320, flexShrink: 0 }}>
         <div className="card-header">
           <div className="card-title">{selected ? fmt(selected) : "Select a date"}</div>
           {selected && <span style={{ fontSize: 12, color: "#8A9096" }}>{selectedEvents.length} event{selectedEvents.length !== 1 ? "s" : ""}</span>}
         </div>
-        {!selected && <div className="empty" style={{ padding: "30px 20px" }}>Click any date to see its deadlines and events.</div>}
-        {selected && selectedEvents.length === 0 && <div className="empty" style={{ padding: "30px 20px" }}>No deadlines or events on this date.</div>}
-        {selected && selectedEvents.map((ev, i) => {
-          const col = chipColor(ev);
-          const cs = ev.caseId ? allCases.find(c => c.id === ev.caseId) : null;
-          return (
-            <div key={i} style={{ padding: "12px 16px", borderBottom: "1px solid var(--c-border2)" }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <div style={{ width: 10, height: 10, borderRadius: "50%", background: col, flexShrink: 0, marginTop: 3 }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600, marginBottom: 3 }}>{ev.title}</div>
-                  {ev.kind === "deadline" && cs && <div style={{ fontSize: 11, color: "#8A9096" }}>{cs.title?.slice(0, 45)}</div>}
-                  {ev.kind === "deadline" && ev.type && <Badge label={ev.type} />}
-                  {ev.kind === "external" && <div style={{ fontSize: 11, color: "#5588cc", marginTop: 2 }}>📅 {ev.source}</div>}
-                  {ev.location && <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>📍 {ev.location}</div>}
-                  {ev.notes && <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2, fontStyle: "italic" }}>{ev.notes.slice(0, 80)}</div>}
-                </div>
+        {!selected && <div className="empty" style={{ padding: "30px 20px" }}>Click any date to see events.</div>}
+        {selected && selectedEvents.length === 0 && <div className="empty" style={{ padding: "30px 20px" }}>No events on this date.</div>}
+        {selected && (() => {
+          const grouped = {};
+          selectedEvents.forEach(ev => { const k = ev.kind; if (!grouped[k]) grouped[k] = []; grouped[k].push(ev); });
+          const order = ["deadline","task","court-date","trial","arraignment","sentencing","external"];
+          return order.filter(k => grouped[k]).map(kind => (
+            <div key={kind}>
+              <div style={{ padding: "6px 16px", fontSize: 10, fontWeight: 700, color: "#8A9096", textTransform: "uppercase", letterSpacing: "0.08em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)" }}>
+                {KIND_ICONS[kind]} {KIND_LABELS[kind]}s ({grouped[kind].length})
               </div>
+              {grouped[kind].map((ev, i) => {
+                const col = chipColor(ev);
+                const cs = ev.caseId ? allCases.find(c => c.id === ev.caseId) : null;
+                return (
+                  <div key={i} style={{ padding: "10px 16px", borderBottom: "1px solid var(--c-border2)", borderLeft: `3px solid ${col}` }}>
+                    <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600, marginBottom: 3 }}>{ev.title}</div>
+                    {kind === "deadline" && ev.type && <Badge label={ev.type} />}
+                    {kind === "deadline" && ev.rule && <div style={{ fontSize: 10, color: "#8A9096", fontFamily: "monospace", marginTop: 2 }}>{ev.rule}</div>}
+                    {kind === "task" && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3 }}>
+                        {ev.priority && <Badge label={ev.priority} />}
+                        <span style={{ fontSize: 11, color: "#8A9096" }}>{ev.status || "Open"}</span>
+                      </div>
+                    )}
+                    {kind === "external" && <div style={{ fontSize: 11, color: "#5588cc", marginTop: 2 }}>📅 {ev.source}</div>}
+                    {ev.location && <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2 }}>📍 {ev.location}</div>}
+                    {ev.notes && <div style={{ fontSize: 11, color: "#8A9096", marginTop: 2, fontStyle: "italic" }}>{(ev.notes || "").slice(0, 80)}</div>}
+                    {cs && (
+                      <div style={{ marginTop: 4 }}>
+                        <span onClick={() => onSelectCase && onSelectCase(cs)} style={{ fontSize: 11, color: "#4F7393", cursor: "pointer", fontWeight: 500, textDecoration: "underline" }}>
+                          {cs.defendantName || cs.title}{cs.caseNum ? ` (${cs.caseNum})` : ""}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          ));
+        })()}
       </div>
     </div>
   );
 }
 
 // ─── iCal Feeds Manager ───────────────────────────────────────────────────────
-function ICalManager({ externalEvents, setExternalEvents }) {
-  const [feeds, setFeeds] = useState([]); // { id, name, url, status, count }
+function ICalManager({ externalEvents, setExternalEvents, allCases }) {
+  const [feeds, setFeeds] = useState([]);
   const [newFeed, setNewFeed] = useState({ name: "", url: "" });
   const [importing, setImporting] = useState(null);
   const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
-  const importFeed = async (feed) => {
+  useEffect(() => {
+    if (loaded) return;
+    apiGetCalendarFeeds().then(saved => {
+      const mapped = saved.map(f => ({ id: f.id, name: f.name, url: f.url, active: f.active, status: "pending", count: 0, dbId: f.id }));
+      setFeeds(mapped);
+      setLoaded(true);
+      mapped.filter(f => f.active).forEach(f => syncFeed(f));
+    }).catch(() => setLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const syncFeed = async (feed) => {
     setImporting(feed.id);
     setError("");
     try {
-      // Normalize webcal:// → https://
       let url = feed.url.trim().replace(/^webcal:\/\//i, "https://");
-      // Use a CORS proxy since browsers can't fetch iCal feeds directly cross-origin
       const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
       const res = await fetch(proxyUrl);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       if (!text.includes("BEGIN:VCALENDAR")) throw new Error("Not a valid iCal feed");
-      const events = parseICalText(text, feed.name);
+      const events = parseICalText(text, feed.name, allCases);
       setExternalEvents(prev => [...prev.filter(e => e.source !== feed.name), ...events]);
       setFeeds(f => f.map(x => x.id === feed.id ? { ...x, status: "ok", count: events.length, lastSync: new Date().toLocaleTimeString() } : x));
     } catch (e) {
       setFeeds(f => f.map(x => x.id === feed.id ? { ...x, status: "error", error: e.message } : x));
-      setError(`Could not import "${feed.name}": ${e.message}. Some calendar providers require you to use their public sharing URL. Try copying the URL directly from your calendar app's "Share" or "Publish" settings.`);
+      setError(`Could not import "${feed.name}": ${e.message}. Try the public sharing URL from your calendar app's settings.`);
     } finally {
       setImporting(null);
     }
   };
 
-  const addFeed = () => {
+  const addFeed = async () => {
     if (!newFeed.name.trim() || !newFeed.url.trim()) return;
-    const feed = { id: newId(), name: newFeed.name.trim(), url: newFeed.url.trim(), status: "pending", count: 0 };
-    setFeeds(f => [...f, feed]);
-    setNewFeed({ name: "", url: "" });
-    importFeed(feed);
+    try {
+      const saved = await apiCreateCalendarFeed({ name: newFeed.name.trim(), url: newFeed.url.trim() });
+      const feed = { id: saved.id, name: saved.name, url: saved.url, active: true, status: "pending", count: 0, dbId: saved.id };
+      setFeeds(f => [...f, feed]);
+      setNewFeed({ name: "", url: "" });
+      syncFeed(feed);
+    } catch (e) {
+      setError("Failed to save feed: " + e.message);
+    }
   };
 
-  const removeFeed = (id, name) => {
+  const removeFeed = async (id, name) => {
+    try {
+      await apiDeleteCalendarFeed(id);
+    } catch (e) { /* ignore */ }
     setFeeds(f => f.filter(x => x.id !== id));
     setExternalEvents(prev => prev.filter(e => e.source !== name));
+  };
+
+  const toggleActive = async (feed) => {
+    const newActive = !feed.active;
+    try {
+      await apiUpdateCalendarFeed(feed.id, { active: newActive });
+    } catch (e) { /* ignore */ }
+    setFeeds(f => f.map(x => x.id === feed.id ? { ...x, active: newActive } : x));
+    if (!newActive) {
+      setExternalEvents(prev => prev.filter(e => e.source !== feed.name));
+    } else {
+      syncFeed({ ...feed, active: true });
+    }
   };
 
   return (
@@ -6895,11 +6991,10 @@ function ICalManager({ externalEvents, setExternalEvents }) {
         </div>
         <div style={{ padding: 20 }}>
           <div style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 16, lineHeight: 1.6 }}>
-            Add any iCal/webcal feed URL to overlay external events on the calendar — court dockets, Google Calendar, Outlook, bar association deadlines, etc.
+            Add any iCal/webcal feed URL to overlay external events on the calendar — court dockets, Google Calendar, Outlook, bar association deadlines, etc. Feeds are saved and auto-imported on each session.
             <br /><span style={{ fontSize: 11, color: "#8A9096" }}>Tip: In Google Calendar, go to the calendar's settings → "Integrate calendar" → copy the public iCal address. In Outlook, use File → Account Settings → Internet Calendars.</span>
           </div>
 
-          {/* Add feed form */}
           <div style={{ background: "var(--c-bg)", border: "1px solid var(--c-border3)", borderRadius: 7, padding: 16, marginBottom: feeds.length ? 16 : 0 }}>
             <div style={{ fontSize: 12, color: "#1E2A3A", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>Add New Calendar Feed</div>
             <div className="form-row" style={{ marginBottom: 10 }}>
@@ -6923,9 +7018,8 @@ function ICalManager({ externalEvents, setExternalEvents }) {
             </div>
           )}
 
-          {/* Feed list */}
           {feeds.map(feed => (
-            <div key={feed.id} style={{ background: "var(--c-bg)", border: "1px solid var(--c-border3)", borderRadius: 7, padding: "12px 14px", marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
+            <div key={feed.id} style={{ background: "var(--c-bg)", border: "1px solid var(--c-border3)", borderRadius: 7, padding: "12px 14px", marginTop: 10, display: "flex", alignItems: "center", gap: 12, opacity: feed.active ? 1 : 0.5, transition: "opacity 0.15s" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}>{feed.name}</div>
@@ -6938,7 +7032,10 @@ function ICalManager({ externalEvents, setExternalEvents }) {
                 {feed.status === "error" && feed.error && <div style={{ fontSize: 11, color: "#994444", marginTop: 3 }}>{feed.error}</div>}
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <button className="btn btn-outline btn-sm" onClick={() => importFeed(feed)} disabled={importing === feed.id}>
+                <button className="btn btn-outline btn-sm" onClick={() => toggleActive(feed)} title={feed.active ? "Disable feed" : "Enable feed"}>
+                  {feed.active ? "On" : "Off"}
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={() => syncFeed(feed)} disabled={importing === feed.id || !feed.active}>
                   {importing === feed.id ? "…" : "↻ Sync"}
                 </button>
                 <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => removeFeed(feed.id, feed.name)}>✕</button>
@@ -6954,7 +7051,6 @@ function ICalManager({ externalEvents, setExternalEvents }) {
         </div>
       </div>
 
-      {/* Help section */}
       <div className="card">
         <div className="card-header"><div className="card-title">Where to find iCal URLs</div></div>
         <div style={{ padding: 20 }}>
@@ -6976,8 +7072,8 @@ function ICalManager({ externalEvents, setExternalEvents }) {
   );
 }
 
-// ─── Deadlines View ───────────────────────────────────────────────────────────
-function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds }) {
+// ─── Calendar View ────────────────────────────────────────────────────────────
+function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds, onSelectCase }) {
   const [tab, setTab] = useState("calendar");
   const [typeFilter, setTypeFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -7018,7 +7114,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
       <div className="topbar">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button className="hamburger-btn" onClick={onMenuToggle}>☰</button>
-          <div><div className="topbar-title">Deadline Tracker</div><div className="topbar-subtitle">{deadlines.filter(d => daysUntil(d.date) < 0).length} overdue · {deadlines.filter(d => { const n = daysUntil(d.date); return n >= 0 && n <= 7; }).length} this week · {deadlines.length} total{externalEvents.length ? ` · ${externalEvents.length} external` : ""}</div></div>
+          <div><div className="topbar-title">Calendar</div><div className="topbar-subtitle">{deadlines.filter(d => daysUntil(d.date) < 0).length} overdue · {deadlines.filter(d => { const n = daysUntil(d.date); return n >= 0 && n <= 7; }).length} this week · {deadlines.length} deadlines{externalEvents.length ? ` · ${externalEvents.length} external` : ""}</div></div>
         </div>
       </div>
       <div className="content">
@@ -7029,7 +7125,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
         </div>
 
         {tab === "calendar" && (
-          <CalendarGrid deadlines={deadlines} allCases={allCases} externalEvents={externalEvents} />
+          <CalendarGrid deadlines={deadlines} tasks={tasks} allCases={allCases} externalEvents={externalEvents} onSelectCase={onSelectCase} />
         )}
 
         {tab === "list" && (
@@ -7160,7 +7256,7 @@ function DeadlinesView({ deadlines, onAddDeadline, allCases, calcInputs, setCalc
         )}
 
         {tab === "ical" && (
-          <ICalManager externalEvents={externalEvents} setExternalEvents={setExternalEvents} />
+          <ICalManager externalEvents={externalEvents} setExternalEvents={setExternalEvents} allCases={allCases} />
         )}
 
         {tab === "calc" && (

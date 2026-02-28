@@ -29,6 +29,7 @@ const caseDocumentsRoutes    = require("./routes/case-documents");
 const filingsRoutes          = require("./routes/filings");
 const aiTrainingRoutes       = require("./routes/ai-training");
 const batchCasesRoutes       = require("./routes/batch-cases");
+const calendarFeedsRoutes    = require("./routes/calendar-feeds");
 
 const app  = express();
 const PORT = process.env.API_PORT || 3001;
@@ -88,6 +89,7 @@ app.use("/api/case-documents", caseDocumentsRoutes);
 app.use("/api/filings",        filingsRoutes);
 app.use("/api/ai-training",    aiTrainingRoutes);
 app.use("/api/batch-cases",    batchCasesRoutes);
+app.use("/api/calendar-feeds", calendarFeedsRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

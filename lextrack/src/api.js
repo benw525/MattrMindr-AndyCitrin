@@ -246,3 +246,9 @@ export const apiSetPinnedCases    = (pinnedIds) => apiFetch("/api/cases/pinned",
 // Batch Case Operations
 export const apiBatchPreview = (data) => apiFetch("/api/batch-cases/preview", { method: "POST", body: data });
 export const apiBatchApply   = (data) => apiFetch("/api/batch-cases",         { method: "POST", body: data });
+
+// Calendar Feeds
+export const apiGetCalendarFeeds    = ()         => apiFetch("/api/calendar-feeds");
+export const apiCreateCalendarFeed  = (data)     => apiFetch("/api/calendar-feeds", { method: "POST", body: data });
+export const apiUpdateCalendarFeed  = (id, data) => apiFetch(`/api/calendar-feeds/${id}`, { method: "PATCH", body: data });
+export const apiDeleteCalendarFeed  = (id)       => apiFetch(`/api/calendar-feeds/${id}`, { method: "DELETE" });

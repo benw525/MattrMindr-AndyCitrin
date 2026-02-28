@@ -333,6 +333,17 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS calendar_feeds (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name        TEXT    NOT NULL,
+        url         TEXT    NOT NULL,
+        active      BOOLEAN NOT NULL DEFAULT true,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
     await client.query(`ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL`).catch(() => {});
 
     await client.query("COMMIT");
