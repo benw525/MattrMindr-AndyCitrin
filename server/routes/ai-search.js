@@ -17,7 +17,7 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   try {
-    const [casesResult, notesResult, activityResult, tasksResult, deadlinesResult, linksResult, usersResult, partiesResult, insuranceResult, expertsResult, corrResult] = await Promise.all([
+    const [casesResult, notesResult, activityResult, tasksResult, deadlinesResult, linksResult, usersResult, partiesResult, expertsResult, corrResult] = await Promise.all([
       pool.query("SELECT * FROM cases WHERE deleted_at IS NULL AND confidential = FALSE ORDER BY title"),
       pool.query("SELECT case_id, body, type FROM case_notes ORDER BY created_at DESC"),
       pool.query("SELECT case_id, action, detail FROM case_activity ORDER BY ts DESC"),
@@ -26,7 +26,6 @@ router.post("/", requireAuth, async (req, res) => {
       pool.query("SELECT case_id, label, category FROM case_links"),
       pool.query("SELECT id, name, role FROM users"),
       pool.query("SELECT case_id, party_type, data FROM case_parties"),
-      pool.query("SELECT case_id, data FROM case_insurance"),
       pool.query("SELECT case_id, data FROM case_experts"),
       pool.query("SELECT case_id, subject, from_email, to_emails FROM case_correspondence ORDER BY received_at DESC"),
     ]);
@@ -36,16 +35,16 @@ router.post("/", requireAuth, async (req, res) => {
     const notesByCase = {};
     for (const n of notesResult.rows) {
       if (!notesByCase[n.case_id]) notesByCase[n.case_id] = [];
-      if (notesByCase[n.case_id].length < 10) {
-        notesByCase[n.case_id].push({ type: n.type, body: (n.body || "").substring(0, 200) });
+      if (notesByCase[n.case_id].length < 5) {
+        notesByCase[n.case_id].push({ type: n.type, body: (n.body || "").substring(0, 120) });
       }
     }
 
     const activityByCase = {};
     for (const a of activityResult.rows) {
       if (!activityByCase[a.case_id]) activityByCase[a.case_id] = [];
-      if (activityByCase[a.case_id].length < 5) {
-        activityByCase[a.case_id].push({ action: a.action, detail: (a.detail || "").substring(0, 150) });
+      if (activityByCase[a.case_id].length < 3) {
+        activityByCase[a.case_id].push({ action: a.action, detail: (a.detail || "").substring(0, 100) });
       }
     }
 
@@ -87,19 +86,6 @@ router.post("/", requireAuth, async (req, res) => {
       }
     }
 
-    const insuranceByCase = {};
-    for (const ins of insuranceResult.rows) {
-      if (!insuranceByCase[ins.case_id]) insuranceByCase[ins.case_id] = [];
-      const d = typeof ins.data === "string" ? JSON.parse(ins.data) : (ins.data || {});
-      const info = [];
-      if (d.carrier) info.push(`Carrier:${d.carrier}`);
-      if (d.policyNum) info.push(`Policy#:${d.policyNum}`);
-      if (d.claimNum) info.push(`Claim#:${d.claimNum}`);
-      if (d.adjuster) info.push(`Adjuster:${d.adjuster}`);
-      if (d.coverageType) info.push(`Type:${d.coverageType}`);
-      if (d.policyLimit) info.push(`Limit:$${d.policyLimit}`);
-      if (info.length) insuranceByCase[ins.case_id].push(info.join(" "));
-    }
 
     const expertsByCase = {};
     for (const ex of expertsResult.rows) {
@@ -132,50 +118,40 @@ router.post("/", requireAuth, async (req, res) => {
       parts.push(`ID:${c.id}`);
       parts.push(`"${c.title}"`);
       if (c.case_num) parts.push(`Case#:${c.case_num}`);
-      if (c.claim_num) parts.push(`Claim#:${c.claim_num}`);
-      if (c.file_num) parts.push(`File#:${c.file_num}`);
-      if (c.client) parts.push(`Client:${c.client}`);
-      if (c.insured) parts.push(`Insured:${c.insured}`);
-      if (c.plaintiff) parts.push(`Plaintiff:${c.plaintiff}`);
-      if (c.defendant) parts.push(`Defendant:${c.defendant}`);
-      if (c.opposing_counsel) parts.push(`OpposingCounsel:${c.opposing_counsel}`);
-      if (c.short_case_num) parts.push(`ShortCaseNum:${c.short_case_num}`);
+      if (c.defendant_name) parts.push(`Defendant:${c.defendant_name}`);
+      if (c.prosecutor) parts.push(`Prosecutor:${c.prosecutor}`);
       if (c.county) parts.push(`County:${c.county}`);
       if (c.court) parts.push(`Court:${c.court}`);
-      if (c.adjuster) parts.push(`Adjuster:${c.adjuster}`);
-      parts.push(`Type:${c.type || "Civil Litigation"}`);
+      parts.push(`Type:${c.type || "Felony"}`);
       parts.push(`Status:${c.status}`);
       if (c.stage) parts.push(`Stage:${c.stage}`);
       if (c.court_division) parts.push(`Division:${c.court_division}`);
+      if (c.custody_status) parts.push(`Custody:${c.custody_status}`);
+      if (c.bond_amount) parts.push(`Bond:${c.bond_amount}`);
+      if (c.jail_location) parts.push(`Jail:${c.jail_location}`);
+      if (c.charge_description) parts.push(`Charge:${c.charge_description}`);
+      if (c.charge_statute) parts.push(`Statute:${c.charge_statute}`);
+      if (c.charge_class) parts.push(`Class:${c.charge_class}`);
       if (c.lead_attorney && usersMap[c.lead_attorney]) parts.push(`LeadAtty:${usersMap[c.lead_attorney]}`);
       if (c.second_attorney && usersMap[c.second_attorney]) parts.push(`2ndAtty:${usersMap[c.second_attorney]}`);
       if (c.trial_coordinator && usersMap[c.trial_coordinator]) parts.push(`TrialCoordinator:${usersMap[c.trial_coordinator]}`);
       if (c.judge) parts.push(`Judge:${c.judge}`);
-      if (c.mediator) parts.push(`Mediator:${c.mediator}`);
-      if (c.expert) parts.push(`Expert:${c.expert}`);
       if (c.trial_date) parts.push(`Trial:${c.trial_date.toISOString().split("T")[0]}`);
-      if (c.mediation) parts.push(`Mediation:${c.mediation.toISOString().split("T")[0]}`);
-      if (c.dol) parts.push(`DOL:${c.dol.toISOString().split("T")[0]}`);
+      if (c.arrest_date) parts.push(`Arrest:${c.arrest_date.toISOString().split("T")[0]}`);
+      if (c.next_court_date) parts.push(`NextCourt:${c.next_court_date.toISOString().split("T")[0]}`);
+      if (c.disposition_type) parts.push(`Disposition:${c.disposition_type}`);
+      if (c.death_penalty) parts.push(`DeathPenalty:YES`);
+      if (c.probation) parts.push(`Probation:YES`);
+
+      const charges = Array.isArray(c.charges) ? c.charges : [];
+      if (charges.length) {
+        const chargeStr = charges.slice(0, 5).map(ch => `${ch.description || ""}${ch.statute ? " (" + ch.statute + ")" : ""}${ch.class ? " [" + ch.class + "]" : ""}`).filter(Boolean).join("; ");
+        if (chargeStr) parts.push(`Charges:[${chargeStr}]`);
+      }
 
       const customFields = Array.isArray(c.custom_fields) ? c.custom_fields : [];
-      for (const cf of customFields) {
+      for (const cf of customFields.slice(0, 3)) {
         if (cf.value) parts.push(`${cf.label}:${cf.value}`);
-      }
-      const customDates = Array.isArray(c.custom_dates) ? c.custom_dates : [];
-      for (const cd of customDates) {
-        if (cd.value) parts.push(`${cd.label}:${cd.value}`);
-      }
-
-      const billingParties = Array.isArray(c.billing_parties) ? c.billing_parties : [];
-      for (const bp of billingParties) {
-        if (bp.name) parts.push(`BillingParty:${bp.name}`);
-        if (bp.medicals) parts.push(`Medicals:$${bp.medicals}`);
-        if (bp.settlement) parts.push(`Settlement:$${bp.settlement}`);
-      }
-
-      const caseExpenses = Array.isArray(c.case_expenses) ? c.case_expenses : [];
-      for (const ce of caseExpenses) {
-        if (ce.description) parts.push(`Expense:${ce.description}${ce.amount ? " $" + ce.amount : ""}`);
       }
 
       const notes = notesByCase[c.id] || [];
@@ -208,11 +184,6 @@ router.post("/", requireAuth, async (req, res) => {
         parts.push("Parties:[" + parties.join("; ") + "]");
       }
 
-      const ins = insuranceByCase[c.id] || [];
-      if (ins.length) {
-        parts.push("Insurance:[" + ins.join("; ") + "]");
-      }
-
       const exps = expertsByCase[c.id] || [];
       if (exps.length) {
         parts.push("Experts:[" + exps.join("; ") + "]");
@@ -223,19 +194,10 @@ router.post("/", requireAuth, async (req, res) => {
         parts.push("Emails:[" + corr.join("; ") + "]");
       }
 
-      const medSummary = Array.isArray(c.medical_summary) ? c.medical_summary : [];
-      for (const mp of medSummary) {
-        if (mp.name) {
-          const providers = (mp.entries || []).map(e => e.provider).filter(Boolean);
-          const uniqueProviders = [...new Set(providers)];
-          if (uniqueProviders.length) parts.push(`MedProviders(${mp.name}):[${uniqueProviders.join(",")}]`);
-        }
-      }
-
       return parts.join(" | ");
     });
 
-    const systemPrompt = `You are a legal case search assistant for a law firm's case management system. The user will ask a question and you must find matching cases from the data provided.
+    const systemPrompt = `You are a legal case search assistant for a criminal defense case management system. The user will ask a question and you must find matching cases from the data provided.
 
 RULES:
 - Return ONLY a JSON array of matching cases
@@ -244,12 +206,20 @@ RULES:
 - If no cases match, return an empty array []
 - The "reason" should be specific about what data matched the query
 - Do NOT include markdown formatting, just raw JSON
-- Search across ALL fields: title, parties, notes, activity, tasks, deadlines, links, custom fields, billing, expenses, staff, dates, etc.`;
+- Search across ALL fields: title, defendant, charges, custody status, notes, activity, tasks, deadlines, parties, staff, dates, etc.`;
+
+    let caseDataText = caseSummaries.join("\n");
+    const MAX_CHARS = 700000;
+    if (caseDataText.length > MAX_CHARS) {
+      caseDataText = caseDataText.substring(0, MAX_CHARS);
+      const lastNewline = caseDataText.lastIndexOf("\n");
+      if (lastNewline > MAX_CHARS * 0.9) caseDataText = caseDataText.substring(0, lastNewline);
+    }
 
     const userPrompt = `Search query: "${query}"
 
 Case data (${caseSummaries.length} cases):
-${caseSummaries.join("\n")}`;
+${caseDataText}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5-mini",

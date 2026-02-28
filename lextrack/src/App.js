@@ -3845,7 +3845,7 @@ function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROB
       <div className="case-overlay-section" style={{ marginTop: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Violations ({violations.length})</div>
-          {!addingV && editMode && <button className="btn btn-gold btn-sm" onClick={() => { setAddingV(true); setNewV({ violationType: "Technical", outcome: "Pending", violationDate: today }); }}>+ Add Violation</button>}
+          {!addingV && <button className="btn btn-gold btn-sm" onClick={() => { setAddingV(true); setNewV({ violationType: "Technical", outcome: "Pending", violationDate: today }); }}>+ Add Violation</button>}
         </div>
 
         {addingV && (
@@ -5322,19 +5322,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{label}</span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginTop: 4 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: editMode ? "pointer" : "default" }}>
-                        <input type="checkbox" checked={isSet} onChange={e => setCt(setKey, e.target.checked)} disabled={!editMode} style={{ margin: 0 }} />
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: "pointer" }}>
+                        <input type="checkbox" checked={isSet} onChange={e => setCt(setKey, e.target.checked)} style={{ margin: 0 }} />
                         {setKey === "bondSet" ? "Bond Set" : setKey === "releaseOrdered" ? "Release Ordered" : "Transport Ordered"}
                       </label>
                       <div>
-                        <input type="date" value={ct[setDateKey] || ""} onChange={e => setCt(setDateKey, e.target.value)} disabled={!editMode} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text2)" }} />
+                        <input type="date" value={ct[setDateKey] || ""} onChange={e => setCt(setDateKey, e.target.value)} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text2)" }} />
                       </div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: editMode ? "pointer" : "default" }}>
-                        <input type="checkbox" checked={isComplete} onChange={e => setCt(completeKey, e.target.checked)} disabled={!editMode || !isSet} style={{ margin: 0 }} />
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: isSet ? "pointer" : "default" }}>
+                        <input type="checkbox" checked={isComplete} onChange={e => setCt(completeKey, e.target.checked)} disabled={!isSet} style={{ margin: 0 }} />
                         {completeKey === "bondPosted" ? "Bond Posted" : completeKey === "releaseCompleted" ? "Release Completed" : "Transport Completed"}
                       </label>
                       <div>
-                        <input type="date" value={ct[completeDateKey] || ""} onChange={e => setCt(completeDateKey, e.target.value)} disabled={!editMode || !isSet} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text2)" }} />
+                        <input type="date" value={ct[completeDateKey] || ""} onChange={e => setCt(completeDateKey, e.target.value)} disabled={!isSet} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: isSet ? "var(--c-bg)" : "transparent", color: "var(--c-text2)" }} />
                       </div>
                       {extraFields}
                     </div>
@@ -5354,7 +5354,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <>
                         <label style={{ fontSize: 12, color: "var(--c-text2)", gridColumn: "1 / -1", marginTop: 4 }}>
                           <span style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Destination</span>
-                          <input type="text" value={ct.transportDestination || ""} onChange={e => setCt("transportDestination", e.target.value)} onBlur={() => handleBlur("custodyTracking")} disabled={!editMode} placeholder="Transport destination..." style={{ width: "100%", fontSize: 12, padding: "4px 6px", marginTop: 2, border: "1px solid var(--c-border)", borderRadius: 4, background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)" }} />
+                          <input type="text" value={ct.transportDestination || ""} onChange={e => setCt("transportDestination", e.target.value)} onBlur={() => handleBlur("custodyTracking")} placeholder="Transport destination..." style={{ width: "100%", fontSize: 12, padding: "4px 6px", marginTop: 2, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }} />
                         </label>
                       </>
                     )}
@@ -6468,7 +6468,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <span>Linked Cases</span>
                 <span style={{ fontSize: 11, color: "#8A9096", fontWeight: 400 }}>{linkedCases.length} linked</span>
               </div>
-              {editMode && !showLinkForm && (
+              {!showLinkForm && (
                 <button className="btn btn-outline btn-sm" style={{ marginBottom: 16 }} onClick={() => { setShowLinkForm(true); setLinkIsPd(null); setLinkCaseSearch(""); setLinkRelationship(""); setLinkExternalForm({ externalCaseNumber: "", externalCaseStyle: "", externalCourt: "", externalCounty: "Mobile", externalCharges: "", externalAttorney: "", externalStatus: "Active", externalNotes: "", relationship: "" }); }}>+ Link a Case</button>
               )}
               {showLinkForm && (
@@ -6578,7 +6578,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               )}
               {linkedCasesLoading && <div style={{ fontSize: 13, color: "#8A9096", padding: "20px 0" }}>Loading linked cases...</div>}
               {!linkedCasesLoading && linkedCases.length === 0 && !showLinkForm && (
-                <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>No linked cases yet. {editMode ? 'Click "Link a Case" to connect related cases.' : "Enable edit mode to link cases."}</div>
+                <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0" }}>No linked cases yet. Click "Link a Case" to connect related cases.</div>
               )}
               {linkedCases.map(lc => {
                 const isExpanded = expandedLinkedId === lc.id;
@@ -6632,15 +6632,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               if (target) onSelectCase(target);
                             }}>Go to Case</button>
                           )}
-                          {editMode && (
-                            <button className="btn btn-sm btn-outline" style={{ color: "#e05252", borderColor: "#e0525233" }} onClick={async () => {
+                          <button className="btn btn-sm btn-outline" style={{ color: "#e05252", borderColor: "#e0525233" }} onClick={async () => {
                               if (!window.confirm("Remove this linked case?")) return;
                               try {
                                 await apiDeleteLinkedCase(lc.id);
                                 setLinkedCases(p => p.filter(x => x.id !== lc.id));
                               } catch (err) { alert("Failed to remove: " + err.message); }
                             }}>Unlink</button>
-                          )}
                         </div>
                       </div>
                     )}
@@ -8377,7 +8375,7 @@ const REPORT_DEFS = [
     icon: "🔓",
     title: "Cases by Custody Status",
     desc: "Active cases grouped by custody status. Shows bond amounts, jail locations, and assigned attorneys.",
-    params: ["courtDivision"],
+    params: ["custodyStatus", "courtDivision"],
   },
   {
     id: "pending_custody",
@@ -8586,7 +8584,9 @@ function buildReport(id, allCases, tasks, deadlines, params) {
       };
     }
     case "custody_status": {
-      const rows = activeCases.slice().sort((a, b) => (a.custodyStatus || "").localeCompare(b.custodyStatus || "") || (a.caseNum || "").localeCompare(b.caseNum || ""));
+      const custodyFilter = params.custodyStatus || null;
+      const filtered = custodyFilter ? activeCases.filter(c => (c.custodyStatus || "Not Set") === custodyFilter) : activeCases;
+      const rows = filtered.slice().sort((a, b) => (a.custodyStatus || "").localeCompare(b.custodyStatus || "") || (a.caseNum || "").localeCompare(b.caseNum || ""));
       return {
         columns: ["Case Number", "Style", "Custody Status", "Bond Amount", "Jail Location", "Assigned Attorney", "Court Division"],
         rows: rows.map(c => [c.caseNum || "—", c.title, c.custodyStatus || "Not Set", c.bondAmount || "—", c.jailLocation || "—", getUserById(c.assignedAttorney)?.name || "—", c.courtDivision || "—"]),
@@ -8713,6 +8713,15 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                     </select>
                   </div>
                 )}
+                {def?.params.includes("custodyStatus") && (
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
+                    <label>Custody Status</label>
+                    <select value={params.custodyStatus || ""} onChange={e => setParams(p => ({ ...p, custodyStatus: e.target.value || null }))}>
+                      <option value="">All Statuses</option>
+                      {["In Custody", "Out on Bond", "Released on Own Recognizance", "Supervision", "In Treatment", "Not Set"].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
                 {def?.params.includes("courtDivision") && (
                   <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
                     <label>Court Division</label>
@@ -8745,6 +8754,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                   {generated.params.attorney ? ` · ${getUserById(generated.params.attorney)?.name}` : ""}
                   {generated.params.window ? ` · Next ${generated.params.window} days` : ""}
                   {generated.params.task ? ` · Task: "${generated.params.task}"` : ""}
+                  {generated.params.custodyStatus ? ` · Custody: ${generated.params.custodyStatus}` : ""}
                   {generated.params.courtDivision ? ` · Division: ${generated.params.courtDivision}` : ""}
                   {" · "}Generated {generated.generatedAt}
                 </div>

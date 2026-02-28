@@ -43,7 +43,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
               c.stage AS linked_stage,
               c.court AS linked_court,
               c.county AS linked_county,
-              c.assigned_attorney AS linked_attorney
+              c.lead_attorney AS linked_attorney
        FROM linked_cases lc
        LEFT JOIN cases c ON lc.linked_case_id = c.id
        WHERE lc.case_id = $1
