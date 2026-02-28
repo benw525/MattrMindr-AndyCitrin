@@ -31,7 +31,7 @@ import {
   apiGetProbationViolations, apiCreateProbationViolation, apiUpdateProbationViolation, apiDeleteProbationViolation,
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
-  apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage, apiSuggestSmsNumbers,
+  apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
   apiSendSupport,
 } from "./api.js";
 
@@ -5040,7 +5040,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsMessages, setSmsMessages] = useState([]);
   const [smsScheduled, setSmsScheduled] = useState([]);
   const [showAutoText, setShowAutoText] = useState(false);
-  const [smsSuggestions, setSmsSuggestions] = useState([]);
   const [smsAddingRecipient, setSmsAddingRecipient] = useState(false);
   const [smsNewName, setSmsNewName] = useState("");
   const [smsNewPhones, setSmsNewPhones] = useState([]);
@@ -5062,6 +5061,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsComposePhone, setSmsComposePhone] = useState("");
   const [smsComposeBody, setSmsComposeBody] = useState("");
   const [smsComposeName, setSmsComposeName] = useState("");
+  const [smsComposeSearch, setSmsComposeSearch] = useState("");
+  const [smsComposeResults, setSmsComposeResults] = useState([]);
+  const [smsComposeSelected, setSmsComposeSelected] = useState(null);
+  const [smsComposeDropdown, setSmsComposeDropdown] = useState(false);
   const [smsDrafting, setSmsDrafting] = useState(false);
   const [smsSending, setSmsSending] = useState(false);
   const [parties, setParties] = useState([]);
@@ -7018,7 +7021,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div style={{ flex: 1 }} />
                 <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", marginBottom: 4 }} onClick={() => {
                   setShowAutoText(true);
-                  apiSuggestSmsNumbers(c.id).then(setSmsSuggestions).catch(() => {});
                 }}>Auto Text Settings</button>
               </div>
 
@@ -7136,6 +7138,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         setSmsComposePhone("");
                         setSmsComposeBody("");
                         setSmsComposeName("");
+                        setSmsComposeSearch(""); setSmsComposeResults([]); setSmsComposeSelected(null); setSmsComposeDropdown(false);
                       }}>Send Text</button>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                         apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
@@ -7201,23 +7204,115 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setSmsCompose(false)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--c-bg)", borderRadius: 10, width: 440, maxWidth: "95vw", padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text)", marginBottom: 16 }}>Send Text Message</div>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Recipient Name</label>
-                <input value={smsComposeName} onChange={e => setSmsComposeName(e.target.value)} placeholder="Contact name" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }} />
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Number</label>
-                <input value={smsComposePhone} onChange={e => setSmsComposePhone(e.target.value)} placeholder="(251) 555-1234" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }} />
-                {smsSuggestions.length > 0 && !smsComposePhone && (
-                  <div style={{ marginTop: 4 }}>
-                    {smsSuggestions.slice(0, 5).map((s, i) => (
-                      <button key={i} onClick={() => { setSmsComposePhone(s.phone); setSmsComposeName(s.name); }} style={{ fontSize: 11, color: "#1e3a5f", background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 4, padding: "2px 8px", margin: "2px 4px 2px 0", cursor: "pointer" }}>
-                        {s.name}: {s.phone}
-                      </button>
+              <div style={{ marginBottom: 12, position: "relative" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Recipient</label>
+                <input
+                  value={smsComposeSelected ? smsComposeName : smsComposeSearch}
+                  onChange={e => {
+                    const q = e.target.value;
+                    setSmsComposeSearch(q);
+                    setSmsComposeSelected(null);
+                    setSmsComposeName(q);
+                    setSmsComposePhone("");
+                    if (q.trim().length >= 1) {
+                      const lower = q.trim().toLowerCase();
+                      const contactMatches = (allContacts || []).filter(ct => !ct.deletedAt && ct.name && ct.name.toLowerCase().includes(lower)).slice(0, 8);
+                      const partyMatches = (parties || []).filter(p => p.name && p.name.toLowerCase().includes(lower) && !contactMatches.some(cm => cm.name.toLowerCase() === p.name.toLowerCase())).slice(0, 4);
+                      const expertMatches = (experts || []).filter(ex => ex.name && ex.name.toLowerCase().includes(lower) && !contactMatches.some(cm => cm.name.toLowerCase() === ex.name.toLowerCase())).slice(0, 4);
+                      const results = [];
+                      contactMatches.forEach(ct => {
+                        const phones = [];
+                        if (ct.phone) phones.push({ label: "Phone", number: ct.phone });
+                        if (ct.cell) phones.push({ label: "Cell", number: ct.cell });
+                        results.push({ id: "ct-" + ct.id, name: ct.name, category: ct.category, phones, source: "Contact" });
+                      });
+                      partyMatches.forEach(p => {
+                        const phones = [];
+                        const d = p.data || {};
+                        if (d.phone) phones.push({ label: "Phone", number: d.phone });
+                        if (d.cell) phones.push({ label: "Cell", number: d.cell });
+                        results.push({ id: "party-" + p.id, name: p.name, category: p.partyType || "Party", phones, source: "Case Party" });
+                      });
+                      expertMatches.forEach(ex => {
+                        const phones = [];
+                        if (ex.phone) phones.push({ label: "Phone", number: ex.phone });
+                        if (ex.cell) phones.push({ label: "Cell", number: ex.cell });
+                        results.push({ id: "expert-" + ex.id, name: ex.name, category: "Expert", phones, source: "Expert" });
+                      });
+                      setSmsComposeResults(results);
+                      setSmsComposeDropdown(results.length > 0);
+                    } else {
+                      setSmsComposeResults([]);
+                      setSmsComposeDropdown(false);
+                    }
+                  }}
+                  onFocus={() => { if (smsComposeResults.length > 0 && !smsComposeSelected) setSmsComposeDropdown(true); }}
+                  onBlur={() => { setTimeout(() => setSmsComposeDropdown(false), 200); }}
+                  placeholder="Search contacts or type a name..."
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }}
+                />
+                {smsComposeSelected && (
+                  <button onClick={() => { setSmsComposeSelected(null); setSmsComposeSearch(""); setSmsComposeName(""); setSmsComposePhone(""); }} style={{ position: "absolute", right: 8, top: 28, background: "transparent", border: "none", fontSize: 14, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                )}
+                {smsComposeDropdown && smsComposeResults.length > 0 && (
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
+                    {smsComposeResults.map(r => (
+                      <div key={r.id} onClick={() => {
+                        setSmsComposeSelected(r);
+                        setSmsComposeName(r.name);
+                        setSmsComposeSearch(r.name);
+                        setSmsComposeDropdown(false);
+                        if (r.phones.length >= 1) setSmsComposePhone(r.phones[0].number);
+                        else setSmsComposePhone("");
+                      }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{r.name}</div>
+                        <div style={{ fontSize: 11, color: "var(--c-text3)" }}>
+                          {r.category} {r.phones.length > 0 ? " — " + r.phones.map(p => `${p.label}: ${p.number}`).join(", ") : " — No phone on file"}
+                          <span style={{ marginLeft: 6, opacity: 0.7 }}>({r.source})</span>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
+
+              {smsComposeSelected && smsComposeSelected.phones.length > 1 && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Number</label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {smsComposeSelected.phones.map((p, pi) => (
+                      <label key={pi} style={{ fontSize: 13, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                        <input type="radio" name="composePhone" checked={smsComposePhone === p.number} onChange={() => setSmsComposePhone(p.number)} />
+                        <span style={{ color: "var(--c-text3)", fontSize: 11, minWidth: 40 }}>{p.label}:</span> {p.number}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {smsComposeSelected && smsComposeSelected.phones.length === 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Number</label>
+                  <input value={smsComposePhone} onChange={e => setSmsComposePhone(e.target.value)} placeholder="(251) 555-1234" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }} />
+                  <div style={{ fontSize: 10, color: "#e07a30", marginTop: 2 }}>No phone number on file — enter one manually</div>
+                </div>
+              )}
+
+              {smsComposeSelected && smsComposeSelected.phones.length === 1 && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Number</label>
+                  <div style={{ fontSize: 13, color: "var(--c-text)", padding: "8px 10px", background: "var(--c-bg2)", borderRadius: 6, border: "1px solid var(--c-border)" }}>{smsComposeSelected.phones[0].label}: {smsComposePhone}</div>
+                </div>
+              )}
+
+              {!smsComposeSelected && smsComposeName.trim() && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Phone Number</label>
+                  <input value={smsComposePhone} onChange={e => setSmsComposePhone(e.target.value)} placeholder="(251) 555-1234" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }} />
+                </div>
+              )}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Message</label>
                 <textarea value={smsComposeBody} onChange={e => setSmsComposeBody(e.target.value)} placeholder="Type your message..." rows={4} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
