@@ -11896,7 +11896,7 @@ function NewContactModal({ onSave, onClose }) {
 const ATTORNEY_STAFF_TYPES = ["Paralegal", "Trial Coordinator", "Administrative Assistant", "Other"];
 const COURT_STAFF_TYPES = ["Judicial Assistant", "Clerk", "Court Reporter", "Bailiff", "Other"];
 
-function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, onUpdate, onDelete, onAddNote, onDeleteNote }) {
+function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, onUpdate, onDelete, onAddNote, onDeleteNote, onSelectCase }) {
   const [draft, setDraft] = useState({ ...contact });
   const [saving, setSaving] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -12245,13 +12245,14 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                 <tbody>
                   {assocCases.slice(0, 30).map(c => {
                     const link = caseLinks.find(l => l.caseId === c.id);
+                    const handleClick = () => { if (onSelectCase) { onClose(); onSelectCase(c); } };
                     return (
-                      <tr key={c.id} style={{ borderTop: "1px solid #f1f5f9" }}>
+                      <tr key={c.id} style={{ borderTop: "1px solid #f1f5f9", cursor: "pointer" }} onClick={handleClick}>
                         <td style={{ padding: "7px 8px 7px 0", color: "#5599cc", fontFamily: "monospace", fontSize: 11 }}>{c.caseNum}</td>
                         <td style={{ padding: "7px 8px 7px 0", color: "var(--c-text)" }}>{c.title}</td>
                         <td style={{ padding: "7px 0", color: c.status === "Active" ? "#4CAE72" : "var(--c-text2)", fontWeight: 600 }}>{c.status}</td>
                         <td style={{ padding: "7px 0" }}>
-                          {link && <button onClick={() => removeCaseLink(link.id)} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: 0, lineHeight: 1 }} title="Unlink case">✕</button>}
+                          {link && <button onClick={e => { e.stopPropagation(); removeCaseLink(link.id); }} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: 0, lineHeight: 1 }} title="Remove from contact">✕</button>}
                         </td>
                       </tr>
                     );
@@ -12906,6 +12907,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
           onDelete={handleDeleteContact}
           onAddNote={handleAddNote}
           onDeleteNote={handleDeleteNote}
+          onSelectCase={onOpenCase}
         />
       )}
       {showNew && <NewContactModal onSave={handleCreateContact} onClose={() => setShowNew(false)} />}
