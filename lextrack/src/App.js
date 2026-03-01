@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -170,39 +170,40 @@ const generateDefaultTasks = (caseObj, userId) => {
 
 const statusBadgeStyle = (status) => {
   const map = {
-    Case: { bg: "#f1f5f9", color: "#5599cc", border: "#f1f5f9" },
-    Matter: { bg: "#f3e8ff", color: "#a066cc", border: "#f3e8ff" },
-    Active: { bg: "#dcfce7", color: "#4CAE72", border: "#bbf7d0" },
-    Closed: { bg: "var(--c-bg)", color: "var(--c-text2)", border: "var(--c-border)" },
-    Pending: { bg: "#fef9c3", color: "#0f172a", border: "#fef9c3" },
-    Disposed: { bg: "var(--c-bg)", color: "var(--c-text2)", border: "var(--c-border)" },
-    Transferred: { bg: "#f1f5f9", color: "#5599cc", border: "#f1f5f9" },
-    Arraignment: { bg: "#f1f5f9", color: "#5599cc", border: "#f1f5f9" },
-    "Preliminary Hearing": { bg: "#dcfce7", color: "#66aa66", border: "#bbf7d0" },
-    "Grand Jury/Indictment": { bg: "#fef9c3", color: "#0f172a", border: "#fef9c3" },
-    "Pre-Trial Motions": { bg: "#dcfce7", color: "#66aa66", border: "#bbf7d0" },
-    "Plea Negotiations": { bg: "#f3e8ff", color: "#a066cc", border: "#e9d5ff" },
-    Trial: { bg: "#fee2e2", color: "#e05252", border: "#fca5a5" },
-    Sentencing: { bg: "#fef3c7", color: "#e07a30", border: "#fde68a" },
-    "Post-Conviction": { bg: "var(--c-bg)", color: "var(--c-text2)", border: "var(--c-border)" },
-    Appeal: { bg: "#f3e8ff", color: "#a066cc", border: "#f3e8ff" },
-    Urgent: { bg: "#fee2e2", color: "#e05252", border: "#fca5a5" },
-    Overdue: { bg: "#fee2e2", color: "#e05252", border: "#fca5a5" },
-    "In Progress": { bg: "#f1f5f9", color: "#5599cc", border: "#f1f5f9" },
-    "Not Started": { bg: "var(--c-card)", color: "#64748b", border: "var(--c-border)" },
-    Completed: { bg: "#dcfce7", color: "#4CAE72", border: "#bbf7d0" },
-    Waiting: { bg: "#fef9c3", color: "#0f172a", border: "#fef9c3" },
-    High: { bg: "#fef3c7", color: "#e07a30", border: "#fde68a" },
-    Medium: { bg: "#fef9c3", color: "#0f172a", border: "#fef9c3" },
-    Low: { bg: "#f1f5f9", color: "#5599cc", border: "#f1f5f9" },
+    Case: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    Matter: { bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" },
+    Active: { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+    Closed: { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
+    Pending: { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+    Disposed: { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
+    Transferred: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    Arraignment: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    "Preliminary Hearing": { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+    "Grand Jury/Indictment": { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+    "Pre-Trial Motions": { bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" },
+    "Plea Negotiations": { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+    Trial: { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+    Sentencing: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+    "Post-Conviction": { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
+    Appeal: { bg: "#fff1f2", color: "#e11d48", border: "#fecdd3" },
+    Urgent: { bg: "#fee2e2", color: "#dc2626", border: "#fca5a5" },
+    Overdue: { bg: "#fee2e2", color: "#dc2626", border: "#fca5a5" },
+    "In Progress": { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    "Not Started": { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
+    Completed: { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+    Waiting: { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+    High: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+    Medium: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    Low: { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
+    Monitoring: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
   };
-  return map[status] || { bg: "var(--c-card)", color: "#64748b", border: "var(--c-border)" };
+  return map[status] || { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" };
 };
 
 const Badge = ({ label }) => {
   if (!label) return null;
   const s = statusBadgeStyle(label);
-  return <span style={{ background: s.bg, color: "#1e293b", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap", fontFamily: "'Inter',sans-serif" }}>{label}</span>;
+  return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap", fontFamily: "'Inter',sans-serif" }}>{label}</span>;
 };
 
 const getUserById = (id) => USERS.find(u => u.id === id);
@@ -4374,26 +4375,26 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
             </AiPanel>
           </div>
         )}
-        <div style={{ marginBottom: 16, display: "flex", gap: 8, alignItems: "center" }}>
-          <button className="btn btn-outline btn-sm" style={{ color: "#b8860b", borderColor: "#d4c9a8", fontSize: 12, height: 40, whiteSpace: "nowrap" }} onClick={() => {
+        <div className="flex gap-2 items-center mb-4">
+          <button className="!px-3 !py-2 !text-xs !font-medium !border !border-amber-300 dark:!border-amber-700 !text-amber-700 dark:!text-amber-400 !bg-amber-50 dark:!bg-amber-900/20 hover:!bg-amber-100 dark:hover:!bg-amber-900/40 !rounded-lg !transition-colors !cursor-pointer !whitespace-nowrap !h-10" onClick={() => {
             setTriageShow(true); setTriageLoading(true);
             apiCaseTriage().then(r => { setTriageResults(r.cases || []); setTriageLoading(false); }).catch(() => setTriageLoading(false));
-          }}>⚡ Triage</button>
-          <div style={{ position: "relative", flex: 1 }}>
+          }}><Sparkles size={14} className="inline mr-1" />Triage</button>
+          <div className="relative flex-1">
             <input
-              style={{ width: "100%", paddingLeft: 36, paddingRight: 10, height: 40, borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
-              placeholder="AI Search — ask anything about your cases (e.g. &quot;cases with trial in March&quot; or &quot;slip and fall in Mobile&quot;)…"
+              className="!w-full !pl-9 !pr-3 !h-10 !rounded-lg !border !border-slate-200 dark:!border-slate-700 !text-sm !bg-white dark:!bg-slate-800 !text-slate-900 dark:!text-slate-100 placeholder:!text-slate-400 dark:placeholder:!text-slate-500 focus:!ring-2 focus:!ring-amber-500/30 focus:!border-amber-500 focus:!outline-none"
+              placeholder='AI Search — ask anything about your cases (e.g. "cases with trial in March" or "slip and fall in Mobile")…'
               value={aiQuery}
               onChange={e => setAiQuery(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") runAiSearch(); }}
             />
-            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#64748b", pointerEvents: "none" }}>&#x2728;</span>
+            <Sparkles size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
-          <button className="btn btn-gold" style={{ height: 40, whiteSpace: "nowrap", minWidth: 100 }} onClick={runAiSearch} disabled={aiLoading || !aiQuery.trim()}>
+          <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-slate-900 dark:!bg-slate-700 hover:!bg-slate-800 dark:hover:!bg-slate-600 !rounded-lg !transition-colors !cursor-pointer !border-none !shadow-sm !h-10 !whitespace-nowrap !min-w-[100px]" onClick={runAiSearch} disabled={aiLoading || !aiQuery.trim()}>
             {aiLoading ? "Searching…" : "AI Search"}
           </button>
           {aiResults !== null && (
-            <button className="btn btn-outline" style={{ height: 40 }} onClick={() => { setAiResults(null); setAiQuery(""); setAiError(""); }}>Clear</button>
+            <button className="!px-3 !py-2 !text-xs !font-medium !border !border-slate-200 dark:!border-slate-700 !text-slate-600 dark:!text-slate-400 !bg-white dark:!bg-slate-800 hover:!bg-slate-50 dark:hover:!bg-slate-700 !rounded-lg !transition-colors !cursor-pointer !h-10" onClick={() => { setAiResults(null); setAiQuery(""); setAiError(""); }}>Clear</button>
           )}
         </div>
 
@@ -4458,12 +4459,13 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           <div className="card pinned-card-mobile" style={{ marginBottom: 16 }}>
             <div
               onClick={() => setPinnedExpanded(!pinnedExpanded)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", cursor: "pointer", borderBottom: pinnedExpanded ? "1px solid var(--c-border)" : "none" }}
+              className="flex items-center justify-between px-4 py-2.5 cursor-pointer"
+              style={{ borderBottom: pinnedExpanded ? "1px solid var(--c-border)" : "none" }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#64748b" }}>{pinnedExpanded ? "▼" : "▶"}</span>
-                <span style={{ fontSize: 14, color: "#B67A18" }}>📌</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>Pinned Cases</span>
+              <div className="flex items-center gap-2">
+                {pinnedExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                <Pin size={14} className="text-amber-500" />
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Pinned Cases</span>
                 <Badge label={`${pinnedCases.length}`} />
               </div>
             </div>
@@ -4485,26 +4487,26 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   </thead>
                   <tbody>
                     {pinnedCases.map(c => (
-                      <tr key={c.id} className={`clickable-row ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
+                      <tr key={c.id} className={`clickable-row group ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
                         <td data-label="" style={{ textAlign: "center", padding: "6px 4px" }}>
-                          <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title="Unpin" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B67A18", padding: 0, lineHeight: 1 }}>📌</button>
+                          <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title="Unpin" className="bg-transparent border-none cursor-pointer p-0 leading-none"><Pin size={14} className="text-amber-500" /></button>
                         </td>
-                        <td data-label="Case #" style={{ whiteSpace: "nowrap" }}>
-                          <div style={{ fontFamily: "monospace", fontSize: 11, color: "#0f172a" }}>{c.caseNum || "—"}</div>
+                        <td data-label="Case #" className="whitespace-nowrap">
+                          <div className="font-mono text-xs text-slate-600 dark:text-slate-400">{c.caseNum || "—"}</div>
                         </td>
                         <td data-label="Style">
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
                             {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
                             {(() => { const ct = c.custodyTracking || {}; const pend = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted); return pend ? <span title="Pending custody action" style={{ fontSize: 9, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>⚠ PENDING</span> : null; })()}
                           </div>
-                          {c.prosecutor && <div style={{ fontSize: 12, color: "#1e293b", fontWeight: 500, marginTop: 1 }}>{c.prosecutor}</div>}
+                          {c.prosecutor && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.prosecutor}</div>}
                         </td>
-                        <td className="hide-mobile" data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
-                        <td className="hide-mobile" data-label="Defendant" style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Type">{c.caseType || "—"}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Defendant">{c.defendantName || "—"}</td>
                         <td data-label="Stage"><Badge label={c.stage} /></td>
-                        <td data-label="Trial" style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
-                        <td className="hide-mobile" data-label="Arrest" style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
+                        <td data-label="Trial" className={`text-sm whitespace-nowrap ${c.trialDate ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500"}`}>{fmt(c.trialDate)}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Arrest">{fmt(c.arrestDate)}</td>
                         <td className="hide-mobile" data-label="Lead"><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}
@@ -4577,26 +4579,26 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   </thead>
                   <tbody>
                     {paged.map(c => (
-                      <tr key={c.id} className={`clickable-row ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
+                      <tr key={c.id} className={`clickable-row group ${selectedCase?.id === c.id ? "selected-row" : ""}`} onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
                         <td data-label="" style={{ textAlign: "center", padding: "6px 4px" }}>
-                          <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title={pinnedIds.includes(c.id) ? "Unpin" : "Pin"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: pinnedIds.includes(c.id) ? "#B67A18" : "#e2e8f0", padding: 0, lineHeight: 1, opacity: pinnedIds.includes(c.id) ? 1 : 0.5, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => { if (!pinnedIds.includes(c.id)) e.currentTarget.style.opacity = "0.5"; }}>📌</button>
+                          <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title={pinnedIds.includes(c.id) ? "Unpin" : "Pin"} className={`bg-transparent border-none cursor-pointer p-0 leading-none transition-opacity ${pinnedIds.includes(c.id) ? "opacity-100" : "opacity-30 hover:opacity-100"}`}><Pin size={14} className={pinnedIds.includes(c.id) ? "text-amber-500" : "text-slate-300 dark:text-slate-600"} /></button>
                         </td>
-                        <td data-label="Case #" style={{ whiteSpace: "nowrap" }}>
-                          <div style={{ fontFamily: "monospace", fontSize: 11, color: "#0f172a" }}>{c.caseNum || "—"}</div>
+                        <td data-label="Case #" className="whitespace-nowrap">
+                          <div className="font-mono text-xs text-slate-600 dark:text-slate-400">{c.caseNum || "—"}</div>
                         </td>
                         <td data-label="Style">
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            <span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
                             {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
                             {(() => { const ct = c.custodyTracking || {}; const pend = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted); return pend ? <span title="Pending custody action" style={{ fontSize: 9, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>⚠ PENDING</span> : null; })()}
                           </div>
-                          {c.prosecutor && <div style={{ fontSize: 12, color: "#1e293b", fontWeight: 500, marginTop: 1 }}>{c.prosecutor}</div>}
+                          {c.prosecutor && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.prosecutor}</div>}
                         </td>
-                        <td className="hide-mobile" data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
-                        <td className="hide-mobile" data-label="Defendant" style={{ fontSize: 12, color: "var(--c-text2)" }}>{c.defendantName || "—"}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Type">{c.caseType || "—"}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Defendant">{c.defendantName || "—"}</td>
                         <td data-label="Stage"><Badge label={c.stage} /></td>
-                        <td data-label="Trial" style={{ color: c.trialDate ? urgencyColor(daysUntil(c.trialDate)) : "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(c.trialDate)}</td>
-                        <td className="hide-mobile" data-label="Arrest" style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>{fmt(c.arrestDate)}</td>
+                        <td data-label="Trial" className={`text-sm whitespace-nowrap ${c.trialDate ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500"}`}>{fmt(c.trialDate)}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Arrest">{fmt(c.arrestDate)}</td>
                         <td className="hide-mobile" data-label="Lead"><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}

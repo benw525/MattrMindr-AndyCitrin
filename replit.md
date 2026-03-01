@@ -9,7 +9,7 @@ A case management system for the Mobile County Public Defender's Office. Tracks 
 - **Database**: PostgreSQL (Replit-provisioned), accessed via `DATABASE_URL`
 - **Auth**: express-session with bcrypt password hashing; session restore on page refresh via `/api/auth/me`; temporary password emails via SendGrid
 - **Email**: SendGrid (Replit integration) for auth emails; SendGrid Inbound Parse for case correspondence
-- **Styling**: Tailwind CSS v3 + CSS-in-JS template literal; Inter font, slate/amber color palette, lucide-react icons
+- **Styling**: Tailwind CSS v3 + CSS-in-JS template literal; Inter font, slate/amber color palette, lucide-react icons. Stage badges: Trial=emerald, Arraignment=blue, Pre-Trial Motions=violet, Plea Negotiations=amber, Post-Conviction=slate, Appeal=rose
 - **Design Packages**: tailwindcss@3.4.19, postcss, autoprefixer, lucide-react (in lextrack/package.json devDependencies)
 - **Design Config**: lextrack/tailwind.config.js (darkMode: 'class'), lextrack/postcss.config.js, lextrack/src/index.css (@tailwind directives + Inter import)
 
