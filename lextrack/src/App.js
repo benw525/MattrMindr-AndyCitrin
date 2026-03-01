@@ -1926,13 +1926,13 @@ export default function App() {
           className="advocate-fab"
           onClick={() => setShowAdvocateGlobal(true)}
           title="Advocate AI"
-          style={view === "collaborate" ? { bottom: "auto", top: 80 } : undefined}
+          style={view === "collaborate" ? { bottom: "auto", top: 62 } : undefined}
         >
           <Bot size={22} className="text-white" />
         </button>
       )}
       {showAdvocateGlobal && (
-        <div className="advocate-panel" style={view === "collaborate" ? { bottom: "auto", top: 80 } : undefined}>
+        <div className="advocate-panel" style={view === "collaborate" ? { bottom: "auto", top: 62 } : undefined}>
           <div className="advocate-panel-header">
             <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
               <Bot size={18} className="text-indigo-500" />
