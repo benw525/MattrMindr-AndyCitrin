@@ -11905,11 +11905,14 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
 
   const save = async (updated) => {
     setSaving(true);
-    try { await onUpdate(updated); } catch {}
+    try {
+      const toSave = { ...updated, id: updated.id || contact.id };
+      await onUpdate(toSave);
+    } catch (err) {
+      console.error("Contact save error:", err);
+    }
     setSaving(false);
   };
-
-  const handleBlur = () => save(draft);
 
   const addPhone = () => {
     const tempId = "tmp_" + Date.now();
@@ -12048,33 +12051,18 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
         <div style={{ padding: "20px 28px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <select value={draft.category} onChange={e => { set("category", e.target.value); save({ ...draft, category: e.target.value }); }} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428", border: "1px solid transparent", cursor: "pointer", appearance: "auto" }}>
+              <select value={draft.category} onChange={e => { set("category", e.target.value); }} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428", border: "1px solid transparent", cursor: "pointer", appearance: "auto" }}>
                 {CONTACT_CATEGORIES.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
               </select>
-              {saving && <span style={{ fontSize: 11, color: "#8A9096" }}>Saving…</span>}
+              {saving && <span style={{ fontSize: 11, color: "#4CAE72" }}>Saving…</span>}
             </div>
             <input
               value={draft.name}
               onChange={e => set("name", e.target.value)}
-              onBlur={handleBlur}
               style={{ background: "transparent", border: "none", outline: "none", fontSize: 20, fontWeight: 700, color: "var(--c-text)", fontFamily: "'Playfair Display',serif", width: "100%", padding: 0 }}
             />
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-            {!showDelete && (
-              <button onClick={() => setShowDelete(true)} style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#e05252", borderRadius: 4, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                Delete
-              </button>
-            )}
-            {showDelete && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontSize: 12, color: "#e05252" }}>Delete this contact?</span>
-                <button onClick={() => onDelete(contact.id)} style={{ background: "#e05252", border: "none", color: "#fff", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Confirm</button>
-                <button onClick={() => setShowDelete(false)} style={{ background: "var(--c-border)", border: "1px solid var(--c-border)", color: "var(--c-text2)", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Cancel</button>
-              </div>
-            )}
-            <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
-          </div>
+          <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
 
         <div style={{ padding: "20px 28px", overflowY: "auto", flex: 1 }}>
@@ -12083,24 +12071,24 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
             {contact.category === "Prosecutor" && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Office</label>
-                <input className="field-input" value={draft.firm || ""} onChange={e => set("firm", e.target.value)} onBlur={handleBlur} placeholder="District Attorney's Office" />
+                <input className="field-input" value={draft.firm || ""} onChange={e => set("firm", e.target.value)} placeholder="District Attorney's Office" />
               </div>
             )}
             {(contact.category === "Adjuster" || contact.category === "Expert") && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Company</label>
-                <input className="field-input" value={draft.company || ""} onChange={e => set("company", e.target.value)} onBlur={handleBlur} placeholder="Company name" />
+                <input className="field-input" value={draft.company || ""} onChange={e => set("company", e.target.value)} placeholder="Company name" />
               </div>
             )}
             {(contact.category === "Court" || contact.category === "Judge") && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>County</label>
-                <input className="field-input" value={draft.county || ""} onChange={e => set("county", e.target.value)} onBlur={handleBlur} placeholder="County name" />
+                <input className="field-input" value={draft.county || ""} onChange={e => set("county", e.target.value)} placeholder="County name" />
               </div>
             )}
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Primary Phone</label>
-              <input className="field-input" value={draft.phone} onChange={e => set("phone", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
+              <input className="field-input" value={draft.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 555-5555" />
             </div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -12120,15 +12108,15 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
             <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Fax</label>
-                <input className="field-input" value={draft.fax} onChange={e => set("fax", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
+                <input className="field-input" value={draft.fax} onChange={e => set("fax", e.target.value)} placeholder="(555) 555-5555" />
               </div>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Email</label>
-                <input className="field-input" value={draft.email} onChange={e => set("email", e.target.value)} onBlur={handleBlur} placeholder="email@example.com" />
+                <input className="field-input" value={draft.email} onChange={e => set("email", e.target.value)} placeholder="email@example.com" />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Address</label>
-                <textarea className="field-input" rows={2} value={draft.address} onChange={e => set("address", e.target.value)} onBlur={handleBlur} placeholder="Street, City, State ZIP" style={{ resize: "vertical" }} />
+                <textarea className="field-input" rows={2} value={draft.address} onChange={e => set("address", e.target.value)} placeholder="Street, City, State ZIP" style={{ resize: "vertical" }} />
               </div>
             </div>
           </div>
@@ -12311,6 +12299,23 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               })
             )}
           </div>
+        </div>
+
+        <div style={{ padding: "14px 28px", borderTop: "1px solid var(--c-border)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            {!showDelete ? (
+              <button onClick={() => setShowDelete(true)} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500 }}>Delete Contact</button>
+            ) : (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: "#e05252" }}>Delete?</span>
+                <button onClick={() => onDelete(contact.id)} style={{ background: "#e05252", border: "none", color: "#fff", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Confirm</button>
+                <button onClick={() => setShowDelete(false)} style={{ background: "var(--c-border)", border: "1px solid var(--c-border)", color: "var(--c-text2)", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Cancel</button>
+              </div>
+            )}
+          </div>
+          <button className="btn btn-primary" disabled={saving} onClick={() => save(draft)} style={{ fontSize: 12, padding: "8px 24px" }}>
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
       </div>
     </div>
