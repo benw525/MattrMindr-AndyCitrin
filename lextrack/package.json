@@ -9,6 +9,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
     "jsonpath": "file:./jsonpath-shim",
+    "lucide-react": "^0.575.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-scripts": "5.0.1",
@@ -42,5 +43,10 @@
     "minimatch": "10.2.3",
     "nth-check": "2.0.1",
     "jsonpath": "file:./jsonpath-shim"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19"
   }
 }
