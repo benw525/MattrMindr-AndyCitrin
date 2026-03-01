@@ -1842,7 +1842,7 @@ export default function App() {
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       <aside className={`sidebar${sidebarOpen ? " open" : ""} !bg-slate-900 dark:!bg-slate-950 !border-r-slate-800`}>
         <div className="sidebar-logo !border-b-slate-800 flex items-center gap-2.5">
-          <img src="/logo.png" alt="MattrMindr" className="h-7" />
+          <img src="/logo.png" alt="MattrMindr" className="h-7 mix-blend-lighten" />
           <div>
             <div className="text-sm font-bold text-white tracking-wide">MattrMindr</div>
             <div className="text-[8px] text-slate-500 uppercase tracking-widest">Public Defender</div>
@@ -2203,14 +2203,14 @@ function LoginScreen({ onLogin }) {
 
   const inputClass = "!w-full !px-4 !py-3 !bg-slate-50 dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-700 !rounded-lg !text-sm !text-slate-900 dark:!text-slate-100 !placeholder:text-slate-400 dark:!placeholder:text-slate-500 focus:!outline-none focus:!ring-2 focus:!ring-amber-500/30 focus:!border-amber-500 !transition-all !font-['Inter']";
   const labelClass = "!block !text-[11px] !font-semibold !text-slate-400 dark:!text-slate-500 !uppercase !tracking-wider !mb-1.5 !font-['Inter']";
-  const btnClass = "!w-full !py-3 !bg-amber-500 !text-slate-900 !rounded-lg !text-sm !font-semibold hover:!bg-amber-600 !transition-colors !shadow-sm !border-none !cursor-pointer !font-['Inter']";
+  const btnClass = "!w-full !py-3 !bg-slate-900 dark:!bg-slate-700 !text-white !rounded-lg !text-sm !font-semibold hover:!bg-slate-800 dark:hover:!bg-slate-600 !transition-colors !shadow-sm !border-none !cursor-pointer !font-['Inter']";
   const linkClass = "!text-xs !text-slate-500 hover:!text-slate-700 dark:!text-slate-400 dark:hover:!text-slate-300 !cursor-pointer !transition-colors !bg-transparent !border-none !font-['Inter']";
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-10">
         <div className="flex flex-col items-center mb-8">
-          <img src="/logo.png" alt="MattrMindr" className="h-12 object-contain mb-3" />
+          <img src="/logo.png" alt="MattrMindr" className="h-12 object-contain mb-3 mix-blend-multiply dark:mix-blend-lighten dark:invert" />
           <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center mb-1">Mobile County Public Defender's Office</div>
           <div className="text-[10px] text-slate-400 uppercase tracking-widest text-center">Case Management System</div>
         </div>
