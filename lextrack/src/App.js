@@ -11868,6 +11868,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   const [caseLinks, setCaseLinks] = useState([]);
   const [linkSearch, setLinkSearch] = useState("");
   const [linkDropdown, setLinkDropdown] = useState(false);
+  const [pendingLinkCase, setPendingLinkCase] = useState(null);
   const staffTimers = useRef({});
   const staffPendingData = useRef({});
   const phoneTimers = useRef({});
@@ -12042,9 +12043,9 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   };
 
   return (
-    <div className="case-overlay" onClick={onClose}>
-      <div className="case-overlay-panel mobile-full" onClick={e => e.stopPropagation()} style={{ width: 640, maxWidth: "100vw" }}>
-        <div className="case-overlay-header" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="login-box" onClick={e => e.stopPropagation()} style={{ width: 600, maxWidth: "calc(100vw - 24px)", maxHeight: "calc(100vh - 48px)", borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", padding: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "20px 28px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
               <select value={draft.category} onChange={e => { set("category", e.target.value); save({ ...draft, category: e.target.value }); }} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428", border: "1px solid transparent", cursor: "pointer", appearance: "auto" }}>
@@ -12056,7 +12057,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               value={draft.name}
               onChange={e => set("name", e.target.value)}
               onBlur={handleBlur}
-              style={{ background: "transparent", border: "none", outline: "none", fontSize: 20, fontWeight: 700, color: "var(--c-text)", fontFamily: "inherit", width: "100%", padding: 0 }}
+              style={{ background: "transparent", border: "none", outline: "none", fontSize: 20, fontWeight: 700, color: "var(--c-text)", fontFamily: "'Playfair Display',serif", width: "100%", padding: 0 }}
             />
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
@@ -12072,11 +12073,11 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                 <button onClick={() => setShowDelete(false)} style={{ background: "var(--c-border)", border: "1px solid var(--c-border)", color: "var(--c-text2)", borderRadius: 4, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>Cancel</button>
               </div>
             )}
-            <button className="overlay-close" onClick={onClose}>✕</button>
+            <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer", lineHeight: 1 }}>✕</button>
           </div>
         </div>
 
-        <div className="case-overlay-body" style={{ padding: "20px 28px", overflowY: "auto" }}>
+        <div style={{ padding: "20px 28px", overflowY: "auto", flex: 1 }}>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#8A9096", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid var(--c-border)" }}>Contact Information</div>
             {contact.category === "Prosecutor" && (
@@ -12232,16 +12233,26 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
             )}
             <div style={{ position: "relative" }}>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input value={linkSearch} onChange={e => { setLinkSearch(e.target.value); setLinkDropdown(e.target.value.trim().length > 0); }} onFocus={() => { if (linkSearch.trim()) setLinkDropdown(true); }} onBlur={() => setTimeout(() => setLinkDropdown(false), 200)} placeholder="Search to link a case..." className="field-input" style={{ flex: 1, fontSize: 12 }} />
+                <input value={linkSearch} onChange={e => { setLinkSearch(e.target.value); setLinkDropdown(e.target.value.trim().length > 0); setPendingLinkCase(null); }} onFocus={() => { if (linkSearch.trim()) setLinkDropdown(true); }} onBlur={() => setTimeout(() => setLinkDropdown(false), 200)} placeholder="Search to link a case..." className="field-input" style={{ flex: 1, fontSize: 12 }} />
+                {pendingLinkCase && (
+                  <button onClick={() => { addCaseLink(pendingLinkCase.id); setPendingLinkCase(null); setLinkSearch(""); }} className="btn btn-primary" style={{ fontSize: 11, padding: "6px 14px", flexShrink: 0, whiteSpace: "nowrap" }}>Link Case</button>
+                )}
               </div>
-              {linkDropdown && (() => {
+              {pendingLinkCase && (
+                <div style={{ marginTop: 6, padding: "8px 12px", background: "var(--c-bg)", border: "1px solid var(--c-accent, #1e3a5f)", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "#5599cc", fontFamily: "monospace", fontSize: 11 }}>{pendingLinkCase.caseNum}</span>
+                  <span style={{ color: "var(--c-text)", flex: 1 }}>{pendingLinkCase.title}</span>
+                  <button onClick={() => { setPendingLinkCase(null); setLinkSearch(""); }} style={{ background: "none", border: "none", color: "#8A9096", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
+                </div>
+              )}
+              {linkDropdown && !pendingLinkCase && (() => {
                 const lower = linkSearch.trim().toLowerCase();
                 const existingIds = new Set([...assocCases.map(c => c.id), ...caseLinks.map(l => l.caseId)]);
                 const results = (allCases || []).filter(c => !c.deletedAt && !existingIds.has(c.id) && ((c.caseNum || "").toLowerCase().includes(lower) || (c.defendantName || "").toLowerCase().includes(lower) || (c.title || "").toLowerCase().includes(lower))).slice(0, 8);
                 return results.length > 0 ? (
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
                     {results.map(c => (
-                      <div key={c.id} onMouseDown={e => e.preventDefault()} onClick={() => addCaseLink(c.id)} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
+                      <div key={c.id} onMouseDown={e => e.preventDefault()} onClick={() => { setPendingLinkCase(c); setLinkDropdown(false); setLinkSearch(c.caseNum || c.title); }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
                         onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                         <span style={{ color: "#5599cc", fontFamily: "monospace", fontSize: 11, marginRight: 8 }}>{c.caseNum}</span>
