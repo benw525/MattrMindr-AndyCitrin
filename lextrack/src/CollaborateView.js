@@ -95,27 +95,10 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
   const [newGroupSearch, setNewGroupSearch] = useState("");
   const [newGroupDropdown, setNewGroupDropdown] = useState(false);
 
-  const [viewportHeight, setViewportHeight] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const lastTypingSentRef = useRef(0);
   const fileInputRef = useRef(null);
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      setViewportHeight(vv.height);
-      if (containerRef.current) {
-        containerRef.current.style.height = (vv.height - 56) + "px";
-      }
-      setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
-    };
-    vv.addEventListener("resize", onResize);
-    vv.addEventListener("scroll", onResize);
-    return () => { vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };
-  }, []);
 
   const activeUsers = (allUsers || []).filter(u => !u.deletedAt && !u.deleted_at);
 
@@ -328,7 +311,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
-    <div ref={containerRef} style={{ display: "flex", height: viewportHeight ? (viewportHeight - 56) + "px" : "calc(100dvh - 56px)", background: "var(--c-bg)", overflow: "hidden", position: "relative" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 56px)", background: "var(--c-bg)", overflow: "hidden" }}>
       {(!isMobile || !mobileShowChat) && (
         <div style={{ width: isMobile ? "100%" : 300, minWidth: isMobile ? "100%" : 300, borderRight: "1px solid var(--c-border)", display: "flex", flexDirection: "column", background: "var(--c-bg)", overflow: "hidden" }}>
           <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
@@ -477,7 +460,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
       )}
 
       {(!isMobile || mobileShowChat) && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={isMobile ? { position: "fixed", top: 56, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", background: "var(--c-bg)", zIndex: 100 } : { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {activeChannel ? (
             <>
               <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", gap: 10, background: "var(--c-bg)", flexShrink: 0 }}>
@@ -544,7 +527,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                 <div ref={messagesEndRef} />
               </div>
 
-              <div style={{ padding: isMobile ? "8px 10px" : "12px 16px", paddingBottom: isMobile ? "calc(8px + env(safe-area-inset-bottom, 0px))" : 12, borderTop: "1px solid var(--c-border)", background: "var(--c-bg)", flexShrink: 0, position: "relative", zIndex: 5 }}>
+              <div style={{ padding: isMobile ? "8px 10px" : "12px 16px", paddingBottom: isMobile ? "max(8px, env(safe-area-inset-bottom, 0px))" : 12, borderTop: "1px solid var(--c-border)", background: "var(--c-bg)", flexShrink: 0, position: "relative", zIndex: 5 }}>
                 {mentionDropdown && (
                   <div style={{ position: "absolute", bottom: "100%", left: 16, right: 16, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 8, boxShadow: "0 -4px 12px rgba(0,0,0,0.1)", maxHeight: 200, overflowY: "auto", zIndex: 10 }}>
                     {mentionDropdown.users.map(u => (
@@ -566,6 +549,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                     value={msgInput}
                     onChange={e => { handleMentionInput(e.target.value); handleTyping(); }}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                    onFocus={() => { setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 300); }}
                     placeholder="Type a message... (@ to mention)"
                     autoComplete="off"
                     autoCorrect="off"
