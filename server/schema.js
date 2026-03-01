@@ -499,6 +499,18 @@ async function createSchema() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS sms_watch_numbers (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        phone_number    TEXT    NOT NULL,
+        contact_name    TEXT    NOT NULL DEFAULT '',
+        added_by        INTEGER REFERENCES users(id),
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(case_id, phone_number)
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS chat_channels (
         id          SERIAL PRIMARY KEY,
         type        TEXT    NOT NULL,

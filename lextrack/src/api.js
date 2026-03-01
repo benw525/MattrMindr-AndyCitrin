@@ -310,6 +310,12 @@ export const apiStartPrivateChat        = (data)        => apiFetch("/api/collab
 export const apiCollabTyping            = (id)          => apiFetch(`/api/collaborate/channels/${id}/typing`, { method: "POST" });
 export const apiGetCollabTyping         = (id)          => apiFetch(`/api/collaborate/channels/${id}/typing`);
 export const apiGetCollabUnreadCount    = ()            => apiFetch("/api/collaborate/unread");
+export const apiGetSmsWatch              = (caseId)          => apiFetch(`/api/sms/watch/${caseId}`);
+export const apiAddSmsWatch              = (caseId, data)     => apiFetch(`/api/sms/watch/${caseId}`, { method: "POST", body: data });
+export const apiDeleteSmsWatch           = (watchId)          => apiFetch(`/api/sms/watch/${watchId}`, { method: "DELETE" });
+export const apiGetUnmatchedSms          = ()                 => apiFetch("/api/sms/unmatched");
+export const apiAssignSms                = (messageId, caseId) => apiFetch(`/api/sms/assign/${messageId}`, { method: "PUT", body: { caseId } });
+
 export async function apiUploadCollabFile(file) {
   const fd = new FormData();
   fd.append("file", file);

@@ -316,6 +316,92 @@ router.get("/suggest-numbers/:caseId", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/watch/:caseId", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT w.*, u.name as added_by_name FROM sms_watch_numbers w
+       LEFT JOIN users u ON w.added_by = u.id
+       WHERE w.case_id = $1 ORDER BY w.created_at DESC`,
+      [req.params.caseId]
+    );
+    res.json(rows.map(r => ({
+      id: r.id, caseId: r.case_id, phoneNumber: r.phone_number,
+      contactName: r.contact_name, addedBy: r.added_by,
+      addedByName: r.added_by_name || "", createdAt: r.created_at,
+    })));
+  } catch (err) {
+    console.error("SMS watch fetch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/watch/:caseId", requireAuth, async (req, res) => {
+  try {
+    const { phoneNumber, contactName } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+    const formatted = formatPhoneNumber(phoneNumber);
+    if (!formatted) return res.status(400).json({ error: "Invalid phone number" });
+    const { rows } = await pool.query(
+      `INSERT INTO sms_watch_numbers (case_id, phone_number, contact_name, added_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (case_id, phone_number) DO NOTHING RETURNING *`,
+      [req.params.caseId, formatted, contactName || "", req.session.userId]
+    );
+    if (rows.length === 0) return res.status(409).json({ error: "Number already monitored for this case" });
+    res.status(201).json({
+      id: rows[0].id, caseId: rows[0].case_id, phoneNumber: rows[0].phone_number,
+      contactName: rows[0].contact_name, addedBy: rows[0].added_by, createdAt: rows[0].created_at,
+    });
+  } catch (err) {
+    console.error("SMS watch add error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/watch/:watchId", requireAuth, async (req, res) => {
+  try {
+    const check = await pool.query("SELECT id FROM sms_watch_numbers WHERE id = $1", [req.params.watchId]);
+    if (check.rows.length === 0) return res.status(404).json({ error: "Not found" });
+    const { rows } = await pool.query("DELETE FROM sms_watch_numbers WHERE id = $1 RETURNING *", [req.params.watchId]);
+    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("SMS watch delete error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/unmatched", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM sms_messages WHERE case_id IS NULL AND direction = 'inbound' ORDER BY sent_at DESC LIMIT 200`
+    );
+    res.json(rows.map(r => ({
+      id: r.id, phoneNumber: r.phone_number, body: r.body,
+      contactName: r.contact_name, sentAt: r.sent_at, twilioSid: r.twilio_sid,
+    })));
+  } catch (err) {
+    console.error("SMS unmatched fetch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/assign/:messageId", requireAuth, async (req, res) => {
+  try {
+    const { caseId } = req.body;
+    if (!caseId) return res.status(400).json({ error: "caseId required" });
+    const { rows } = await pool.query(
+      `UPDATE sms_messages SET case_id = $1 WHERE id = $2 AND case_id IS NULL RETURNING *`,
+      [caseId, req.params.messageId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Message not found or already assigned" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("SMS assign error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/inbound", async (req, res) => {
   try {
     const from = req.body.From || "";
@@ -348,6 +434,17 @@ router.post("/inbound", async (req, res) => {
       );
       if (configMatch.rows.length > 0) {
         caseMatch.rows.push(...configMatch.rows);
+      }
+    }
+
+    if (caseMatch.rows.length === 0) {
+      const watchMatch = await pool.query(
+        `SELECT case_id, contact_name FROM sms_watch_numbers
+         WHERE phone_number = $1 ORDER BY case_id DESC`,
+        [formatted]
+      );
+      if (watchMatch.rows.length > 0) {
+        caseMatch.rows.push(...watchMatch.rows);
       }
     }
 

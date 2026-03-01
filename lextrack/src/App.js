@@ -34,6 +34,7 @@ import {
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
+  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms,
   apiSendSupport,
   apiGetCollabUnreadCount,
 } from "./api.js";
@@ -5165,6 +5166,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsOtherChecked, setSmsOtherChecked] = useState(false);
   const [smsAddPhone, setSmsAddPhone] = useState("");
   const [smsNewMessage, setSmsNewMessage] = useState("");
+  const [smsWatchNumbers, setSmsWatchNumbers] = useState([]);
+  const [smsWatchExpanded, setSmsWatchExpanded] = useState(false);
+  const [smsWatchAdding, setSmsWatchAdding] = useState(false);
+  const [smsWatchPhone, setSmsWatchPhone] = useState("");
+  const [smsWatchName, setSmsWatchName] = useState("");
+  const [smsUnmatched, setSmsUnmatched] = useState([]);
+  const [smsUnmatchedOpen, setSmsUnmatchedOpen] = useState(false);
+  const [smsUnmatchedSearch, setSmsUnmatchedSearch] = useState({});
   const [smsCompose, setSmsCompose] = useState(false);
   const [smsComposePhone, setSmsComposePhone] = useState("");
   const [smsComposeBody, setSmsComposeBody] = useState("");
@@ -5262,6 +5271,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     apiGetSmsConfigs(c.id).then(setSmsConfigs).catch(() => {});
     apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
     apiGetSmsScheduled(c.id).then(setSmsScheduled).catch(() => {});
+    apiGetSmsWatch(c.id).then(setSmsWatchNumbers).catch(() => {});
+    apiGetUnmatchedSms().then(setSmsUnmatched).catch(() => {});
     const timersRef = partyTimers.current;
     const pendingRef = partyPendingData.current;
 
@@ -7240,6 +7251,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       {smsConfigs.length > 0 ? `${smsConfigs.filter(sc => sc.enabled).length} active auto-text recipient${smsConfigs.filter(sc => sc.enabled).length !== 1 ? "s" : ""}` : "No auto-text configured"}
                     </span>
                     <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", position: "relative" }} onClick={() => {
+                        apiGetUnmatchedSms().then(msgs => { setSmsUnmatched(msgs); setSmsUnmatchedOpen(true); }).catch(() => {});
+                      }}>
+                        Unmatched
+                        {smsUnmatched.length > 0 && <span style={{ position: "absolute", top: -5, right: -5, background: "#e05252", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>{smsUnmatched.length > 99 ? "99+" : smsUnmatched.length}</span>}
+                      </button>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                         setSmsCompose(true);
                         setSmsComposePhone("");
@@ -7251,6 +7268,45 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
                       }}>Refresh</button>
                     </div>
+                  </div>
+
+                  {/* Monitored Numbers */}
+                  <div style={{ marginBottom: 12, border: "1px solid var(--c-border2)", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--c-bg2)", cursor: "pointer" }} onClick={() => setSmsWatchExpanded(p => !p)}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>
+                        {smsWatchExpanded ? "▾" : "▸"} Monitored Numbers {smsWatchNumbers.length > 0 && <span style={{ color: "#8A9096", fontWeight: 400 }}>({smsWatchNumbers.length})</span>}
+                      </span>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "1px 6px" }} onClick={e => { e.stopPropagation(); setSmsWatchAdding(true); setSmsWatchExpanded(true); setSmsWatchPhone(""); setSmsWatchName(""); }}>+ Add</button>
+                    </div>
+                    {smsWatchExpanded && (
+                      <div style={{ padding: "6px 12px" }}>
+                        {smsWatchNumbers.length === 0 && !smsWatchAdding && (
+                          <div style={{ fontSize: 12, color: "#8A9096", fontStyle: "italic", padding: "6px 0" }}>No monitored numbers. Add a phone number to automatically link incoming texts to this case.</div>
+                        )}
+                        {smsWatchNumbers.map(w => (
+                          <div key={w.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid var(--c-border2)" }}>
+                            <div>
+                              <span style={{ fontSize: 12, color: "var(--c-text)", fontFamily: "monospace" }}>{w.phoneNumber}</span>
+                              {w.contactName && <span style={{ fontSize: 11, color: "#8A9096", marginLeft: 8 }}>{w.contactName}</span>}
+                            </div>
+                            <button onClick={() => { apiDeleteSmsWatch(w.id).then(() => setSmsWatchNumbers(p => p.filter(x => x.id !== w.id))).catch(() => {}); }} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: "0 2px", lineHeight: 1 }} title="Remove">✕</button>
+                          </div>
+                        ))}
+                        {smsWatchAdding && (
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "8px 0" }}>
+                            <input value={smsWatchPhone} onChange={e => setSmsWatchPhone(e.target.value)} placeholder="Phone number" style={{ flex: 1, fontSize: 12, padding: "4px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }} />
+                            <input value={smsWatchName} onChange={e => setSmsWatchName(e.target.value)} placeholder="Name (optional)" style={{ flex: 1, fontSize: 12, padding: "4px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }} />
+                            <button className="btn btn-primary btn-sm" style={{ fontSize: 11, padding: "3px 10px" }} onClick={() => {
+                              if (!smsWatchPhone.trim()) return;
+                              apiAddSmsWatch(c.id, { phoneNumber: smsWatchPhone.trim(), contactName: smsWatchName.trim() })
+                                .then(w => { setSmsWatchNumbers(p => [w, ...p]); setSmsWatchAdding(false); setSmsWatchPhone(""); setSmsWatchName(""); })
+                                .catch(err => alert(err.message || "Failed to add"));
+                            }}>Add</button>
+                            <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => setSmsWatchAdding(false)}>Cancel</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {smsMessages.length === 0 && (
@@ -7302,6 +7358,77 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   )}
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Unmatched Texts Modal ── */}
+        {smsUnmatchedOpen && (
+          <div className="case-overlay" style={{ zIndex: 10001 }} onClick={() => setSmsUnmatchedOpen(false)}>
+            <div className="login-box" onClick={e => e.stopPropagation()} style={{ width: 520, maxWidth: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text)", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Unmatched Texts</span>
+                <button onClick={() => setSmsUnmatchedOpen(false)} style={{ background: "none", border: "none", fontSize: 18, color: "#8A9096", cursor: "pointer" }}>✕</button>
+              </div>
+              {smsUnmatched.length === 0 && (
+                <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", padding: "20px 0", textAlign: "center" }}>No unmatched texts.</div>
+              )}
+              <div style={{ flex: 1, overflow: "auto" }}>
+                {smsUnmatched.map(msg => (
+                  <div key={msg.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--c-border2)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)", fontFamily: "monospace" }}>{msg.phoneNumber}</span>
+                      <span style={{ fontSize: 10, color: "#8A9096", whiteSpace: "nowrap" }}>{msg.sentAt ? new Date(msg.sentAt).toLocaleString() : ""}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 8, whiteSpace: "pre-wrap" }}>{msg.body}</div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        placeholder="Search case # or defendant..."
+                        value={smsUnmatchedSearch[msg.id] || ""}
+                        onChange={e => setSmsUnmatchedSearch(p => ({ ...p, [msg.id]: e.target.value }))}
+                        style={{ flex: 1, fontSize: 11, padding: "4px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }}
+                      />
+                      <button className="btn btn-primary btn-sm" style={{ fontSize: 11, padding: "3px 10px" }} onClick={() => {
+                        const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
+                        if (!q) return;
+                        const match = allCases.find(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.defendantName && cs.defendantName.toLowerCase().includes(q)));
+                        if (!match) { alert("No case found matching that search."); return; }
+                        apiAssignSms(msg.id, match.id).then(() => {
+                          setSmsUnmatched(p => p.filter(x => x.id !== msg.id));
+                          setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; });
+                          apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
+                        }).catch(err => alert(err.message || "Failed to assign"));
+                      }}>Assign</button>
+                    </div>
+                    {(() => {
+                      const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
+                      if (!q || q.length < 2) return null;
+                      const matches = allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.defendantName && cs.defendantName.toLowerCase().includes(q))).slice(0, 5);
+                      if (matches.length === 0) return null;
+                      return (
+                        <div style={{ marginTop: 4, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg2)", maxHeight: 120, overflow: "auto" }}>
+                          {matches.map(cs => (
+                            <div key={cs.id} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--c-border2)" }}
+                              onClick={() => {
+                                apiAssignSms(msg.id, cs.id).then(() => {
+                                  setSmsUnmatched(p => p.filter(x => x.id !== msg.id));
+                                  setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; });
+                                  apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
+                                }).catch(err => alert(err.message || "Failed to assign"));
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                            >
+                              <span style={{ color: "#5599cc", fontFamily: "monospace" }}>{cs.caseNum}</span>
+                              <span style={{ color: "var(--c-text)" }}>{cs.title || cs.defendantName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
