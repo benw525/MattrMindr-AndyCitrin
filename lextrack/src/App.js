@@ -1911,7 +1911,7 @@ export default function App() {
         pending={pendingTimePrompt}
         onSubmit={(taskId, timeLogged, completedBy, timeLogUser) => finishCompleteTask(taskId, timeLogged, completedBy, timeLogUser)}
       />
-      {!showAdvocateGlobal && (
+      {!showAdvocateGlobal && view !== "collaborate" && (
         <button
           className="advocate-fab"
           onClick={() => setShowAdvocateGlobal(true)}
@@ -1920,7 +1920,7 @@ export default function App() {
           <span style={{ fontSize: 22 }}>🤖</span>
         </button>
       )}
-      {showAdvocateGlobal && (
+      {showAdvocateGlobal && view !== "collaborate" && (
         <div className="advocate-panel">
           <div className="advocate-panel-header">
             <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
