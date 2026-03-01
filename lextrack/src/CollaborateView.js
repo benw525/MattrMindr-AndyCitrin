@@ -315,7 +315,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
       {(!isMobile || !mobileShowChat) && (
         <div style={{ width: isMobile ? "100%" : 300, minWidth: isMobile ? "100%" : 300, borderRight: "1px solid var(--c-border)", display: "flex", flexDirection: "column", background: "var(--c-bg)", overflow: "hidden" }}>
           <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
-            {onMenuToggle && <button className="sidebar-toggle" onClick={onMenuToggle} style={{ display: "none", background: "transparent", border: "none", fontSize: 20, cursor: "pointer", color: "var(--c-text2)", padding: 4 }}>☰</button>}
+            {onMenuToggle && <button className="hamburger-btn" onClick={onMenuToggle}>☰</button>}
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 700, color: "var(--c-text-h)", flex: 1 }}>Collaborate</div>
           </div>
 
@@ -541,7 +541,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                     ))}
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", position: "relative", zIndex: 2 }}>
                   <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={e => { if (e.target.files[0]) handleFileUpload(e.target.files[0]); e.target.value = ""; }} />
                   <button onClick={() => fileInputRef.current?.click()} style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: "var(--c-text3)", padding: 4, flexShrink: 0 }} title="Attach file">📎</button>
                   <input
@@ -550,13 +550,17 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                     onChange={e => { handleMentionInput(e.target.value); handleTyping(); }}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                     placeholder="Type a message... (@ to mention)"
-                    style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, outline: "none" }}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="sentences"
+                    data-form-type="other"
+                    style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 16, outline: "none" }}
                   />
                   <button onClick={handleSend} disabled={!msgInput.trim() || sending} style={{
                     background: msgInput.trim() ? "var(--c-accent, #1e3a5f)" : "var(--c-border)",
                     color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13,
                     fontWeight: 600, cursor: msgInput.trim() ? "pointer" : "default", flexShrink: 0,
-                    opacity: sending ? 0.6 : 1,
+                    opacity: sending ? 0.6 : 1, position: "relative", zIndex: 3,
                   }}>{sending ? "..." : "Send"}</button>
                 </div>
               </div>
