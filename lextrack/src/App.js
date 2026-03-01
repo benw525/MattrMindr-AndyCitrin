@@ -963,6 +963,17 @@ export default function App() {
   const [advocateFromHelpCenter, setAdvocateFromHelpCenter] = useState(false);
   useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading, advocateScreenChips]);
   const [contextContactsCache, setContextContactsCache] = useState(null);
+  const [pinnedContactsList, setPinnedContactsList] = useState([]);
+  useEffect(() => {
+    const ids = currentUser?.preferences?.pinnedContacts || [];
+    if (ids.length > 0) {
+      apiGetContacts().then(all => {
+        setPinnedContactsList(all.filter(c => ids.includes(c.id)));
+      }).catch(() => setPinnedContactsList([]));
+    } else {
+      setPinnedContactsList([]);
+    }
+  }, [currentUser?.preferences?.pinnedContacts]); // eslint-disable-line react-hooks/exhaustive-deps
   const [contextTemplatesCache, setContextTemplatesCache] = useState(null);
   const [contextTimeManualCache, setContextTimeManualCache] = useState(null);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("lextrack-dark") === "1");
@@ -1877,7 +1888,7 @@ export default function App() {
         <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} />
       )}
       <div className="main">
-        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} />}
+        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
@@ -2997,6 +3008,7 @@ const DASHBOARD_WIDGETS = [
   { id: "my-time", label: "My Time", size: "half", icon: "⏱️" },
   { id: "ai-triage", label: "AI Case Triage", size: "full", icon: "⚡" },
   { id: "quick-notes", label: "Quick Notes", size: "half", icon: "📝" },
+  { id: "pinned-contacts", label: "Pinned Contacts", size: "half", icon: "👤" },
 ];
 const DEFAULT_LAYOUT = ["stat-active", "stat-deadlines", "stat-tasks", "stat-trials", "deadlines", "trials", "tasks"];
 const getDashboardLayout = (prefs) => { try { return prefs?.dashboardLayout || DEFAULT_LAYOUT; } catch { return DEFAULT_LAYOUT; } };
@@ -3608,7 +3620,7 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds }
   );
 }
 
-function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, onMenuToggle, pinnedCaseIds, onNavigate }) {
+function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, onMenuToggle, pinnedCaseIds, onNavigate, pinnedContacts, onSelectContact }) {
   const [showModal, setShowModal] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null);
@@ -3800,6 +3812,36 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
             ))}
           </div>
         ) : null;
+      case "pinned-contacts":
+        return (pinnedContacts && pinnedContacts.length > 0) ? (
+          <div className="card" key={widgetId}>
+            <div className="card-header" onClick={() => onNavigate && onNavigate("contacts")} style={{ cursor: "pointer" }}><div className="card-title">Pinned Contacts</div><Badge label={`${pinnedContacts.length}`} /></div>
+            {pinnedContacts.map(c => {
+              const cs = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
+              return (
+                <div key={c.id} className="deadline-item" style={{ cursor: "pointer", padding: "10px 16px" }} onClick={() => onSelectContact && onSelectContact(c)}>
+                  <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="dl-title" style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+                      {c.name}
+                      <span style={{ padding: "1px 7px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: cs.bg, color: "#1F2428", letterSpacing: "0.04em" }}>{c.category}</span>
+                    </div>
+                    <div className="dl-case" style={{ fontSize: 11 }}>
+                      {c.phone && <span>{c.phone}</span>}
+                      {c.phone && c.email && <span> · </span>}
+                      {c.email && <span>{c.email}</span>}
+                      {!c.phone && !c.email && <span style={{ color: "#8A9096" }}>No contact info</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="card" key={widgetId}>
+            <div className="card-header" onClick={() => onNavigate && onNavigate("contacts")} style={{ cursor: "pointer" }}><div className="card-title">Pinned Contacts</div></div>
+            <div className="empty">No pinned contacts. Pin contacts from the Contacts page.</div>
+          </div>
+        );
       case "recent-activity":
         return <RecentActivityWidget key={widgetId} currentUser={currentUser} allCases={allCases} onSelectCase={onSelectCase} />;
       case "overdue":
