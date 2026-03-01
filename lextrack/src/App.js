@@ -1436,7 +1436,7 @@ export default function App() {
 
   if (!sessionChecked) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <img src="/logo.png" alt="MattrMindr" style={{ height: 40 }} />
+      <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 40 }} />
       <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
       <div style={{ fontSize: 13, color: "#64748b" }}>Restoring session…</div>
     </div>
@@ -1450,7 +1450,7 @@ export default function App() {
 
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <img src="/logo.png" alt="MattrMindr" style={{ height: 40 }} />
+      <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 40 }} />
       <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
       <div style={{ fontSize: 13, color: "#64748b" }}>Loading case data…</div>
     </div>
@@ -1458,7 +1458,7 @@ export default function App() {
 
   if (dataError) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <img src="/logo.png" alt="MattrMindr" style={{ height: 40 }} />
+      <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 40 }} />
       <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
       <div style={{ fontSize: 13, color: "#e05252" }}>Failed to load data: {dataError}</div>
       <button className="btn btn-outline" onClick={() => setCurrentUser(null)}>Return to Login</button>
@@ -1842,7 +1842,7 @@ export default function App() {
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       <aside className={`sidebar${sidebarOpen ? " open" : ""} !bg-slate-900 dark:!bg-slate-950 !border-r-slate-800`}>
         <div className="sidebar-logo !border-b-slate-800 flex items-center gap-2.5">
-          <img src="/logo.png" alt="MattrMindr" className="h-7 mix-blend-lighten" />
+          <img src="/mattrmindr-icon.png" alt="MattrMindr" className="w-8 h-8 rounded object-cover mix-blend-lighten" />
           <div>
             <div className="text-sm font-bold text-white tracking-wide">MattrMindr</div>
             <div className="text-[8px] text-slate-500 uppercase tracking-widest">Public Defender</div>
@@ -2210,7 +2210,7 @@ function LoginScreen({ onLogin }) {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-10">
         <div className="flex flex-col items-center mb-8">
-          <img src="/logo.png" alt="MattrMindr" className="h-12 object-contain mb-3 mix-blend-multiply dark:mix-blend-lighten dark:invert" />
+          <img src="/mattrmindr-logo.png" alt="MattrMindr" className="h-12 object-contain mb-3 mix-blend-multiply dark:mix-blend-lighten dark:invert" />
           <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center mb-1">Mobile County Public Defender's Office</div>
           <div className="text-[10px] text-slate-400 uppercase tracking-widest text-center">Case Management System</div>
         </div>
@@ -2298,7 +2298,7 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
 
   const content = (
     <>
-      <img src="/logo.png" alt="MattrMindr" style={{ height: 36, marginBottom: 2 }} />
+      <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 36, marginBottom: 2 }} />
       <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mobile County Public Defender's Office</div>
       {forced && <div style={{ fontSize: 13, color: "#64748b", margin: "8px 0 16px" }}>You must set a new password before continuing.</div>}
       {!forced && (
