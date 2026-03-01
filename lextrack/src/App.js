@@ -726,7 +726,7 @@ body.dark-body { background: #0E1116; }
     padding: 14px 12px; gap: 6px;
     min-height: 54px;
   }
-  .advocate-fab { bottom: 72px; right: 16px; width: 48px; height: 48px; }
+  .advocate-fab { bottom: 72px; left: 16px; right: auto; width: 48px; height: 48px; }
   .advocate-msg-area { padding: 10px 10px !important; }
   .advocate-input-bar { padding: 10px 10px !important; }
   .advocate-input-bar input { font-size: 16px !important; padding: 10px 12px !important; }
@@ -740,6 +740,7 @@ body.dark-body { background: #0E1116; }
   .advocate-panel-header .advocate-header-actions .btn { min-width: unset; min-height: 36px; font-size: 11px !important; padding: 4px 10px !important; }
   .advocate-msg-area > div > div > div { max-width: 92% !important; }
   .advocate-nav-chips button { font-size: 12px !important; padding: 7px 12px !important; min-height: 36px; }
+  [class*="replit"] iframe[style*="bottom"], .replit-badge, #__replco_badge { left: 8px !important; right: auto !important; }
 }
 `;
 
