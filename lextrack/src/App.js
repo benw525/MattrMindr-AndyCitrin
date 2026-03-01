@@ -3016,7 +3016,7 @@ const DASHBOARD_WIDGETS = [
   { id: "deadlines", label: "Upcoming Deadlines", size: "half", icon: "📋" },
   { id: "trials", label: "Trials Within 90 Days", size: "half", icon: "🏛️" },
   { id: "tasks", label: "My Tasks", size: "full", icon: "📝" },
-  { id: "pinned", label: "Pinned Cases", size: "full", icon: "📌" },
+  { id: "pinned", label: "Pinned Cases", size: "full", icon: "pin" },
   { id: "recent-activity", label: "Recent Activity", size: "half", icon: "🕐" },
   { id: "overdue", label: "Overdue Tasks", size: "half", icon: "⚠️" },
   { id: "my-time", label: "My Time", size: "half", icon: "⏱️" },
@@ -3085,7 +3085,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
               }}
             >
               <span style={{ fontSize: 16, color: "var(--c-text2)", cursor: "grab", userSelect: "none", width: 20, textAlign: "center", letterSpacing: 1 }} title="Drag to reorder">⠿</span>
-              <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon}</span>
+              <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon}</span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
               <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
               <button onClick={() => remove(id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B24A4A", padding: "2px 4px" }} title="Remove">✕</button>
@@ -3098,7 +3098,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--c-text2)", marginTop: 20, marginBottom: 8 }}>Available Widgets</div>
             {available.map(w => (
               <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border)" }}>
-                <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon}</span>
+                <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon}</span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
                 <button onClick={() => add(w.id)} className="btn" style={{ fontSize: 11, padding: "3px 10px" }}>+ Add</button>
@@ -3235,7 +3235,7 @@ function RecentActivityWidget({ currentUser, allCases, onSelectCase }) {
 
 const PinnedSectionHeader = () => (
   <div style={{ padding: "5px 10px", fontSize: 10, fontWeight: 700, color: "#B67A18", textTransform: "uppercase", letterSpacing: "0.06em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)", position: "sticky", top: 0, zIndex: 1, display: "flex", alignItems: "center", gap: 4 }}>
-    <span style={{ fontSize: 11 }}>📌</span> Pinned Cases
+    <Pin size={11} className="text-amber-500" /> Pinned Cases
   </div>
 );
 
@@ -3828,7 +3828,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
             <div className="card-header"><div className="card-title">Pinned Cases</div><Badge label={`${pinnedCases.length}`} /></div>
             {pinnedCases.map(c => (
               <div key={c.id} className="deadline-item" style={{ cursor: "pointer", padding: "10px 16px" }} onClick={() => onSelectCase(c)}>
-                <span style={{ fontSize: 14, marginRight: 6 }}>📌</span>
+                <Pin size={14} className="text-amber-500 mr-1.5 flex-shrink-0" />
                 <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
                   <div className="dl-title" style={{ fontSize: 13 }}>{c.title}</div>
                   <div className="dl-case">{c.caseNum || "—"}{c.defendantName ? ` · ${c.defendantName}` : ""}</div>
@@ -4413,41 +4413,40 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
         {aiResults !== null && !aiLoading && (
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-header">
-              <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span>&#x2728;</span> AI Search Results
-                <span style={{ fontSize: 12, fontWeight: 400, color: "#64748b" }}>({aiResults.length} match{aiResults.length !== 1 ? "es" : ""})</span>
+              <div className="card-title flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-500" /> AI Search Results
+                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">({aiResults.length} match{aiResults.length !== 1 ? "es" : ""})</span>
               </div>
             </div>
             {aiResults.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#64748b", fontSize: 13 }}>No matching cases found. Try rephrasing your search.</div>
+              <div className="p-5 text-center text-slate-500 dark:text-slate-400 text-sm">No matching cases found. Try rephrasing your search.</div>
             ) : (
-              <div style={{ maxHeight: 400, overflowY: "auto" }}>
+              <div className="max-h-[400px] overflow-y-auto">
                 {aiResults.map((r, i) => {
                   const c = allCases.find(cc => cc.id === r.id);
                   if (!c) return null;
                   return (
                     <div
                       key={r.id}
-                      style={{ padding: "14px 18px", borderBottom: i < aiResults.length - 1 ? "1px solid #e2e8f0" : "none", cursor: "pointer", display: "flex", gap: 14, alignItems: "flex-start" }}
+                      className="flex gap-3.5 items-start px-4 py-3.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      style={{ borderBottom: i < aiResults.length - 1 ? "1px solid var(--c-border)" : "none" }}
                       onClick={() => setSelectedCase(c)}
-                      onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                      onMouseLeave={e => e.currentTarget.style.background = ""}
                     >
-                      <div style={{ minWidth: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #b8860b, #d4a843)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flexShrink: 0, marginTop: 2 }}>{i + 1}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontWeight: 600, fontSize: 14, color: "#1e293b" }}>{c.title}</span>
+                      <div className="min-w-[28px] h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5">{i + 1}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{c.title}</span>
                           {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
-                          {c.caseNum && <span style={{ fontFamily: "monospace", fontSize: 11, color: "#0f172a" }}>{c.caseNum}</span>}
+                          {c.caseNum && <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{c.caseNum}</span>}
                         </div>
-                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, lineHeight: 1.5 }}>{r.reason}</div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, display: "flex", gap: 12 }}>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{r.reason}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex gap-3">
                           {c.defendantName && <span>Defendant: {c.defendantName}</span>}
                           {c.stage && <span>Stage: {c.stage}</span>}
                           {c.courtDivision && <span>Division: {c.courtDivision}</span>}
                         </div>
                       </div>
-                      <div style={{ fontSize: 11, color: "#b8860b", fontWeight: 500, flexShrink: 0 }}>View →</div>
+                      <div className="text-xs text-amber-600 dark:text-amber-500 font-medium flex-shrink-0">View →</div>
                     </div>
                   );
                 })}
@@ -4478,11 +4477,9 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                       <th>Case Number</th>
                       <th>Style</th>
                       <th className="hide-mobile">Case Type</th>
-                      <th className="hide-mobile">Defendant</th>
                       <th>Stage</th>
                       <th>Trial Date</th>
                       <th className="hide-mobile">Arrest Date</th>
-                      <th className="hide-mobile">Lead</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4503,11 +4500,9 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           {c.prosecutor && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.prosecutor}</div>}
                         </td>
                         <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Type">{c.caseType || "—"}</td>
-                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Defendant">{c.defendantName || "—"}</td>
                         <td data-label="Stage"><Badge label={c.stage} /></td>
                         <td data-label="Trial" className={`text-sm whitespace-nowrap ${c.trialDate ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500"}`}>{fmt(c.trialDate)}</td>
                         <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Arrest">{fmt(c.arrestDate)}</td>
-                        <td className="hide-mobile" data-label="Lead"><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -4570,11 +4565,9 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                       <SortTh col="caseNum" label="Case Number" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="title" label="Style" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <th className="hide-mobile">Case Type</th>
-                      <SortTh col="defendant" label="Defendant" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hide-mobile" />
                       <SortTh col="stage" label="Stage" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="trialDate" label="Trial Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="arrestDate" label="Arrest Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hide-mobile" />
-                      <SortTh col="lead" label="Lead" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hide-mobile" />
                     </tr>
                   </thead>
                   <tbody>
@@ -4595,11 +4588,9 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           {c.prosecutor && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.prosecutor}</div>}
                         </td>
                         <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Type">{c.caseType || "—"}</td>
-                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Defendant">{c.defendantName || "—"}</td>
                         <td data-label="Stage"><Badge label={c.stage} /></td>
                         <td data-label="Trial" className={`text-sm whitespace-nowrap ${c.trialDate ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500"}`}>{fmt(c.trialDate)}</td>
                         <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Arrest">{fmt(c.arrestDate)}</td>
-                        <td className="hide-mobile" data-label="Lead"><Avatar userId={c.assignedAttorney} size={26} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -12940,7 +12931,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                 <div className="card" style={{ marginBottom: 16 }}>
                   <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setPinnedContactsExpanded(p => !p)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 13 }}>📌</span>
+                      <Pin size={14} className="text-amber-500" />
                       <span style={{ fontSize: 13, fontWeight: 700, color: "var(--c-text-h)" }}>Pinned Contacts</span>
                       <span style={{ fontSize: 11, color: "#64748b" }}>({pinnedContacts.length})</span>
                     </div>
@@ -12958,7 +12949,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                           return (
                             <tr key={c.id} onClick={() => handleSelectContact(c)} style={{ borderBottom: "1px solid var(--c-border2)", cursor: "pointer", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"} onMouseLeave={e => e.currentTarget.style.background = ""}>
                               <td style={{ width: 30, padding: "10px 4px 10px 10px" }}>
-                                <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title="Unpin" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#B67A18", padding: 0, lineHeight: 1 }}>📌</button>
+                                <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title="Unpin" className="bg-transparent border-none cursor-pointer p-0 leading-none"><Pin size={14} className="text-amber-500" /></button>
                               </td>
                               <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
                                 <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: "#1e293b" }}>{c.category}</span>
@@ -13039,7 +13030,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                       )}
                       {!mergeMode && (
                         <td data-label="" style={{ padding: "10px 4px 10px 0", width: 30 }}>
-                          <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title={isPinned ? "Unpin" : "Pin"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: isPinned ? "#B67A18" : "#e2e8f0", padding: 0, lineHeight: 1, opacity: isPinned ? 1 : 0.5, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => { if (!isPinned) e.currentTarget.style.opacity = "0.5"; }}>📌</button>
+                          <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title={isPinned ? "Unpin" : "Pin"} className={`bg-transparent border-none cursor-pointer p-0 leading-none transition-opacity ${isPinned ? "opacity-100" : "opacity-30 hover:opacity-100"}`}><Pin size={14} className={isPinned ? "text-amber-500" : "text-slate-300 dark:text-slate-600"} /></button>
                         </td>
                       )}
                       <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
@@ -14575,7 +14566,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
                   return (
                     <div key={u.id} className="card" style={{ padding: "20px 22px", position: "relative", cursor: "pointer", borderLeft: "3px solid #C9A84C" }} onClick={() => toggleRow("pinned", idx)}>
                       <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 4, alignItems: "center" }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => togglePin(u.id)} title="Unpin" style={{ background: "transparent", border: "none", color: "#C9A84C", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>📌</button>
+                        <button onClick={() => togglePin(u.id)} title="Unpin" className="bg-transparent border-none cursor-pointer p-0.5 leading-none"><Pin size={14} className="text-amber-500" /></button>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: isExpanded ? 14 : 0 }}>
                         <div style={{ width: 48, height: 48, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{u.initials}</div>
@@ -14632,7 +14623,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
                       </>
                     ) : (
                       <>
-                        <button onClick={() => togglePin(u.id)} title={pinnedIds.includes(u.id) ? "Unpin" : "Pin to top"} style={{ background: "transparent", border: "none", color: pinnedIds.includes(u.id) ? "#C9A84C" : "#64748b", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>📌</button>
+                        <button onClick={() => togglePin(u.id)} title={pinnedIds.includes(u.id) ? "Unpin" : "Pin to top"} className={`bg-transparent border-none cursor-pointer p-0.5 leading-none transition-opacity ${pinnedIds.includes(u.id) ? "opacity-100" : "opacity-50 hover:opacity-100"}`}><Pin size={14} className={pinnedIds.includes(u.id) ? "text-amber-500" : "text-slate-400"} /></button>
                         {(canAdmin || currentUser.id === u.id) && (
                           <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>✎</button>
                         )}
