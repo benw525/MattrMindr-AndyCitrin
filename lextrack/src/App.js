@@ -11868,7 +11868,6 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   const [caseLinks, setCaseLinks] = useState([]);
   const [linkSearch, setLinkSearch] = useState("");
   const [linkDropdown, setLinkDropdown] = useState(false);
-  const [pendingLinkCase, setPendingLinkCase] = useState(null);
   const staffTimers = useRef({});
   const staffPendingData = useRef({});
   const phoneTimers = useRef({});
@@ -12220,27 +12219,15 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               </table>
             )}
             <div style={{ position: "relative" }}>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input value={linkSearch} onChange={e => { setLinkSearch(e.target.value); setLinkDropdown(e.target.value.trim().length > 0); setPendingLinkCase(null); }} onFocus={() => { if (linkSearch.trim()) setLinkDropdown(true); }} onBlur={() => setTimeout(() => setLinkDropdown(false), 200)} placeholder="Search to link a case..." className="field-input" style={{ flex: 1, fontSize: 12 }} />
-                {pendingLinkCase && (
-                  <button onClick={() => { addCaseLink(pendingLinkCase.id); setPendingLinkCase(null); setLinkSearch(""); }} className="btn btn-primary" style={{ fontSize: 11, padding: "6px 14px", flexShrink: 0, whiteSpace: "nowrap" }}>Link Case</button>
-                )}
-              </div>
-              {pendingLinkCase && (
-                <div style={{ marginTop: 6, padding: "8px 12px", background: "var(--c-bg)", border: "1px solid var(--c-accent, #1e3a5f)", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: "#5599cc", fontFamily: "monospace", fontSize: 11 }}>{pendingLinkCase.caseNum}</span>
-                  <span style={{ color: "var(--c-text)", flex: 1 }}>{pendingLinkCase.title}</span>
-                  <button onClick={() => { setPendingLinkCase(null); setLinkSearch(""); }} style={{ background: "none", border: "none", color: "#8A9096", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
-                </div>
-              )}
-              {linkDropdown && !pendingLinkCase && (() => {
+              <input value={linkSearch} onChange={e => { setLinkSearch(e.target.value); setLinkDropdown(e.target.value.trim().length > 0); }} onFocus={() => { if (linkSearch.trim()) setLinkDropdown(true); }} onBlur={() => setTimeout(() => setLinkDropdown(false), 200)} placeholder="Search to link a case..." className="field-input" style={{ width: "100%", fontSize: 12 }} />
+              {linkDropdown && (() => {
                 const lower = linkSearch.trim().toLowerCase();
                 const existingIds = new Set([...assocCases.map(c => c.id), ...caseLinks.map(l => l.caseId)]);
                 const results = (allCases || []).filter(c => !c.deletedAt && !existingIds.has(c.id) && ((c.caseNum || "").toLowerCase().includes(lower) || (c.defendantName || "").toLowerCase().includes(lower) || (c.title || "").toLowerCase().includes(lower))).slice(0, 8);
                 return results.length > 0 ? (
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
                     {results.map(c => (
-                      <div key={c.id} onMouseDown={e => e.preventDefault()} onClick={() => { setPendingLinkCase(c); setLinkDropdown(false); setLinkSearch(c.caseNum || c.title); }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
+                      <div key={c.id} onMouseDown={e => e.preventDefault()} onClick={() => { addCaseLink(c.id); setLinkSearch(""); setLinkDropdown(false); }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
                         onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                         <span style={{ color: "#5599cc", fontFamily: "monospace", fontSize: 11, marginRight: 8 }}>{c.caseNum}</span>
