@@ -90,6 +90,15 @@ export const apiMergeContacts      = (data)       => apiFetch("/api/contacts/mer
 export const apiGetContactCases   = (id)         => apiFetch(`/api/contacts/${id}/associated-cases`);
 export const apiGetContactCaseCounts = ()        => apiFetch("/api/contacts/case-counts/batch");
 
+export const apiGetContactPhones    = (contactId)       => apiFetch(`/api/contacts/${contactId}/phones`);
+export const apiAddContactPhone     = (contactId, data) => apiFetch(`/api/contacts/${contactId}/phones`, { method: "POST", body: data });
+export const apiUpdateContactPhone  = (phoneId, data)   => apiFetch(`/api/contacts/phones/${phoneId}`,   { method: "PUT",  body: data });
+export const apiDeleteContactPhone  = (phoneId)         => apiFetch(`/api/contacts/phones/${phoneId}`,   { method: "DELETE" });
+
+export const apiGetContactCaseLinks    = (contactId)       => apiFetch(`/api/contacts/${contactId}/case-links`);
+export const apiAddContactCaseLink     = (contactId, caseId) => apiFetch(`/api/contacts/${contactId}/case-links`, { method: "POST", body: { caseId } });
+export const apiDeleteContactCaseLink  = (linkId)          => apiFetch(`/api/contacts/case-links/${linkId}`,     { method: "DELETE" });
+
 // AI Search
 export const apiAiSearch = (query) => apiFetch("/api/ai-search", { method: "POST", body: { query } });
 

@@ -13,6 +13,8 @@ import {
   apiGetContacts, apiGetDeletedContacts, apiCreateContact, apiUpdateContact, apiDeleteContact, apiRestoreContact, apiMergeContacts, apiGetContactCases, apiGetContactCaseCounts,
   apiGetContactNotes, apiCreateContactNote, apiDeleteContactNote,
   apiGetContactStaff, apiCreateContactStaff, apiUpdateContactStaff, apiDeleteContactStaff,
+  apiGetContactPhones, apiAddContactPhone, apiUpdateContactPhone, apiDeleteContactPhone,
+  apiGetContactCaseLinks, apiAddContactCaseLink, apiDeleteContactCaseLink,
   apiAiSearch,
   apiChargeAnalysis, apiGetChargeClass, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary, apiTaskSuggestions, apiAdvocateChat,
   apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
@@ -11761,7 +11763,18 @@ const CONTACT_NOTE_TYPES = [
 
 function NewContactModal({ onSave, onClose }) {
   const [form, setForm] = useState({ name: "", category: "Client", phone: "", email: "", fax: "", address: "", firm: "", company: "", county: "Mobile" });
+  const [extraPhones, setExtraPhones] = useState([]);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const handleSave = async () => {
+    const saved = await onSave(form);
+    if (saved && saved.id && extraPhones.length > 0) {
+      for (const p of extraPhones) {
+        if (p.number.trim()) {
+          try { await apiAddContactPhone(saved.id, { label: p.label, number: p.number }); } catch {}
+        }
+      }
+    }
+  };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 500, maxWidth: "calc(100vw - 24px)" }}>
@@ -11795,19 +11808,34 @@ function NewContactModal({ onSave, onClose }) {
               <input className="field-input" value={form.county} onChange={e => set("county", e.target.value)} placeholder="County name" />
             </div>
           )}
-          <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label className="field-label">Phone</label>
-              <input className="field-input" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 555-5555" />
+          <div>
+            <label className="field-label">Primary Phone</label>
+            <input className="field-input" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 555-5555" />
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <label className="field-label" style={{ margin: 0 }}>Additional Phones ({extraPhones.length})</label>
+              <button onClick={() => setExtraPhones(p => [...p, { id: Date.now(), label: "Cell", number: "" }])} style={{ background: "none", border: "none", color: "var(--c-accent, #1e3a5f)", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>+ Add Phone</button>
             </div>
+            {extraPhones.map((p, i) => (
+              <div key={p.id} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                <select value={p.label} onChange={e => setExtraPhones(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} className="field-input" style={{ width: 90, flexShrink: 0, fontSize: 12 }}>
+                  {["Cell", "Office", "Home", "Work", "Fax", "Other"].map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <input className="field-input" value={p.number} onChange={e => setExtraPhones(prev => prev.map((x, j) => j === i ? { ...x, number: e.target.value } : x))} placeholder="(555) 555-5555" style={{ flex: 1 }} />
+                <button onClick={() => setExtraPhones(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#e05252", fontSize: 14, cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <label className="field-label">Fax</label>
               <input className="field-input" value={form.fax} onChange={e => set("fax", e.target.value)} placeholder="(555) 555-5555" />
             </div>
-          </div>
-          <div>
-            <label className="field-label">Email</label>
-            <input className="field-input" value={form.email} onChange={e => set("email", e.target.value)} placeholder="email@example.com" />
+            <div>
+              <label className="field-label">Email</label>
+              <input className="field-input" value={form.email} onChange={e => set("email", e.target.value)} placeholder="email@example.com" />
+            </div>
           </div>
           <div>
             <label className="field-label">Address</label>
@@ -11816,7 +11844,7 @@ function NewContactModal({ onSave, onClose }) {
         </div>
         <div className="modal-footer">
           <button className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" disabled={!form.name.trim()} onClick={() => onSave(form)}>Create Contact</button>
+          <button className="btn btn-primary" disabled={!form.name.trim()} onClick={handleSave}>Create Contact</button>
         </div>
       </div>
     </div>
@@ -11836,8 +11864,13 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   const [staff, setStaff] = useState([]);
   const [expandedStaff, setExpandedStaff] = useState(null);
   const [addingStaff, setAddingStaff] = useState(false);
+  const [phones, setPhones] = useState([]);
+  const [caseLinks, setCaseLinks] = useState([]);
+  const [linkSearch, setLinkSearch] = useState("");
+  const [linkDropdown, setLinkDropdown] = useState(false);
   const staffTimers = useRef({});
   const staffPendingData = useRef({});
+  const phoneTimers = useRef({});
 
   const hasStaff = contact.category === "Prosecutor" || contact.category === "Court";
   const staffTypes = contact.category === "Prosecutor" ? ATTORNEY_STAFF_TYPES : COURT_STAFF_TYPES;
@@ -11851,14 +11884,18 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
     } else {
       setStaff([]);
     }
+    apiGetContactPhones(contact.id).then(setPhones).catch(() => setPhones([]));
+    apiGetContactCaseLinks(contact.id).then(setCaseLinks).catch(() => setCaseLinks([]));
     return () => {
       Object.values(staffTimers.current).forEach(clearTimeout);
+      Object.values(phoneTimers.current).forEach(clearTimeout);
       const pending = staffPendingData.current;
       Object.keys(pending).forEach(async (sid) => {
         try { await apiUpdateContactStaff(sid, { data: pending[sid] }); } catch {}
       });
       staffPendingData.current = {};
       staffTimers.current = {};
+      phoneTimers.current = {};
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contact.id, hasStaff]);
@@ -11873,26 +11910,84 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
 
   const handleBlur = () => save(draft);
 
+  const addPhone = () => {
+    const tempId = "tmp_" + Date.now();
+    setPhones(prev => [...prev, { id: tempId, label: "Cell", number: "", contactId: contact.id, _unsaved: true }]);
+  };
+  const updatePhone = (phone, field, value) => {
+    const updated = { ...phone, [field]: value };
+    setPhones(prev => prev.map(p => p.id === phone.id ? updated : p));
+    if (phoneTimers.current[phone.id]) clearTimeout(phoneTimers.current[phone.id]);
+    phoneTimers.current[phone.id] = setTimeout(async () => {
+      if (phone._unsaved) {
+        const num = field === "number" ? value : phone.number;
+        if (!num || !num.trim()) return;
+        try {
+          const saved = await apiAddContactPhone(contact.id, { label: updated.label, number: num });
+          setPhones(prev => prev.map(p => p.id === phone.id ? { ...saved, _unsaved: false } : p));
+        } catch {}
+      } else {
+        try { await apiUpdateContactPhone(phone.id, { [field]: value }); } catch {}
+      }
+    }, 600);
+  };
+  const removePhone = async (phoneId) => {
+    const phone = phones.find(p => p.id === phoneId);
+    if (phone && phone._unsaved) {
+      setPhones(prev => prev.filter(p => p.id !== phoneId));
+      return;
+    }
+    try {
+      await apiDeleteContactPhone(phoneId);
+      setPhones(prev => prev.filter(p => p.id !== phoneId));
+    } catch {}
+  };
+
+  const addCaseLink = async (caseId) => {
+    try {
+      const link = await apiAddContactCaseLink(contact.id, caseId);
+      if (link.id) setCaseLinks(prev => [...prev, link]);
+      setLinkSearch(""); setLinkDropdown(false);
+    } catch {}
+  };
+  const removeCaseLink = async (linkId) => {
+    try {
+      await apiDeleteContactCaseLink(linkId);
+      setCaseLinks(prev => prev.filter(l => l.id !== linkId));
+    } catch {}
+  };
+
   const [fetchedAssocCases, setFetchedAssocCases] = useState([]);
   useEffect(() => {
-    if (contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") {
-      apiGetContactCases(contact.id).then(setFetchedAssocCases).catch(() => setFetchedAssocCases([]));
-    } else {
-      setFetchedAssocCases([]);
-    }
+    apiGetContactCases(contact.id).then(setFetchedAssocCases).catch(() => setFetchedAssocCases([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contact.id, contact.category]);
+  }, [contact.id, contact.category, caseLinks.length]);
 
   const assocCases = useMemo(() => {
-    if (contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") return fetchedAssocCases;
-    if (!allCases) return [];
-    if (contact.category === "Client")   return allCases.filter(c => c.defendantName === contact.name && !c.deletedAt);
-    if (contact.category === "Prosecutor") return allCases.filter(c => c.prosecutor === contact.name && !c.deletedAt);
-    if (contact.category === "Judge")    return allCases.filter(c => c.judge === contact.name && !c.deletedAt);
-    return [];
+    const nameMatched = [];
+    if (allCases) {
+      const cName = (contact.name || "").toLowerCase().trim();
+      if (contact.category === "Client") {
+        nameMatched.push(...allCases.filter(c => {
+          if (c.deletedAt) return false;
+          const dName = (c.defendantName || "").toLowerCase().trim();
+          return dName && cName && (dName === cName || dName.includes(cName) || cName.includes(dName));
+        }));
+      } else if (contact.category === "Prosecutor") {
+        nameMatched.push(...allCases.filter(c => c.prosecutor === contact.name && !c.deletedAt));
+      } else if (contact.category === "Judge") {
+        nameMatched.push(...allCases.filter(c => c.judge === contact.name && !c.deletedAt));
+      }
+    }
+    const seen = new Set(nameMatched.map(c => c.id));
+    const merged = [...nameMatched];
+    for (const fc of fetchedAssocCases) {
+      if (!seen.has(fc.id)) { merged.push(fc); seen.add(fc.id); }
+    }
+    return merged;
   }, [contact, allCases, fetchedAssocCases]);
 
-  const catStyle = CONTACT_CAT_STYLE[contact.category] || CONTACT_CAT_STYLE.Miscellaneous;
+  const catStyle = CONTACT_CAT_STYLE[draft.category] || CONTACT_CAT_STYLE.Miscellaneous;
 
   const noteTypeStyle = (label) => CONTACT_NOTE_TYPES.find(t => t.label === label) || CONTACT_NOTE_TYPES[0];
 
@@ -11952,9 +12047,9 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
         <div className="case-overlay-header" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <span style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428" }}>
-                {contact.category.toUpperCase()}
-              </span>
+              <select value={draft.category} onChange={e => { set("category", e.target.value); save({ ...draft, category: e.target.value }); }} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428", border: "1px solid transparent", cursor: "pointer", appearance: "auto" }}>
+                {CONTACT_CATEGORIES.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
+              </select>
               {saving && <span style={{ fontSize: 11, color: "#8A9096" }}>Saving…</span>}
             </div>
             <input
@@ -12002,16 +12097,31 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                 <input className="field-input" value={draft.county || ""} onChange={e => set("county", e.target.value)} onBlur={handleBlur} placeholder="County name" />
               </div>
             )}
-            <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Phone</label>
-                <input className="field-input" value={draft.phone} onChange={e => set("phone", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Primary Phone</label>
+              <input className="field-input" value={draft.phone} onChange={e => set("phone", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <label style={{ fontSize: 11, color: "#8A9096" }}>Additional Phone Numbers ({phones.length})</label>
+                <button onClick={addPhone} style={{ background: "none", border: "none", color: "var(--c-accent, #1e3a5f)", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>+ Add Phone</button>
               </div>
+              {phones.map(p => (
+                <div key={p.id} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                  <select value={p.label} onChange={e => updatePhone(p, "label", e.target.value)} className="field-input" style={{ width: 90, flexShrink: 0, fontSize: 12 }}>
+                    {["Cell", "Office", "Home", "Work", "Fax", "Other"].map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                  <input className="field-input" value={p.number} onChange={e => updatePhone(p, "number", e.target.value)} placeholder="(555) 555-5555" style={{ flex: 1 }} />
+                  <button onClick={() => removePhone(p.id)} style={{ background: "none", border: "none", color: "#e05252", fontSize: 14, cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Fax</label>
                 <input className="field-input" value={draft.fax} onChange={e => set("fax", e.target.value)} onBlur={handleBlur} placeholder="(555) 555-5555" />
               </div>
-              <div style={{ gridColumn: "1 / -1" }}>
+              <div>
                 <label style={{ display: "block", fontSize: 11, color: "#8A9096", marginBottom: 4 }}>Email</label>
                 <input className="field-input" value={draft.email} onChange={e => set("email", e.target.value)} onBlur={handleBlur} placeholder="email@example.com" />
               </div>
@@ -12083,36 +12193,67 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
             </div>
           )}
 
-          {(contact.category === "Client" || contact.category === "Prosecutor" || contact.category === "Judge" || contact.category === "Court" || contact.category === "Expert" || contact.category === "Adjuster" || contact.category === "Miscellaneous") && (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#8A9096", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid var(--c-border)" }}>
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid var(--c-border)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#8A9096", textTransform: "uppercase" }}>
                 Associated Cases <span style={{ fontSize: 11, fontWeight: 400, color: "#8A9096", textTransform: "none", letterSpacing: 0 }}>({assocCases.length})</span>
               </div>
-              {assocCases.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic" }}>No associated cases found.</div>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ color: "#8A9096", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Case Number</th>
-                      <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Style</th>
-                      <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assocCases.slice(0, 20).map(c => (
+            </div>
+            {assocCases.length === 0 && caseLinks.length === 0 && (
+              <div style={{ fontSize: 13, color: "#8A9096", fontStyle: "italic", marginBottom: 12 }}>No associated cases found.</div>
+            )}
+            {assocCases.length > 0 && (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginBottom: 12 }}>
+                <thead>
+                  <tr style={{ color: "#8A9096", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Case Number</th>
+                    <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Style</th>
+                    <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Status</th>
+                    <th style={{ width: 30 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assocCases.slice(0, 30).map(c => {
+                    const link = caseLinks.find(l => l.caseId === c.id);
+                    return (
                       <tr key={c.id} style={{ borderTop: "1px solid #f1f5f9" }}>
                         <td style={{ padding: "7px 8px 7px 0", color: "#5599cc", fontFamily: "monospace", fontSize: 11 }}>{c.caseNum}</td>
                         <td style={{ padding: "7px 8px 7px 0", color: "var(--c-text)" }}>{c.title}</td>
                         <td style={{ padding: "7px 0", color: c.status === "Active" ? "#4CAE72" : "var(--c-text2)", fontWeight: 600 }}>{c.status}</td>
+                        <td style={{ padding: "7px 0" }}>
+                          {link && <button onClick={() => removeCaseLink(link.id)} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: 0, lineHeight: 1 }} title="Unlink case">✕</button>}
+                        </td>
                       </tr>
+                    );
+                  })}
+                  {assocCases.length > 30 && <tr><td colSpan={4} style={{ padding: "6px 0", color: "#8A9096", fontSize: 11 }}>+ {assocCases.length - 30} more cases</td></tr>}
+                </tbody>
+              </table>
+            )}
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input value={linkSearch} onChange={e => { setLinkSearch(e.target.value); setLinkDropdown(e.target.value.trim().length > 0); }} onFocus={() => { if (linkSearch.trim()) setLinkDropdown(true); }} onBlur={() => setTimeout(() => setLinkDropdown(false), 200)} placeholder="Search to link a case..." className="field-input" style={{ flex: 1, fontSize: 12 }} />
+              </div>
+              {linkDropdown && (() => {
+                const lower = linkSearch.trim().toLowerCase();
+                const existingIds = new Set([...assocCases.map(c => c.id), ...caseLinks.map(l => l.caseId)]);
+                const results = (allCases || []).filter(c => !c.deletedAt && !existingIds.has(c.id) && ((c.caseNum || "").toLowerCase().includes(lower) || (c.defendantName || "").toLowerCase().includes(lower) || (c.title || "").toLowerCase().includes(lower))).slice(0, 8);
+                return results.length > 0 ? (
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
+                    {results.map(c => (
+                      <div key={c.id} onMouseDown={e => e.preventDefault()} onClick={() => addCaseLink(c.id)} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--c-border)", fontSize: 12 }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <span style={{ color: "#5599cc", fontFamily: "monospace", fontSize: 11, marginRight: 8 }}>{c.caseNum}</span>
+                        <span style={{ color: "var(--c-text)" }}>{c.title}</span>
+                        {c.defendantName && <span style={{ color: "var(--c-text3)", marginLeft: 6, fontSize: 11 }}>— {c.defendantName}</span>}
+                      </div>
                     ))}
-                    {assocCases.length > 20 && <tr><td colSpan={3} style={{ padding: "6px 0", color: "#8A9096", fontSize: 11 }}>+ {assocCases.length - 20} more cases</td></tr>}
-                  </tbody>
-                </table>
-              )}
+                  </div>
+                ) : null;
+              })()}
             </div>
-          )}
+          </div>
 
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#8A9096", textTransform: "uppercase", marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid var(--c-border)" }}>
@@ -12407,6 +12548,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
       setContacts(p => [...(p || []), saved].sort((a, b) => a.name.localeCompare(b.name)));
       setShowNew(false);
       handleSelectContact(saved);
+      return saved;
     } catch (err) { alert("Failed to create contact: " + err.message); }
   };
 

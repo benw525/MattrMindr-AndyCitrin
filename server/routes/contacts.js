@@ -163,6 +163,103 @@ router.get("/case-counts/batch", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/:id/phones", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM contact_phones WHERE contact_id = $1 ORDER BY created_at", [req.params.id]);
+    return res.json(rows.map(r => ({ id: r.id, contactId: r.contact_id, label: r.label, number: r.number, createdAt: r.created_at })));
+  } catch (err) {
+    console.error("Get contact phones error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/:id/phones", requireAuth, async (req, res) => {
+  try {
+    const { label, number } = req.body;
+    if (!number) return res.status(400).json({ error: "number is required" });
+    const { rows } = await pool.query(
+      "INSERT INTO contact_phones (contact_id, label, number) VALUES ($1, $2, $3) RETURNING *",
+      [req.params.id, label || "Cell", number]
+    );
+    const r = rows[0];
+    return res.json({ id: r.id, contactId: r.contact_id, label: r.label, number: r.number, createdAt: r.created_at });
+  } catch (err) {
+    console.error("Add contact phone error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/phones/:phoneId", requireAuth, async (req, res) => {
+  try {
+    const { label, number } = req.body;
+    const { rows } = await pool.query(
+      "UPDATE contact_phones SET label = COALESCE($1, label), number = COALESCE($2, number) WHERE id = $3 RETURNING *",
+      [label, number, req.params.phoneId]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    const r = rows[0];
+    return res.json({ id: r.id, contactId: r.contact_id, label: r.label, number: r.number, createdAt: r.created_at });
+  } catch (err) {
+    console.error("Update contact phone error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/phones/:phoneId", requireAuth, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM contact_phones WHERE id = $1", [req.params.phoneId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete contact phone error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/:id/case-links", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT cl.id, cl.contact_id, cl.case_id, cl.created_at, c.case_num, c.title, c.status, c.defendant_name
+       FROM contact_case_links cl
+       JOIN cases c ON c.id = cl.case_id AND c.deleted_at IS NULL
+       WHERE cl.contact_id = $1 ORDER BY c.case_num`,
+      [req.params.id]
+    );
+    return res.json(rows.map(r => ({ id: r.id, contactId: r.contact_id, caseId: r.case_id, caseNum: r.case_num, title: r.title, status: r.status, defendantName: r.defendant_name, createdAt: r.created_at })));
+  } catch (err) {
+    console.error("Get contact case links error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/:id/case-links", requireAuth, async (req, res) => {
+  try {
+    const { caseId } = req.body;
+    if (!caseId) return res.status(400).json({ error: "caseId is required" });
+    const { rows } = await pool.query(
+      "INSERT INTO contact_case_links (contact_id, case_id) VALUES ($1, $2) ON CONFLICT (contact_id, case_id) DO NOTHING RETURNING *",
+      [req.params.id, caseId]
+    );
+    if (!rows.length) return res.json({ ok: true, existing: true });
+    const r = rows[0];
+    const { rows: caseRows } = await pool.query("SELECT case_num, title, status, defendant_name FROM cases WHERE id = $1", [caseId]);
+    const c = caseRows[0] || {};
+    return res.json({ id: r.id, contactId: r.contact_id, caseId: r.case_id, caseNum: c.case_num, title: c.title, status: c.status, defendantName: c.defendant_name, createdAt: r.created_at });
+  } catch (err) {
+    console.error("Add contact case link error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/case-links/:linkId", requireAuth, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM contact_case_links WHERE id = $1", [req.params.linkId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete contact case link error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/:id/associated-cases", requireAuth, async (req, res) => {
   try {
     const { rows: contactRows } = await pool.query("SELECT * FROM contacts WHERE id = $1", [req.params.id]);
@@ -198,13 +295,19 @@ router.get("/:id/associated-cases", requireAuth, async (req, res) => {
         [contact.name, String(contact.id)]
       );
       caseIds = rows.map(r => r.case_id);
-    } else {
-      return res.json([]);
     }
-    if (caseIds.length === 0) return res.json([]);
+    const { rows: linkRows } = await pool.query(
+      `SELECT cl.case_id FROM contact_case_links cl
+       JOIN cases c ON c.id = cl.case_id AND c.deleted_at IS NULL
+       WHERE cl.contact_id = $1`,
+      [req.params.id]
+    );
+    const linkCaseIds = linkRows.map(r => r.case_id);
+    const allIds = [...new Set([...caseIds, ...linkCaseIds])];
+    if (allIds.length === 0) return res.json([]);
     const { rows: cases } = await pool.query(
       `SELECT id, case_num, title, status FROM cases WHERE id = ANY($1::int[]) AND deleted_at IS NULL ORDER BY case_num`,
-      [caseIds]
+      [allIds]
     );
     return res.json(cases.map(c => ({ id: c.id, caseNum: c.case_num, title: c.title, status: c.status })));
   } catch (err) {

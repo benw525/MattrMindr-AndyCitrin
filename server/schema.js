@@ -250,6 +250,26 @@ async function createSchema() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS contact_phones (
+        id          SERIAL PRIMARY KEY,
+        contact_id  INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        label       TEXT    NOT NULL DEFAULT 'Cell',
+        number      TEXT    NOT NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS contact_case_links (
+        id          SERIAL PRIMARY KEY,
+        contact_id  INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        case_id     INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(contact_id, case_id)
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS contact_staff (
         id          SERIAL PRIMARY KEY,
         contact_id  INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,

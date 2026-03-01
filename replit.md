@@ -50,7 +50,7 @@ server/
     notes.js        — GET/POST/PUT/DELETE /api/notes; GET /api/notes/quick (user's unassigned quick notes)
     links.js        — GET/POST/DELETE /api/links
     activity.js     — GET /api/activity (recent across all cases), GET/POST /api/activity/:caseId
-    contacts.js     — CRUD /api/contacts (soft-delete/restore, 30-day retention)
+    contacts.js     — CRUD /api/contacts (soft-delete/restore, 30-day retention), multi-phone CRUD (/phones), manual case linking (/case-links)
     contact-notes.js — GET/POST/DELETE /api/contact-notes
     contact-staff.js — CRUD /api/contact-staff (staff under attorney/court contacts)
     ai-search.js    — POST /api/ai-search (OpenAI gpt-5-mini semantic case search)
@@ -336,6 +336,8 @@ General, Motions, Discovery, Police Reports, Photographs, Expert Reports, Court 
 | contacts | Prosecutors, judges, courts, witnesses, experts, family members, etc. |
 | contact_notes | Per-contact notes |
 | contact_staff | Staff members under attorney/court contacts (JSONB data) |
+| contact_phones | Additional phone numbers per contact (label: Cell/Office/Home/etc, number) |
+| contact_case_links | Manual case-to-contact links (contact_id, case_id, UNIQUE constraint) |
 | case_correspondence | Inbound emails captured via SendGrid |
 | doc_templates | Document templates (.docx with placeholders, category, sub_type) |
 | case_parties | Per-case co-defendants (partyType="Co-Defendant", entityKind="individual", JSONB data: firstName, middleName, lastName, dob, caseNumber, charges, attorney, status, jointSevered, cooperationNotes, notes) |
