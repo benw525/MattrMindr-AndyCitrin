@@ -12050,7 +12050,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
         <div style={{ padding: "20px 28px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <select value={draft.category} onChange={e => { set("category", e.target.value); }} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428", border: "1px solid transparent", cursor: "pointer", appearance: "auto" }}>
+              <select value={draft.category} onChange={e => { const v = e.target.value; setDraft(p => { const updated = { ...p, category: v }; save(updated); return updated; }); }} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: catStyle.bg, color: "#1F2428", border: "1px solid transparent", cursor: "pointer", appearance: "auto" }}>
                 {CONTACT_CATEGORIES.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
               </select>
               {saving && <span style={{ fontSize: 11, color: "#4CAE72" }}>Saving…</span>}
