@@ -2549,7 +2549,7 @@ function HelpTutorials({ Accordion }) {
       </Accordion>
       <Accordion sectionKey="tut-documents" title="Documents & Filings" icon="📄">
         <p><strong>Uploading Documents:</strong> In a case detail's Documents tab, click "Upload" to attach PDF, DOCX, DOC, or TXT files. Documents are stored securely and can be downloaded, summarized, or deleted.</p>
-        <p><strong>Audio Transcription:</strong> In a case detail's Transcripts tab, upload audio files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe custody statements, jail call recordings, and other audio. The system automatically transcribes the audio with timestamps and speaker labels. Click any segment to edit the text, click a speaker chip to rename speakers, and use the Export Text button to download a formatted transcript. You can also upload audio from the Audio Transcription card in AI Center.</p>
+        <p><strong>Audio Transcription:</strong> In a case detail's Documents tab, switch to the Transcripts sub-tab to upload audio files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe custody statements, jail call recordings, and other audio. The system automatically transcribes the audio with timestamps and speaker labels. Click any segment to edit the text, click a speaker chip to rename speakers, and use the Export Text button to download a formatted transcript. You can also upload audio from the Audio Transcription card in AI Center.</p>
         <p><strong>Generating Documents from Templates:</strong> Go to the Templates view to create reusable document templates with placeholders (e.g., defendant name, case number). Generate filled documents for any case with one click. Use "AI Draft" for AI-assisted document creation.</p>
         <p><strong>Court Filings:</strong> The Filings tab in case detail manages court filings separately from general documents. Upload filings and use AI classification to auto-detect the filing type, party, date, and summary.</p>
         <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI extracts key facts, timeline, people mentioned, inconsistencies, Miranda/constitutional issues, and a defense-relevant takeaway.</p>
@@ -5243,6 +5243,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docUploadType, setDocUploadType] = useState("Police Report");
+  const [docsSubTab, setDocsSubTab] = useState("documents");
   const [docFilterType, setDocFilterType] = useState("All");
   const [docSummarizing, setDocSummarizing] = useState(null);
   const [expandedDocId, setExpandedDocId] = useState(null);
@@ -5349,13 +5350,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
   useEffect(() => {
     const hasProcessing = transcripts.some(t => t.status === "processing");
-    if (hasProcessing && activeTab === "transcripts") {
+    if (hasProcessing && activeTab === "files" && docsSubTab === "transcripts") {
       transcriptPollRef.current = setInterval(() => {
         apiGetTranscripts(c.id).then(setTranscripts).catch(() => {});
       }, 5000);
     }
     return () => { if (transcriptPollRef.current) clearInterval(transcriptPollRef.current); };
-  }, [transcripts, activeTab, c.id]);
+  }, [transcripts, activeTab, docsSubTab, c.id]);
 
   const handleContactClick = async (name) => {
     if (!name || !name.trim()) return;
@@ -5807,9 +5808,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
           {draft.probation && <div className={`case-overlay-tab ${activeTab === "probation" ? "active" : ""}`} onClick={() => setActiveTab("probation")} style={{ color: activeTab === "probation" ? "#1e3a5f" : undefined }}>Probation</div>}
           <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Documents</div>
-          <div className={`case-overlay-tab ${activeTab === "transcripts" ? "active" : ""}`} onClick={() => setActiveTab("transcripts")}>
-            Transcripts {transcripts.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({transcripts.length})</span>}
-          </div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
             Correspondence {(correspondence.length + smsMessages.length) > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length + smsMessages.length})</span>}
           </div>
@@ -7049,6 +7047,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         {/* ── Files Tab ── */}
         {activeTab === "files" && (
           <div className="case-overlay-body">
+            <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 12, borderBottom: "1px solid var(--c-border2)" }}>
+              <button onClick={() => setDocsSubTab("documents")} style={{ padding: "8px 16px", fontSize: 13, fontWeight: docsSubTab === "documents" ? 600 : 400, color: docsSubTab === "documents" ? "#1e3a5f" : "#64748b", background: "transparent", border: "none", borderBottom: docsSubTab === "documents" ? "2px solid #1e3a5f" : "2px solid transparent", cursor: "pointer" }}>
+                Documents {caseDocuments.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({caseDocuments.length})</span>}
+              </button>
+              <button onClick={() => setDocsSubTab("transcripts")} style={{ padding: "8px 16px", fontSize: 13, fontWeight: docsSubTab === "transcripts" ? 600 : 400, color: docsSubTab === "transcripts" ? "#1e3a5f" : "#64748b", background: "transparent", border: "none", borderBottom: docsSubTab === "transcripts" ? "2px solid #1e3a5f" : "2px solid transparent", cursor: "pointer" }}>
+                Transcripts {transcripts.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({transcripts.length})</span>}
+              </button>
+            </div>
+
+            {docsSubTab === "documents" && (<>
             <div className="case-overlay-section">
               <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>Upload Document</div>
               <form onSubmit={async (e) => {
@@ -7170,12 +7178,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 );
               })}
             </div>
-          </div>
-        )}
+            </>)}
 
-        {/* ── Transcripts Tab ── */}
-        {activeTab === "transcripts" && (
-          <div className="case-overlay-body">
+            {docsSubTab === "transcripts" && (<>
             <div className="case-overlay-section">
               <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>Upload Audio</div>
               <form onSubmit={async (e) => {
@@ -7395,6 +7400,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                </div>
               }
             </div>
+            </>)}
           </div>
         )}
 
@@ -11414,7 +11420,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                   try {
                     const saved = await apiUploadTranscript(formData);
                     fileInput.value = "";
-                    setAiState({ loading: false, result: `Transcription started for "${saved.filename}". The file is now being processed — you can view the progress and results in the Transcripts tab of the case detail overlay.`, error: null });
+                    setAiState({ loading: false, result: `Transcription started for "${saved.filename}". The file is now being processed — you can view the progress and results under Documents > Transcripts in the case detail overlay.`, error: null });
                   } catch (err) {
                     setAiState({ loading: false, result: null, error: err.message });
                   }
