@@ -886,9 +886,9 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
           </div>
         </div>
         <div className="relative flex-1 max-w-md" ref={dropdownRef}>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" size={16} />
           <input
-            className={INPUT_CLS + " pl-10"}
+            className={INPUT_CLS + " !pl-10"}
             placeholder="Search cases..."
             value={caseSearch}
             onChange={e => { setCaseSearch(e.target.value); setShowDropdown(true); }}
