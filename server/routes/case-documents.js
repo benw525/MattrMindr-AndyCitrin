@@ -87,11 +87,26 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 router.get("/:id/text", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT cd.extracted_text, cd.case_id FROM case_documents cd WHERE cd.id = $1", [req.params.id]
+      "SELECT cd.extracted_text, cd.case_id, cd.file_data, cd.content_type, cd.filename FROM case_documents cd WHERE cd.id = $1", [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
-    return res.json({ text: rows[0].extracted_text || "" });
+    const doc = rows[0];
+    if (doc.extracted_text) {
+      return res.json({ text: doc.extracted_text });
+    }
+    if (doc.file_data) {
+      try {
+        const liveText = await extractText(doc.file_data, doc.content_type, doc.filename);
+        if (liveText) {
+          pool.query("UPDATE case_documents SET extracted_text = $1 WHERE id = $2", [liveText, req.params.id]).catch(() => {});
+          return res.json({ text: liveText });
+        }
+      } catch (extractErr) {
+        console.error("Live text extraction error:", extractErr);
+      }
+    }
+    return res.json({ text: "" });
   } catch (err) {
     console.error("Get document text error:", err);
     return res.status(500).json({ error: "Failed to get document text" });

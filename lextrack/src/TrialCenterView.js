@@ -465,12 +465,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       } else {
         const res = await apiGetDocumentText(pd.case_document_id);
         const extractedText = res?.text || "";
-        if (extractedText) {
-          setDocViewerUrl(URL.createObjectURL(new Blob([extractedText], { type: "text/plain" })));
-        } else {
-          const text = await blob.text();
-          setDocViewerUrl(URL.createObjectURL(new Blob([text || "No text could be extracted from this document."], { type: "text/plain" })));
-        }
+        const displayText = extractedText || "No text could be extracted from this document. Try downloading the file to view it in its native application.";
+        setDocViewerUrl(URL.createObjectURL(new Blob([displayText], { type: "text/plain" })));
       }
     } catch (err) {
       console.error(err);
