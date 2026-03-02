@@ -70,6 +70,7 @@ server/
     calendar-feeds.js — CRUD /api/calendar-feeds (per-user iCal feed persistence)
     probation.js    — CRUD /api/probation/:caseId/violations (probation violation records)
     sms.js          — SMS routes: configs CRUD, messages, send, draft, suggest-numbers, scheduled, inbound webhook, watch numbers CRUD, unmatched texts, assign
+    transcripts.js  — Audio transcription: upload (multer 100MB), ffmpeg chunking for >24MB, OpenAI whisper-1 transcription, JSONB segments with speaker labels, status polling, export as text, download original audio
     collaborate.js  — Collaborate chat: channels, messages, groups, private chats, typing, file upload, search, unread counts
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
@@ -351,3 +352,4 @@ General, Motions, Discovery, Police Reports, Photographs, Expert Reports, Court 
 | case_filings | Court filings (PDF only) with BYTEA storage, extracted text, AI classification (filed_by, doc_type, filing_date), AI summaries. Source tracking (email/upload) |
 | ai_training | AI training entries for customizing agent behavior. Fields: user_id, scope (personal/office), category, title, content (text or extracted document text), source_type (text/document), filename, active. Personal entries affect only owner's AI; office entries affect all users |
 | calendar_feeds | Per-user iCal feed URLs for the Calendar view. Fields: user_id, name, url, active (boolean). Feeds persist across sessions and auto-import on load |
+| case_transcripts | Audio transcription records per case. Fields: case_id, filename, content_type, audio_data (BYTEA), file_size, transcript (JSONB array of {speaker, text, startTime, endTime}), status (processing/completed/error), error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at. Upload triggers async Whisper transcription with ffmpeg chunking for large files |

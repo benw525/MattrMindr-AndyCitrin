@@ -141,6 +141,27 @@ export async function apiDownloadDocument(docId) {
 export const apiDeleteCaseDocument = (docId) => apiFetch(`/api/case-documents/${docId}`, { method: "DELETE" });
 export const apiUpdateCaseDocument = (docId, data) => apiFetch(`/api/case-documents/${docId}`, { method: "PUT", body: data });
 
+// Transcripts
+export const apiGetTranscripts = (caseId) => apiFetch(`/api/transcripts/case/${caseId}`);
+export const apiGetTranscriptDetail = (id) => apiFetch(`/api/transcripts/${id}/detail`);
+export async function apiUploadTranscript(formData) {
+  const res = await fetch("/api/transcripts/upload", { method: "POST", credentials: "include", body: formData });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
+export const apiUpdateTranscript = (id, data) => apiFetch(`/api/transcripts/${id}`, { method: "PUT", body: data });
+export const apiDeleteTranscript = (id) => apiFetch(`/api/transcripts/${id}`, { method: "DELETE" });
+export async function apiDownloadTranscriptAudio(id) {
+  const res = await fetch(`/api/transcripts/${id}/download-audio`, { credentials: "include" });
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  return res.blob();
+}
+export async function apiExportTranscript(id) {
+  const res = await fetch(`/api/transcripts/${id}/export`, { credentials: "include" });
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+  return res.text();
+}
+
 // Filings
 export const apiGetFilings = (caseId) => apiFetch(`/api/filings/${caseId}`);
 export async function apiUploadFiling(formData) {

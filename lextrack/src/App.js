@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2 } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -38,6 +38,7 @@ import {
   apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms,
   apiSendSupport,
   apiGetCollabUnreadCount,
+  apiGetTranscripts, apiUploadTranscript, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 
@@ -2548,6 +2549,7 @@ function HelpTutorials({ Accordion }) {
       </Accordion>
       <Accordion sectionKey="tut-documents" title="Documents & Filings" icon="📄">
         <p><strong>Uploading Documents:</strong> In a case detail's Documents tab, click "Upload" to attach PDF, DOCX, DOC, or TXT files. Documents are stored securely and can be downloaded, summarized, or deleted.</p>
+        <p><strong>Audio Transcription:</strong> In a case detail's Transcripts tab, upload audio files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe custody statements, jail call recordings, and other audio. The system automatically transcribes the audio with timestamps and speaker labels. Click any segment to edit the text, click a speaker chip to rename speakers, and use the Export Text button to download a formatted transcript. You can also upload audio from the Audio Transcription card in AI Center.</p>
         <p><strong>Generating Documents from Templates:</strong> Go to the Templates view to create reusable document templates with placeholders (e.g., defendant name, case number). Generate filled documents for any case with one click. Use "AI Draft" for AI-assisted document creation.</p>
         <p><strong>Court Filings:</strong> The Filings tab in case detail manages court filings separately from general documents. Upload filings and use AI classification to auto-detect the filing type, party, date, and summary.</p>
         <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI extracts key facts, timeline, people mentioned, inconsistencies, Miranda/constitutional issues, and a defense-relevant takeaway.</p>
@@ -5265,6 +5267,17 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [linkExternalForm, setLinkExternalForm] = useState({ externalCaseNumber: "", externalCaseStyle: "", externalCourt: "", externalCounty: "Mobile", externalCharges: "", externalAttorney: "", externalStatus: "Active", externalNotes: "", relationship: "" });
   const [expandedLinkedId, setExpandedLinkedId] = useState(null);
   const [linkRelationship, setLinkRelationship] = useState("");
+  const [transcripts, setTranscripts] = useState([]);
+  const [transcriptsLoading, setTranscriptsLoading] = useState(false);
+  const [transcriptUploading, setTranscriptUploading] = useState(false);
+  const [expandedTranscriptId, setExpandedTranscriptId] = useState(null);
+  const [transcriptDetail, setTranscriptDetail] = useState(null);
+  const [transcriptDetailLoading, setTranscriptDetailLoading] = useState(false);
+  const [transcriptEdits, setTranscriptEdits] = useState(null);
+  const [transcriptSaving, setTranscriptSaving] = useState(false);
+  const [editingSpeaker, setEditingSpeaker] = useState(null);
+  const [editingSegmentIdx, setEditingSegmentIdx] = useState(null);
+  const transcriptPollRef = useRef(null);
   const canRemove = isAttorney(currentUser) || isAppAdmin(currentUser);
   const canDelete = isAppAdmin(currentUser);
 
@@ -5277,6 +5290,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
     setDocsLoading(true);
     apiGetCaseDocuments(c.id).then(setCaseDocuments).catch(() => {}).finally(() => setDocsLoading(false));
+    setTranscriptsLoading(true);
+    apiGetTranscripts(c.id).then(setTranscripts).catch(() => {}).finally(() => setTranscriptsLoading(false));
     setFilingsLoading(true);
     apiGetFilings(c.id).then(setFilings).catch(() => {}).finally(() => setFilingsLoading(false));
     apiGetActivity(c.id).then(fresh => onRefreshActivity(c.id, fresh)).catch(() => {});
@@ -5331,6 +5346,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       miscContactTimers.current = {};
     };
   }, [c.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const hasProcessing = transcripts.some(t => t.status === "processing");
+    if (hasProcessing && activeTab === "transcripts") {
+      transcriptPollRef.current = setInterval(() => {
+        apiGetTranscripts(c.id).then(setTranscripts).catch(() => {});
+      }, 5000);
+    }
+    return () => { if (transcriptPollRef.current) clearInterval(transcriptPollRef.current); };
+  }, [transcripts, activeTab, c.id]);
 
   const handleContactClick = async (name) => {
     if (!name || !name.trim()) return;
@@ -5782,6 +5807,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
           {draft.probation && <div className={`case-overlay-tab ${activeTab === "probation" ? "active" : ""}`} onClick={() => setActiveTab("probation")} style={{ color: activeTab === "probation" ? "#1e3a5f" : undefined }}>Probation</div>}
           <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Documents</div>
+          <div className={`case-overlay-tab ${activeTab === "transcripts" ? "active" : ""}`} onClick={() => setActiveTab("transcripts")}>
+            Transcripts {transcripts.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({transcripts.length})</span>}
+          </div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
             Correspondence {(correspondence.length + smsMessages.length) > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length + smsMessages.length})</span>}
           </div>
@@ -7141,6 +7169,231 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Transcripts Tab ── */}
+        {activeTab === "transcripts" && (
+          <div className="case-overlay-body">
+            <div className="case-overlay-section">
+              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>Upload Audio</div>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const fileInput = e.target.querySelector('input[type="file"]');
+                if (!fileInput.files[0]) return;
+                setTranscriptUploading(true);
+                const formData = new FormData();
+                formData.append("audio", fileInput.files[0]);
+                formData.append("caseId", c.id);
+                try {
+                  const saved = await apiUploadTranscript(formData);
+                  setTranscripts(prev => [saved, ...prev]);
+                  fileInput.value = "";
+                } catch (err) { alert("Upload failed: " + err.message); }
+                setTranscriptUploading(false);
+              }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Audio File (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4)</label>
+                  <input type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,audio/*" style={{ fontSize: 12, width: "100%" }} />
+                </div>
+                <button type="submit" className="btn btn-sm" disabled={transcriptUploading} style={{ background: "#1e293b", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                  {transcriptUploading ? <><Loader2 size={12} className="animate-spin" /> Uploading...</> : <><Upload size={12} /> Upload & Transcribe</>}
+                </button>
+              </form>
+            </div>
+
+            <div className="case-overlay-section">
+              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>
+                Transcripts {transcripts.length > 0 && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginLeft: 6 }}>({transcripts.length})</span>}
+              </div>
+              {transcriptsLoading ? <p style={{ fontSize: 12, color: "#94a3b8" }}>Loading...</p> :
+               transcripts.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>No transcripts yet. Upload an audio file above.</p> :
+               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {transcripts.map(t => (
+                  <div key={t.id} style={{ border: "1px solid var(--c-border2)", borderRadius: 8, overflow: "hidden" }}>
+                    <div
+                      onClick={() => {
+                        if (expandedTranscriptId === t.id) {
+                          setExpandedTranscriptId(null);
+                          setTranscriptDetail(null);
+                          setTranscriptEdits(null);
+                        } else if (t.status === "completed") {
+                          setExpandedTranscriptId(t.id);
+                          setTranscriptDetailLoading(true);
+                          apiGetTranscriptDetail(t.id).then(d => {
+                            setTranscriptDetail(d);
+                            setTranscriptEdits(JSON.parse(JSON.stringify(d.transcript)));
+                          }).catch(() => {}).finally(() => setTranscriptDetailLoading(false));
+                        }
+                      }}
+                      style={{ padding: "12px 16px", cursor: t.status === "completed" ? "pointer" : "default", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: expandedTranscriptId === t.id ? "var(--c-bg2)" : "transparent" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <FileAudio size={16} style={{ color: "#6366f1", flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.filename}</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                            {t.durationSeconds ? `${Math.floor(t.durationSeconds / 60)}m ${Math.round(t.durationSeconds % 60)}s` : ""}
+                            {t.durationSeconds && t.segmentCount ? " · " : ""}
+                            {t.segmentCount ? `${t.segmentCount} segments` : ""}
+                            {(t.durationSeconds || t.segmentCount) ? " · " : ""}
+                            {new Date(t.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        {t.status === "processing" && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#f59e0b", background: "#fef3c7", padding: "2px 10px", borderRadius: 12, fontWeight: 600 }}>
+                            <Loader2 size={11} className="animate-spin" /> Transcribing...
+                          </span>
+                        )}
+                        {t.status === "completed" && (
+                          <span style={{ fontSize: 11, color: "#16a34a", background: "#dcfce7", padding: "2px 10px", borderRadius: 12, fontWeight: 600 }}>Completed</span>
+                        )}
+                        {t.status === "error" && (
+                          <span style={{ fontSize: 11, color: "#dc2626", background: "#fee2e2", padding: "2px 10px", borderRadius: 12, fontWeight: 600 }} title={t.errorMessage || ""}>Error</span>
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Delete this transcript?")) { apiDeleteTranscript(t.id).then(() => setTranscripts(prev => prev.filter(x => x.id !== t.id))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#94a3b8" }} title="Delete">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {expandedTranscriptId === t.id && (
+                      <div style={{ borderTop: "1px solid var(--c-border2)", padding: 16 }}>
+                        {transcriptDetailLoading ? <p style={{ fontSize: 12, color: "#94a3b8" }}>Loading transcript...</p> :
+                         transcriptDetail && transcriptEdits ? (() => {
+                          const speakers = [...new Set(transcriptEdits.map(s => s.speaker))];
+                          const speakerColors = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#f97316"];
+                          const getSpeakerColor = (sp) => speakerColors[speakers.indexOf(sp) % speakerColors.length];
+                          const fmtTime = (sec) => { const m = Math.floor(sec / 60); const s = Math.round(sec % 60); return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`; };
+
+                          return (
+                            <div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  {speakers.map(sp => (
+                                    <div key={sp} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 10px", borderRadius: 12, background: getSpeakerColor(sp) + "18", color: getSpeakerColor(sp), fontWeight: 600, cursor: "pointer", border: `1px solid ${getSpeakerColor(sp)}30` }}
+                                      onClick={() => setEditingSpeaker(editingSpeaker === sp ? null : sp)}
+                                    >
+                                      {editingSpeaker === sp ? (
+                                        <input
+                                          autoFocus
+                                          defaultValue={sp}
+                                          style={{ background: "transparent", border: "none", outline: "none", color: "inherit", fontSize: 11, fontWeight: 600, width: 100 }}
+                                          onBlur={(e) => {
+                                            const newName = e.target.value.trim() || sp;
+                                            if (newName !== sp) {
+                                              setTranscriptEdits(prev => prev.map(seg => seg.speaker === sp ? { ...seg, speaker: newName } : seg));
+                                            }
+                                            setEditingSpeaker(null);
+                                          }}
+                                          onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      ) : (
+                                        <><Pencil size={10} /> {sp}</>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <button onClick={async () => {
+                                    try {
+                                      const blob = await apiDownloadTranscriptAudio(t.id);
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement("a"); a.href = url; a.download = t.filename; a.click();
+                                      URL.revokeObjectURL(url);
+                                    } catch (err) { alert("Download failed: " + err.message); }
+                                  }} className="btn btn-outline btn-sm" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                                    <Download size={11} /> Audio
+                                  </button>
+                                  <button onClick={async () => {
+                                    try {
+                                      const text = await apiExportTranscript(t.id);
+                                      const blob = new Blob([text], { type: "text/plain" });
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement("a"); a.href = url; a.download = t.filename.replace(/\.[^.]+$/, "") + "_transcript.txt"; a.click();
+                                      URL.revokeObjectURL(url);
+                                    } catch (err) { alert("Export failed: " + err.message); }
+                                  }} className="btn btn-outline btn-sm" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                                    <FileText size={11} /> Export Text
+                                  </button>
+                                  <button
+                                    disabled={transcriptSaving}
+                                    onClick={async () => {
+                                      setTranscriptSaving(true);
+                                      try {
+                                        await apiUpdateTranscript(t.id, { transcript: transcriptEdits });
+                                        setTranscriptDetail(prev => ({ ...prev, transcript: transcriptEdits }));
+                                      } catch (err) { alert("Save failed: " + err.message); }
+                                      setTranscriptSaving(false);
+                                    }}
+                                    className="btn btn-sm" style={{ background: "#1e293b", color: "#fff", border: "none", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
+                                  >
+                                    {transcriptSaving ? <Loader2 size={11} className="animate-spin" /> : null}
+                                    Save Changes
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 500, overflowY: "auto" }}>
+                                {transcriptEdits.map((seg, idx) => (
+                                  <div key={idx} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 6, background: idx % 2 === 0 ? "var(--c-bg2)" : "transparent" }}>
+                                    <div style={{ flexShrink: 0, width: 48, fontSize: 10, color: "#94a3b8", fontFamily: "monospace", paddingTop: 2 }}>
+                                      {fmtTime(seg.startTime)}
+                                    </div>
+                                    <div style={{ flexShrink: 0, width: 100 }}>
+                                      <span style={{ fontSize: 11, fontWeight: 600, color: getSpeakerColor(seg.speaker), cursor: "pointer" }}
+                                        onClick={() => {
+                                          const currentSpeakers = [...new Set(transcriptEdits.map(s => s.speaker))];
+                                          const currentIdx = currentSpeakers.indexOf(seg.speaker);
+                                          const nextSpeaker = currentSpeakers[(currentIdx + 1) % currentSpeakers.length];
+                                          setTranscriptEdits(prev => prev.map((s, i) => i === idx ? { ...s, speaker: nextSpeaker } : s));
+                                        }}
+                                        title="Click to cycle speaker"
+                                      >
+                                        {seg.speaker}
+                                      </span>
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                      {editingSegmentIdx === idx ? (
+                                        <textarea
+                                          autoFocus
+                                          defaultValue={seg.text}
+                                          style={{ width: "100%", fontSize: 12, lineHeight: 1.5, padding: 4, border: "1px solid #6366f1", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", minHeight: 40, fontFamily: "inherit" }}
+                                          onBlur={(e) => {
+                                            const newText = e.target.value.trim();
+                                            if (newText !== seg.text) {
+                                              setTranscriptEdits(prev => prev.map((s, i) => i === idx ? { ...s, text: newText } : s));
+                                            }
+                                            setEditingSegmentIdx(null);
+                                          }}
+                                          onKeyDown={(e) => { if (e.key === "Escape") { setEditingSegmentIdx(null); } }}
+                                        />
+                                      ) : (
+                                        <div
+                                          style={{ fontSize: 12, lineHeight: 1.5, color: "var(--c-text)", cursor: "pointer", padding: "2px 4px", borderRadius: 4 }}
+                                          onClick={() => setEditingSegmentIdx(idx)}
+                                          title="Click to edit"
+                                        >
+                                          {seg.text}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })() : <p style={{ fontSize: 12, color: "#94a3b8" }}>No transcript data.</p>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+               </div>
+              }
             </div>
           </div>
         )}
@@ -10560,6 +10813,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
     { id: "docsummary", Icon: FileSearch, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/20", title: "Document Summary", desc: "Summarize police reports, witness statements, lab reports, and other case documents for defense-relevant details.", needsCase: true },
     { id: "tasksuggestions", Icon: ListChecks, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", title: "Task Suggestions", desc: "Suggest concrete defense tasks based on case stage, charges, deadlines, and existing work — one-click to add.", needsCase: true },
     { id: "filingclassifier", Icon: FolderOpen, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50", title: "Filing Classifier", desc: "Classify court filings — auto-name, identify filing party (State, Defendant, Court), and summarize significance.", needsCase: true },
+    { id: "transcription", Icon: Mic, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", title: "Audio Transcription", desc: "Transcribe custody statements, jail call recordings, and other audio — editable speaker labels, timestamps, and export.", needsCase: true },
   ];
 
   const TRAINING_AGENT_OPTIONS = [
@@ -11145,7 +11399,37 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
               );
             })()}
 
-            {activeAgent !== "batch" && !aiState.result && !aiState.loading && (
+            {activeAgent === "transcription" && selectedCaseId && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Upload Audio for Transcription</label>
+                <p style={{ fontSize: 11, color: "var(--c-text2)", marginBottom: 8 }}>Upload a custody statement, jail call recording, or other audio file. Supports MP3, WAV, M4A, OGG, FLAC, AAC, WebM, and MP4 (up to 100MB).</p>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const fileInput = e.target.querySelector('input[type="file"]');
+                  if (!fileInput.files[0]) return;
+                  setAiState({ loading: true, result: null, error: null });
+                  const formData = new FormData();
+                  formData.append("audio", fileInput.files[0]);
+                  formData.append("caseId", selectedCaseId);
+                  try {
+                    const saved = await apiUploadTranscript(formData);
+                    fileInput.value = "";
+                    setAiState({ loading: false, result: `Transcription started for "${saved.filename}". The file is now being processed — you can view the progress and results in the Transcripts tab of the case detail overlay.`, error: null });
+                  } catch (err) {
+                    setAiState({ loading: false, result: null, error: err.message });
+                  }
+                }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <input type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,audio/*" style={{ fontSize: 12, width: "100%" }} />
+                  </div>
+                  <button type="submit" disabled={aiState.loading} className="!py-2 !px-4 !text-sm !font-medium !text-white !bg-indigo-600 hover:!bg-indigo-700 !rounded-md !transition-colors !cursor-pointer !border-none !flex !items-center !gap-2" style={{ opacity: aiState.loading ? 0.5 : 1 }}>
+                    {aiState.loading ? <><Loader2 size={14} className="animate-spin" /> Uploading...</> : <><Upload size={14} /> Upload & Transcribe</>}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {activeAgent !== "batch" && activeAgent !== "transcription" && !aiState.result && !aiState.loading && (
               <button className="!w-full !py-2.5 !text-sm !font-medium !text-white !bg-slate-500 dark:!bg-slate-600 hover:!bg-slate-600 dark:hover:!bg-slate-500 !rounded-md !transition-colors !cursor-pointer !border-none !flex !items-center !justify-center !gap-2" style={{ opacity: (activeAgent === "docsummary" ? (canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? (canRun && aiCenterSelectedFiling) : canRun)) ? 1 : 0.5 }} disabled={activeAgent === "docsummary" ? !(canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? !(canRun && aiCenterSelectedFiling) : !canRun)} onClick={() => runAgent(activeAgent)}>
                 <Sparkles size={14} /> Run {agents.find(a => a.id === activeAgent)?.title}
               </button>

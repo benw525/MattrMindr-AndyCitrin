@@ -184,6 +184,25 @@ async function createSchema() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS case_transcripts (
+        id                SERIAL PRIMARY KEY,
+        case_id           INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        filename          TEXT    NOT NULL,
+        content_type      TEXT    NOT NULL DEFAULT '',
+        audio_data        BYTEA,
+        file_size         INTEGER NOT NULL DEFAULT 0,
+        transcript        JSONB   NOT NULL DEFAULT '[]',
+        status            TEXT    NOT NULL DEFAULT 'processing',
+        error_message     TEXT,
+        duration_seconds  REAL,
+        uploaded_by       INTEGER REFERENCES users(id),
+        uploaded_by_name  TEXT    NOT NULL DEFAULT '',
+        created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS case_activity (
         id        SERIAL PRIMARY KEY,
         case_id   INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
