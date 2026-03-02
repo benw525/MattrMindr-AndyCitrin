@@ -409,7 +409,7 @@ label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; tex
 .print-doc .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ccc; font-size: 10px; color: #999; display: flex; justify-content: space-between; }
 .case-overlay { position: fixed; top: 0; left: 220px; right: 0; bottom: 0; background: #f8fafc; z-index: 600; display: flex; flex-direction: column; overflow: hidden; }
 .case-overlay-header { flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #e2e8f0; padding: 18px 32px; display: flex; align-items: flex-start; justify-content: space-between; z-index: 10; gap: 16px; }
-.case-overlay-tabs { flex-shrink: 0; display: flex; gap: 0; border-bottom: 1px solid #e2e8f0; padding: 0 32px; background: #FFFFFF; }
+.case-overlay-tabs { flex-shrink: 0; display: flex; gap: 0; border-bottom: 1px solid #e2e8f0; padding: 0 32px; background: #FFFFFF; overflow-y: hidden; flex-wrap: nowrap; }
 .case-overlay-tab { padding: 12px 20px; font-size: 13px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; font-family: 'Inter', sans-serif; }
 .case-overlay-tab:hover { color: #334155; }
 .case-overlay-tab.active { color: #0f172a; border-bottom-color: #1e293b; font-weight: 600; }
@@ -600,9 +600,9 @@ body.dark-body { background: #0E1116; }
   .case-overlay-actions { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; flex-shrink: 1 !important; }
   .case-overlay-actions::-webkit-scrollbar { display: none; }
   .case-overlay-actions .btn { white-space: nowrap; }
-  .case-overlay-tabs { padding: 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; position: relative; }
+  .case-overlay-tabs { padding: 0 8px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; position: relative; flex-wrap: nowrap; }
   .case-overlay-tabs::-webkit-scrollbar { display: none; }
-  .case-overlay-tab { padding: 10px 14px; white-space: nowrap; font-size: 12px; min-height: 44px; display: flex; align-items: center; }
+  .case-overlay-tab { padding: 10px 14px; white-space: nowrap; font-size: 12px; min-height: 44px; display: flex; align-items: center; flex-shrink: 0; }
   .case-overlay-body { padding: 16px 12px; }
   .overlay-cols { grid-template-columns: 1fr; gap: 0; }
   .edit-field-key { min-width: 110px; font-size: 11px; }
@@ -5332,6 +5332,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   }, [initialTab]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
+  const [showMobileHeader, setShowMobileHeader] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [allContacts, setAllContacts] = useState([]);
   const [contactPopup, setContactPopup] = useState(null);
@@ -5925,7 +5926,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         {/* Header */}
         <div className="case-overlay-header">
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+            <div className="hidden md:flex" style={{ gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
               <Badge label="Case" />
               {draft.caseNum && <span style={{ fontSize: 11, color: "#0f172a", fontFamily: "monospace" }}>{draft.caseNum}</span>}
               {editMode
@@ -5959,6 +5960,48 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 {draft.probation ? "PROBATION" : "Probation"}
               </label>
             </div>
+            <div className="md:hidden" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: showMobileHeader ? 6 : 0 }}>
+              <button onClick={() => setShowMobileHeader(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", display: "flex", alignItems: "center" }}>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform ${showMobileHeader ? "rotate-180" : ""}`} />
+              </button>
+              <Badge label="Case" />
+              {draft.caseNum && <span style={{ fontSize: 11, color: "var(--c-text3)", fontFamily: "monospace" }}>{draft.caseNum}</span>}
+              <span style={{ fontSize: 10, color: "#64748b", padding: "1px 6px", background: "var(--c-bg2)", borderRadius: 4, border: "1px solid var(--c-border)" }}>{draft.status || "Active"}</span>
+              {draft.confidential && <span style={{ fontSize: 9, color: "#dc2626", fontWeight: 700 }}>CONF</span>}
+              {draft.deathPenalty && <span style={{ fontSize: 9, color: "#fff", background: "#991b1b", padding: "1px 4px", borderRadius: 3, fontWeight: 700 }}>DP</span>}
+              {draft.probation && <span style={{ fontSize: 9, color: "#fff", background: "#1e3a5f", padding: "1px 4px", borderRadius: 3, fontWeight: 700 }}>PROB</span>}
+              {editMode && <span style={{ fontSize: 9, fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 3, padding: "1px 5px" }}>EDIT</span>}
+            </div>
+            {showMobileHeader && (
+              <div className="md:hidden" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+                <select
+                  value={draft.status || "Active"}
+                  onChange={e => setAndLog("status", e.target.value)}
+                  style={{ fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  {["Active", "Closed", "Pending", "Disposed", "Transferred"].map(o => <option key={o}>{o}</option>)}
+                </select>
+                <select
+                  value={draft.stage || "Arraignment"}
+                  onChange={e => setAndLog("stage", e.target.value)}
+                  style={{ fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(o => <option key={o}>{o}</option>)}
+                </select>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: draft.confidential ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none" }}>
+                  <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
+                  {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
+                </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: draft.deathPenalty ? 700 : 400, color: draft.deathPenalty ? "#fff" : "#64748b", background: draft.deathPenalty ? "#991b1b" : "transparent", padding: draft.deathPenalty ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none" }}>
+                  <input type="checkbox" checked={!!draft.deathPenalty} onChange={e => setAndLog("deathPenalty", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#991b1b" }} />
+                  {draft.deathPenalty ? "DEATH PENALTY" : "Death Penalty"}
+                </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: draft.probation ? 700 : 400, color: draft.probation ? "#fff" : "#64748b", background: draft.probation ? "#1e3a5f" : "transparent", padding: draft.probation ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none" }}>
+                  <input type="checkbox" checked={!!draft.probation} onChange={e => setAndLog("probation", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#1e3a5f" }} />
+                  {draft.probation ? "PROBATION" : "Probation"}
+                </label>
+              </div>
+            )}
             <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
               {draft.title || "Untitled"}
             </div>
