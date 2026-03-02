@@ -76,8 +76,8 @@ server/
     sms.js          — SMS routes: configs CRUD, messages, send, draft, suggest-numbers, scheduled, inbound webhook, watch numbers CRUD, unmatched texts, assign
     transcripts.js  — Audio transcription: upload (multer 100MB), ffmpeg chunking for >24MB, OpenAI whisper-1 transcription via direct OpenAI API (uses OPENAI_API_KEY secret, not the Replit AI proxy which doesn't support audio endpoints), JSONB segments with speaker labels, status polling, export as text, download original audio
     collaborate.js  — Collaborate chat: channels, messages, groups, private chats, typing, file upload, search, unread counts
-    trial-center.js — Trial Center CRUD: sessions, witnesses, exhibits (with file upload), jurors, motions, outlines, jury instructions, demonstratives (file upload/download via multer), pinned docs (with summary), log entries. Uses exhibits-full and pinned-docs-full JOIN routes for linked document info
-    trial-center-ai.js — Trial Center AI agents: witness-prep, jury-selection, objection-coach, closing-builder, jury-instructions, case-law-search
+    trial-center.js — Trial Center CRUD: sessions, witnesses (with document linking), exhibits (with file upload), jurors, motions, outlines, jury instructions, demonstratives (file upload/download via multer), pinned docs (documents + transcripts, with summary), log entries, witness prep DOCX export, outline file extraction (mammoth .docx). Uses exhibits-full and pinned-docs-full JOIN routes for linked document/transcript info. Witness-document linking table (trial_witness_documents) associates case_documents and case_transcripts with witnesses
+    trial-center-ai.js — Trial Center AI agents: witness-prep, jury-selection, objection-coach, closing-builder, opening-builder, jury-instructions, case-law-search. Opening/closing/witness-prep agents support existingDraft parameter for refining uploaded documents
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
     case-signature.docx   — Attorney signature block (auto-appended to Pleadings)
@@ -88,7 +88,7 @@ lextrack/
   src/
     App.js          — All UI components and business logic
     CollaborateView.js — Internal chat feature: Cases/Groups/Private channels, @mentions, file sharing, typing indicators
-    TrialCenterView.js — Trial Center: 10-tab trial preparation/management view with 6 AI agents
+    TrialCenterView.js — Trial Center: 10-tab trial preparation/management view with 7 AI agents (including opening-builder), witness-document linking, DOCX export, transcript support in Quick Docs, outline AI assist with file upload
     api.js          — Thin fetch wrapper for all API calls
     firmData.js     — Static reference data: USERS display info (avatars, names)
     App.css         — Base reset styles
@@ -149,22 +149,25 @@ Two-tier system for customizing how AI agents behave by injecting training conte
 - One-stop trial preparation and active trial management view, accessible from sidebar (Scale icon, id: "trialcenter")
 - Case-based: select a case to load/create a trial session; shows case snapshot header (title, number, charges, court, judge, next date, client, custody, bond)
 - **10 tabs**: Witnesses (call order, type/status badges, reorder, inline Witness Prep AI), Exhibits (number/type/status tracking, file upload linking to case_documents), Jury (grid cards with selection/strike indicators, summary bar), Motions (in limine tracking with rulings), Outlines (Opening/Closing/Cross-Exam per witness), Jury Instructions (requested/given/refused, "Suggest Instructions" AI button), Demonstratives (file upload with association: witness/opening/closing/general, card grid, download), Quick Docs (pinned case documents, inline document viewer via iframe blob URL, AI Summary per doc with caching), Trial Log (day-by-day categorized entries, voice-to-text dictation via Web Speech API), AI Agents
-- **Embedded AI agents in tabs**: Witness Prep AI button (amber Sparkles) on each witness row showing results in expandable panel; "Suggest Instructions" button in Jury Instructions tab header with result panel
-- **Quick Docs enhancements**: Eye icon opens document viewer (iframe with blob URL from apiDownloadDocument); Sparkles icon triggers AI Summary (uses apiSummarizeDocument, caches in docSummaries state, shows cached summary from server if available via document_summary field)
+- **Embedded AI agents in tabs**: Witness Prep AI button (amber Sparkles) on each witness row showing results in expandable panel with DOCX export; "Suggest Instructions" button in Jury Instructions tab header with result panel + "Save All Suggestions" button to parse AI output into individual editable instruction records; Opening/Closing/Cross-Exam AI Assist buttons in Outlines tab with optional .docx upload and custom instructions
+- **Witness-Document Linking**: Pin icon on each witness card opens picker to associate case documents and completed transcriptions. Linked docs shown as indigo chips with download/remove buttons. Label options: Police Report, Medical Report, Witness Statement, Audio Recording, Transcript, Lab Report, Expert Report, Other
+- **Witness Prep DOCX Export**: Download button on AI witness prep results generates Word document via inline XML generation (pizzip) with witness name, case info, and AI content
+- **Quick Docs enhancements**: Eye icon opens document viewer (iframe with blob URL from apiDownloadDocument); Sparkles icon triggers AI Summary (uses apiSummarizeDocument, caches in docSummaries state, shows cached summary from server if available via document_summary field). Picker includes completed audio transcriptions alongside case documents. Pinned transcripts show violet badge and support transcript text viewing and original audio download
 - **Trial Log voice-to-text**: Dictate button using Web Speech API (SpeechRecognition/webkitSpeechRecognition), continuous recognition appends transcript to content field, red pulse animation when listening
 - **Demonstratives tab** (replaces Timeline): Uses `trial_timeline_events` table with added columns (file_data BYTEA, file_name, file_type, file_size, association TEXT). Upload via multer endpoint, download via blob URL
 - **Exhibit file uploads**: Exhibits can attach files stored in case_documents with linked_document_id. Exhibits-full JOIN endpoint returns document_name and file_content_type
 - **"Open in Trial Center" button**: In case detail overlay action bar (App.js), saves case ID to user preferences (trialCenterCaseId), navigates to Trial Center view which auto-loads that case
 - **Inline Add Deadline/Task**: Case detail view has toggle forms for adding deadlines (title, date, type) and tasks (title, priority, due date) directly without navigating away
 - **Badge styling**: All badges use `border` class for MagicPatterns compliance. Pattern: `bg-{color}-50 text-{color}-600 border-{color}-200 dark:bg-{color}-900/30 dark:text-{color}-400 dark:border-{color}-800/50`. Applied to witnesses, exhibits, jury, motions, jury instructions, trial log categories
-- **6 AI agents** (Trial Center-specific, separate from main AI Center agents):
-  1. Witness Prep — cross-examination questions and impeachment points (also embedded inline in Witnesses tab)
+- **7 AI agents** (Trial Center-specific, separate from main AI Center agents):
+  1. Witness Prep — cross-examination questions and impeachment points (also embedded inline in Witnesses tab with DOCX export)
   2. Jury Selection — juror bias analysis and follow-up questions
   3. Objection Coach — objection suggestions with Alabama Rules of Evidence citations
-  4. Closing Builder — closing argument from trial evidence
-  5. Jury Instructions — Alabama pattern jury instruction suggestions (also embedded inline in Jury Instructions tab)
-  6. Case Law Search — relevant Alabama case law and rules
-- **Database tables**: trial_sessions, trial_witnesses, trial_exhibits, trial_jurors, trial_motions, trial_outlines, trial_jury_instructions, trial_timeline_events (also stores demonstratives), trial_pinned_docs, trial_log_entries
+  4. Closing Builder — closing argument from trial evidence (also embedded in Outlines tab with .docx upload support)
+  5. Opening Builder — opening statement drafting from trial data (embedded in Outlines tab with .docx upload support)
+  6. Jury Instructions — Alabama pattern jury instruction suggestions (also embedded inline in Jury Instructions tab with Save All Suggestions)
+  7. Case Law Search — relevant Alabama case law and rules
+- **Database tables**: trial_sessions, trial_witnesses, trial_exhibits, trial_jurors, trial_motions, trial_outlines, trial_jury_instructions, trial_timeline_events (also stores demonstratives), trial_pinned_docs (with transcript_id), trial_log_entries, trial_witness_documents
 - **Routes**: CRUD at `/api/trial-center/*` (includes demonstratives upload/download, exhibits-full, pinned-docs-full JOINs), AI at `/api/trial-center/ai/*`
 - **Frontend**: `TrialCenterView.js` component, API functions in `api.js`
 

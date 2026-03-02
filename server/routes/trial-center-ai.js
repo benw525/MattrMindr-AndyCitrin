@@ -71,7 +71,7 @@ async function aiCall(systemPrompt, userPrompt, jsonMode = false, userId = null,
 
 router.post("/witness-prep", requireAuth, async (req, res) => {
   try {
-    const { sessionId, witnessName, witnessType, expectedTestimony, caseContext, impeachmentNotes } = req.body;
+    const { sessionId, witnessName, witnessType, expectedTestimony, caseContext, impeachmentNotes, existingDraft } = req.body;
     if (!witnessName) return res.status(400).json({ error: "witnessName is required" });
 
     let caseInfo = caseContext || "";
@@ -93,9 +93,15 @@ router.post("/witness-prep", requireAuth, async (req, res) => {
       }
     }
 
-    const systemPrompt = `You are an experienced criminal defense trial attorney specializing in Alabama criminal law. You are preparing for cross-examination of a witness. Generate detailed, strategic cross-examination questions and impeachment points. Focus on undermining credibility, exposing inconsistencies, and supporting the defense theory. Reference Alabama Rules of Evidence where applicable. Format your response in clear markdown sections.`;
+    const systemPrompt = existingDraft
+      ? `You are an experienced criminal defense trial attorney specializing in Alabama criminal law. The attorney has a draft cross-examination outline for a witness. Refine and improve it with better questions, stronger impeachment points, and more effective sequencing. Maintain the attorney's approach while strengthening the cross. Format your response in clear markdown sections.`
+      : `You are an experienced criminal defense trial attorney specializing in Alabama criminal law. You are preparing for cross-examination of a witness. Generate detailed, strategic cross-examination questions and impeachment points. Focus on undermining credibility, exposing inconsistencies, and supporting the defense theory. Reference Alabama Rules of Evidence where applicable. Format your response in clear markdown sections.`;
 
-    const userPrompt = `Prepare cross-examination material for the following witness:
+    let userPrompt = existingDraft
+      ? `Refine and improve this cross-examination outline:\n\n--- EXISTING DRAFT ---\n${existingDraft}\n--- END DRAFT ---\n\n`
+      : "";
+
+    userPrompt += `Prepare cross-examination material for the following witness:
 
 Witness Name: ${witnessName}
 Witness Type: ${witnessType || "Unknown"}
@@ -203,9 +209,106 @@ Provide:
   }
 });
 
+router.post("/opening-builder", requireAuth, async (req, res) => {
+  try {
+    const { sessionId, caseContext, customInstructions, existingDraft } = req.body;
+
+    let trialData = "";
+    if (sessionId) {
+      const [sessRes, witnessRes, exhibitRes, motionRes] = await Promise.all([
+        pool.query(
+          `SELECT ts.*, c.title, c.defendant_name, c.charge_description, c.charge_statute,
+                  c.charge_class, c.case_type, c.court, c.judge, c.charges
+           FROM trial_sessions ts
+           JOIN cases c ON c.id = ts.case_id
+           WHERE ts.id = $1`,
+          [sessionId]
+        ),
+        pool.query(
+          `SELECT name, type, expected_testimony, status FROM trial_witnesses WHERE trial_session_id = $1 ORDER BY call_order`,
+          [sessionId]
+        ),
+        pool.query(
+          `SELECT exhibit_number, description, type, status FROM trial_exhibits WHERE trial_session_id = $1 ORDER BY exhibit_number`,
+          [sessionId]
+        ),
+        pool.query(
+          `SELECT title, type, status, ruling_summary FROM trial_motions WHERE trial_session_id = $1`,
+          [sessionId]
+        ),
+      ]);
+
+      if (sessRes.rows.length) {
+        const s = sessRes.rows[0];
+        const charges = (s.charges || []).map((ch, i) =>
+          `${i + 1}. ${ch.description || ""} (${ch.statute || ""}) — ${ch.class || ""}`
+        ).join("\n") || "Not specified";
+
+        const witnesses = witnessRes.rows.map(w =>
+          `- ${w.name} (${w.type}, ${w.status}): ${(w.expected_testimony || "").substring(0, 200)}`
+        ).join("\n") || "No witnesses";
+
+        const exhibits = exhibitRes.rows.map(e =>
+          `- Exhibit ${e.exhibit_number}: ${e.description} (${e.type}, ${e.status})`
+        ).join("\n") || "No exhibits";
+
+        const motions = motionRes.rows.map(m =>
+          `- ${m.title} (${m.type}, ${m.status})${m.ruling_summary ? ": " + m.ruling_summary : ""}`
+        ).join("\n") || "No motions";
+
+        trialData = `Case: ${s.title}
+Defendant: ${s.defendant_name}
+Charges:
+${charges}
+Court: ${s.court} | Judge: ${s.judge}
+
+Witnesses:
+${witnesses}
+
+Exhibits:
+${exhibits}
+
+Motions & Rulings:
+${motions}`;
+      }
+    }
+
+    if (!trialData && !caseContext) {
+      return res.status(400).json({ error: "sessionId or caseContext required" });
+    }
+
+    const systemPrompt = existingDraft
+      ? `You are a master criminal defense trial attorney helping refine an opening statement for an Alabama criminal trial. The attorney has provided a draft opening statement. Review it and provide a refined, improved version that strengthens the narrative, improves persuasive elements, and ensures it follows best practices for Alabama criminal defense opening statements. Maintain the attorney's voice and core theory while enhancing impact. Format your response in clear markdown sections.`
+      : `You are a master criminal defense trial attorney preparing an opening statement for an Alabama criminal trial. Craft a compelling, persuasive opening statement outline that introduces the defense theory, humanizes the defendant, and sets up the evidence the jury will hear. Use storytelling techniques effective with Alabama juries. Format your response in clear markdown sections with the full outline.`;
+
+    let userPrompt = existingDraft
+      ? `Refine and improve this opening statement draft:\n\n--- EXISTING DRAFT ---\n${existingDraft}\n--- END DRAFT ---\n\nTrial Data:\n${trialData || caseContext}`
+      : `Build an opening statement outline based on the following trial data:\n\n${trialData || caseContext}`;
+
+    if (customInstructions) userPrompt += `\n\nAdditional Instructions: ${customInstructions}`;
+
+    userPrompt += `\n\nProvide:
+1. **Opening Hook/Theme** — A powerful opening line or theme that frames the entire case
+2. **Defendant Introduction** — Humanize the defendant; who they are beyond the charges
+3. **Theory of the Case** — Clear, simple narrative of what happened from the defense perspective
+4. **Promise of Evidence** — Preview the evidence the jury will hear that supports the defense
+5. **Witness Preview** — Brief preview of key witnesses and what they will establish
+6. **Burden of Proof Framework** — Introduce reasonable doubt concepts early
+7. **Addressing Anticipated State Evidence** — Acknowledge and reframe the State's strongest points
+8. **Emotional Foundation** — Connect with jurors' values of fairness and justice
+9. **Closing Theme** — Tie back to the opening hook; set up what you will ask in closing`;
+
+    const result = await aiCall(systemPrompt, userPrompt, false, req.session.userId, 'opening-builder');
+    res.json({ result });
+  } catch (err) {
+    console.error("Opening builder error:", err);
+    res.status(500).json({ error: "AI opening statement builder failed" });
+  }
+});
+
 router.post("/closing-builder", requireAuth, async (req, res) => {
   try {
-    const { sessionId, caseContext, customInstructions } = req.body;
+    const { sessionId, caseContext, customInstructions, existingDraft } = req.body;
 
     let trialData = "";
     if (sessionId) {
@@ -282,15 +385,17 @@ ${logEntries}`;
       return res.status(400).json({ error: "sessionId or caseContext required" });
     }
 
-    const systemPrompt = `You are a master criminal defense trial attorney preparing a closing argument for an Alabama criminal trial. Build a compelling, persuasive closing argument outline that weaves together the evidence, witness testimony, and defense theory. Reference specific evidence and testimony. Use rhetorical techniques effective with Alabama juries. Format your response in clear markdown sections with the full outline.`;
+    const systemPrompt = existingDraft
+      ? `You are a master criminal defense trial attorney helping refine a closing argument for an Alabama criminal trial. The attorney has provided a draft closing argument. Review it and provide a refined, improved version that strengthens persuasive elements, tightens the narrative, and ensures maximum impact with the jury. Maintain the attorney's voice and core theory while enhancing impact. Format your response in clear markdown sections.`
+      : `You are a master criminal defense trial attorney preparing a closing argument for an Alabama criminal trial. Build a compelling, persuasive closing argument outline that weaves together the evidence, witness testimony, and defense theory. Reference specific evidence and testimony. Use rhetorical techniques effective with Alabama juries. Format your response in clear markdown sections with the full outline.`;
 
-    const userPrompt = `Build a closing argument outline based on the following trial data:
+    let userPrompt = existingDraft
+      ? `Refine and improve this closing argument draft:\n\n--- EXISTING DRAFT ---\n${existingDraft}\n--- END DRAFT ---\n\nTrial Data:\n${trialData || caseContext}`
+      : `Build a closing argument outline based on the following trial data:\n\n${trialData || caseContext}`;
 
-${trialData || caseContext}
+    if (customInstructions) userPrompt += `\nAdditional Instructions: ${customInstructions}`;
 
-${customInstructions ? `Additional Instructions: ${customInstructions}` : ""}
-
-Provide:
+    userPrompt += `\n\nProvide:
 1. **Opening Hook** — A powerful opening theme or statement to frame the closing
 2. **Burden of Proof Reminder** — Emphasis on reasonable doubt and the State's burden
 3. **Evidence Analysis** — Walk through the key evidence, highlighting weaknesses in the prosecution's case

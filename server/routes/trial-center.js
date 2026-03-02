@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const multer = require("multer");
+const mammoth = require("mammoth");
 const { requireAuth } = require("../middleware/auth");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -275,7 +276,7 @@ router.post("/exhibits/upload", requireAuth, upload.single("file"), async (req, 
 });
 
 buildCrud("pinned-docs", "trial_pinned_docs", [
-  "case_document_id", "label", "sort_order"
+  "case_document_id", "transcript_id", "label", "sort_order"
 ]);
 
 router.get("/pinned-docs-full/:sessionId", requireAuth, async (req, res) => {
@@ -285,9 +286,13 @@ router.get("/pinned-docs-full/:sessionId", requireAuth, async (req, res) => {
     const caseRow = await verifyCaseAccess(sess.rows[0].case_id, req);
     if (!caseRow) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      `SELECT p.*, d.filename AS document_name, d.content_type AS file_type, d.summary AS document_summary, d.file_size AS document_size
+      `SELECT p.*,
+              d.filename AS document_name, d.content_type AS file_type, d.summary AS document_summary, d.file_size AS document_size,
+              t.filename AS transcript_name, t.content_type AS transcript_content_type, t.file_size AS transcript_size,
+              t.status AS transcript_status, t.duration_seconds AS transcript_duration
        FROM trial_pinned_docs p
        LEFT JOIN case_documents d ON d.id = p.case_document_id
+       LEFT JOIN case_transcripts t ON t.id = p.transcript_id
        WHERE p.trial_session_id = $1
        ORDER BY p.sort_order ASC, p.created_at ASC`,
       [req.params.sessionId]
@@ -329,6 +334,175 @@ router.put("/witnesses/reorder/:sessionId", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Reorder witnesses error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/witnesses/:witnessId/documents", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT wd.*,
+              d.filename AS document_name, d.content_type AS document_content_type, d.file_size AS document_size,
+              t.filename AS transcript_name, t.content_type AS transcript_content_type, t.file_size AS transcript_size, t.status AS transcript_status
+       FROM trial_witness_documents wd
+       LEFT JOIN case_documents d ON d.id = wd.case_document_id
+       LEFT JOIN case_transcripts t ON t.id = wd.transcript_id
+       WHERE wd.trial_witness_id = $1
+       ORDER BY wd.created_at ASC`,
+      [req.params.witnessId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("Get witness documents error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/witnesses/:witnessId/documents", requireAuth, async (req, res) => {
+  try {
+    const { case_document_id, transcript_id, label } = req.body;
+    if (!case_document_id && !transcript_id) return res.status(400).json({ error: "case_document_id or transcript_id required" });
+    const { rows } = await pool.query(
+      `INSERT INTO trial_witness_documents (trial_witness_id, case_document_id, transcript_id, label)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.params.witnessId, case_document_id || null, transcript_id || null, label || ""]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error("Link witness document error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/witness-documents/:id", requireAuth, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM trial_witness_documents WHERE id = $1", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Unlink witness document error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/witness-prep/export", requireAuth, async (req, res) => {
+  try {
+    const { witnessName, caseName, caseNumber, content } = req.body;
+    if (!content) return res.status(400).json({ error: "content required" });
+
+    const PizZip = require("pizzip");
+    const Docxtemplater = require("docxtemplater");
+    const fs = require("fs");
+    const path = require("path");
+
+    const templatePath = path.join(__dirname, "../system-templates/case-header.docx");
+    let docBuffer;
+
+    if (fs.existsSync(templatePath)) {
+      const templateBuf = fs.readFileSync(templatePath);
+      const zip = new PizZip(templateBuf);
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+      doc.render({
+        case_title: caseName || "",
+        case_number: caseNumber || "",
+        defendant_name: "",
+        court: "",
+        judge: "",
+      });
+      docBuffer = doc.getZip().generate({ type: "nodebuffer" });
+    }
+
+    const minimalDocx = () => {
+      const zip = new PizZip();
+      const lines = (content || "").split("\n");
+      let bodyXml = "";
+      const title = `Witness Preparation — ${witnessName || "Unknown"}`;
+      const subtitle = caseName ? `${caseName}${caseNumber ? ` (${caseNumber})` : ""}` : "";
+
+      bodyXml += `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>${escapeXml(title)}</w:t></w:r></w:p>`;
+      if (subtitle) {
+        bodyXml += `<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>${escapeXml(subtitle)}</w:t></w:r></w:p>`;
+      }
+      bodyXml += `<w:p><w:r><w:t></w:t></w:r></w:p>`;
+
+      for (const line of lines) {
+        if (line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ")) {
+          const level = line.startsWith("### ") ? "Heading3" : line.startsWith("## ") ? "Heading2" : "Heading1";
+          const text = line.replace(/^#{1,3}\s*/, "").replace(/\*\*/g, "");
+          bodyXml += `<w:p><w:pPr><w:pStyle w:val="${level}"/></w:pPr><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
+        } else if (line.startsWith("- ") || line.startsWith("* ")) {
+          const text = line.replace(/^[-*]\s*/, "").replace(/\*\*/g, "");
+          bodyXml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
+        } else if (line.match(/^\d+\.\s/)) {
+          const text = line.replace(/^\d+\.\s*/, "").replace(/\*\*/g, "");
+          bodyXml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr></w:pPr><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
+        } else if (line.trim() === "") {
+          bodyXml += `<w:p><w:r><w:t></w:t></w:r></w:p>`;
+        } else {
+          const text = line.replace(/\*\*/g, "");
+          bodyXml += `<w:p><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
+        }
+      }
+
+      const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+            xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+            xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+            xmlns:v="urn:schemas-microsoft-com:vml"
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+            xmlns:w10="urn:schemas-microsoft-com:office:word"
+            xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml">
+  <w:body>${bodyXml}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body>
+</w:document>`;
+
+      zip.file("word/document.xml", documentXml);
+      zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+      zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+      zip.file("word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`);
+      return zip.generate({ type: "nodebuffer" });
+    };
+
+    const buf = minimalDocx();
+    const filename = `Witness_Prep_${(witnessName || "Unknown").replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buf);
+  } catch (err) {
+    console.error("Witness prep export error:", err);
+    res.status(500).json({ error: "Export failed" });
+  }
+});
+
+function escapeXml(str) {
+  return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+router.post("/outlines/ai-assist", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    let extractedText = "";
+    if (req.file) {
+      if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+        extractedText = result.value || "";
+      } else if (req.file.mimetype === "text/plain") {
+        extractedText = req.file.buffer.toString("utf-8");
+      }
+    }
+    res.json({ extractedText });
+  } catch (err) {
+    console.error("Outline AI assist file extract error:", err);
+    res.status(500).json({ error: "File extraction failed" });
   }
 });
 

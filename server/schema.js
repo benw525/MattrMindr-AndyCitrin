@@ -733,6 +733,19 @@ async function createSchema() {
     await client.query(`ALTER TABLE trial_timeline_events ADD COLUMN IF NOT EXISTS file_size INTEGER DEFAULT 0`);
     await client.query(`ALTER TABLE trial_timeline_events ADD COLUMN IF NOT EXISTS association TEXT DEFAULT 'general'`);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_witness_documents (
+        id SERIAL PRIMARY KEY,
+        trial_witness_id INTEGER NOT NULL REFERENCES trial_witnesses(id) ON DELETE CASCADE,
+        case_document_id INTEGER,
+        transcript_id INTEGER,
+        label TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`ALTER TABLE trial_pinned_docs ADD COLUMN IF NOT EXISTS transcript_id INTEGER`);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

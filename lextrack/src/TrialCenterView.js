@@ -12,8 +12,11 @@ import {
   apiUploadDemonstrative, apiDownloadDemonstrative,
   apiGetTrialPinnedDocs, apiCreateTrialPinnedDoc, apiDeleteTrialPinnedDoc,
   apiGetTrialLogEntries, apiCreateTrialLogEntry, apiDeleteTrialLogEntry,
-  apiTrialAiWitnessPrep, apiTrialAiJurySelection, apiTrialAiObjectionCoach, apiTrialAiClosingBuilder, apiTrialAiJuryInstructions, apiTrialAiCaseLawSearch,
+  apiTrialAiWitnessPrep, apiTrialAiJurySelection, apiTrialAiObjectionCoach, apiTrialAiClosingBuilder, apiTrialAiOpeningBuilder, apiTrialAiJuryInstructions, apiTrialAiCaseLawSearch,
   apiGetCaseDocuments, apiDownloadDocument, apiSummarizeDocument,
+  apiExportWitnessPrep, apiGetWitnessDocuments, apiLinkWitnessDocument, apiUnlinkWitnessDocument,
+  apiGetTranscripts, apiDownloadTranscriptAudio, apiGetTranscriptDetail,
+  apiExtractOutlineFile,
   apiSavePreferences,
 } from "./api.js";
 
@@ -24,6 +27,7 @@ const AI_AGENTS = [
   { id: "jury-selection", title: "Jury Selection", desc: "Analyze juror responses for bias and red flags", Icon: Scale, color: "text-violet-600", bg: "bg-violet-100 dark:bg-violet-900/30" },
   { id: "objection-coach", title: "Objection Coach", desc: "Get objection suggestions with Alabama Rules of Evidence", Icon: AlertTriangle, color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/30" },
   { id: "closing-builder", title: "Closing Builder", desc: "Build closing argument from trial evidence", Icon: FileText, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
+  { id: "opening-builder", title: "Opening Builder", desc: "Draft a compelling opening statement", Icon: FileText, color: "text-teal-600", bg: "bg-teal-100 dark:bg-teal-900/30" },
   { id: "jury-instructions-ai", title: "Jury Instructions", desc: "Review charges and suggest Alabama pattern instructions", Icon: ClipboardList, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30" },
   { id: "case-law", title: "Case Law Search", desc: "Find relevant Alabama case law and rules of evidence", Icon: Search, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30" },
 ];
@@ -111,6 +115,18 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   const speechSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
   const speechRecRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
+
+  const [witnessDocuments, setWitnessDocuments] = useState({});
+  const [showWitnessDocPicker, setShowWitnessDocPicker] = useState(null);
+  const [witnessDocLabel, setWitnessDocLabel] = useState("");
+  const [caseTranscripts, setCaseTranscripts] = useState([]);
+
+  const [outlineAiType, setOutlineAiType] = useState(null);
+  const [outlineAiLoading, setOutlineAiLoading] = useState(false);
+  const [outlineAiResult, setOutlineAiResult] = useState("");
+  const [outlineAiFile, setOutlineAiFile] = useState(null);
+  const [outlineAiInstructions, setOutlineAiInstructions] = useState("");
+  const [outlineAiCrossId, setOutlineAiCrossId] = useState(null);
 
   const [activeAgent, setActiveAgent] = useState(null);
   const [aiInput, setAiInput] = useState("");
@@ -498,6 +514,240 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     return () => { if (speechRecRef.current) speechRecRef.current.stop(); };
   }, []);
 
+  const loadWitnessDocuments = useCallback(async (witnessList) => {
+    if (!witnessList?.length) return;
+    const results = {};
+    await Promise.all(witnessList.map(async (w) => {
+      try { results[w.id] = await apiGetWitnessDocuments(w.id); } catch { results[w.id] = []; }
+    }));
+    setWitnessDocuments(results);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "Witnesses" && witnesses.length > 0) {
+      loadWitnessDocuments(witnesses);
+    }
+  }, [activeTab, witnesses, loadWitnessDocuments]);
+
+  const handleLinkWitnessDoc = async (witnessId, docId, transcriptId) => {
+    try {
+      await apiLinkWitnessDocument(witnessId, {
+        case_document_id: docId || null,
+        transcript_id: transcriptId || null,
+        label: witnessDocLabel || "",
+      });
+      setShowWitnessDocPicker(null);
+      setWitnessDocLabel("");
+      loadWitnessDocuments(witnesses);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleUnlinkWitnessDoc = async (linkId) => {
+    try {
+      await apiUnlinkWitnessDocument(linkId);
+      loadWitnessDocuments(witnesses);
+    } catch (err) { console.error(err); }
+  };
+
+  const exportWitnessPrep = async (witnessName) => {
+    try {
+      const blob = await apiExportWitnessPrep({
+        witnessName,
+        caseName: selectedCase?.title || "",
+        caseNumber: selectedCase?.case_num || "",
+        content: witnessAiResult,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Witness_Prep_${(witnessName || "Unknown").replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) { console.error(err); }
+  };
+
+  const openDocPickerWithTranscripts = async () => {
+    if (!selectedCase) return;
+    try {
+      const [docs, transcripts] = await Promise.all([
+        apiGetCaseDocuments(selectedCase.id),
+        apiGetTranscripts(selectedCase.id).catch(() => []),
+      ]);
+      setCaseDocs(docs || []);
+      setCaseTranscripts((transcripts || []).filter(t => t.status === "completed"));
+      setShowDocPicker(true);
+    } catch (err) { console.error(err); }
+  };
+
+  const openWitnessDocPicker = async (witnessId) => {
+    if (!selectedCase) return;
+    try {
+      const [docs, transcripts] = await Promise.all([
+        apiGetCaseDocuments(selectedCase.id),
+        apiGetTranscripts(selectedCase.id).catch(() => []),
+      ]);
+      setCaseDocs(docs || []);
+      setCaseTranscripts((transcripts || []).filter(t => t.status === "completed"));
+      setShowWitnessDocPicker(witnessId);
+      setWitnessDocLabel("");
+    } catch (err) { console.error(err); }
+  };
+
+  const handlePinTranscript = async (transcriptId, name) => {
+    if (!session) return;
+    try {
+      await apiCreateTrialPinnedDoc({ sessionId: session.id, transcript_id: transcriptId, label: name || "Transcript" });
+      setShowDocPicker(false);
+      await refreshTab("Quick Docs");
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDownloadTranscriptAudio = async (transcriptId, filename) => {
+    try {
+      const blob = await apiDownloadTranscriptAudio(transcriptId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || "audio";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) { console.error(err); }
+  };
+
+  const viewTranscript = async (pd) => {
+    if (!pd.transcript_id) return;
+    setDocViewerId(pd.id);
+    try {
+      const detail = await apiGetTranscriptDetail(pd.transcript_id);
+      const segments = detail?.transcript || [];
+      const text = segments.map(s => `[${s.speaker || "Speaker"}] ${s.text || ""}`).join("\n\n");
+      const blob = new Blob([text], { type: "text/plain" });
+      setDocViewerUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      console.error(err);
+      setDocViewerId(null);
+    }
+  };
+
+  const runOutlineAi = async (type, crossOutlineId) => {
+    if (!session) return;
+    setOutlineAiType(type);
+    setOutlineAiCrossId(crossOutlineId || null);
+    setOutlineAiLoading(true);
+    setOutlineAiResult("");
+    try {
+      let existingDraft = "";
+      if (outlineAiFile) {
+        const extracted = await apiExtractOutlineFile(outlineAiFile);
+        existingDraft = extracted?.extractedText || "";
+      }
+      if (!existingDraft) {
+        if (type === "opening") existingDraft = openingText || "";
+        else if (type === "closing") existingDraft = closingText || "";
+        else if (type === "cross-examination" && crossOutlineId) existingDraft = crossTexts[crossOutlineId] || "";
+      }
+
+      let res;
+      if (type === "opening") {
+        res = await apiTrialAiOpeningBuilder({
+          sessionId: session.id,
+          existingDraft: existingDraft || undefined,
+          customInstructions: outlineAiInstructions || undefined,
+        });
+      } else if (type === "closing") {
+        res = await apiTrialAiClosingBuilder({
+          sessionId: session.id,
+          existingDraft: existingDraft || undefined,
+          customInstructions: outlineAiInstructions || undefined,
+        });
+      } else if (type === "cross-examination") {
+        const crossOutline = outlines.find(o => o.id === crossOutlineId);
+        const linkedWitness = crossOutline?.linked_witness_id ? witnesses.find(w => w.id === crossOutline.linked_witness_id) : null;
+        res = await apiTrialAiWitnessPrep({
+          sessionId: session.id,
+          witnessName: linkedWitness?.name || crossOutline?.title || "Unknown",
+          witnessType: linkedWitness?.type || "",
+          expectedTestimony: linkedWitness?.expected_testimony || "",
+          impeachmentNotes: linkedWitness?.impeachment_notes || "",
+          existingDraft: existingDraft || undefined,
+        });
+      }
+      setOutlineAiResult(res?.result || "No result returned.");
+    } catch (err) {
+      setOutlineAiResult("Error: " + (err.message || "AI request failed"));
+    }
+    setOutlineAiLoading(false);
+  };
+
+  const insertOutlineAiResult = async (type, crossOutlineId) => {
+    if (!outlineAiResult) return;
+    if (type === "opening") {
+      setOpeningText(outlineAiResult);
+      await saveOutline("opening", outlineAiResult, openingOutline?.id);
+    } else if (type === "closing") {
+      setClosingText(outlineAiResult);
+      await saveOutline("closing", outlineAiResult, closingOutline?.id);
+    } else if (type === "cross-examination" && crossOutlineId) {
+      setCrossTexts(prev => ({ ...prev, [crossOutlineId]: outlineAiResult }));
+      await apiUpdateTrialOutline(crossOutlineId, { content: outlineAiResult });
+      await refreshTab("Outlines");
+    }
+    setOutlineAiType(null);
+    setOutlineAiResult("");
+    setOutlineAiFile(null);
+    setOutlineAiInstructions("");
+  };
+
+  const saveJiAiSuggestions = async () => {
+    if (!jiAiResult || !session) return;
+    const lines = jiAiResult.split("\n").filter(l => l.trim());
+    const instructions = [];
+    let currentInstruction = "";
+    let currentSource = "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("# ") || trimmed.startsWith("## ") || trimmed.startsWith("### ")) {
+        if (currentInstruction.trim()) {
+          instructions.push({ text: currentInstruction.trim(), source: currentSource });
+        }
+        currentInstruction = "";
+        currentSource = "";
+        continue;
+      }
+      if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.match(/^\d+\.\s/)) {
+        if (currentInstruction.trim()) {
+          instructions.push({ text: currentInstruction.trim(), source: currentSource });
+        }
+        currentInstruction = trimmed.replace(/^[-*]\s*/, "").replace(/^\d+\.\s*/, "");
+        const apjiMatch = currentInstruction.match(/APJI\s+[\d.]+/i);
+        currentSource = apjiMatch ? apjiMatch[0] : "";
+      } else if (trimmed) {
+        currentInstruction += " " + trimmed;
+      }
+    }
+    if (currentInstruction.trim()) {
+      instructions.push({ text: currentInstruction.trim(), source: currentSource });
+    }
+
+    if (instructions.length === 0) {
+      instructions.push({ text: jiAiResult, source: "" });
+    }
+
+    try {
+      for (const instr of instructions) {
+        await apiCreateTrialJuryInstruction({
+          sessionId: session.id,
+          instruction_text: instr.text,
+          source: instr.source,
+          status: "requested",
+        });
+      }
+      setJiAiResult("");
+      await refreshTab("Jury Instructions");
+    } catch (err) { console.error(err); }
+  };
+
   const runAiAgent = async () => {
     if (!session || !activeAgent) return;
     setAiLoading(true);
@@ -514,6 +764,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
         res = await apiTrialAiObjectionCoach({ scenario: aiInput, sessionId: session.id });
       } else if (activeAgent === "closing-builder") {
         res = await apiTrialAiClosingBuilder({ sessionId: session.id });
+      } else if (activeAgent === "opening-builder") {
+        res = await apiTrialAiOpeningBuilder({ sessionId: session.id });
       } else if (activeAgent === "jury-instructions-ai") {
         res = await apiTrialAiJuryInstructions({ sessionId: session.id, charges: aiInput, defenseTheory: aiInput2 });
       } else if (activeAgent === "case-law") {
@@ -770,23 +1022,76 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                 <div className="space-y-2">
                   {witnesses.map((w, idx) => (
                     <React.Fragment key={w.id}>
-                    <div className={CARD_CLS + " p-3 flex items-center gap-3"}>
-                      <span className="text-sm font-mono text-slate-400 w-6 text-center">{w.call_order || idx + 1}</span>
-                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{w.name}</span>
-                          <span className={BADGE_CLS + (w.type === "prosecution" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50")}>{w.type}</span>
-                          <span className={BADGE_CLS + (w.status === "called" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : w.status === "excused" ? " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{w.status}</span>
+                    <div className={CARD_CLS + " p-3"}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-mono text-slate-400 w-6 text-center">{w.call_order || idx + 1}</span>
+                        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{w.name}</span>
+                            <span className={BADGE_CLS + (w.type === "prosecution" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50")}>{w.type}</span>
+                            <span className={BADGE_CLS + (w.status === "called" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : w.status === "excused" ? " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{w.status}</span>
+                          </div>
+                          {w.expected_testimony && <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{w.expected_testimony}</p>}
                         </div>
-                        {w.expected_testimony && <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{w.expected_testimony}</p>}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => openWitnessDocPicker(w.id)} className="p-1 text-indigo-500 hover:text-indigo-700" title="Link Document"><Pin size={14} /></button>
+                          <button onClick={() => runWitnessAi(w)} className="px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 flex items-center gap-1" title="Witness Prep AI"><Sparkles size={10} /> Prep</button>
+                          <button onClick={() => handleWitnessReorder(idx, -1)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronUp size={14} /></button>
+                          <button onClick={() => handleWitnessReorder(idx, 1)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronDown size={14} /></button>
+                          <button onClick={() => openEditWitness(w)} className="p-1 text-slate-400 hover:text-slate-600"><Pencil size={14} /></button>
+                          <button onClick={async () => { await apiDeleteTrialWitness(w.id); refreshTab("Witnesses"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button onClick={() => runWitnessAi(w)} className="px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 flex items-center gap-1" title="Witness Prep AI"><Sparkles size={10} /> Prep</button>
-                        <button onClick={() => handleWitnessReorder(idx, -1)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronUp size={14} /></button>
-                        <button onClick={() => handleWitnessReorder(idx, 1)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronDown size={14} /></button>
-                        <button onClick={() => openEditWitness(w)} className="p-1 text-slate-400 hover:text-slate-600"><Pencil size={14} /></button>
-                        <button onClick={async () => { await apiDeleteTrialWitness(w.id); refreshTab("Witnesses"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
-                      </div>
+                      {(witnessDocuments[w.id] || []).length > 0 && (
+                        <div className="ml-9 mt-2 flex flex-wrap gap-1.5">
+                          {witnessDocuments[w.id].map(wd => (
+                            <div key={wd.id} className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 text-xs">
+                              <FileText size={10} className="text-indigo-500 flex-shrink-0" />
+                              <span className="text-indigo-700 dark:text-indigo-300 truncate max-w-[150px]">{wd.document_name || wd.transcript_name || wd.label || "Document"}</span>
+                              {wd.label && <span className="text-indigo-400 dark:text-indigo-500">({wd.label})</span>}
+                              {wd.case_document_id && <button onClick={() => { apiDownloadDocument(wd.case_document_id).then(blob => { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = wd.document_name || "file"; a.click(); URL.revokeObjectURL(u); }); }} className="text-indigo-400 hover:text-indigo-600"><Download size={10} /></button>}
+                              {wd.transcript_id && <button onClick={() => handleDownloadTranscriptAudio(wd.transcript_id, wd.transcript_name)} className="text-indigo-400 hover:text-indigo-600"><Download size={10} /></button>}
+                              <button onClick={() => handleUnlinkWitnessDoc(wd.id)} className="text-red-400 hover:text-red-600"><X size={10} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {showWitnessDocPicker === w.id && (
+                        <div className="ml-9 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-xs font-medium text-slate-700 dark:text-slate-300">Link Document to {w.name}</h4>
+                            <button onClick={() => setShowWitnessDocPicker(null)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                          </div>
+                          <div className="mb-2">
+                            <select className={INPUT_CLS + " text-xs"} value={witnessDocLabel} onChange={e => setWitnessDocLabel(e.target.value)}>
+                              <option value="">No Label</option>
+                              <option value="Police Report">Police Report</option>
+                              <option value="Medical Report">Medical Report</option>
+                              <option value="Witness Statement">Witness Statement</option>
+                              <option value="Audio Recording">Audio Recording</option>
+                              <option value="Transcript">Transcript</option>
+                              <option value="Lab Report">Lab Report</option>
+                              <option value="Expert Report">Expert Report</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          <div className="max-h-40 overflow-y-auto space-y-0.5">
+                            {caseDocs.length > 0 && <p className="text-[10px] font-semibold uppercase text-slate-400 px-2 pt-1">Documents</p>}
+                            {caseDocs.map(doc => (
+                              <div key={`doc-${doc.id}`} onClick={() => handleLinkWitnessDoc(w.id, doc.id, null)} className="px-2 py-1.5 rounded cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                <FileText size={10} className="text-slate-400 flex-shrink-0" />{doc.name || doc.filename}
+                              </div>
+                            ))}
+                            {caseTranscripts.length > 0 && <p className="text-[10px] font-semibold uppercase text-slate-400 px-2 pt-1">Transcriptions</p>}
+                            {caseTranscripts.map(t => (
+                              <div key={`tr-${t.id}`} onClick={() => handleLinkWitnessDoc(w.id, null, t.id)} className="px-2 py-1.5 rounded cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                <Mic size={10} className="text-violet-400 flex-shrink-0" />{t.filename}
+                              </div>
+                            ))}
+                            {caseDocs.length === 0 && caseTranscripts.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No documents found.</p>}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {witnessAiId === w.id && (
                       <div className="ml-9 mb-2">
@@ -796,7 +1101,10 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                           <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap text-sm text-slate-900 dark:text-slate-100 max-h-[400px] overflow-y-auto">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1"><Sparkles size={10} /> Witness Prep AI</span>
-                              <button onClick={() => { setWitnessAiId(null); setWitnessAiResult(""); }} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => exportWitnessPrep(w.name)} className="px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-600 flex items-center gap-1" title="Save as Word Doc"><Download size={10} /> .docx</button>
+                                <button onClick={() => { setWitnessAiId(null); setWitnessAiResult(""); }} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                              </div>
                             </div>
                             {witnessAiResult}
                           </div>
@@ -981,15 +1289,65 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Opening Statement</h3>
-                    <button onClick={() => saveOutline("opening", openingText, openingOutline?.id)} className={BTN_CLS + " text-xs"}>Save</button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setOutlineAiType(outlineAiType === "opening" ? null : "opening"); setOutlineAiResult(""); setOutlineAiFile(null); setOutlineAiInstructions(""); }} className="px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 flex items-center gap-1"><Sparkles size={10} /> AI Assist</button>
+                      <button onClick={() => saveOutline("opening", openingText, openingOutline?.id)} className={BTN_CLS + " text-xs"}>Save</button>
+                    </div>
                   </div>
+                  {outlineAiType === "opening" && (
+                    <div className="mb-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-100">
+                          <Upload size={10} /> Upload .docx
+                          <input type="file" accept=".docx,.txt" className="hidden" onChange={e => setOutlineAiFile(e.target.files?.[0] || null)} />
+                        </label>
+                        {outlineAiFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{outlineAiFile.name}</span>}
+                      </div>
+                      <textarea className={INPUT_CLS + " h-16 text-xs"} value={outlineAiInstructions} onChange={e => setOutlineAiInstructions(e.target.value)} placeholder="Optional: specific instructions for the AI..." />
+                      <button onClick={() => runOutlineAi("opening")} disabled={outlineAiLoading} className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md flex items-center gap-1">{outlineAiLoading && outlineAiType === "opening" ? <><Loader2 size={10} className="animate-spin" /> Generating...</> : "Generate"}</button>
+                      {outlineAiResult && outlineAiType === "opening" && (
+                        <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap text-xs text-slate-900 dark:text-slate-100 max-h-[300px] overflow-y-auto">
+                          {outlineAiResult}
+                          <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <button onClick={() => insertOutlineAiResult("opening")} className="px-2 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Insert into Outline</button>
+                            <button onClick={() => { setOutlineAiType(null); setOutlineAiResult(""); }} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700">Dismiss</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <textarea className={INPUT_CLS + " h-40"} value={openingText} onChange={e => setOpeningText(e.target.value)} placeholder="Draft your opening statement outline..." />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Closing Argument</h3>
-                    <button onClick={() => saveOutline("closing", closingText, closingOutline?.id)} className={BTN_CLS + " text-xs"}>Save</button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setOutlineAiType(outlineAiType === "closing" ? null : "closing"); setOutlineAiResult(""); setOutlineAiFile(null); setOutlineAiInstructions(""); }} className="px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 flex items-center gap-1"><Sparkles size={10} /> AI Assist</button>
+                      <button onClick={() => saveOutline("closing", closingText, closingOutline?.id)} className={BTN_CLS + " text-xs"}>Save</button>
+                    </div>
                   </div>
+                  {outlineAiType === "closing" && (
+                    <div className="mb-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-100">
+                          <Upload size={10} /> Upload .docx
+                          <input type="file" accept=".docx,.txt" className="hidden" onChange={e => setOutlineAiFile(e.target.files?.[0] || null)} />
+                        </label>
+                        {outlineAiFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{outlineAiFile.name}</span>}
+                      </div>
+                      <textarea className={INPUT_CLS + " h-16 text-xs"} value={outlineAiInstructions} onChange={e => setOutlineAiInstructions(e.target.value)} placeholder="Optional: specific instructions for the AI..." />
+                      <button onClick={() => runOutlineAi("closing")} disabled={outlineAiLoading} className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md flex items-center gap-1">{outlineAiLoading && outlineAiType === "closing" ? <><Loader2 size={10} className="animate-spin" /> Generating...</> : "Generate"}</button>
+                      {outlineAiResult && outlineAiType === "closing" && (
+                        <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap text-xs text-slate-900 dark:text-slate-100 max-h-[300px] overflow-y-auto">
+                          {outlineAiResult}
+                          <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <button onClick={() => insertOutlineAiResult("closing")} className="px-2 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Insert into Outline</button>
+                            <button onClick={() => { setOutlineAiType(null); setOutlineAiResult(""); }} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700">Dismiss</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <textarea className={INPUT_CLS + " h-40"} value={closingText} onChange={e => setClosingText(e.target.value)} placeholder="Draft your closing argument outline..." />
                 </div>
                 <div>
@@ -1003,10 +1361,33 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                         <div className="flex items-center justify-between mb-2">
                           <input className={INPUT_CLS + " max-w-xs text-sm font-medium"} value={o.title} onChange={async (e) => { await apiUpdateTrialOutline(o.id, { title: e.target.value }); refreshTab("Outlines"); }} />
                           <div className="flex gap-1">
+                            <button onClick={() => { setOutlineAiType(outlineAiType === `cross-${o.id}` ? null : `cross-${o.id}`); setOutlineAiCrossId(o.id); setOutlineAiResult(""); setOutlineAiFile(null); setOutlineAiInstructions(""); }} className="px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 flex items-center gap-1"><Sparkles size={10} /> AI Assist</button>
                             <button onClick={() => { const val = crossTexts[o.id] || ""; apiUpdateTrialOutline(o.id, { content: val }).then(() => refreshTab("Outlines")); }} className={BTN_CLS + " text-xs"}>Save</button>
                             <button onClick={async () => { await apiDeleteTrialOutline(o.id); refreshTab("Outlines"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                           </div>
                         </div>
+                        {outlineAiType === `cross-${o.id}` && (
+                          <div className="mb-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <label className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-100">
+                                <Upload size={10} /> Upload .docx
+                                <input type="file" accept=".docx,.txt" className="hidden" onChange={e => setOutlineAiFile(e.target.files?.[0] || null)} />
+                              </label>
+                              {outlineAiFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{outlineAiFile.name}</span>}
+                            </div>
+                            <textarea className={INPUT_CLS + " h-16 text-xs"} value={outlineAiInstructions} onChange={e => setOutlineAiInstructions(e.target.value)} placeholder="Optional: specific instructions for the AI..." />
+                            <button onClick={() => runOutlineAi("cross-examination", o.id)} disabled={outlineAiLoading} className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md flex items-center gap-1">{outlineAiLoading && outlineAiType === `cross-${o.id}` ? <><Loader2 size={10} className="animate-spin" /> Generating...</> : "Generate"}</button>
+                            {outlineAiResult && outlineAiType === `cross-${o.id}` && (
+                              <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap text-xs text-slate-900 dark:text-slate-100 max-h-[300px] overflow-y-auto">
+                                {outlineAiResult}
+                                <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                  <button onClick={() => insertOutlineAiResult("cross-examination", o.id)} className="px-2 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Insert into Outline</button>
+                                  <button onClick={() => { setOutlineAiType(null); setOutlineAiResult(""); }} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700">Dismiss</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <textarea className={INPUT_CLS + " h-32"} value={crossTexts[o.id] || ""} onChange={e => setCrossTexts({ ...crossTexts, [o.id]: e.target.value })} placeholder="Cross-examination outline..." />
                       </div>
                     ))}
@@ -1029,7 +1410,10 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                   <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap text-sm text-slate-900 dark:text-slate-100 max-h-[400px] overflow-y-auto">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1"><Sparkles size={10} /> AI Suggested Instructions</span>
-                      <button onClick={() => setJiAiResult("")} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={saveJiAiSuggestions} className="px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/50 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-900/50 flex items-center gap-1"><Download size={10} /> Save All Suggestions</button>
+                        <button onClick={() => setJiAiResult("")} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                      </div>
                     </div>
                     {jiAiResult}
                   </div>
@@ -1135,21 +1519,28 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Quick Docs ({pinnedDocs.length})</h3>
-                  <button onClick={openDocPicker} className={BTN_CLS + " flex items-center gap-1.5"}><Pin size={14} /> Pin Document</button>
+                  <button onClick={openDocPickerWithTranscripts} className={BTN_CLS + " flex items-center gap-1.5"}><Pin size={14} /> Pin Document</button>
                 </div>
                 {showDocPicker && (
                   <div className={CARD_CLS + " p-4"}>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">Select Document to Pin</h4>
+                      <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">Select Document or Transcription to Pin</h4>
                       <button onClick={() => setShowDocPicker(false)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
                     </div>
                     <div className="max-h-60 overflow-y-auto space-y-1">
+                      {caseDocs.length > 0 && <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-3 pt-1">Documents</p>}
                       {caseDocs.map(doc => (
-                        <div key={doc.id} onClick={() => handlePinDoc(doc.id)} className="px-3 py-2 rounded-md cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-sm text-slate-900 dark:text-slate-100">
-                          {doc.name || doc.filename}
+                        <div key={`doc-${doc.id}`} onClick={() => handlePinDoc(doc.id)} className="px-3 py-2 rounded-md cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                          <FileText size={12} className="text-slate-400 flex-shrink-0" />{doc.name || doc.filename}
                         </div>
                       ))}
-                      {caseDocs.length === 0 && <p className="text-sm text-slate-400 text-center py-4">No documents found for this case.</p>}
+                      {caseTranscripts.length > 0 && <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-400 px-3 pt-2">Transcriptions</p>}
+                      {caseTranscripts.map(t => (
+                        <div key={`tr-${t.id}`} onClick={() => handlePinTranscript(t.id, t.filename)} className="px-3 py-2 rounded-md cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                          <Mic size={12} className="text-violet-400 flex-shrink-0" />{t.filename}
+                        </div>
+                      ))}
+                      {caseDocs.length === 0 && caseTranscripts.length === 0 && <p className="text-sm text-slate-400 text-center py-4">No documents or transcriptions found for this case.</p>}
                     </div>
                   </div>
                 )}
@@ -1167,13 +1558,16 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     <div key={pd.id} className={CARD_CLS + " p-4"}>
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{pd.label || pd.document_name || "Document"}</p>
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{pd.label || pd.document_name || pd.transcript_name || "Document"}</p>
                           {pd.file_type && <p className="text-xs text-slate-400 mt-0.5">{pd.file_type}</p>}
+                          {pd.transcript_id && !pd.case_document_id && <span className={BADGE_CLS + " bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800/50 mt-0.5"}>Transcription</span>}
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
                           {pd.case_document_id && <button onClick={() => openDocViewer(pd)} className="p-1 text-indigo-500 hover:text-indigo-700" title="View"><Eye size={14} /></button>}
+                          {pd.transcript_id && !pd.case_document_id && <button onClick={() => viewTranscript(pd)} className="p-1 text-violet-500 hover:text-violet-700" title="View Transcript"><Eye size={14} /></button>}
                           {pd.case_document_id && <button onClick={() => runDocSummary(pd)} className="p-1 text-amber-500 hover:text-amber-700" title="AI Summary">{docSummaryLoading === pd.id ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}</button>}
                           {pd.case_document_id && <button onClick={() => handleDownloadDoc(pd.case_document_id)} className="p-1 text-slate-400 hover:text-slate-600" title="Download"><Download size={14} /></button>}
+                          {pd.transcript_id && !pd.case_document_id && <button onClick={() => handleDownloadTranscriptAudio(pd.transcript_id, pd.transcript_name || "audio")} className="p-1 text-slate-400 hover:text-slate-600" title="Download Audio"><Download size={14} /></button>}
                           <button onClick={async () => { await apiDeleteTrialPinnedDoc(pd.id); refreshTab("Quick Docs"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                         </div>
                       </div>

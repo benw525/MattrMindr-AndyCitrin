@@ -436,8 +436,31 @@ export const apiTrialAiWitnessPrep = (data) => apiFetch("/api/trial-center/ai/wi
 export const apiTrialAiJurySelection = (data) => apiFetch("/api/trial-center/ai/jury-selection", { method: "POST", body: data });
 export const apiTrialAiObjectionCoach = (data) => apiFetch("/api/trial-center/ai/objection-coach", { method: "POST", body: data });
 export const apiTrialAiClosingBuilder = (data) => apiFetch("/api/trial-center/ai/closing-builder", { method: "POST", body: data });
+export const apiTrialAiOpeningBuilder = (data) => apiFetch("/api/trial-center/ai/opening-builder", { method: "POST", body: data });
 export const apiTrialAiJuryInstructions = (data) => apiFetch("/api/trial-center/ai/jury-instructions", { method: "POST", body: data });
 export const apiTrialAiCaseLawSearch = (data) => apiFetch("/api/trial-center/ai/case-law-search", { method: "POST", body: data });
+
+export async function apiExportWitnessPrep(data) {
+  const res = await fetch("/api/trial-center/witness-prep/export", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+  return res.blob();
+}
+
+export const apiGetWitnessDocuments = (witnessId) => apiFetch(`/api/trial-center/witnesses/${witnessId}/documents`);
+export const apiLinkWitnessDocument = (witnessId, data) => apiFetch(`/api/trial-center/witnesses/${witnessId}/documents`, { method: "POST", body: data });
+export const apiUnlinkWitnessDocument = (linkId) => apiFetch(`/api/trial-center/witness-documents/${linkId}`, { method: "DELETE" });
+
+export async function apiExtractOutlineFile(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/trial-center/outlines/ai-assist", { method: "POST", credentials: "include", body: fd });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
 
 export async function apiUploadCollabFile(file) {
   const fd = new FormData();
