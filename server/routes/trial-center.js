@@ -191,7 +191,7 @@ router.get("/pinned-docs-full/:sessionId", requireAuth, async (req, res) => {
     const caseRow = await verifyCaseAccess(sess.rows[0].case_id, req);
     if (!caseRow) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      `SELECT p.*, d.name AS document_name, d.original_name, d.file_type
+      `SELECT p.*, d.filename AS document_name, d.content_type AS file_type
        FROM trial_pinned_docs p
        LEFT JOIN case_documents d ON d.id = p.case_document_id
        WHERE p.trial_session_id = $1

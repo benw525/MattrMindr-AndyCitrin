@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Scale, Users, Search, Plus, Trash2, ChevronUp, ChevronDown, Loader2, AlertTriangle, FileText, ClipboardList, Sparkles, Download, Pin, X, Edit3 as Pencil } from "lucide-react";
+import { Scale, Users, Search, Plus, Trash2, ChevronUp, ChevronDown, Loader2, AlertTriangle, FileText, ClipboardList, Sparkles, Download, Pin, X, Edit3 as Pencil, Menu } from "lucide-react";
 import {
   apiCreateTrialSession,
   apiGetTrialWitnesses, apiCreateTrialWitness, apiUpdateTrialWitness, apiDeleteTrialWitness, apiReorderTrialWitnesses,
@@ -38,7 +38,7 @@ function fmtDate(d) {
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function TrialCenterView({ currentUser, users, cases }) {
+export default function TrialCenterView({ currentUser, users, cases, onMenuToggle }) {
   const [caseSearch, setCaseSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -414,9 +414,9 @@ export default function TrialCenterView({ currentUser, users, cases }) {
 
   useEffect(() => {
     const obj = {};
-    crossOutlines.forEach(o => { obj[o.id] = o.content || ""; });
+    outlines.filter(o => o.type === "cross-examination").forEach(o => { obj[o.id] = o.content || ""; });
     setCrossTexts(obj);
-  }, [outlines, crossOutlines]);
+  }, [outlines]);
 
   const saveOutline = async (type, content, id) => {
     if (!session) return;
@@ -441,22 +441,31 @@ export default function TrialCenterView({ currentUser, users, cases }) {
   const categoryColors = { ruling: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300", objection: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300", testimony: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", note: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300", followup: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" };
 
   return (
-    <div className="space-y-4">
-      <div className="relative" ref={dropdownRef}>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input
-              className={INPUT_CLS + " pl-9"}
-              placeholder="Search cases to load trial session..."
-              value={caseSearch}
-              onChange={e => { setCaseSearch(e.target.value); setShowDropdown(true); }}
-              onFocus={() => { if (caseSearch.trim()) setShowDropdown(true); }}
-            />
+    <>
+      <div className="topbar !bg-white dark:!bg-slate-900 !border-b-slate-200 dark:!border-b-slate-700">
+        <div className="flex items-center gap-3">
+          <button className="hamburger-btn" onClick={onMenuToggle}><Menu size={20} /></button>
+          <div>
+            <h1 className="!text-xl !font-semibold !text-slate-900 dark:!text-slate-100 !font-['Inter']">Trial Center</h1>
+            <p className="!text-xs !text-slate-500 dark:!text-slate-400 !mt-0.5">Prepare and manage active trials</p>
           </div>
         </div>
-        {showDropdown && filteredCases.length > 0 && (
-          <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+        <div className="relative flex-1 max-w-md" ref={dropdownRef}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input
+            className={INPUT_CLS + " pl-9"}
+            placeholder="Search cases..."
+            value={caseSearch}
+            onChange={e => { setCaseSearch(e.target.value); setShowDropdown(true); }}
+            onFocus={() => { if (caseSearch.trim()) setShowDropdown(true); }}
+          />
+        </div>
+      </div>
+      <div className="content">
+      <div className="space-y-4">
+      {showDropdown && filteredCases.length > 0 && (
+        <div className="relative">
+          <div className="absolute z-50 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
             {filteredCases.map(fc => (
               <div key={fc.id} onClick={() => selectCase(fc)} className="px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
                 <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</div>
@@ -464,8 +473,8 @@ export default function TrialCenterView({ currentUser, users, cases }) {
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center justify-center py-12">
@@ -1041,6 +1050,8 @@ export default function TrialCenterView({ currentUser, users, cases }) {
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Search for a case above to open or create a trial session.</p>
         </div>
       )}
-    </div>
+      </div>
+      </div>
+    </>
   );
 }
