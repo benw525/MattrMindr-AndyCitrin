@@ -10745,7 +10745,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
       <div className="content" style={{ maxWidth: 900 }}>
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
           <button onClick={() => setAiCenterTab("agents")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "agents" ? "#b8860b" : "var(--c-text2)", borderBottom: aiCenterTab === "agents" ? "2px solid #b8860b" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>AI Agents</button>
-          <button onClick={() => setAiCenterTab("trainer")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "trainer" ? "#6366f1" : "var(--c-text2)", borderBottom: aiCenterTab === "trainer" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>🧠 Advocate AI Trainer</button>
+          <button onClick={() => setAiCenterTab("trainer")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "trainer" ? "#6366f1" : "var(--c-text2)", borderBottom: aiCenterTab === "trainer" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }} className="flex items-center gap-1.5"><Brain size={16} /> Advocate AI Trainer</button>
         </div>
 
         {aiCenterTab === "agents" && <>
