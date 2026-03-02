@@ -70,7 +70,7 @@ server/
     calendar-feeds.js — CRUD /api/calendar-feeds (per-user iCal feed persistence)
     probation.js    — CRUD /api/probation/:caseId/violations (probation violation records)
     sms.js          — SMS routes: configs CRUD, messages, send, draft, suggest-numbers, scheduled, inbound webhook, watch numbers CRUD, unmatched texts, assign
-    transcripts.js  — Audio transcription: upload (multer 100MB), ffmpeg chunking for >24MB, OpenAI whisper-1 transcription, JSONB segments with speaker labels, status polling, export as text, download original audio
+    transcripts.js  — Audio transcription: upload (multer 100MB), ffmpeg chunking for >24MB, OpenAI whisper-1 transcription via direct OpenAI API (uses OPENAI_API_KEY secret, not the Replit AI proxy which doesn't support audio endpoints), JSONB segments with speaker labels, status polling, export as text, download original audio
     collaborate.js  — Collaborate chat: channels, messages, groups, private chats, typing, file upload, search, unread counts
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
