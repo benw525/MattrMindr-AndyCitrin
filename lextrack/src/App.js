@@ -3058,7 +3058,7 @@ function NewCaseModal({ onSave, onClose }) {
               apiGetChargeClass({ statute: form.chargeStatute, description: form.chargeDescription }).then(r => { setForm(p => p.chargeClass ? { ...p, _classifying: false } : { ...p, chargeClass: r.chargeClass, _classifying: false }); }).catch(() => set("_classifying", false));
             }
           }} /></div>
-          <div className="form-group"><label>Charge Class {form._classifying && <span style={{ fontSize: 10, color: "#b45309" }}>(classifying...)</span>}</label>
+          <div className="form-group"><label>Charge Class {form._classifying && <span className="text-xs text-amber-700 dark:text-amber-400">(classifying...)</span>}</label>
             <select value={form.chargeClass} onChange={e => set("chargeClass", e.target.value)}>
               <option value="">— Select —</option>
               {["Class A Felony", "Class B Felony", "Class C Felony", "Misdemeanor A", "Misdemeanor B", "Misdemeanor C", "Violation", "Other"].map(o => <option key={o} value={o}>{o}</option>)}
@@ -3071,7 +3071,7 @@ function NewCaseModal({ onSave, onClose }) {
         {(form.chargeDescription || form.chargeStatute) && (
           <div style={{ marginBottom: 10 }}>
             {!chargeAi.show ? (
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={() => {
+              <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" onClick={() => {
                 setChargeAi({ loading: true, result: null, error: null, show: true });
                 apiChargeAnalysis({ chargeDescription: form.chargeDescription, chargeStatute: form.chargeStatute, chargeClass: form.chargeClass, caseType: form.caseType, courtDivision: form.courtDivision })
                   .then(r => setChargeAi(p => ({ ...p, loading: false, result: r.result })))
@@ -4105,7 +4105,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: "var(--c-text)" }}>{t.title}</div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{t.reason}</div>
-                    <div style={{ fontSize: 11, color: "#b45309", marginTop: 2, fontWeight: 500 }}>→ {t.action}</div>
+                    <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 font-medium">→ {t.action}</div>
                   </div>
                 </div>
               );
@@ -4549,7 +4549,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 12, color: "#0f172a" }}>{t.title}</div>
                       <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>{t.reason}</div>
-                      <div style={{ fontSize: 11, color: "#b45309", marginTop: 1, fontWeight: 500 }}>→ {t.action}</div>
+                      <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 font-medium">→ {t.action}</div>
                     </div>
                   </div>
                 );
@@ -6253,7 +6253,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div className="case-overlay-section">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)", padding: "2px 8px" }} onClick={() => {
+                  <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" onClick={() => {
                     setAiDeadlines({ loading: true, deadlines: null, error: null, show: true });
                     apiDeadlineGenerator({ caseId: c.id, stage: draft.stage, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, arrestDate: draft.arrestDate, arraignmentDate: draft.arraignmentDate, trialDate: draft.trialDate, nextCourtDate: draft.nextCourtDate, existingDeadlines: deadlines.map(d => ({ title: d.title, date: d.date })) })
                       .then(r => setAiDeadlines(p => ({ ...p, loading: false, deadlines: r.deadlines })))
@@ -6310,7 +6310,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div className="case-overlay-section">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} disabled={aiTasks.loading} onClick={() => {
+                  <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" disabled={aiTasks.loading} onClick={() => {
                     setAiTasks({ loading: true, tasks: null, error: null, show: true, added: {} });
                     apiTaskSuggestions({ caseId: c.id })
                       .then(r => setAiTasks(p => ({ ...p, loading: false, tasks: r.tasks })))
@@ -6404,7 +6404,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                           <div className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1"><Sparkles size={11} className="text-amber-500" /> Suggested Tasks ({aiTasks.tasks.length})</div>
                           {aiTasks.tasks.some((_, i) => !aiTasks.added[i]) && (
-                            <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={async () => {
+                            <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded text-[9px] font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" onClick={async () => {
                               const toAdd = aiTasks.tasks.filter((_, i) => !aiTasks.added[i]);
                               const newAdded = { ...aiTasks.added };
                               for (let i = 0; i < aiTasks.tasks.length; i++) {
@@ -6428,7 +6428,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "7px 0", borderBottom: "1px dashed #d4c9a8", opacity: isAdded ? 0.45 : 1 }}>
-                              <span style={{ fontSize: 10, color: "#b45309", marginTop: 2 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
+                              <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12, color: "#0f172a", fontWeight: 500 }}>{s.title}</div>
                                 <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
@@ -6535,7 +6535,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               }).catch(() => {}).finally(() => setClassifyingChargeIdx(null));
                             }
                           }} /></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Class {classifyingChargeIdx === idx && <span style={{ fontSize: 10, color: "#b45309" }}>(classifying...)</span>}</label>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Class {classifyingChargeIdx === idx && <span className="text-xs text-amber-700 dark:text-amber-400">(classifying...)</span>}</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
                           value={charge.chargeClass} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, chargeClass: e.target.value }; onUpdate({ charges: updated }); }}>
                           <option value="">— Select —</option>
@@ -7384,14 +7384,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </div>
                     {!isDocEditing && (
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={async () => {
+                      <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors bg-transparent cursor-pointer" onClick={async () => {
                         try {
                           const blob = await apiDownloadDocument(doc.id);
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url);
                         } catch (err) { alert("Download failed: " + err.message); }
                       }}>Download</button>
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} disabled={docSummarizing === doc.id} onClick={async () => {
+                      <button className="border border-yellow-300 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors bg-transparent cursor-pointer" disabled={docSummarizing === doc.id} onClick={async () => {
                         setDocSummarizing(doc.id);
                         try {
                           const { summary } = await apiSummarizeDocument(doc.id);
@@ -7400,7 +7400,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         } catch (err) { alert("Summarize failed: " + err.message); }
                         setDocSummarizing(null);
                       }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : <><Sparkles size={10} className="inline mr-0.5" /> Summarize</>)}</button>
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#e05252", borderColor: "#fca5a5" }} onClick={async () => {
+                      <button className="border border-red-300 dark:border-red-800/50 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors bg-transparent cursor-pointer" onClick={async () => {
                         if (!window.confirm(`Delete ${doc.filename}?`)) return;
                         try {
                           await apiDeleteCaseDocument(doc.id);
@@ -7413,7 +7413,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                   {doc.summary && (
                     <div style={{ marginTop: 8 }}>
-                      <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#b45309", fontWeight: 500, padding: 0 }}>
+                      <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 text-sm font-medium bg-transparent border-none cursor-pointer p-0">
                         {expandedDocId === doc.id ? "▾ Hide Summary" : "▸ View Summary"}
                       </button>
                       {expandedDocId === doc.id && (
@@ -7658,14 +7658,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className="case-overlay-body">
             <div className="case-overlay-section">
               <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 12, borderBottom: "1px solid var(--c-border2)" }}>
-                <button onClick={() => setCorrSubTab("emails")} style={{ padding: "8px 16px", fontSize: 13, fontWeight: corrSubTab === "emails" ? 600 : 400, color: corrSubTab === "emails" ? "#1e3a5f" : "#64748b", background: "transparent", border: "none", borderBottom: corrSubTab === "emails" ? "2px solid #1e3a5f" : "2px solid transparent", cursor: "pointer" }}>
-                  Emails {correspondence.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length})</span>}
+                <button onClick={() => setCorrSubTab("emails")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "emails" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
+                  Emails {correspondence.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({correspondence.length})</span>}
                 </button>
-                <button onClick={() => setCorrSubTab("texts")} style={{ padding: "8px 16px", fontSize: 13, fontWeight: corrSubTab === "texts" ? 600 : 400, color: corrSubTab === "texts" ? "#1e3a5f" : "#64748b", background: "transparent", border: "none", borderBottom: corrSubTab === "texts" ? "2px solid #1e3a5f" : "2px solid transparent", cursor: "pointer" }}>
-                  Texts {smsMessages.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({smsMessages.length})</span>}
+                <button onClick={() => setCorrSubTab("texts")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "texts" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
+                  Texts {smsMessages.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({smsMessages.length})</span>}
                 </button>
                 <div style={{ flex: 1 }} />
-                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", marginBottom: 4 }} onClick={() => {
+                <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 bg-transparent cursor-pointer mb-1" onClick={() => {
                   setShowAutoText(true);
                 }}>Auto Text Settings</button>
               </div>
@@ -8606,10 +8606,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <span style={{ fontSize: 10, color: "#64748b" }}>{f.uploadedByName ? `by ${f.uploadedByName}` : ""}{f.sourceEmailFrom ? `from ${f.sourceEmailFrom}` : ""}</span>
                         <span style={{ fontSize: 10, color: "#64748b" }}>{new Date(f.createdAt).toLocaleDateString()}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                          <button onClick={async () => { try { const res = await fetch(`/api/filings/${f.id}/download?inline=true`, { credentials: "include" }); if (!res.ok) throw new Error("View failed"); const blob = await res.blob(); const pdfBlob = new Blob([blob], { type: "application/pdf" }); const url = URL.createObjectURL(pdfBlob); window.open(url, "_blank"); } catch (err) { alert("View failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>View</button>
-                          <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D97706", background: "#FEF3C7", color: "#92400E", cursor: "pointer" }}>{filingClassifying === f.id ? "Classifying..." : <><Sparkles size={9} className="inline mr-0.5" /> Classify</>}</button>
-                          <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #6366F1", background: "#EEF2FF", color: "#4338CA", cursor: "pointer" }}>{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? <><Sparkles size={9} className="inline mr-0.5" /> Re-summarize</> : <><Sparkles size={9} className="inline mr-0.5" /> Summarize</>)}</button>
-                          {canRemove && <button onClick={async () => { if (!window.confirm("Delete this filing?")) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #EF4444", background: "#FEF2F2", color: "#DC2626", cursor: "pointer" }}>Delete</button>}
+                          <button onClick={async () => { try { const res = await fetch(`/api/filings/${f.id}/download?inline=true`, { credentials: "include" }); if (!res.ok) throw new Error("View failed"); const blob = await res.blob(); const pdfBlob = new Blob([blob], { type: "application/pdf" }); const url = URL.createObjectURL(pdfBlob); window.open(url, "_blank"); } catch (err) { alert("View failed: " + err.message); } }} className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 bg-transparent border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">View</button>
+                          <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingClassifying === f.id ? "Classifying..." : <><Sparkles size={9} className="inline mr-0.5" /> Classify</>}</button>
+                          <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? <><Sparkles size={9} className="inline mr-0.5" /> Re-summarize</> : <><Sparkles size={9} className="inline mr-0.5" /> Summarize</>)}</button>
+                          {canRemove && <button onClick={async () => { if (!window.confirm("Delete this filing?")) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-transparent border border-red-200 dark:border-red-900/50 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">Delete</button>}
                         </div>
                       </div>
                       {f.originalFilename && f.originalFilename !== f.filename && (
@@ -8617,7 +8617,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       )}
                       {f.summary && (
                         <div style={{ marginTop: 8 }}>
-                          <button onClick={() => setExpandedFilingId(expandedFilingId === f.id ? null : f.id)} style={{ fontSize: 11, color: "#4F46E5", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>{expandedFilingId === f.id ? "▾ Hide Summary" : "▸ View Summary"}</button>
+                          <button onClick={() => setExpandedFilingId(expandedFilingId === f.id ? null : f.id)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 text-sm font-medium bg-transparent border-none cursor-pointer p-0">{expandedFilingId === f.id ? "▾ Hide Summary" : "▸ View Summary"}</button>
                           {expandedFilingId === f.id && (
                             <div style={{ marginTop: 6 }}>
                               <AiPanel title="Filing Summary" result={f.summary} />
@@ -8866,7 +8866,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 16 }}>
                 {ACTIVITY_FILTERS.map(f => (
-                  <button key={f.key} className={`btn btn-sm ${activityFilter === f.key ? "" : "btn-outline"}`} style={activityFilter === f.key ? { background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "3px 10px" } : { fontSize: 11, padding: "3px 10px" }} onClick={() => setActivityFilter(f.key)}>{f.label}</button>
+                  <button key={f.key} className={activityFilter === f.key ? "bg-blue-600 dark:bg-blue-500 text-white px-3 py-1.5 text-xs font-medium rounded-md cursor-pointer" : "bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-medium rounded-md cursor-pointer"} onClick={() => setActivityFilter(f.key)}>{f.label}</button>
                 ))}
               </div>
 
@@ -11703,7 +11703,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div className="font-['Inter'] text-[15px] font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5"><Sparkles size={14} className="text-amber-500" /> Suggested Tasks ({aiCenterTasks.tasks.length})</div>
                   {aiCenterTasks.tasks.some((_, i) => !aiCenterTasks.added[i]) && (
-                    <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={async () => {
+                    <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" onClick={async () => {
                       const newAdded = { ...aiCenterTasks.added };
                       for (let i = 0; i < aiCenterTasks.tasks.length; i++) {
                         if (!aiCenterTasks.added[i]) {
