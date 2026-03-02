@@ -1305,7 +1305,7 @@ export default function App() {
     documents: { icon: "📄", label: "Templates" },
     timelog: { icon: "🕐", label: "Time Log" },
     reports: { icon: "📊", label: "Reports" },
-    aicenter: { icon: "⚡", label: "AI Center" },
+    aicenter: { icon: "✦", label: "AI Center" },
     collaborate: { icon: "💬", label: "Collaborate" },
     contacts: { icon: "📇", label: "Contacts" },
     staff: { icon: "👥", label: "Staff" },
@@ -2040,7 +2040,7 @@ export default function App() {
               {parsedTasks && parsedTasks.length > 0 && advocateCaseId && (
                 <div style={{ maxWidth: "88%", marginTop: 4, padding: "8px 10px", borderRadius: 8, background: "var(--c-card)", border: "1px solid var(--c-border)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text-h)" }}>⚡ Suggested Tasks</span>
+                    <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1"><Sparkles size={11} className="text-amber-500" /> Suggested Tasks</span>
                     {Object.keys(msgAdded).length < parsedTasks.length && (
                       <button className="btn btn-sm" style={{ fontSize: 9, padding: "1px 8px", background: "#6366f1", color: "#fff", border: "none" }} onClick={async () => {
                         for (let ti = 0; ti < parsedTasks.length; ti++) {
@@ -2060,7 +2060,7 @@ export default function App() {
                     const added = msgAdded[ti];
                     return (
                       <div key={ti} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", borderTop: ti > 0 ? "1px solid var(--c-border)" : "none", opacity: added ? 0.45 : 1 }}>
-                        <span style={{ fontSize: 11, marginTop: 1 }}>{added ? "✓" : "⚡"}</span>
+                        <span style={{ fontSize: 11, marginTop: 1 }}>{added ? "✓" : ""}{!added && <Sparkles size={11} className="text-amber-500" />}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 11, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
                           <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
@@ -2557,7 +2557,7 @@ function HelpTutorials({ Accordion }) {
         <p><strong>Setting Up Auto Text:</strong> In the Texts sub-tab of Correspondence, open "Auto Text Settings" to add recipients for automated SMS reminders. Configure each recipient's phone number, notification types (hearings, court dates, deadlines), and reminder intervals (day of, 1/3/7/14 days before).</p>
         <p><strong>Sending Text Messages:</strong> Click "Send Text" to compose a one-off text message. Select a recipient, type your message, or use "AI Draft" to generate a professional message based on the case context. Messages are logged in the case history.</p>
       </Accordion>
-      <Accordion sectionKey="tut-ai" title="AI Tools" icon="⚡">
+      <Accordion sectionKey="tut-ai" title="AI Tools" icon="✦">
         <p><strong>Using Advocate AI:</strong> Open Advocate AI from the Help Center's "Advocate AI" tab, or click the floating AI button (bottom-right corner) on any screen. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature.</p>
         <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Charge Analysis, Deadline Generator, Case Strategy, Document Drafting, Case Triage, Client Communication Summary, Document Summary, Task Suggestions, Filing Classifier, and Batch Case Manager.</p>
         <p><strong>Training AI Agents:</strong> Use the "Advocate AI Trainer" tab in AI Center to customize AI behavior. Add personal or office-wide training entries with local rules, office policies, defense strategies, or court preferences. Target specific agents or apply to all. Upload documents or type instructions directly.</p>
@@ -2753,30 +2753,30 @@ function Toggle({ on, onChange, color = "#f59e0b" }) {
 // ─── Reusable AI Panel Component ────────────────────────────────────────────
 function AiPanel({ title, result, loading, error, onRun, onClose, actions, children }) {
   return (
-    <div style={{ background: "linear-gradient(135deg, #f8f6f0, #f3f0e8)", border: "1px solid #d4c9a8", borderRadius: 8, padding: "14px 16px", marginTop: 10, fontSize: 13 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: loading || result || error || children ? 10 : 0 }}>
-        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 14 }}>⚡</span> {title}
+    <div className="!bg-slate-50 dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 !rounded-lg !p-4 !mt-2.5 !text-sm">
+      <div className="flex justify-between items-center" style={{ marginBottom: loading || result || error || children ? 10 : 0 }}>
+        <div className="font-semibold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
+          <Sparkles size={14} className="text-amber-500" /> {title}
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div className="flex gap-1.5 items-center">
           {result && onRun && <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={onRun}>↻ Retry</button>}
           {actions}
-          {onClose && <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#64748b", padding: "0 2px" }} onClick={onClose}>✕</button>}
+          {onClose && <button className="bg-transparent border-none cursor-pointer text-sm text-slate-500 dark:text-slate-400 p-0" onClick={onClose}>✕</button>}
         </div>
       </div>
       {loading && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0", color: "#64748b" }}>
-          <div style={{ width: 16, height: 16, border: "2px solid #d4c9a8", borderTopColor: "#b8860b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          <span style={{ fontSize: 12 }}>AI is analyzing...</span>
+        <div className="flex items-center gap-2.5 py-4 text-slate-500 dark:text-slate-400">
+          <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-600 border-t-amber-500 rounded-full" style={{ animation: "spin 0.8s linear infinite" }} />
+          <span className="text-xs">AI is analyzing...</span>
         </div>
       )}
-      {error && <div style={{ color: "#dc2626", fontSize: 12, padding: "8px 0" }}>{error}</div>}
+      {error && <div className="text-red-600 dark:text-red-400 text-xs py-2">{error}</div>}
       {result && (
-        <div style={{ fontSize: 12, lineHeight: 1.7, color: "#0f172a", whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", padding: "4px 0" }}>
+        <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-[400px] overflow-y-auto py-1">
           {result.split("\n").map((line, i) => {
-            if (line.startsWith("## ")) return <div key={i} style={{ fontWeight: 700, fontSize: 14, marginTop: 12, marginBottom: 4, color: "#0f172a" }}>{line.replace(/^## /, "")}</div>;
-            if (line.startsWith("### ")) return <div key={i} style={{ fontWeight: 600, fontSize: 13, marginTop: 10, marginBottom: 2, color: "#0f172a" }}>{line.replace(/^### /, "")}</div>;
-            if (line.startsWith("**") && line.endsWith("**")) return <div key={i} style={{ fontWeight: 700, marginTop: 8, marginBottom: 2 }}>{line.replace(/\*\*/g, "")}</div>;
+            if (line.startsWith("## ")) return <div key={i} className="font-bold text-sm mt-3 mb-1 text-slate-900 dark:text-slate-100">{line.replace(/^## /, "")}</div>;
+            if (line.startsWith("### ")) return <div key={i} className="font-semibold text-sm mt-2.5 mb-0.5 text-slate-900 dark:text-slate-100">{line.replace(/^### /, "")}</div>;
+            if (line.startsWith("**") && line.endsWith("**")) return <div key={i} className="font-bold mt-2 mb-0.5">{line.replace(/\*\*/g, "")}</div>;
             if (line.startsWith("- ") || line.startsWith("* ")) return <div key={i} style={{ paddingLeft: 12, position: "relative" }}><span style={{ position: "absolute", left: 0 }}>•</span>{line.replace(/^[-*] /, "").replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
             if (line.match(/^\d+\.\s/)) return <div key={i} style={{ paddingLeft: 4 }}>{line.replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
             if (line.trim() === "") return <div key={i} style={{ height: 6 }} />;
@@ -2894,7 +2894,7 @@ function NewCaseModal({ onSave, onClose }) {
                 apiChargeAnalysis({ chargeDescription: form.chargeDescription, chargeStatute: form.chargeStatute, chargeClass: form.chargeClass, caseType: form.caseType, courtDivision: form.courtDivision })
                   .then(r => setChargeAi(p => ({ ...p, loading: false, result: r.result })))
                   .catch(e => setChargeAi(p => ({ ...p, loading: false, error: e.message })));
-              }}>⚡ Analyze Charges</button>
+              }}><Sparkles size={12} className="inline mr-0.5" /> Analyze Charges</button>
             ) : (
               <AiPanel title="Charge Analysis" result={chargeAi.result} loading={chargeAi.loading} error={chargeAi.error} onClose={() => setChargeAi({ loading: false, result: null, error: null, show: false })} onRun={() => {
                 setChargeAi({ loading: true, result: null, error: null, show: true });
@@ -3020,7 +3020,7 @@ const DASHBOARD_WIDGETS = [
   { id: "recent-activity", label: "Recent Activity", size: "half", icon: "🕐" },
   { id: "overdue", label: "Overdue Tasks", size: "half", icon: "⚠️" },
   { id: "my-time", label: "My Time", size: "half", icon: "⏱️" },
-  { id: "ai-triage", label: "AI Case Triage", size: "full", icon: "⚡" },
+  { id: "ai-triage", label: "AI Case Triage", size: "full", icon: "sparkles" },
   { id: "quick-notes", label: "Quick Notes", size: "half", icon: "📝" },
   { id: "pinned-contacts", label: "Pinned Contacts", size: "half", icon: "👤" },
 ];
@@ -3085,7 +3085,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
               }}
             >
               <span style={{ fontSize: 16, color: "var(--c-text2)", cursor: "grab", userSelect: "none", width: 20, textAlign: "center", letterSpacing: 1 }} title="Drag to reorder">⠿</span>
-              <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon}</span>
+              <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon === "sparkles" ? <Sparkles size={16} className="text-amber-500 inline" /> : w.icon}</span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
               <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
               <button onClick={() => remove(id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B24A4A", padding: "2px 4px" }} title="Remove">✕</button>
@@ -3098,7 +3098,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--c-text2)", marginTop: 20, marginBottom: 8 }}>Available Widgets</div>
             {available.map(w => (
               <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border)" }}>
-                <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon}</span>
+                <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon === "sparkles" ? <Sparkles size={16} className="text-amber-500 inline" /> : w.icon}</span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
                 <button onClick={() => add(w.id)} className="btn" style={{ fontSize: 11, padding: "3px 10px" }}>+ Add</button>
@@ -3898,15 +3898,15 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
         return (
           <div className="card" key={widgetId}>
             <div className="card-header">
-              <div className="card-title">⚡ AI Case Triage</div>
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
+              <div className="card-title flex items-center gap-1.5"><Sparkles size={14} className="text-amber-500" /> AI Case Triage</div>
+              <button className="!px-3 !py-1.5 !text-xs !font-medium !border !border-amber-200 dark:!border-amber-800/50 !text-amber-700 dark:!text-amber-400 !bg-amber-50 dark:!bg-amber-900/30 hover:!bg-amber-100 dark:hover:!bg-amber-900/50 !rounded-md !transition-colors !cursor-pointer !flex !items-center !gap-1.5" onClick={() => {
                 setTriageLoading(true); setTriageError(null);
                 apiCaseTriage().then(r => { setTriageResults(r.cases || []); setTriageLoading(false); }).catch(e => { setTriageError(e.message); setTriageLoading(false); });
-              }}>{triageResults ? "↻ Refresh" : "⚡ Run Triage"}</button>
+              }}>{triageResults ? <><span>↻</span> Refresh</> : <><Sparkles size={12} /> Run Triage</>}</button>
             </div>
             {triageLoading && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "20px 0", color: "#64748b", fontSize: 12 }}>
-                <div style={{ width: 16, height: 16, border: "2px solid #d4c9a8", borderTopColor: "#b8860b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+              <div className="flex items-center gap-2.5 py-5 text-slate-500 dark:text-slate-400 text-xs">
+                <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-600 border-t-amber-500 rounded-full" style={{ animation: "spin 0.8s linear infinite" }} />
                 AI is analyzing your caseload...
               </div>
             )}
@@ -5559,7 +5559,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setAiStrategy({ loading: false, result: null, error: null, show: false })}>
           <div className="modal" style={{ maxWidth: 700, maxHeight: "85vh", overflow: "auto" }}>
             <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>⚡ Defense Strategy Analysis</span>
+              <span className="flex items-center gap-1.5"><Sparkles size={16} className="text-amber-500" /> Defense Strategy Analysis</span>
               <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b" }} onClick={() => setAiStrategy({ loading: false, result: null, error: null, show: false })}>✕</button>
             </div>
             <div className="modal-sub">{draft.title} — {draft.defendantName || "Defendant"}</div>
@@ -5766,7 +5766,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
               setAiStrategy(p => ({ ...p, show: true, loading: true, result: null, error: null }));
               apiCaseStrategy({ caseId: c.id }).then(r => setAiStrategy(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiStrategy(p => ({ ...p, loading: false, error: e.message })));
-            }}>⚡ Strategy</button>
+            }}><Sparkles size={12} className="inline mr-0.5" /> Strategy</button>
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowPrint(true)}>🖨 Print</button>
             <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); }}>📄 Generate</button>
             {canDelete && (
@@ -5805,12 +5805,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
                 setAiClientSummary({ loading: true, result: null, error: null, show: true });
                 apiClientSummary({ caseId: c.id }).then(r => setAiClientSummary(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiClientSummary(p => ({ ...p, loading: false, error: e.message })));
-              }}>⚡ Client Summary</button>
+              }}><Sparkles size={12} className="inline mr-0.5" /> Client Summary</button>
               <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
                 setAiChargeAnalysis({ loading: true, result: null, error: null, show: true });
                 apiChargeAnalysis({ chargeDescription: draft.chargeDescription, chargeStatute: draft.chargeStatute, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, charges: draft._charges || [] })
                   .then(r => setAiChargeAnalysis(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiChargeAnalysis(p => ({ ...p, loading: false, error: e.message })));
-              }}>⚡ Analyze Charges</button>
+              }}><Sparkles size={12} className="inline mr-0.5" /> Analyze Charges</button>
             </div>
 
             {aiClientSummary.show && (
@@ -5983,7 +5983,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     apiDeadlineGenerator({ caseId: c.id, stage: draft.stage, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, arrestDate: draft.arrestDate, arraignmentDate: draft.arraignmentDate, trialDate: draft.trialDate, nextCourtDate: draft.nextCourtDate, existingDeadlines: deadlines.map(d => ({ title: d.title, date: d.date })) })
                       .then(r => setAiDeadlines(p => ({ ...p, loading: false, deadlines: r.deadlines })))
                       .catch(e => setAiDeadlines(p => ({ ...p, loading: false, error: e.message })));
-                  }}>⚡ Suggest</button>
+                  }}><Sparkles size={10} className="inline mr-0.5" /> Suggest</button>
                 </div>
                 {deadlines.length === 0 && !aiDeadlines.show && <div style={{ fontSize: 12, color: "#64748b" }}>None on record.</div>}
                 {[...deadlines].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(d => {
@@ -6013,7 +6013,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     {aiDeadlines.error && <div style={{ fontSize: 11, color: "#dc2626", padding: "4px 0" }}>{aiDeadlines.error}</div>}
                     {aiDeadlines.deadlines && aiDeadlines.deadlines.map((d, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px dashed #d4c9a8", fontSize: 11 }}>
-                        <span style={{ fontSize: 10, color: "#b8860b" }}>⚡</span>
+                        <Sparkles size={10} className="text-amber-600" />
                         <div style={{ flex: 1 }}>
                           <div style={{ color: "#0f172a", fontWeight: 500 }}>{d.title}</div>
                           <div style={{ color: "#64748b", fontSize: 10 }}>{d.date} · {d.rule || d.type || ""}</div>
@@ -6040,7 +6040,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     apiTaskSuggestions({ caseId: c.id })
                       .then(r => setAiTasks(p => ({ ...p, loading: false, tasks: r.tasks })))
                       .catch(e => setAiTasks(p => ({ ...p, loading: false, error: e.message })));
-                  }}>⚡ Suggest Tasks</button>
+                  }}><Sparkles size={10} className="inline mr-0.5" /> Suggest Tasks</button>
                 </div>
                 {tasks.length === 0 && !aiTasks.show && <div style={{ fontSize: 12, color: "#64748b" }}>No tasks yet.</div>}
                 {tasks.filter(t => t.status !== "Completed").sort((a, b) => {
@@ -6127,7 +6127,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     {aiTasks.tasks && aiTasks.tasks.length > 0 && (
                       <>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: "#b8860b" }}>⚡ Suggested Tasks ({aiTasks.tasks.length})</div>
+                          <div className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1"><Sparkles size={11} className="text-amber-500" /> Suggested Tasks ({aiTasks.tasks.length})</div>
                           {aiTasks.tasks.some((_, i) => !aiTasks.added[i]) && (
                             <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={async () => {
                               const toAdd = aiTasks.tasks.filter((_, i) => !aiTasks.added[i]);
@@ -6153,7 +6153,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "7px 0", borderBottom: "1px dashed #d4c9a8", opacity: isAdded ? 0.45 : 1 }}>
-                              <span style={{ fontSize: 10, color: "#b8860b", marginTop: 2 }}>{isAdded ? "✓" : "⚡"}</span>
+                              <span style={{ fontSize: 10, color: "#b8860b", marginTop: 2 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12, color: "#0f172a", fontWeight: 500 }}>{s.title}</div>
                                 <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
@@ -7114,7 +7114,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           setExpandedDocId(doc.id);
                         } catch (err) { alert("Summarize failed: " + err.message); }
                         setDocSummarizing(null);
-                      }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : "⚡ Summarize")}</button>
+                      }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : <><Sparkles size={10} className="inline mr-0.5" /> Summarize</>)}</button>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#e05252", borderColor: "#fca5a5" }} onClick={async () => {
                         if (!window.confirm(`Delete ${doc.filename}?`)) return;
                         try {
@@ -8099,8 +8099,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <span style={{ fontSize: 10, color: "#64748b" }}>{new Date(f.createdAt).toLocaleDateString()}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
                           <button onClick={async () => { try { const res = await fetch(`/api/filings/${f.id}/download?inline=true`, { credentials: "include" }); if (!res.ok) throw new Error("View failed"); const blob = await res.blob(); const pdfBlob = new Blob([blob], { type: "application/pdf" }); const url = URL.createObjectURL(pdfBlob); window.open(url, "_blank"); } catch (err) { alert("View failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>View</button>
-                          <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D97706", background: "#FEF3C7", color: "#92400E", cursor: "pointer" }}>{filingClassifying === f.id ? "Classifying..." : "⚡ Classify"}</button>
-                          <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #6366F1", background: "#EEF2FF", color: "#4338CA", cursor: "pointer" }}>{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? "⚡ Re-summarize" : "⚡ Summarize")}</button>
+                          <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #D97706", background: "#FEF3C7", color: "#92400E", cursor: "pointer" }}>{filingClassifying === f.id ? "Classifying..." : <><Sparkles size={9} className="inline mr-0.5" /> Classify</>}</button>
+                          <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #6366F1", background: "#EEF2FF", color: "#4338CA", cursor: "pointer" }}>{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? <><Sparkles size={9} className="inline mr-0.5" /> Re-summarize</> : <><Sparkles size={9} className="inline mr-0.5" /> Summarize</>)}</button>
                           {canRemove && <button onClick={async () => { if (!window.confirm("Delete this filing?")) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid #EF4444", background: "#FEF2F2", color: "#DC2626", cursor: "pointer" }}>Delete</button>}
                         </div>
                       </div>
@@ -10751,23 +10751,18 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
         {aiCenterTab === "agents" && <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px,100%), 1fr))", gap: 14, marginBottom: 24 }}>
           {agents.map(a => (
-            <div key={a.id} onClick={() => selectAgent(a.id)} style={{
-              background: activeAgent === a.id ? "linear-gradient(135deg, #f8f6f0, #f3f0e8)" : "var(--c-card)",
-              border: activeAgent === a.id ? "2px solid #b8860b" : "1px solid var(--c-border)",
-              borderRadius: 10, padding: "16px 18px", cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}>
+            <div key={a.id} onClick={() => selectAgent(a.id)} className={`!rounded-lg !p-4 !cursor-pointer !transition-all ${activeAgent === a.id ? "!bg-slate-50 dark:!bg-slate-800 !border-2 !border-amber-500" : "!bg-white dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 hover:!border-amber-300 dark:hover:!border-amber-700"}`}>
               <div style={{ fontSize: 22, marginBottom: 8 }}>{a.icon}</div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: "var(--c-text-h)", marginBottom: 4 }}>{a.title}</div>
-              <div style={{ fontSize: 12, color: "var(--c-text2)", lineHeight: 1.5 }}>{a.desc}</div>
-              {a.needsCase && <div style={{ fontSize: 10, color: "#b8860b", marginTop: 6, fontWeight: 500 }}>Requires case selection</div>}
+              <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1">{a.title}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{a.desc}</div>
+              {a.needsCase && <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">Requires case selection</div>}
             </div>
           ))}
         </div>
 
         {activeAgent && (
           <div style={{ background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: 10, padding: "20px 24px" }}>
-            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="font-['Inter'] text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
               <span>{agents.find(a => a.id === activeAgent)?.icon}</span>
               {agents.find(a => a.id === activeAgent)?.title}
             </div>
@@ -11151,8 +11146,8 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
             })()}
 
             {activeAgent !== "batch" && !aiState.result && !aiState.loading && (
-              <button className="btn btn-gold" style={{ width: "100%", opacity: (activeAgent === "docsummary" ? (canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? (canRun && aiCenterSelectedFiling) : canRun)) ? 1 : 0.5 }} disabled={activeAgent === "docsummary" ? !(canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? !(canRun && aiCenterSelectedFiling) : !canRun)} onClick={() => runAgent(activeAgent)}>
-                Run {agents.find(a => a.id === activeAgent)?.title}
+              <button className="!w-full !py-2.5 !text-sm !font-medium !text-white !bg-slate-500 dark:!bg-slate-600 hover:!bg-slate-600 dark:hover:!bg-slate-500 !rounded-md !transition-colors !cursor-pointer !border-none !flex !items-center !justify-center !gap-2" style={{ opacity: (activeAgent === "docsummary" ? (canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? (canRun && aiCenterSelectedFiling) : canRun)) ? 1 : 0.5 }} disabled={activeAgent === "docsummary" ? !(canRun && docSummaryText.trim()) : (activeAgent === "filingclassifier" ? !(canRun && aiCenterSelectedFiling) : !canRun)} onClick={() => runAgent(activeAgent)}>
+                <Sparkles size={14} /> Run {agents.find(a => a.id === activeAgent)?.title}
               </button>
             )}
 
@@ -11167,7 +11162,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
             {aiState.result === "__TASK_SUGGESTIONS__" && aiCenterTasks.tasks.length > 0 && (
               <div className="card" style={{ marginTop: 16, padding: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 15, fontWeight: 600, color: "var(--c-text-h)" }}>⚡ Suggested Tasks ({aiCenterTasks.tasks.length})</div>
+                  <div className="font-['Inter'] text-[15px] font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5"><Sparkles size={14} className="text-amber-500" /> Suggested Tasks ({aiCenterTasks.tasks.length})</div>
                   {aiCenterTasks.tasks.some((_, i) => !aiCenterTasks.added[i]) && (
                     <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={async () => {
                       const newAdded = { ...aiCenterTasks.added };
@@ -11190,7 +11185,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                   const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--c-border)", opacity: isAdded ? 0.45 : 1 }}>
-                      <span style={{ fontSize: 12, marginTop: 1 }}>{isAdded ? "✓" : "⚡"}</span>
+                      <span style={{ fontSize: 12, marginTop: 1 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={12} className="text-amber-500" />}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: "var(--c-text-h)", fontWeight: 500 }}>{s.title}</div>
                         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
