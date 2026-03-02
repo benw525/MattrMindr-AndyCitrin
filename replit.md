@@ -20,8 +20,10 @@ Login: email + password (existing users default: `1234`, new users get temp pass
 
 ## Deployment
 - **Target**: autoscale
-- **Build**: `node server/schema.js && cd lextrack && npm install && CI=false npm run build`
+- **Build**: `node server/schema.js && cd lextrack && npm install && CI=false npm run build && rm -rf node_modules && cd .. && npm prune --production`
   - Schema runs on every deploy (idempotent: CREATE IF NOT EXISTS) to ensure new tables are created
+  - After React build, `lextrack/node_modules` (7.3 GB) is removed and root deps pruned to production-only to keep image under 8 GiB
+  - `.dockerignore` excludes `lextrack/node_modules`, `lextrack/src`, `lextrack/public`, `.git`, `.local` from deployment image
   - Seed step removed — production database already has all data; seed.js is only for initial setup
   - Production has a **separate PostgreSQL database** from development
 - **Run**: `NODE_ENV=production node server/index.js` (serves API + React build on port 5000)

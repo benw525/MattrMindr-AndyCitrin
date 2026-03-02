@@ -1,0 +1,6 @@
+.git
+.local
+.cache
+.config
+*.log
+.replit.nix
