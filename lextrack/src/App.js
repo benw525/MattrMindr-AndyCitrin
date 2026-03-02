@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -9956,84 +9956,84 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 const REPORT_DEFS = [
   {
     id: "trial_date",
-    icon: "⚖️",
+    Icon: Scale, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20",
     title: "Cases by Trial Date",
     desc: "All active cases with a trial date set, sorted soonest first. Includes judge, lead attorney, and stage.",
     params: ["courtDivision"],
   },
   {
     id: "attorney",
-    icon: "👤",
+    Icon: User, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20",
     title: "Cases by Attorney",
     desc: "All cases assigned to a selected attorney as lead or second chair, grouped by status.",
     params: ["attorney"],
   },
   {
     id: "nextCourt",
-    icon: "🤝",
+    Icon: CalendarDays, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20",
     title: "Next Court Date Report",
     desc: "Active cases with a next court date, sorted soonest first. Includes judge and days remaining.",
     params: ["courtDivision"],
   },
   {
     id: "discovery",
-    icon: "🔍",
+    Icon: Search, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20",
     title: "Cases by Upcoming Dates",
     desc: "Cases with arraignment or next court date deadlines within the specified window.",
     params: ["window", "courtDivision"],
   },
   {
     id: "task_filter",
-    icon: "✅",
+    Icon: CheckSquare, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20",
     title: "Cases with Specific Open Task",
     desc: "Select an incomplete task type from the list and see all cases that have that task open.",
     params: ["task", "courtDivision"],
   },
   {
     id: "no_trial",
-    icon: "📋",
+    Icon: ClipboardList, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/20",
     title: "Active Cases Without Trial Date",
     desc: "Cases currently active but with no trial date set — useful for tracking docket gaps.",
     params: ["office"],
   },
   {
     id: "overdue_tasks",
-    icon: "🔴",
+    Icon: AlertCircle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20",
     title: "Overdue Tasks by Case",
     desc: "All cases that have at least one overdue task, with a breakdown of each overdue item.",
     params: ["courtDivision"],
   },
   {
     id: "workload",
-    icon: "📊",
+    Icon: BarChart2, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-900/20",
     title: "Attorney Workload Summary",
     desc: "Case counts per attorney broken down by active/closed and stage. Useful for load balancing.",
     params: [],
   },
   {
     id: "upcoming_deadlines",
-    icon: "📅",
+    Icon: CalendarClock, color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-900/20",
     title: "Upcoming Deadlines by Window",
     desc: "All deadlines falling within a chosen time window — 7, 14, 30, 60, or 90 days.",
     params: ["window", "courtDivision"],
   },
   {
     id: "answer_due",
-    icon: "📝",
+    Icon: FileText, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/20",
     title: "Cases by Arrest Date",
     desc: "Cases sorted by arrest date. Useful for tracking case timelines and reviewing recent arrests.",
     params: ["courtDivision"],
   },
   {
     id: "custody_status",
-    icon: "🔓",
+    Icon: Lock, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50",
     title: "Cases by Custody Status",
     desc: "Active cases grouped by custody status. Shows bond amounts, jail locations, and assigned attorneys.",
     params: ["custodyStatus", "courtDivision"],
   },
   {
     id: "pending_custody",
-    icon: "⚠",
+    Icon: AlertTriangle, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-900/20",
     title: "Pending Custody Actions",
     desc: "Cases with unresolved custody actions — bond set but not posted, release ordered but not completed, transport ordered but not completed.",
     params: ["courtDivision"],
@@ -10322,7 +10322,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
           {REPORT_DEFS.map(r => (
             <div key={r.id} className={`report-card ${activeReport === r.id ? "active" : ""}`}
               onClick={() => { setActiveReport(r.id); setGenerated(null); setParams({}); }}>
-              <div className="report-card-icon">{r.icon}</div>
+              <div className={`w-9 h-9 rounded-lg ${r.bg} flex items-center justify-center mb-3`}><r.Icon className={`w-5 h-5 ${r.color}`} /></div>
               <div className="report-card-title">{r.title}</div>
               <div className="report-card-desc">{r.desc}</div>
             </div>
@@ -10334,7 +10334,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
           <div className="card" style={{ marginBottom: 20, padding: 20 }}>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 15, color: "var(--c-text-h)", marginBottom: 4 }}>{def?.icon} {def?.title}</div>
+                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 15, color: "var(--c-text-h)", marginBottom: 4 }} className="flex items-center gap-2">{def && <div className={`w-6 h-6 rounded-md ${def.bg} flex items-center justify-center`}><def.Icon className={`w-3.5 h-3.5 ${def.color}`} /></div>} {def?.title}</div>
                 <div style={{ fontSize: 12, color: "#64748b" }}>{def?.desc}</div>
               </div>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginLeft: "auto" }}>
@@ -10551,15 +10551,15 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   const selectedCase = allCases.find(c => String(c.id) === String(selectedCaseId));
 
   const agents = [
-    { id: "triage", icon: "🚨", title: "Case Triage", desc: "Rank active cases by urgency — death penalty, trial dates, custody status, overdue tasks.", needsCase: false },
-    { id: "charge", icon: "⚖️", title: "Charge Analysis", desc: "Analyze charges under Alabama Code — sentencing ranges, mandatory minimums, diversion eligibility.", needsCase: true },
-    { id: "strategy", icon: "🧠", title: "Case Strategy", desc: "Full defense strategy analysis — motions, plea negotiations, sentencing exposure, investigation priorities.", needsCase: true },
-    { id: "deadlines", icon: "📅", title: "Deadline Generator", desc: "Generate procedural deadlines based on Alabama Rules of Criminal Procedure and case stage.", needsCase: true },
-    { id: "draft", icon: "📝", title: "Document Drafting", desc: "Generate first drafts of motions, pleas, and memoranda tailored to your case.", needsCase: true },
-    { id: "summary", icon: "💬", title: "Client Communication", desc: "Plain-language case status update suitable for sharing with clients and families.", needsCase: true },
-    { id: "docsummary", icon: "📋", title: "Document Summary", desc: "Summarize police reports, witness statements, lab reports, and other case documents for defense-relevant details.", needsCase: true },
-    { id: "tasksuggestions", icon: "✅", title: "Task Suggestions", desc: "Suggest concrete defense tasks based on case stage, charges, deadlines, and existing work — one-click to add.", needsCase: true },
-    { id: "filingclassifier", icon: "📁", title: "Filing Classifier", desc: "Classify court filings — auto-name, identify filing party (State, Defendant, Court), and summarize significance.", needsCase: true },
+    { id: "triage", Icon: AlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", title: "Case Triage", desc: "Rank active cases by urgency — death penalty, trial dates, custody status, overdue tasks.", needsCase: false },
+    { id: "charge", Icon: Scale, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", title: "Charge Analysis", desc: "Analyze charges under Alabama Code — sentencing ranges, mandatory minimums, diversion eligibility.", needsCase: true },
+    { id: "strategy", Icon: Brain, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-900/20", title: "Case Strategy", desc: "Full defense strategy analysis — motions, plea negotiations, sentencing exposure, investigation priorities.", needsCase: true },
+    { id: "deadlines", Icon: CalendarClock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", title: "Deadline Generator", desc: "Generate procedural deadlines based on Alabama Rules of Criminal Procedure and case stage.", needsCase: true },
+    { id: "draft", Icon: PenLine, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20", title: "Document Drafting", desc: "Generate first drafts of motions, pleas, and memoranda tailored to your case.", needsCase: true },
+    { id: "summary", Icon: MessageSquare, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", title: "Client Communication", desc: "Plain-language case status update suitable for sharing with clients and families.", needsCase: true },
+    { id: "docsummary", Icon: FileSearch, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/20", title: "Document Summary", desc: "Summarize police reports, witness statements, lab reports, and other case documents for defense-relevant details.", needsCase: true },
+    { id: "tasksuggestions", Icon: ListChecks, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", title: "Task Suggestions", desc: "Suggest concrete defense tasks based on case stage, charges, deadlines, and existing work — one-click to add.", needsCase: true },
+    { id: "filingclassifier", Icon: FolderOpen, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50", title: "Filing Classifier", desc: "Classify court filings — auto-name, identify filing party (State, Defendant, Court), and summarize significance.", needsCase: true },
   ];
 
   const TRAINING_AGENT_OPTIONS = [
@@ -10571,7 +10571,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   const BATCH_ALLOWED_ROLES = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "IT Specialist", "App Admin"];
   const canBatch = (currentUser?.roles || []).some(r => BATCH_ALLOWED_ROLES.includes(r));
   if (canBatch) {
-    agents.push({ id: "batch", icon: "🔄", title: "Batch Case Manager", desc: "Perform bulk operations — reassign staff, change statuses, advance stages, update court dates, transfer divisions.", needsCase: false });
+    agents.push({ id: "batch", Icon: Layers, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50", title: "Batch Case Manager", desc: "Perform bulk operations — reassign staff, change statuses, advance stages, update court dates, transfer divisions.", needsCase: false });
   }
 
   const [batchOp, setBatchOp] = useState("reassign-staff");
@@ -10752,10 +10752,10 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px,100%), 1fr))", gap: 14, marginBottom: 24 }}>
           {agents.map(a => (
             <div key={a.id} onClick={() => selectAgent(a.id)} className={`!rounded-lg !p-4 !cursor-pointer !transition-all ${activeAgent === a.id ? "!bg-slate-50 dark:!bg-slate-800 !border-2 !border-amber-500" : "!bg-white dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 hover:!border-amber-300 dark:hover:!border-amber-700"}`}>
-              <div style={{ fontSize: 22, marginBottom: 8 }}>{a.icon}</div>
+              <div className={`w-9 h-9 rounded-lg ${a.bg} flex items-center justify-center mb-3`}><a.Icon className={`w-5 h-5 ${a.color}`} /></div>
               <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1">{a.title}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{a.desc}</div>
-              {a.needsCase && <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">Requires case selection</div>}
+              <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 flex-1">{a.desc}</div>
+              {a.needsCase && <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-auto font-medium">Requires case selection</div>}
             </div>
           ))}
         </div>
@@ -10763,7 +10763,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
         {activeAgent && (
           <div style={{ background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: 10, padding: "20px 24px" }}>
             <div className="font-['Inter'] text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-              <span>{agents.find(a => a.id === activeAgent)?.icon}</span>
+              {(() => { const ag = agents.find(a => a.id === activeAgent); return ag ? <div className={`w-7 h-7 rounded-md ${ag.bg} flex items-center justify-center`}><ag.Icon className={`w-4 h-4 ${ag.color}`} /></div> : null; })()}
               {agents.find(a => a.id === activeAgent)?.title}
             </div>
 

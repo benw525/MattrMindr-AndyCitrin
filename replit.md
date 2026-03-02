@@ -10,6 +10,7 @@ A case management system for the Mobile County Public Defender's Office. Tracks 
 - **Auth**: express-session with bcrypt password hashing; session restore on page refresh via `/api/auth/me`; temporary password emails via SendGrid
 - **Email**: SendGrid (Replit integration) for auth emails; SendGrid Inbound Parse for case correspondence
 - **Styling**: Tailwind CSS v3 + CSS-in-JS template literal; Inter font, slate/amber color palette, lucide-react icons. Stage badges: Trial=emerald, Arraignment=blue, Pre-Trial Motions=violet, Plea Negotiations=amber, Post-Conviction=slate, Appeal=rose
+- **Icons**: All AI Center agent cards and Reports page cards use lucide-react Icon components (not emoji) with colored rounded-lg background containers matching MagicPatterns reference. AI indicators use Sparkles icon. Pin indicators use Pin icon. Agent/report definitions use `{ Icon, color, bg }` pattern rendered as `<div className={bg}><Icon className={color} /></div>`
 - **Design Packages**: tailwindcss@3.4.19, postcss, autoprefixer, lucide-react (in lextrack/package.json devDependencies)
 - **Design Config**: lextrack/tailwind.config.js (darkMode: 'class'), lextrack/postcss.config.js, lextrack/src/index.css (@tailwind directives + Inter import)
 
