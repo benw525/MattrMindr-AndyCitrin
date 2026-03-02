@@ -186,10 +186,10 @@ export async function apiDownloadTranscriptAudio(id) {
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   return res.blob();
 }
-export async function apiExportTranscript(id) {
-  const res = await fetch(`/api/transcripts/${id}/export`, { credentials: "include" });
+export async function apiExportTranscript(id, format = "txt") {
+  const res = await fetch(`/api/transcripts/${id}/export?format=${format}`, { credentials: "include" });
   if (!res.ok) throw new Error(`Export failed: ${res.status}`);
-  return res.text();
+  return res.blob();
 }
 
 // Filings

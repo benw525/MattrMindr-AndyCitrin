@@ -474,22 +474,74 @@ router.get("/:id/export", requireAuth, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
     const { filename, transcript, duration_seconds } = rows[0];
     const segments = transcript || [];
+    const format = (req.query.format || "txt").toLowerCase();
+    const baseName = filename.replace(/\.[^.]+$/, "");
 
-    let text = `TRANSCRIPT: ${filename}\n`;
-    if (duration_seconds) text += `Duration: ${Math.floor(duration_seconds / 60)}m ${Math.round(duration_seconds % 60)}s\n`;
-    text += `Exported: ${new Date().toLocaleString()}\n`;
-    text += "─".repeat(60) + "\n\n";
+    const fmtTs = (sec) => {
+      const m = Math.floor(sec / 60);
+      const s = Math.round(sec % 60);
+      return `[${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}]`;
+    };
 
-    for (const seg of segments) {
-      const mins = Math.floor(seg.startTime / 60);
-      const secs = Math.round(seg.startTime % 60);
-      const ts = `[${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}]`;
-      text += `${ts} ${seg.speaker}:\n${seg.text}\n\n`;
+    if (format === "docx") {
+      const docx = require("docx");
+      const children = [];
+      children.push(new docx.Paragraph({ children: [new docx.TextRun({ text: `TRANSCRIPT: ${filename}`, bold: true, size: 28 })], spacing: { after: 100 } }));
+      if (duration_seconds) children.push(new docx.Paragraph({ children: [new docx.TextRun({ text: `Duration: ${Math.floor(duration_seconds / 60)}m ${Math.round(duration_seconds % 60)}s`, size: 20, color: "666666" })], spacing: { after: 50 } }));
+      children.push(new docx.Paragraph({ children: [new docx.TextRun({ text: `Exported: ${new Date().toLocaleString()}`, size: 20, color: "666666" })], spacing: { after: 200 } }));
+      children.push(new docx.Paragraph({ border: { bottom: { color: "999999", space: 1, style: docx.BorderStyle.SINGLE, size: 6 } }, spacing: { after: 200 } }));
+      for (const seg of segments) {
+        children.push(new docx.Paragraph({
+          children: [
+            new docx.TextRun({ text: `${fmtTs(seg.startTime)} `, color: "999999", size: 20 }),
+            new docx.TextRun({ text: `${seg.speaker}: `, bold: true, size: 22 }),
+            new docx.TextRun({ text: seg.text, size: 22 }),
+          ],
+          spacing: { after: 120 },
+        }));
+      }
+      const doc = new docx.Document({ sections: [{ children }] });
+      const buffer = await docx.Packer.toBuffer(doc);
+      res.set("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.set("Content-Disposition", `attachment; filename="${baseName}_transcript.docx"`);
+      res.send(buffer);
+    } else if (format === "pdf") {
+      const PDFDocument = require("pdfkit");
+      const doc = new PDFDocument({ margin: 50, size: "LETTER" });
+      const chunks = [];
+      doc.on("data", (chunk) => chunks.push(chunk));
+      doc.on("end", () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.set("Content-Type", "application/pdf");
+        res.set("Content-Disposition", `attachment; filename="${baseName}_transcript.pdf"`);
+        res.send(pdfBuffer);
+      });
+      doc.fontSize(16).font("Helvetica-Bold").text(`TRANSCRIPT: ${filename}`, { underline: false });
+      doc.moveDown(0.3);
+      if (duration_seconds) doc.fontSize(10).font("Helvetica").fillColor("#666666").text(`Duration: ${Math.floor(duration_seconds / 60)}m ${Math.round(duration_seconds % 60)}s`);
+      doc.fontSize(10).font("Helvetica").fillColor("#666666").text(`Exported: ${new Date().toLocaleString()}`);
+      doc.moveDown(0.5);
+      doc.moveTo(50, doc.y).lineTo(562, doc.y).stroke("#cccccc");
+      doc.moveDown(0.5);
+      for (const seg of segments) {
+        doc.fillColor("#999999").fontSize(9).font("Courier").text(fmtTs(seg.startTime), { continued: true });
+        doc.fillColor("#000000").fontSize(11).font("Helvetica-Bold").text(` ${seg.speaker}: `, { continued: true });
+        doc.font("Helvetica").text(seg.text);
+        doc.moveDown(0.3);
+      }
+      doc.end();
+    } else {
+      let text = `TRANSCRIPT: ${filename}\n`;
+      if (duration_seconds) text += `Duration: ${Math.floor(duration_seconds / 60)}m ${Math.round(duration_seconds % 60)}s\n`;
+      text += `Exported: ${new Date().toLocaleString()}\n`;
+      text += "─".repeat(60) + "\n\n";
+      for (const seg of segments) {
+        text += `${fmtTs(seg.startTime)} ${seg.speaker}:\n${seg.text}\n\n`;
+      }
+      res.set("Content-Type", "text/plain; charset=utf-8");
+      res.set("Content-Disposition", `attachment; filename="${baseName}_transcript.txt"`);
+      res.send(text);
     }
-
-    res.set("Content-Type", "text/plain; charset=utf-8");
-    res.set("Content-Disposition", `attachment; filename="${filename.replace(/\.[^.]+$/, "")}_transcript.txt"`);
-    res.send(text);
   } catch (err) {
     console.error("Export transcript error:", err.message);
     res.status(500).json({ error: "Failed to export transcript" });

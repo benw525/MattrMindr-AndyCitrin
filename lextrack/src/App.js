@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -5470,8 +5470,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [transcriptDetailLoading, setTranscriptDetailLoading] = useState(false);
   const [transcriptEdits, setTranscriptEdits] = useState(null);
   const [transcriptSaving, setTranscriptSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null);
+  const [exportDropdownId, setExportDropdownId] = useState(null);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editingSegmentIdx, setEditingSegmentIdx] = useState(null);
+  const autoSaveTimerRef = useRef(null);
+  const autoSaveStatusTimerRef = useRef(null);
   const transcriptPollRef = useRef(null);
   const canRemove = isAttorney(currentUser) || isAppAdmin(currentUser);
   const canDelete = isAppAdmin(currentUser);
@@ -5479,6 +5483,31 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   useEffect(() => {
     apiGetContacts().then(setAllContacts).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!transcriptEdits || !transcriptDetail || !expandedTranscriptId) return;
+    if (JSON.stringify(transcriptEdits) === JSON.stringify(transcriptDetail.transcript)) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    if (autoSaveStatusTimerRef.current) clearTimeout(autoSaveStatusTimerRef.current);
+    const savedId = expandedTranscriptId;
+    const savedEdits = transcriptEdits;
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (transcriptSaving) return;
+      setAutoSaveStatus("saving");
+      try {
+        await apiUpdateTranscript(savedId, { transcript: savedEdits });
+        setTranscriptDetail(prev => prev && prev.id === savedId ? { ...prev, transcript: savedEdits } : prev);
+        setAutoSaveStatus("saved");
+        autoSaveStatusTimerRef.current = setTimeout(() => setAutoSaveStatus(null), 2000);
+      } catch {
+        setAutoSaveStatus(null);
+      }
+    }, 2000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (autoSaveStatusTimerRef.current) clearTimeout(autoSaveStatusTimerRef.current);
+    };
+  }, [transcriptEdits, expandedTranscriptId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setCorrLoading(true);
@@ -7583,20 +7612,33 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                   }} className="btn btn-outline btn-sm" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
                                     <Download size={11} /> Audio
                                   </button>
-                                  <button onClick={async () => {
-                                    try {
-                                      const text = await apiExportTranscript(t.id);
-                                      const blob = new Blob([text], { type: "text/plain" });
-                                      const url = URL.createObjectURL(blob);
-                                      const a = document.createElement("a"); a.href = url; a.download = t.filename.replace(/\.[^.]+$/, "") + "_transcript.txt"; a.click();
-                                      URL.revokeObjectURL(url);
-                                    } catch (err) { alert("Export failed: " + err.message); }
-                                  }} className="btn btn-outline btn-sm" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                                    <FileText size={11} /> Export Text
-                                  </button>
+                                  <div style={{ position: "relative" }}>
+                                    <button onClick={() => setExportDropdownId(exportDropdownId === t.id ? null : t.id)} className="btn btn-outline btn-sm" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                                      <FileText size={11} /> Export <ChevronDown size={9} />
+                                    </button>
+                                    {exportDropdownId === t.id && (
+                                      <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--c-bg)", border: "1px solid var(--c-border2)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 50, minWidth: 140, overflow: "hidden" }}>
+                                        {[{ label: "Text (.txt)", fmt: "txt", ext: "_transcript.txt" }, { label: "Word (.docx)", fmt: "docx", ext: "_transcript.docx" }, { label: "PDF (.pdf)", fmt: "pdf", ext: "_transcript.pdf" }].map(opt => (
+                                          <button key={opt.fmt} onClick={async () => {
+                                            setExportDropdownId(null);
+                                            try {
+                                              const blob = await apiExportTranscript(t.id, opt.fmt);
+                                              const url = URL.createObjectURL(blob);
+                                              const a = document.createElement("a"); a.href = url; a.download = t.filename.replace(/\.[^.]+$/, "") + opt.ext; a.click();
+                                              URL.revokeObjectURL(url);
+                                            } catch (err) { alert("Export failed: " + err.message); }
+                                          }} style={{ display: "block", width: "100%", padding: "8px 14px", fontSize: 11, border: "none", background: "transparent", color: "var(--c-text)", cursor: "pointer", textAlign: "left" }}
+                                            onMouseEnter={(e) => e.target.style.background = "var(--c-bg2)"} onMouseLeave={(e) => e.target.style.background = "transparent"}>
+                                            {opt.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                   <button
                                     disabled={transcriptSaving}
                                     onClick={async () => {
+                                      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
                                       setTranscriptSaving(true);
                                       try {
                                         await apiUpdateTranscript(t.id, { transcript: transcriptEdits });
@@ -7609,12 +7651,17 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     {transcriptSaving ? <Loader2 size={11} className="animate-spin" /> : null}
                                     Save Changes
                                   </button>
+                                  {autoSaveStatus && (
+                                    <span style={{ fontSize: 10, color: autoSaveStatus === "saved" ? "#10b981" : "#94a3b8", display: "flex", alignItems: "center", gap: 3 }}>
+                                      {autoSaveStatus === "saving" ? <><Loader2 size={10} className="animate-spin" /> Saving...</> : <><Check size={10} /> Saved</>}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 
                               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 500, overflowY: "auto" }}>
                                 {transcriptEdits.map((seg, idx) => (
-                                  <div key={idx} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 6, background: idx % 2 === 0 ? "var(--c-bg2)" : "transparent" }}>
+                                  <div key={idx} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 6, background: idx % 2 === 0 ? "var(--c-bg2)" : "transparent", alignItems: "flex-start" }}>
                                     <div style={{ flexShrink: 0, width: 48, fontSize: 10, color: "#94a3b8", fontFamily: "monospace", paddingTop: 2 }}>
                                       {fmtTime(seg.startTime)}
                                     </div>
@@ -7656,6 +7703,28 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                         </div>
                                       )}
                                     </div>
+                                    {idx < transcriptEdits.length - 1 && (
+                                      <button
+                                        onClick={() => {
+                                          setTranscriptEdits(prev => {
+                                            const updated = [...prev];
+                                            const merged = {
+                                              ...updated[idx],
+                                              text: updated[idx].text + " " + updated[idx + 1].text,
+                                              endTime: updated[idx + 1].endTime,
+                                            };
+                                            updated.splice(idx, 2, merged);
+                                            return updated;
+                                          });
+                                        }}
+                                        title="Combine with next line"
+                                        style={{ flexShrink: 0, background: "transparent", border: "1px solid var(--c-border2)", borderRadius: 4, padding: 3, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center" }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.color = "#6366f1"; e.currentTarget.style.borderColor = "#6366f1"; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "var(--c-border2)"; }}
+                                      >
+                                        <Merge size={12} />
+                                      </button>
+                                    )}
                                   </div>
                                 ))}
                               </div>
