@@ -13,6 +13,7 @@ import {
   apiGetTrialLogEntries, apiCreateTrialLogEntry, apiDeleteTrialLogEntry,
   apiTrialAiWitnessPrep, apiTrialAiJurySelection, apiTrialAiObjectionCoach, apiTrialAiClosingBuilder, apiTrialAiJuryInstructions, apiTrialAiCaseLawSearch,
   apiGetCaseDocuments, apiDownloadDocument,
+  apiSavePreferences,
 } from "./api.js";
 
 const TABS = ["Witnesses","Exhibits","Jury","Motions","Outlines","Jury Instructions","Timeline","Quick Docs","Trial Log","AI Agents"];
@@ -38,13 +39,14 @@ function fmtDate(d) {
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function TrialCenterView({ currentUser, users, cases, onMenuToggle }) {
+export default function TrialCenterView({ currentUser, users, cases, onMenuToggle, pinnedCaseIds = [] }) {
   const [caseSearch, setCaseSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState("Witnesses");
   const [loading, setLoading] = useState(false);
+  const [restoredOnce, setRestoredOnce] = useState(false);
 
   const [witnesses, setWitnesses] = useState([]);
   const [exhibits, setExhibits] = useState([]);
@@ -97,14 +99,19 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const dropdownRef = useRef(null);
 
-  const filteredCases = caseSearch.trim().length > 0
-    ? (cases || []).filter(c => {
-        const q = caseSearch.toLowerCase();
-        return (c.title || "").toLowerCase().includes(q)
-          || (c.case_num || "").toLowerCase().includes(q)
-          || (c.defendant_name || "").toLowerCase().includes(q);
-      }).slice(0, 10)
-    : [];
+  const filteredCases = (() => {
+    const q = caseSearch.trim().toLowerCase();
+    if (!q) return [];
+    const all = (cases || []).filter(c =>
+      (c.title || "").toLowerCase().includes(q)
+      || (c.case_num || "").toLowerCase().includes(q)
+      || (c.defendant_name || "").toLowerCase().includes(q)
+    );
+    const pinSet = new Set(pinnedCaseIds);
+    const pinned = all.filter(c => pinSet.has(c.id));
+    const rest = all.filter(c => !pinSet.has(c.id));
+    return [...pinned, ...rest].slice(0, 15);
+  })();
 
   useEffect(() => {
     function handleClick(e) {
@@ -113,6 +120,16 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (restoredOnce || !cases || cases.length === 0) return;
+    setRestoredOnce(true);
+    const savedId = currentUser?.preferences?.trialCenterCaseId;
+    if (savedId) {
+      const found = cases.find(c => c.id === savedId);
+      if (found) selectCase(found);
+    }
+  }, [cases, restoredOnce, currentUser?.preferences?.trialCenterCaseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadAllData = useCallback(async (sid) => {
     try {
@@ -150,6 +167,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       const sess = await apiCreateTrialSession({ caseId: c.id });
       setSession(sess);
       await loadAllData(sess.id);
+      apiSavePreferences({ trialCenterCaseId: c.id }).catch(() => {});
     } catch (err) {
       console.error("Load session error:", err);
     }
@@ -459,16 +477,38 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
             onChange={e => { setCaseSearch(e.target.value); setShowDropdown(true); }}
             onFocus={() => { if (caseSearch.trim()) setShowDropdown(true); }}
           />
-          {showDropdown && filteredCases.length > 0 && (
-            <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-              {filteredCases.map(fc => (
-                <div key={fc.id} onClick={() => selectCase(fc)} className="px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
-                  <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">{fc.case_num} {fc.defendant_name ? `\u2014 ${fc.defendant_name}` : ""}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          {showDropdown && filteredCases.length > 0 && (() => {
+            const pinSet = new Set(pinnedCaseIds);
+            const pinned = filteredCases.filter(c => pinSet.has(c.id));
+            const rest = filteredCases.filter(c => !pinSet.has(c.id));
+            return (
+              <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                {pinned.length > 0 && (
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 flex items-center gap-1">
+                    <Pin size={10} /> Pinned
+                  </div>
+                )}
+                {pinned.map(fc => (
+                  <div key={fc.id} onClick={() => selectCase(fc)} className="px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700">
+                    <div className="flex items-center gap-1.5">
+                      <Pin size={11} className="text-amber-500 flex-shrink-0" />
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 ml-[17px]">{fc.case_num} {fc.defendant_name ? `\u2014 ${fc.defendant_name}` : ""}</div>
+                  </div>
+                ))}
+                {pinned.length > 0 && rest.length > 0 && (
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/50">All Cases</div>
+                )}
+                {rest.map(fc => (
+                  <div key={fc.id} onClick={() => selectCase(fc)} className="px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{fc.case_num} {fc.defendant_name ? `\u2014 ${fc.defendant_name}` : ""}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
       <div className="content">
