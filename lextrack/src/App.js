@@ -2833,6 +2833,17 @@ function HelpFAQ({ Accordion }) {
 function HelpChangeLog() {
   const versions = [
     {
+      version: "1.4",
+      date: "March 2026",
+      title: "Audio Transcription & UI Modernization",
+      changes: [
+        { text: "Audio Transcription AI agent", sub: ["Upload custody statements, jail call recordings, and other audio files", "OpenAI Whisper-powered speech-to-text with timestamped segments", "Automatic speaker diarization (heuristic speaker switching)", "Large file support with automatic chunking for files over 24MB", "Transcript export as text and original audio download", "Available from Documents tab (Transcripts sub-tab) and AI Center"] },
+        { text: "Full UI redesign to Tailwind CSS", sub: ["Document action buttons restyled: Download (gray), Summarize (yellow), Delete (red)", "Filing action buttons updated: View (gray), Classify/Summarize (amber), Delete (red)", "Activity tab filter pills: blue active state with white/gray inactive", "Correspondence sub-tabs with clean border-bottom indicators", "All AI suggestion buttons (Deadlines, Tasks, Charges) use consistent amber styling", "View Summary links use amber color scheme across Documents and Filings"] },
+        { text: "Movable Advocate AI button", sub: ["Desktop: right-click to move or reset position", "Mobile: long-press and drag to reposition", "Position saved in user preferences", "Option to hide Advocate AI entirely via Settings"] },
+        { text: "Mobile experience improvements", sub: ["Case detail toolbar collapses behind menu toggle on small screens", "Case header badges collapse behind expandable toggle", "Tab bar locked to horizontal scroll only"] },
+      ]
+    },
+    {
       version: "1.3",
       date: "February 2026",
       title: "SMS Notifications & Help Center",
