@@ -138,6 +138,7 @@ export async function apiDownloadDocument(docId) {
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   return res.blob();
 }
+export const apiGetDocumentText = (docId) => apiFetch(`/api/case-documents/${docId}/text`);
 export const apiDeleteCaseDocument = (docId) => apiFetch(`/api/case-documents/${docId}`, { method: "DELETE" });
 export const apiUpdateCaseDocument = (docId, data) => apiFetch(`/api/case-documents/${docId}`, { method: "PUT", body: data });
 

@@ -14,7 +14,7 @@ import {
   apiGetTrialLogEntries, apiCreateTrialLogEntry, apiDeleteTrialLogEntry,
   apiTrialAiWitnessPrep, apiTrialAiJurySelection, apiTrialAiObjectionCoach, apiTrialAiClosingBuilder, apiTrialAiOpeningBuilder, apiTrialAiJuryInstructions, apiTrialAiCaseLawSearch,
   apiGetCaseDocuments, apiDownloadDocument, apiSummarizeDocument,
-  apiExportWitnessPrep, apiGetWitnessDocuments, apiLinkWitnessDocument, apiUnlinkWitnessDocument,
+  apiExportWitnessPrep, apiGetWitnessDocuments, apiLinkWitnessDocument, apiUnlinkWitnessDocument, apiGetDocumentText,
   apiGetTranscripts, apiDownloadTranscriptAudio, apiGetTranscriptDetail,
   apiExtractOutlineFile,
   apiSavePreferences,
@@ -120,6 +120,9 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   const [showWitnessDocPicker, setShowWitnessDocPicker] = useState(null);
   const [witnessDocLabel, setWitnessDocLabel] = useState("");
   const [caseTranscripts, setCaseTranscripts] = useState([]);
+
+  const [transcriptSegments, setTranscriptSegments] = useState([]);
+  const [viewerTitle, setViewerTitle] = useState("");
 
   const [outlineAiType, setOutlineAiType] = useState(null);
   const [outlineAiLoading, setOutlineAiLoading] = useState(false);
@@ -449,11 +452,26 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const openDocViewer = async (pd) => {
     if (!pd.case_document_id) return;
+    if (docViewerUrl) URL.revokeObjectURL(docViewerUrl);
+    setDocViewerUrl(null);
+    setTranscriptSegments([]);
     setDocViewerId(pd.id);
+    setViewerTitle(pd.label || pd.document_name || "Document");
     try {
       const blob = await apiDownloadDocument(pd.case_document_id);
-      const url = URL.createObjectURL(blob);
-      setDocViewerUrl(url);
+      const ft = (pd.file_type || pd.document_content_type || blob.type || "").toLowerCase();
+      if (ft.includes("pdf") || ft.includes("image")) {
+        setDocViewerUrl(URL.createObjectURL(blob));
+      } else {
+        const res = await apiGetDocumentText(pd.case_document_id);
+        const extractedText = res?.text || "";
+        if (extractedText) {
+          setDocViewerUrl(URL.createObjectURL(new Blob([extractedText], { type: "text/plain" })));
+        } else {
+          const text = await blob.text();
+          setDocViewerUrl(URL.createObjectURL(new Blob([text || "No text could be extracted from this document."], { type: "text/plain" })));
+        }
+      }
     } catch (err) {
       console.error(err);
       setDocViewerId(null);
@@ -464,6 +482,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     if (docViewerUrl) URL.revokeObjectURL(docViewerUrl);
     setDocViewerUrl(null);
     setDocViewerId(null);
+    setTranscriptSegments([]);
+    setViewerTitle("");
   };
 
   const runDocSummary = async (pd) => {
@@ -616,16 +636,19 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const viewTranscript = async (pd) => {
     if (!pd.transcript_id) return;
+    if (docViewerUrl) URL.revokeObjectURL(docViewerUrl);
+    setDocViewerUrl(null);
+    setTranscriptSegments([]);
     setDocViewerId(pd.id);
+    setViewerTitle(pd.label || pd.transcript_name || "Transcription");
     try {
       const detail = await apiGetTranscriptDetail(pd.transcript_id);
       const segments = detail?.transcript || [];
-      const text = segments.map(s => `[${s.speaker || "Speaker"}] ${s.text || ""}`).join("\n\n");
-      const blob = new Blob([text], { type: "text/plain" });
-      setDocViewerUrl(URL.createObjectURL(blob));
+      setTranscriptSegments(segments);
     } catch (err) {
       console.error(err);
       setDocViewerId(null);
+      setTranscriptSegments([]);
     }
   };
 
@@ -1075,7 +1098,13 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                               <option value="Other">Other</option>
                             </select>
                           </div>
-                          <div className="max-h-40 overflow-y-auto space-y-0.5">
+                          <div className="max-h-48 overflow-y-auto space-y-0.5">
+                            {pinnedDocs.filter(pd => pd.case_document_id || pd.transcript_id).length > 0 && <p className="text-[10px] font-semibold uppercase text-emerald-500 px-2 pt-1">Quick Docs</p>}
+                            {pinnedDocs.filter(pd => pd.case_document_id || pd.transcript_id).map(pd => (
+                              <div key={`qd-${pd.id}`} onClick={() => handleLinkWitnessDoc(w.id, pd.case_document_id || null, pd.transcript_id || null)} className="px-2 py-1.5 rounded cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                <Pin size={10} className="text-emerald-500 flex-shrink-0" />{pd.label || pd.document_name || pd.transcript_name || "Document"}
+                              </div>
+                            ))}
                             {caseDocs.length > 0 && <p className="text-[10px] font-semibold uppercase text-slate-400 px-2 pt-1">Documents</p>}
                             {caseDocs.map(doc => (
                               <div key={`doc-${doc.id}`} onClick={() => handleLinkWitnessDoc(w.id, doc.id, null)} className="px-2 py-1.5 rounded cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -1088,7 +1117,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                                 <Mic size={10} className="text-violet-400 flex-shrink-0" />{t.filename}
                               </div>
                             ))}
-                            {caseDocs.length === 0 && caseTranscripts.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No documents found.</p>}
+                            {caseDocs.length === 0 && caseTranscripts.length === 0 && pinnedDocs.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No documents found.</p>}
                           </div>
                         </div>
                       )}
@@ -1544,13 +1573,44 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     </div>
                   </div>
                 )}
-                {docViewerId && docViewerUrl && (
-                  <div className={CARD_CLS + " p-4"}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">Document Viewer</h4>
-                      <button onClick={closeDocViewer} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                {docViewerId && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeDocViewer}>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{viewerTitle || "Viewer"}</h4>
+                        <button onClick={closeDocViewer} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={18} /></button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-5">
+                        {!docViewerUrl && transcriptSegments.length === 0 && (
+                          <div className="flex items-center justify-center py-20"><Loader2 size={28} className="animate-spin text-slate-400" /></div>
+                        )}
+                        {docViewerUrl && transcriptSegments.length === 0 && (
+                          <iframe src={docViewerUrl} className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700" title="Document Viewer" />
+                        )}
+                        {transcriptSegments.length > 0 && (() => {
+                          const speakerColors = ["#6366f1","#f59e0b","#10b981","#ef4444","#8b5cf6","#ec4899","#0ea5e9","#f97316"];
+                          const speakers = [...new Set(transcriptSegments.map(s => s.speaker || "Speaker"))];
+                          const getSpeakerColor = (sp) => speakerColors[speakers.indexOf(sp) % speakerColors.length];
+                          const fmtTime = (sec) => { if (sec == null) return ""; const m = Math.floor(sec / 60); const s = Math.round(sec % 60); return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
+                          return (
+                            <div className="space-y-0.5">
+                              <div className="flex flex-wrap gap-2 mb-4">
+                                {speakers.map(sp => (
+                                  <span key={sp} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: getSpeakerColor(sp) + "18", color: getSpeakerColor(sp), border: `1px solid ${getSpeakerColor(sp)}30` }}>{sp}</span>
+                                ))}
+                              </div>
+                              {transcriptSegments.map((seg, idx) => (
+                                <div key={idx} className="flex gap-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 rounded px-2">
+                                  {seg.startTime != null && <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 w-12 pt-0.5">{fmtTime(seg.startTime)}</span>}
+                                  <span className="text-[11px] font-semibold flex-shrink-0 w-24 truncate pt-0.5" style={{ color: getSpeakerColor(seg.speaker || "Speaker") }}>{seg.speaker || "Speaker"}</span>
+                                  <span className="text-sm text-slate-800 dark:text-slate-200 flex-1">{seg.text || ""}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
-                    <iframe src={docViewerUrl} className="w-full h-[500px] rounded-lg border border-slate-200 dark:border-slate-700" title="Document Viewer" />
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -84,6 +84,20 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
   }
 });
 
+router.get("/:id/text", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT cd.extracted_text, cd.case_id FROM case_documents cd WHERE cd.id = $1", [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
+    if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
+    return res.json({ text: rows[0].extracted_text || "" });
+  } catch (err) {
+    console.error("Get document text error:", err);
+    return res.status(500).json({ error: "Failed to get document text" });
+  }
+});
+
 router.post("/:id/summarize", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
