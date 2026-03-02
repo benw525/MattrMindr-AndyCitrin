@@ -76,6 +76,8 @@ server/
     sms.js          — SMS routes: configs CRUD, messages, send, draft, suggest-numbers, scheduled, inbound webhook, watch numbers CRUD, unmatched texts, assign
     transcripts.js  — Audio transcription: upload (multer 100MB), ffmpeg chunking for >24MB, OpenAI whisper-1 transcription via direct OpenAI API (uses OPENAI_API_KEY secret, not the Replit AI proxy which doesn't support audio endpoints), JSONB segments with speaker labels, status polling, export as text, download original audio
     collaborate.js  — Collaborate chat: channels, messages, groups, private chats, typing, file upload, search, unread counts
+    trial-center.js — Trial Center CRUD: sessions, witnesses, exhibits, jurors, motions, outlines, jury instructions, timeline events, pinned docs, log entries
+    trial-center-ai.js — Trial Center AI agents: witness-prep, jury-selection, objection-coach, closing-builder, jury-instructions, case-law-search
   system-templates/
     case-header.docx      — Court caption block (auto-prepended to Pleadings)
     case-signature.docx   — Attorney signature block (auto-appended to Pleadings)
@@ -86,6 +88,7 @@ lextrack/
   src/
     App.js          — All UI components and business logic
     CollaborateView.js — Internal chat feature: Cases/Groups/Private channels, @mentions, file sharing, typing indicators
+    TrialCenterView.js — Trial Center: 10-tab trial preparation/management view with 6 AI agents
     api.js          — Thin fetch wrapper for all API calls
     firmData.js     — Static reference data: USERS display info (avatars, names)
     App.css         — Base reset styles
@@ -141,6 +144,21 @@ Two-tier system for customizing how AI agents behave by injecting training conte
 - **Backend**: `server/routes/ai-training.js` — full CRUD + document upload with multer. POST/PUT accept `target_agents` array. Registered in server/index.js
 - **Frontend**: Tab in AI Center view ("AI Agents" | "Advocate AI Trainer"), with sub-tabs "My Training" / "Office Training", add modal with text/document modes + target agent multi-select, inline edit with target agent selector, active toggle, delete. Agent badges shown on each entry
 - **API helpers**: `apiGetTraining`, `apiCreateTraining`, `apiUploadTrainingDoc`, `apiUpdateTraining`, `apiDeleteTraining` in api.js
+
+### Trial Center
+- One-stop trial preparation and active trial management view, accessible from sidebar (Scale icon, id: "trialcenter")
+- Case-based: select a case to load/create a trial session; shows case snapshot header (title, number, charges, court, judge, next date, client, custody, bond)
+- **10 tabs**: Witnesses (call order, type/status badges, reorder), Exhibits (number/type/status tracking), Jury (grid cards with selection/strike indicators, summary bar), Motions (in limine tracking with rulings), Outlines (Opening/Closing/Cross-Exam per witness), Jury Instructions (requested/given/refused), Timeline (vertical chronological events), Quick Docs (pinned case documents), Trial Log (day-by-day categorized entries), AI Agents
+- **6 AI agents** (Trial Center-specific, separate from main AI Center agents):
+  1. Witness Prep — cross-examination questions and impeachment points
+  2. Jury Selection — juror bias analysis and follow-up questions
+  3. Objection Coach — objection suggestions with Alabama Rules of Evidence citations
+  4. Closing Builder — closing argument from trial evidence
+  5. Jury Instructions — Alabama pattern jury instruction suggestions
+  6. Case Law Search — relevant Alabama case law and rules
+- **Database tables**: trial_sessions, trial_witnesses, trial_exhibits, trial_jurors, trial_motions, trial_outlines, trial_jury_instructions, trial_timeline_events, trial_pinned_docs, trial_log_entries
+- **Routes**: CRUD at `/api/trial-center/*`, AI at `/api/trial-center/ai/*`
+- **Frontend**: `TrialCenterView.js` component, API functions in `api.js`
 
 ### AI Center
 - Centralized view in sidebar (under Reports) that provides access to all 11 AI agents from one place

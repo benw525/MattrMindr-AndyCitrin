@@ -35,6 +35,8 @@ const linkedCasesRoutes      = require("./routes/linked-cases");
 const smsRoutes              = require("./routes/sms");
 const collaborateRoutes      = require("./routes/collaborate");
 const transcriptsRoutes      = require("./routes/transcripts");
+const trialCenterAiRoutes    = require("./routes/trial-center-ai");
+const trialCenterRoutes      = require("./routes/trial-center");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -101,6 +103,8 @@ app.use("/api/linked-cases", linkedCasesRoutes);
 app.use("/api/sms", smsRoutes);
 app.use("/api/collaborate", collaborateRoutes);
 app.use("/api/transcripts", transcriptsRoutes);
+app.use("/api/trial-center", trialCenterRoutes);
+app.use("/api/trial-center/ai", trialCenterAiRoutes);
 
 app.post("/api/support", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });

@@ -367,6 +367,63 @@ export const apiDeleteSmsWatch           = (watchId)          => apiFetch(`/api/
 export const apiGetUnmatchedSms          = ()                 => apiFetch("/api/sms/unmatched");
 export const apiAssignSms                = (messageId, caseId) => apiFetch(`/api/sms/assign/${messageId}`, { method: "PUT", body: { caseId } });
 
+// Trial Center
+export const apiGetTrialSession = (caseId) => apiFetch(`/api/trial-center/sessions/${caseId}`);
+export const apiCreateTrialSession = (data) => apiFetch("/api/trial-center/sessions", { method: "POST", body: data });
+export const apiUpdateTrialSession = (id, data) => apiFetch(`/api/trial-center/sessions/${id}`, { method: "PUT", body: data });
+
+export const apiGetTrialWitnesses = (sessionId) => apiFetch(`/api/trial-center/witnesses/${sessionId}`);
+export const apiCreateTrialWitness = (data) => apiFetch("/api/trial-center/witnesses", { method: "POST", body: data });
+export const apiUpdateTrialWitness = (id, data) => apiFetch(`/api/trial-center/witnesses/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialWitness = (id) => apiFetch(`/api/trial-center/witnesses/${id}`, { method: "DELETE" });
+export const apiReorderTrialWitnesses = (sessionId, order) => apiFetch(`/api/trial-center/witnesses/reorder/${sessionId}`, { method: "PUT", body: { order } });
+
+export const apiGetTrialExhibits = (sessionId) => apiFetch(`/api/trial-center/exhibits/${sessionId}`);
+export const apiCreateTrialExhibit = (data) => apiFetch("/api/trial-center/exhibits", { method: "POST", body: data });
+export const apiUpdateTrialExhibit = (id, data) => apiFetch(`/api/trial-center/exhibits/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialExhibit = (id) => apiFetch(`/api/trial-center/exhibits/${id}`, { method: "DELETE" });
+
+export const apiGetTrialJurors = (sessionId) => apiFetch(`/api/trial-center/jurors/${sessionId}`);
+export const apiCreateTrialJuror = (data) => apiFetch("/api/trial-center/jurors", { method: "POST", body: data });
+export const apiUpdateTrialJuror = (id, data) => apiFetch(`/api/trial-center/jurors/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialJuror = (id) => apiFetch(`/api/trial-center/jurors/${id}`, { method: "DELETE" });
+
+export const apiGetTrialMotions = (sessionId) => apiFetch(`/api/trial-center/motions/${sessionId}`);
+export const apiCreateTrialMotion = (data) => apiFetch("/api/trial-center/motions", { method: "POST", body: data });
+export const apiUpdateTrialMotion = (id, data) => apiFetch(`/api/trial-center/motions/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialMotion = (id) => apiFetch(`/api/trial-center/motions/${id}`, { method: "DELETE" });
+
+export const apiGetTrialOutlines = (sessionId) => apiFetch(`/api/trial-center/outlines/${sessionId}`);
+export const apiCreateTrialOutline = (data) => apiFetch("/api/trial-center/outlines", { method: "POST", body: data });
+export const apiUpdateTrialOutline = (id, data) => apiFetch(`/api/trial-center/outlines/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialOutline = (id) => apiFetch(`/api/trial-center/outlines/${id}`, { method: "DELETE" });
+
+export const apiGetTrialJuryInstructions = (sessionId) => apiFetch(`/api/trial-center/jury-instructions/${sessionId}`);
+export const apiCreateTrialJuryInstruction = (data) => apiFetch("/api/trial-center/jury-instructions", { method: "POST", body: data });
+export const apiUpdateTrialJuryInstruction = (id, data) => apiFetch(`/api/trial-center/jury-instructions/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialJuryInstruction = (id) => apiFetch(`/api/trial-center/jury-instructions/${id}`, { method: "DELETE" });
+
+export const apiGetTrialTimelineEvents = (sessionId) => apiFetch(`/api/trial-center/timeline-events/${sessionId}`);
+export const apiCreateTrialTimelineEvent = (data) => apiFetch("/api/trial-center/timeline-events", { method: "POST", body: data });
+export const apiUpdateTrialTimelineEvent = (id, data) => apiFetch(`/api/trial-center/timeline-events/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialTimelineEvent = (id) => apiFetch(`/api/trial-center/timeline-events/${id}`, { method: "DELETE" });
+
+export const apiGetTrialPinnedDocs = (sessionId) => apiFetch(`/api/trial-center/pinned-docs-full/${sessionId}`);
+export const apiCreateTrialPinnedDoc = (data) => apiFetch("/api/trial-center/pinned-docs", { method: "POST", body: data });
+export const apiDeleteTrialPinnedDoc = (id) => apiFetch(`/api/trial-center/pinned-docs/${id}`, { method: "DELETE" });
+
+export const apiGetTrialLogEntries = (sessionId) => apiFetch(`/api/trial-center/log-entries/${sessionId}`);
+export const apiCreateTrialLogEntry = (data) => apiFetch("/api/trial-center/log-entries", { method: "POST", body: data });
+export const apiUpdateTrialLogEntry = (id, data) => apiFetch(`/api/trial-center/log-entries/${id}`, { method: "PUT", body: data });
+export const apiDeleteTrialLogEntry = (id) => apiFetch(`/api/trial-center/log-entries/${id}`, { method: "DELETE" });
+
+export const apiTrialAiWitnessPrep = (data) => apiFetch("/api/trial-center/ai/witness-prep", { method: "POST", body: data });
+export const apiTrialAiJurySelection = (data) => apiFetch("/api/trial-center/ai/jury-selection", { method: "POST", body: data });
+export const apiTrialAiObjectionCoach = (data) => apiFetch("/api/trial-center/ai/objection-coach", { method: "POST", body: data });
+export const apiTrialAiClosingBuilder = (data) => apiFetch("/api/trial-center/ai/closing-builder", { method: "POST", body: data });
+export const apiTrialAiJuryInstructions = (data) => apiFetch("/api/trial-center/ai/jury-instructions", { method: "POST", body: data });
+export const apiTrialAiCaseLawSearch = (data) => apiFetch("/api/trial-center/ai/case-law-search", { method: "POST", body: data });
+
 export async function apiUploadCollabFile(file) {
   const fd = new FormData();
   fd.append("file", file);

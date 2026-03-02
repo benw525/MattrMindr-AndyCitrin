@@ -586,6 +586,147 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_sessions (
+        id SERIAL PRIMARY KEY,
+        case_id INTEGER NOT NULL,
+        trial_date DATE,
+        court TEXT,
+        judge TEXT,
+        status TEXT DEFAULT 'preparing',
+        jury_size INTEGER DEFAULT 12,
+        notes TEXT DEFAULT '',
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(case_id)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_witnesses (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        type TEXT DEFAULT 'defense',
+        contact_info TEXT DEFAULT '',
+        expected_testimony TEXT DEFAULT '',
+        impeachment_notes TEXT DEFAULT '',
+        call_order INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_exhibits (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        exhibit_number TEXT DEFAULT '',
+        description TEXT NOT NULL,
+        type TEXT DEFAULT 'defense',
+        status TEXT DEFAULT 'pending',
+        linked_document_id INTEGER,
+        notes TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_jurors (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        seat_number INTEGER,
+        name TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        strike_type TEXT DEFAULT 'none',
+        is_selected BOOLEAN DEFAULT false,
+        demographics TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_motions (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        type TEXT DEFAULT 'defense',
+        status TEXT DEFAULT 'pending',
+        ruling_summary TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_outlines (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        type TEXT DEFAULT 'opening',
+        title TEXT NOT NULL,
+        content TEXT DEFAULT '',
+        linked_witness_id INTEGER,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_jury_instructions (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        instruction_text TEXT NOT NULL,
+        status TEXT DEFAULT 'requested',
+        objection_notes TEXT DEFAULT '',
+        source TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_timeline_events (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        event_date DATE,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_pinned_docs (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        case_document_id INTEGER,
+        label TEXT DEFAULT '',
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS trial_log_entries (
+        id SERIAL PRIMARY KEY,
+        trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
+        trial_day INTEGER DEFAULT 1,
+        entry_time TIMESTAMP DEFAULT NOW(),
+        category TEXT DEFAULT 'note',
+        content TEXT NOT NULL,
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {
