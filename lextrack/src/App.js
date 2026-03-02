@@ -5474,6 +5474,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [exportDropdownId, setExportDropdownId] = useState(null);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editingSegmentIdx, setEditingSegmentIdx] = useState(null);
+  const [selectedSegments, setSelectedSegments] = useState(new Set());
+  const [mergeUndoStack, setMergeUndoStack] = useState([]);
   const autoSaveTimerRef = useRef(null);
   const autoSaveStatusTimerRef = useRef(null);
   const transcriptPollRef = useRef(null);
@@ -7521,8 +7523,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           setExpandedTranscriptId(null);
                           setTranscriptDetail(null);
                           setTranscriptEdits(null);
+                          setSelectedSegments(new Set());
+                          setMergeUndoStack([]);
                         } else if (t.status === "completed") {
                           setExpandedTranscriptId(t.id);
+                          setSelectedSegments(new Set());
+                          setMergeUndoStack([]);
                           setTranscriptDetailLoading(true);
                           apiGetTranscriptDetail(t.id).then(d => {
                             setTranscriptDetail(d);
@@ -7659,9 +7665,71 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 </div>
                               </div>
 
+                              {selectedSegments.size >= 2 && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", marginBottom: 8, background: "#6366f118", border: "1px solid #6366f130", borderRadius: 6 }}>
+                                  <Merge size={13} style={{ color: "#6366f1" }} />
+                                  <span style={{ fontSize: 11, color: "var(--c-text)", fontWeight: 500 }}>{selectedSegments.size} lines selected</span>
+                                  <button
+                                    onClick={() => {
+                                      const sorted = [...selectedSegments].sort((a, b) => a - b);
+                                      setMergeUndoStack(prev => [...prev, transcriptEdits.map(s => ({ ...s }))]);
+                                      setTranscriptEdits(prev => {
+                                        const updated = [...prev];
+                                        const first = sorted[0];
+                                        const last = sorted[sorted.length - 1];
+                                        const mergedText = sorted.map(i => updated[i].text).join(" ");
+                                        const merged = { ...updated[first], text: mergedText, endTime: updated[last].endTime };
+                                        updated.splice(first, last - first + 1, merged);
+                                        return updated;
+                                      });
+                                      setSelectedSegments(new Set());
+                                    }}
+                                    style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                                  >
+                                    <Merge size={11} /> Merge
+                                  </button>
+                                  <button onClick={() => setSelectedSegments(new Set())} style={{ background: "transparent", border: "1px solid var(--c-border2)", borderRadius: 5, padding: "4px 10px", fontSize: 11, cursor: "pointer", color: "var(--c-text2)" }}>
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+
+                              {mergeUndoStack.length > 0 && selectedSegments.size < 2 && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                                  <button
+                                    onClick={() => {
+                                      setMergeUndoStack(prev => {
+                                        const stack = [...prev];
+                                        const last = stack.pop();
+                                        if (last) setTranscriptEdits(last);
+                                        return stack;
+                                      });
+                                    }}
+                                    style={{ background: "transparent", border: "1px solid var(--c-border2)", borderRadius: 5, padding: "4px 10px", fontSize: 11, cursor: "pointer", color: "#f59e0b", display: "flex", alignItems: "center", gap: 4 }}
+                                  >
+                                    ↩ Undo merge
+                                  </button>
+                                </div>
+                              )}
+
                               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 500, overflowY: "auto" }}>
                                 {transcriptEdits.map((seg, idx) => (
-                                  <div key={idx} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 6, background: idx % 2 === 0 ? "var(--c-bg2)" : "transparent", alignItems: "flex-start" }}>
+                                  <div key={idx} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 6, background: selectedSegments.has(idx) ? "#6366f110" : (idx % 2 === 0 ? "var(--c-bg2)" : "transparent"), alignItems: "flex-start", border: selectedSegments.has(idx) ? "1px solid #6366f130" : "1px solid transparent" }}>
+                                    <div style={{ flexShrink: 0, paddingTop: 2 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedSegments.has(idx)}
+                                        onChange={() => {
+                                          setSelectedSegments(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(idx)) next.delete(idx);
+                                            else next.add(idx);
+                                            return next;
+                                          });
+                                        }}
+                                        style={{ cursor: "pointer", accentColor: "#6366f1", width: 14, height: 14 }}
+                                      />
+                                    </div>
                                     <div style={{ flexShrink: 0, width: 48, fontSize: 10, color: "#94a3b8", fontFamily: "monospace", paddingTop: 2 }}>
                                       {fmtTime(seg.startTime)}
                                     </div>
@@ -7703,28 +7771,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                         </div>
                                       )}
                                     </div>
-                                    {idx < transcriptEdits.length - 1 && (
-                                      <button
-                                        onClick={() => {
-                                          setTranscriptEdits(prev => {
-                                            const updated = [...prev];
-                                            const merged = {
-                                              ...updated[idx],
-                                              text: updated[idx].text + " " + updated[idx + 1].text,
-                                              endTime: updated[idx + 1].endTime,
-                                            };
-                                            updated.splice(idx, 2, merged);
-                                            return updated;
-                                          });
-                                        }}
-                                        title="Combine with next line"
-                                        style={{ flexShrink: 0, background: "transparent", border: "1px solid var(--c-border2)", borderRadius: 4, padding: 3, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center" }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.color = "#6366f1"; e.currentTarget.style.borderColor = "#6366f1"; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "var(--c-border2)"; }}
-                                      >
-                                        <Merge size={12} />
-                                      </button>
-                                    )}
                                   </div>
                                 ))}
                               </div>
