@@ -49,8 +49,10 @@ async function getTrainingContext(userId, agentId = null) {
   }
 }
 
+const NO_MARKDOWN = "\n\nIMPORTANT FORMATTING RULE: Do NOT use any markdown formatting in your response. No hashtags (#, ##, ###), no asterisks (* or **), no bullet symbols. Use plain text only. Use line breaks and numbered lists (1. 2. 3.) for structure. Use ALL CAPS for section headings instead of hashtags.";
+
 async function aiCall(systemPrompt, userPrompt, jsonMode = false, userId = null, agentId = null) {
-  let finalPrompt = systemPrompt;
+  let finalPrompt = systemPrompt + (jsonMode ? "" : NO_MARKDOWN);
   if (userId) {
     const training = await getTrainingContext(userId, agentId);
     if (training) finalPrompt += training;
@@ -104,7 +106,7 @@ router.post("/charge-analysis", requireAuth, async (req, res) => {
     const chargesText = (charges || []).map((c, i) =>
       `Charge ${i + 1}: ${c.description || ""} | Statute: ${c.statute || ""} | Class: ${c.class || ""} | ${c.amended ? "Amended" : "Original"}`
     ).join("\n");
-    const systemPrompt = `You are a criminal defense legal research assistant specializing in Alabama law. Analyze the charges and provide a structured analysis. Be specific about Alabama Code sections, sentencing ranges, and mandatory minimums. Format your response in clear sections with headers using markdown.`;
+    const systemPrompt = `You are a criminal defense legal research assistant specializing in Alabama law. Analyze the charges and provide a structured analysis. Be specific about Alabama Code sections, sentencing ranges, and mandatory minimums. `;
     const userPrompt = `Analyze the following criminal charges for a ${caseType || "criminal"} case in ${courtDivision || ""} court:
 
 Primary Charge: ${chargeDescription || "Not specified"}
@@ -198,7 +200,7 @@ router.post("/case-strategy", requireAuth, async (req, res) => {
     const notesText = notesRes.rows.map(n => `[${n.type}] ${(n.body || "").substring(0, 300)}`).join("\n") || "No notes";
     const tasksText = tasksRes.rows.map(t => `${t.title} (${t.status}, ${t.priority})`).join(", ") || "No tasks";
 
-    const systemPrompt = `You are a senior criminal defense attorney advising a public defender in Mobile County, Alabama. Provide strategic analysis and defense recommendations. Be practical, specific, and action-oriented. Format with markdown headers and bullet points.${c.death_penalty ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Include capital defense-specific strategies, mitigation investigation requirements, and Eighth Amendment considerations." : ""}`;
+    const systemPrompt = `You are a senior criminal defense attorney advising a public defender in Mobile County, Alabama. Provide strategic analysis and defense recommendations. Be practical, specific, and action-oriented. ${c.death_penalty ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Include capital defense-specific strategies, mitigation investigation requirements, and Eighth Amendment considerations." : ""}`;
 
     const userPrompt = `Case: ${c.title}
 Defendant: ${c.defendant_name || "Unknown"}
@@ -904,7 +906,7 @@ ${emailsText}`;
 
     let basePrompt;
     if (caseId) {
-      basePrompt = `You are Advocate AI, a senior criminal defense advisor assisting a public defender at the Mobile County Public Defender's Office in Alabama. You have access to the complete case file below. Answer questions thoughtfully using specific details from the case. Be practical, strategic, and action-oriented. Reference specific evidence, documents, filings, and notes when relevant. Format responses with markdown for readability.${isCapital ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Always consider capital defense strategies, mitigation investigation, Eighth Amendment issues, and the heightened standards required in capital proceedings." : ""}
+      basePrompt = `You are Advocate AI, a senior criminal defense advisor assisting a public defender at the Mobile County Public Defender's Office in Alabama. You have access to the complete case file below. Answer questions thoughtfully using specific details from the case. Be practical, strategic, and action-oriented. Reference specific evidence, documents, filings, and notes when relevant. ${isCapital ? "\n\nCRITICAL: This is a DEATH PENALTY / CAPITAL case. Always consider capital defense strategies, mitigation investigation, Eighth Amendment issues, and the heightened standards required in capital proceedings." : ""}
 
 TASK SUGGESTIONS: When your response includes specific action items, tasks, or recommended next steps for the defense team, you MUST append a hidden structured JSON block at the very end of your response using this exact format:
 <!-- TASKS_JSON [{"title":"Task title","priority":"Medium","assignedRole":"Lead Attorney","rationale":"Why this task matters","dueInDays":14}] -->
@@ -922,12 +924,12 @@ Rules for the TASKS_JSON block:
 3. Navigating and using the MattrMindr case management system — always give specific, step-by-step instructions for this application when users ask how to do something
 4. Answering questions about data currently visible on their screen
 
-You have access to the user's current screen context below (if any). When answering questions about their data, reference specific items from the screen context. When answering "how do I..." questions, give step-by-step instructions specific to the MattrMindr application. Format responses with markdown for readability.
+You have access to the user's current screen context below (if any). When answering questions about their data, reference specific items from the screen context. When answering "how do I..." questions, give step-by-step instructions specific to the MattrMindr application.
 
 Do NOT suggest task actions (TASKS_JSON) when no case is selected.`;
     }
 
-    const systemPrompt = `${basePrompt}\n\n${APP_KNOWLEDGE_BASE}${contextBlock}${trainingContext}`;
+    const systemPrompt = `${basePrompt}\n\n${APP_KNOWLEDGE_BASE}${contextBlock}${trainingContext}${NO_MARKDOWN}`;
 
     const apiMessages = [
       { role: "system", content: systemPrompt },

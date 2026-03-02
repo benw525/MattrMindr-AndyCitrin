@@ -49,8 +49,10 @@ async function getTrainingContext(userId, agentId = null) {
   }
 }
 
+const NO_MARKDOWN = "\n\nIMPORTANT FORMATTING RULE: Do NOT use any markdown formatting in your response. No hashtags (#, ##, ###), no asterisks (* or **), no bullet symbols. Use plain text only. Use line breaks and numbered lists (1. 2. 3.) for structure. Use ALL CAPS for section headings instead of hashtags.";
+
 async function aiCall(systemPrompt, userPrompt, jsonMode = false, userId = null, agentId = null) {
-  let finalPrompt = systemPrompt;
+  let finalPrompt = systemPrompt + (jsonMode ? "" : NO_MARKDOWN);
   if (userId) {
     const training = await getTrainingContext(userId, agentId);
     if (training) finalPrompt += training;
@@ -94,8 +96,8 @@ router.post("/witness-prep", requireAuth, async (req, res) => {
     }
 
     const systemPrompt = existingDraft
-      ? `You are an experienced criminal defense trial attorney specializing in Alabama criminal law. The attorney has a draft cross-examination outline for a witness. Refine and improve it with better questions, stronger impeachment points, and more effective sequencing. Maintain the attorney's approach while strengthening the cross. Format your response in clear markdown sections.`
-      : `You are an experienced criminal defense trial attorney specializing in Alabama criminal law. You are preparing for cross-examination of a witness. Generate detailed, strategic cross-examination questions and impeachment points. Focus on undermining credibility, exposing inconsistencies, and supporting the defense theory. Reference Alabama Rules of Evidence where applicable. Format your response in clear markdown sections.`;
+      ? `You are an experienced criminal defense trial attorney specializing in Alabama criminal law. The attorney has a draft cross-examination outline for a witness. Refine and improve it with better questions, stronger impeachment points, and more effective sequencing. Maintain the attorney's approach while strengthening the cross. `
+      : `You are an experienced criminal defense trial attorney specializing in Alabama criminal law. You are preparing for cross-examination of a witness. Generate detailed, strategic cross-examination questions and impeachment points. Focus on undermining credibility, exposing inconsistencies, and supporting the defense theory. Reference Alabama Rules of Evidence where applicable.`;
 
     let userPrompt = existingDraft
       ? `Refine and improve this cross-examination outline:\n\n--- EXISTING DRAFT ---\n${existingDraft}\n--- END DRAFT ---\n\n`
@@ -148,7 +150,7 @@ router.post("/jury-selection", requireAuth, async (req, res) => {
       }
     }
 
-    const systemPrompt = `You are an expert jury consultant working with a criminal defense team in Alabama. Analyze potential juror information and provide strategic guidance for voir dire. Identify potential biases, red flags, and favorable indicators. Reference Batson v. Kentucky considerations where relevant. Format your response in clear markdown sections.`;
+    const systemPrompt = `You are an expert jury consultant working with a criminal defense team in Alabama. Analyze potential juror information and provide strategic guidance for voir dire. Identify potential biases, red flags, and favorable indicators. Reference Batson v. Kentucky considerations where relevant. `;
 
     const userPrompt = `Analyze this potential juror for jury selection:
 
@@ -180,7 +182,7 @@ router.post("/objection-coach", requireAuth, async (req, res) => {
     const { scenario, caseContext } = req.body;
     if (!scenario) return res.status(400).json({ error: "scenario is required" });
 
-    const systemPrompt = `You are an expert trial attorney and evidence law professor specializing in Alabama Rules of Evidence and Alabama criminal procedure. Given a trial scenario, identify all applicable objections with specific rule citations. Provide both offensive objections (to make) and defensive responses (if opposing counsel objects). Always cite the specific Alabama Rule of Evidence or Alabama Rule of Criminal Procedure. Format your response in clear markdown sections.`;
+    const systemPrompt = `You are an expert trial attorney and evidence law professor specializing in Alabama Rules of Evidence and Alabama criminal procedure. Given a trial scenario, identify all applicable objections with specific rule citations. Provide both offensive objections (to make) and defensive responses (if opposing counsel objects). Always cite the specific Alabama Rule of Evidence or Alabama Rule of Criminal Procedure. `;
 
     const userPrompt = `Analyze this trial scenario for applicable objections:
 
@@ -278,8 +280,8 @@ ${motions}`;
     }
 
     const systemPrompt = existingDraft
-      ? `You are a master criminal defense trial attorney helping refine an opening statement for an Alabama criminal trial. The attorney has provided a draft opening statement. Review it and provide a refined, improved version that strengthens the narrative, improves persuasive elements, and ensures it follows best practices for Alabama criminal defense opening statements. Maintain the attorney's voice and core theory while enhancing impact. Format your response in clear markdown sections.`
-      : `You are a master criminal defense trial attorney preparing an opening statement for an Alabama criminal trial. Craft a compelling, persuasive opening statement outline that introduces the defense theory, humanizes the defendant, and sets up the evidence the jury will hear. Use storytelling techniques effective with Alabama juries. Format your response in clear markdown sections with the full outline.`;
+      ? `You are a master criminal defense trial attorney helping refine an opening statement for an Alabama criminal trial. The attorney has provided a draft opening statement. Review it and provide a refined, improved version that strengthens the narrative, improves persuasive elements, and ensures it follows best practices for Alabama criminal defense opening statements. Maintain the attorney's voice and core theory while enhancing impact. `
+      : `You are a master criminal defense trial attorney preparing an opening statement for an Alabama criminal trial. Craft a compelling, persuasive opening statement outline that introduces the defense theory, humanizes the defendant, and sets up the evidence the jury will hear. Use storytelling techniques effective with Alabama juries. `;
 
     let userPrompt = existingDraft
       ? `Refine and improve this opening statement draft:\n\n--- EXISTING DRAFT ---\n${existingDraft}\n--- END DRAFT ---\n\nTrial Data:\n${trialData || caseContext}`
@@ -386,8 +388,8 @@ ${logEntries}`;
     }
 
     const systemPrompt = existingDraft
-      ? `You are a master criminal defense trial attorney helping refine a closing argument for an Alabama criminal trial. The attorney has provided a draft closing argument. Review it and provide a refined, improved version that strengthens persuasive elements, tightens the narrative, and ensures maximum impact with the jury. Maintain the attorney's voice and core theory while enhancing impact. Format your response in clear markdown sections.`
-      : `You are a master criminal defense trial attorney preparing a closing argument for an Alabama criminal trial. Build a compelling, persuasive closing argument outline that weaves together the evidence, witness testimony, and defense theory. Reference specific evidence and testimony. Use rhetorical techniques effective with Alabama juries. Format your response in clear markdown sections with the full outline.`;
+      ? `You are a master criminal defense trial attorney helping refine a closing argument for an Alabama criminal trial. The attorney has provided a draft closing argument. Review it and provide a refined, improved version that strengthens persuasive elements, tightens the narrative, and ensures maximum impact with the jury. Maintain the attorney's voice and core theory while enhancing impact. `
+      : `You are a master criminal defense trial attorney preparing a closing argument for an Alabama criminal trial. Build a compelling, persuasive closing argument outline that weaves together the evidence, witness testimony, and defense theory. Reference specific evidence and testimony. Use rhetorical techniques effective with Alabama juries. `;
 
     let userPrompt = existingDraft
       ? `Refine and improve this closing argument draft:\n\n--- EXISTING DRAFT ---\n${existingDraft}\n--- END DRAFT ---\n\nTrial Data:\n${trialData || caseContext}`
@@ -460,7 +462,7 @@ router.post("/jury-instructions", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "sessionId, charges, or caseContext required" });
     }
 
-    const systemPrompt = `You are an Alabama criminal law expert specializing in jury instructions. Based on the charges and defense theory, recommend appropriate jury instructions following Alabama Pattern Jury Instructions — Criminal. Cite specific APJI numbers and Alabama Code sections. Identify both standard instructions and any special defense instructions that should be requested. Format your response in clear markdown sections.`;
+    const systemPrompt = `You are an Alabama criminal law expert specializing in jury instructions. Based on the charges and defense theory, recommend appropriate jury instructions following Alabama Pattern Jury Instructions — Criminal. Cite specific APJI numbers and Alabama Code sections. Identify both standard instructions and any special defense instructions that should be requested. `;
 
     const userPrompt = `Review and recommend jury instructions for this case:
 
@@ -494,8 +496,7 @@ router.post("/case-law-search", requireAuth, async (req, res) => {
     const { legalIssue, caseContext } = req.body;
     if (!legalIssue) return res.status(400).json({ error: "legalIssue is required" });
 
-    const systemPrompt = `You are a criminal defense legal research specialist with deep expertise in Alabama case law, Alabama Rules of Evidence, Alabama Rules of Criminal Procedure, and federal constitutional law as applied in Alabama courts. Given a legal issue, provide relevant case law citations, statutes, and rules. Focus primarily on Alabama Supreme Court and Alabama Court of Criminal Appeals decisions. Include federal circuit (11th Circuit) and U.S. Supreme Court cases where relevant. Format your response in clear markdown sections.
-
+    const systemPrompt = `You are a criminal defense legal research specialist with deep expertise in Alabama case law, Alabama Rules of Evidence, Alabama Rules of Criminal Procedure, and federal constitutional law as applied in Alabama courts. Given a legal issue, provide relevant case law citations, statutes, and rules. Focus primarily on Alabama Supreme Court and Alabama Court of Criminal Appeals decisions. Include federal circuit (11th Circuit) and U.S. Supreme Court cases where relevant. 
 IMPORTANT: Only cite real cases and real statutes. If you are not confident a citation is accurate, indicate that it should be verified. Always include the year and court for each citation.`;
 
     const userPrompt = `Research the following legal issue:

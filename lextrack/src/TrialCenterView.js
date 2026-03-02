@@ -730,7 +730,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith("# ") || trimmed.startsWith("## ") || trimmed.startsWith("### ")) {
+      const isHeading = trimmed.startsWith("# ") || trimmed.startsWith("## ") || trimmed.startsWith("### ") || (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && trimmed.length < 80 && /[A-Z]/.test(trimmed));
+      if (isHeading) {
         if (currentInstruction.trim()) {
           instructions.push({ text: currentInstruction.trim(), source: currentSource });
         }

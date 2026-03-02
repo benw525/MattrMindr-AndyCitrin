@@ -424,20 +424,23 @@ router.post("/witness-prep/export", requireAuth, async (req, res) => {
       bodyXml += `<w:p><w:r><w:t></w:t></w:r></w:p>`;
 
       for (const line of lines) {
-        if (line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ")) {
-          const level = line.startsWith("### ") ? "Heading3" : line.startsWith("## ") ? "Heading2" : "Heading1";
-          const text = line.replace(/^#{1,3}\s*/, "").replace(/\*\*/g, "");
+        const trimmed = line.trim();
+        const isMarkdownHeading = trimmed.startsWith("# ") || trimmed.startsWith("## ") || trimmed.startsWith("### ");
+        const isAllCapsHeading = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && trimmed.length < 80 && /[A-Z]/.test(trimmed);
+        if (isMarkdownHeading || isAllCapsHeading) {
+          const level = isMarkdownHeading ? (trimmed.startsWith("### ") ? "Heading3" : trimmed.startsWith("## ") ? "Heading2" : "Heading1") : "Heading2";
+          const text = isMarkdownHeading ? trimmed.replace(/^#{1,3}\s*/, "").replace(/\*\*/g, "") : trimmed;
           bodyXml += `<w:p><w:pPr><w:pStyle w:val="${level}"/></w:pPr><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
-        } else if (line.startsWith("- ") || line.startsWith("* ")) {
-          const text = line.replace(/^[-*]\s*/, "").replace(/\*\*/g, "");
+        } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+          const text = trimmed.replace(/^[-*]\s*/, "").replace(/\*\*/g, "");
           bodyXml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
-        } else if (line.match(/^\d+\.\s/)) {
-          const text = line.replace(/^\d+\.\s*/, "").replace(/\*\*/g, "");
+        } else if (trimmed.match(/^\d+\.\s/)) {
+          const text = trimmed.replace(/^\d+\.\s*/, "").replace(/\*\*/g, "");
           bodyXml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr></w:pPr><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
-        } else if (line.trim() === "") {
+        } else if (trimmed === "") {
           bodyXml += `<w:p><w:r><w:t></w:t></w:r></w:p>`;
         } else {
-          const text = line.replace(/\*\*/g, "");
+          const text = trimmed.replace(/\*\*/g, "");
           bodyXml += `<w:p><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`;
         }
       }
