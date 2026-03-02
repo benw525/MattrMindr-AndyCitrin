@@ -4376,25 +4376,25 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           </div>
         )}
         <div className="flex gap-2 items-center mb-4">
-          <button className="!px-3 !py-2 !text-xs !font-medium !border !border-amber-300 dark:!border-amber-700 !text-amber-700 dark:!text-amber-400 !bg-amber-50 dark:!bg-amber-900/20 hover:!bg-amber-100 dark:hover:!bg-amber-900/40 !rounded-lg !transition-colors !cursor-pointer !whitespace-nowrap !h-10" onClick={() => {
+          <button className="!px-4 !py-2 !text-sm !font-medium !border !border-amber-200 dark:!border-amber-800/50 !text-amber-700 dark:!text-amber-400 !bg-amber-50 dark:!bg-amber-900/30 hover:!bg-amber-100 dark:hover:!bg-amber-900/50 !rounded-md !transition-colors !cursor-pointer !whitespace-nowrap !h-10 !flex !items-center !gap-2" onClick={() => {
             setTriageShow(true); setTriageLoading(true);
             apiCaseTriage().then(r => { setTriageResults(r.cases || []); setTriageLoading(false); }).catch(() => setTriageLoading(false));
-          }}><Sparkles size={14} className="inline mr-1" />Triage</button>
-          <div className="relative flex-1">
+          }}><Sparkles size={16} />Triage</button>
+          <div className="relative flex-1 flex items-center">
+            <Sparkles size={16} className="absolute left-3 text-amber-500 pointer-events-none" />
             <input
-              className="!w-full !pl-9 !pr-3 !h-10 !rounded-lg !border !border-slate-200 dark:!border-slate-700 !text-sm !bg-white dark:!bg-slate-800 !text-slate-900 dark:!text-slate-100 placeholder:!text-slate-400 dark:placeholder:!text-slate-500 focus:!ring-2 focus:!ring-amber-500/30 focus:!border-amber-500 focus:!outline-none"
+              className="!w-full !pl-9 !pr-4 !h-10 !rounded-l-md !rounded-r-none !border !border-slate-200 dark:!border-slate-700 !text-sm !bg-slate-50 dark:!bg-slate-800 !text-slate-900 dark:!text-slate-100 placeholder:!text-slate-400 dark:placeholder:!text-slate-500 focus:!outline-none focus:!ring-2 focus:!ring-amber-500/20 focus:!border-amber-500"
               placeholder='AI Search — ask anything about your cases (e.g. "cases with trial in March" or "slip and fall in Mobile")…'
               value={aiQuery}
               onChange={e => setAiQuery(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") runAiSearch(); }}
             />
-            <Sparkles size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <button className="!px-6 !py-2 !text-sm !font-medium !text-white !bg-slate-500 dark:!bg-slate-600 hover:!bg-slate-600 dark:hover:!bg-slate-500 !rounded-r-md !rounded-l-none !transition-colors !cursor-pointer !border !border-l-0 !border-slate-500 dark:!border-slate-600 !h-10 !whitespace-nowrap" onClick={runAiSearch} disabled={aiLoading || !aiQuery.trim()}>
+              {aiLoading ? "Searching…" : "AI Search"}
+            </button>
           </div>
-          <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-slate-900 dark:!bg-slate-700 hover:!bg-slate-800 dark:hover:!bg-slate-600 !rounded-lg !transition-colors !cursor-pointer !border-none !shadow-sm !h-10 !whitespace-nowrap !min-w-[100px]" onClick={runAiSearch} disabled={aiLoading || !aiQuery.trim()}>
-            {aiLoading ? "Searching…" : "AI Search"}
-          </button>
           {aiResults !== null && (
-            <button className="!px-3 !py-2 !text-xs !font-medium !border !border-slate-200 dark:!border-slate-700 !text-slate-600 dark:!text-slate-400 !bg-white dark:!bg-slate-800 hover:!bg-slate-50 dark:hover:!bg-slate-700 !rounded-lg !transition-colors !cursor-pointer !h-10" onClick={() => { setAiResults(null); setAiQuery(""); setAiError(""); }}>Clear</button>
+            <button className="!px-3 !py-2 !text-xs !font-medium !border !border-slate-200 dark:!border-slate-700 !text-slate-600 dark:!text-slate-400 !bg-white dark:!bg-slate-800 hover:!bg-slate-50 dark:hover:!bg-slate-700 !rounded-md !transition-colors !cursor-pointer !h-10" onClick={() => { setAiResults(null); setAiQuery(""); setAiError(""); }}>Clear</button>
           )}
         </div>
 
