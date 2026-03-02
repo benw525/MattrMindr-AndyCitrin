@@ -1,22 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Scale, Users, Search, Plus, Trash2, ChevronUp, ChevronDown, Loader2, AlertTriangle, FileText, ClipboardList, Sparkles, Download, Pin, X, Edit3 as Pencil, Menu } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Scale, Users, Search, Plus, Trash2, ChevronUp, ChevronDown, Loader2, AlertTriangle, FileText, ClipboardList, Sparkles, Download, Pin, X, Edit3 as Pencil, Menu, Mic, Upload, Eye } from "lucide-react";
 import {
   apiCreateTrialSession,
   apiGetTrialWitnesses, apiCreateTrialWitness, apiUpdateTrialWitness, apiDeleteTrialWitness, apiReorderTrialWitnesses,
-  apiGetTrialExhibits, apiCreateTrialExhibit, apiUpdateTrialExhibit, apiDeleteTrialExhibit,
+  apiGetTrialExhibits, apiCreateTrialExhibit, apiUpdateTrialExhibit, apiDeleteTrialExhibit, apiUploadTrialExhibit,
   apiGetTrialJurors, apiCreateTrialJuror, apiUpdateTrialJuror, apiDeleteTrialJuror,
   apiGetTrialMotions, apiCreateTrialMotion, apiUpdateTrialMotion, apiDeleteTrialMotion,
   apiGetTrialOutlines, apiCreateTrialOutline, apiUpdateTrialOutline, apiDeleteTrialOutline,
   apiGetTrialJuryInstructions, apiCreateTrialJuryInstruction, apiUpdateTrialJuryInstruction, apiDeleteTrialJuryInstruction,
   apiGetTrialTimelineEvents, apiCreateTrialTimelineEvent, apiUpdateTrialTimelineEvent, apiDeleteTrialTimelineEvent,
+  apiUploadDemonstrative, apiDownloadDemonstrative,
   apiGetTrialPinnedDocs, apiCreateTrialPinnedDoc, apiDeleteTrialPinnedDoc,
   apiGetTrialLogEntries, apiCreateTrialLogEntry, apiDeleteTrialLogEntry,
   apiTrialAiWitnessPrep, apiTrialAiJurySelection, apiTrialAiObjectionCoach, apiTrialAiClosingBuilder, apiTrialAiJuryInstructions, apiTrialAiCaseLawSearch,
-  apiGetCaseDocuments, apiDownloadDocument,
+  apiGetCaseDocuments, apiDownloadDocument, apiSummarizeDocument,
   apiSavePreferences,
 } from "./api.js";
 
-const TABS = ["Witnesses","Exhibits","Jury","Motions","Outlines","Jury Instructions","Timeline","Quick Docs","Trial Log","AI Agents"];
+const TABS = ["Witnesses","Exhibits","Jury","Motions","Outlines","Jury Instructions","Demonstratives","Quick Docs","Trial Log","AI Agents"];
 
 const AI_AGENTS = [
   { id: "witness-prep", title: "Witness Prep", desc: "Generate cross-examination questions and impeachment points", Icon: Users, color: "text-indigo-600", bg: "bg-indigo-100 dark:bg-indigo-900/30" },
@@ -30,7 +31,7 @@ const AI_AGENTS = [
 const INPUT_CLS = "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-900 dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500";
 const BTN_CLS = "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-slate-800 dark:hover:bg-slate-200";
 const CARD_CLS = "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm";
-const BADGE_CLS = "rounded-full px-2.5 py-0.5 text-xs font-medium";
+const BADGE_CLS = "rounded-full px-2.5 py-0.5 text-xs font-medium border";
 const LABEL_CLS = "text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1";
 
 function fmtDate(d) {
@@ -88,6 +89,28 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const [caseDocs, setCaseDocs] = useState([]);
   const [showDocPicker, setShowDocPicker] = useState(false);
+
+  const [exhibitFile, setExhibitFile] = useState(null);
+
+  const [demoFile, setDemoFile] = useState(null);
+  const [demoForm, setDemoForm] = useState({ title: "", description: "", association: "general" });
+  const [showDemoForm, setShowDemoForm] = useState(false);
+
+  const [witnessAiId, setWitnessAiId] = useState(null);
+  const [witnessAiLoading, setWitnessAiLoading] = useState(false);
+  const [witnessAiResult, setWitnessAiResult] = useState("");
+
+  const [jiAiLoading, setJiAiLoading] = useState(false);
+  const [jiAiResult, setJiAiResult] = useState("");
+
+  const [docViewerId, setDocViewerId] = useState(null);
+  const [docViewerUrl, setDocViewerUrl] = useState(null);
+  const [docSummaries, setDocSummaries] = useState({});
+  const [docSummaryLoading, setDocSummaryLoading] = useState(null);
+
+  const speechSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  const speechRecRef = useRef(null);
+  const [isListening, setIsListening] = useState(false);
 
   const [activeAgent, setActiveAgent] = useState(null);
   const [aiInput, setAiInput] = useState("");
@@ -184,7 +207,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       if (tab === "Motions") { const d = await apiGetTrialMotions(sid); setMotions(d || []); }
       if (tab === "Outlines") { const d = await apiGetTrialOutlines(sid); setOutlines(d || []); }
       if (tab === "Jury Instructions") { const d = await apiGetTrialJuryInstructions(sid); setJuryInstructions(d || []); }
-      if (tab === "Timeline") { const d = await apiGetTrialTimelineEvents(sid); setTimelineEvents((d || []).sort((a, b) => (a.event_date || "").localeCompare(b.event_date || ""))); }
+      if (tab === "Demonstratives") { const d = await apiGetTrialTimelineEvents(sid); setTimelineEvents((d || []).sort((a, b) => (a.event_date || "").localeCompare(b.event_date || ""))); }
       if (tab === "Quick Docs") { const d = await apiGetTrialPinnedDocs(sid); setPinnedDocs(d || []); }
       if (tab === "Trial Log") { const d = await apiGetTrialLogEntries(sid); setLogEntries(d || []); }
     } catch {}
@@ -222,11 +245,22 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     try {
       if (editExhibit) {
         await apiUpdateTrialExhibit(editExhibit.id, eForm);
+      } else if (exhibitFile) {
+        const fd = new FormData();
+        fd.append("file", exhibitFile);
+        fd.append("sessionId", session.id);
+        fd.append("exhibit_number", eForm.exhibit_number);
+        fd.append("description", eForm.description);
+        fd.append("type", eForm.type);
+        fd.append("status", eForm.status);
+        fd.append("notes", eForm.notes);
+        await apiUploadTrialExhibit(fd);
       } else {
         await apiCreateTrialExhibit({ sessionId: session.id, ...eForm });
       }
       setShowExhibitForm(false);
       setEditExhibit(null);
+      setExhibitFile(null);
       setEForm({ exhibit_number: "", description: "", type: "physical", status: "pending", notes: "" });
       await refreshTab("Exhibits");
     } catch (err) { console.error(err); }
@@ -288,7 +322,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       setShowEventForm(false);
       setEditEvent(null);
       setTForm({ event_date: "", title: "", description: "" });
-      await refreshTab("Timeline");
+      await refreshTab("Demonstratives");
     } catch (err) { console.error(err); }
   };
 
@@ -332,6 +366,137 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       URL.revokeObjectURL(url);
     } catch (err) { console.error(err); }
   };
+
+  const handleDemoUpload = async () => {
+    if (!session) return;
+    try {
+      const fd = new FormData();
+      if (demoFile) fd.append("file", demoFile);
+      fd.append("sessionId", session.id);
+      fd.append("title", demoForm.title);
+      fd.append("description", demoForm.description);
+      fd.append("association", demoForm.association);
+      await apiUploadDemonstrative(fd);
+      setShowDemoForm(false);
+      setDemoFile(null);
+      setDemoForm({ title: "", description: "", association: "general" });
+      await refreshTab("Demonstratives");
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDemoDownload = async (item) => {
+    try {
+      const blob = await apiDownloadDemonstrative(item.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = item.file_name || "file";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) { console.error(err); }
+  };
+
+  const runWitnessAi = async (w) => {
+    setWitnessAiId(w.id);
+    setWitnessAiLoading(true);
+    setWitnessAiResult("");
+    try {
+      const res = await apiTrialAiWitnessPrep({
+        sessionId: session.id,
+        witnessName: w.name || "",
+        witnessType: w.type || "",
+        expectedTestimony: w.expected_testimony || "",
+        impeachmentNotes: w.impeachment_notes || "",
+      });
+      setWitnessAiResult(res?.result || "No result returned.");
+    } catch (err) {
+      setWitnessAiResult("Error: " + (err.message || "AI request failed"));
+    }
+    setWitnessAiLoading(false);
+  };
+
+  const runJiAi = async () => {
+    setJiAiLoading(true);
+    setJiAiResult("");
+    try {
+      const res = await apiTrialAiJuryInstructions({
+        sessionId: session.id,
+        charges: chargesStr || "",
+        defenseTheory: "",
+      });
+      setJiAiResult(res?.result || "No result returned.");
+    } catch (err) {
+      setJiAiResult("Error: " + (err.message || "AI request failed"));
+    }
+    setJiAiLoading(false);
+  };
+
+  const openDocViewer = async (pd) => {
+    if (!pd.case_document_id) return;
+    setDocViewerId(pd.id);
+    try {
+      const blob = await apiDownloadDocument(pd.case_document_id);
+      const url = URL.createObjectURL(blob);
+      setDocViewerUrl(url);
+    } catch (err) {
+      console.error(err);
+      setDocViewerId(null);
+    }
+  };
+
+  const closeDocViewer = () => {
+    if (docViewerUrl) URL.revokeObjectURL(docViewerUrl);
+    setDocViewerUrl(null);
+    setDocViewerId(null);
+  };
+
+  const runDocSummary = async (pd) => {
+    if (!pd.case_document_id) return;
+    if (pd.document_summary) {
+      setDocSummaries(prev => ({ ...prev, [pd.id]: pd.document_summary }));
+      return;
+    }
+    setDocSummaryLoading(pd.id);
+    try {
+      const res = await apiSummarizeDocument(pd.case_document_id);
+      setDocSummaries(prev => ({ ...prev, [pd.id]: res?.summary || "No summary available." }));
+    } catch (err) {
+      setDocSummaries(prev => ({ ...prev, [pd.id]: "Error: " + (err.message || "Summary failed") }));
+    }
+    setDocSummaryLoading(null);
+  };
+
+  const toggleSpeech = () => {
+    if (isListening) {
+      if (speechRecRef.current) speechRecRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = "en-US";
+    rec.onresult = (e) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) transcript += e.results[i][0].transcript;
+      }
+      if (transcript) {
+        setLForm(p => ({ ...p, content: p.content + (p.content && !p.content.endsWith(" ") ? " " : "") + transcript }));
+      }
+    };
+    rec.onerror = () => setIsListening(false);
+    rec.onend = () => setIsListening(false);
+    speechRecRef.current = rec;
+    rec.start();
+    setIsListening(true);
+  };
+
+  useEffect(() => {
+    return () => { if (speechRecRef.current) speechRecRef.current.stop(); };
+  }, []);
 
   const runAiAgent = async () => {
     if (!session || !activeAgent) return;
@@ -456,7 +621,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     } catch (err) { console.error(err); }
   };
 
-  const categoryColors = { ruling: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300", objection: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300", testimony: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", note: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300", followup: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" };
+  const categoryColors = { ruling: "bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800/50", objection: "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50", testimony: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50", note: "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600", followup: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50" };
 
   return (
     <>
@@ -471,7 +636,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
         <div className="relative flex-1 max-w-md" ref={dropdownRef}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <input
-            className={INPUT_CLS + " pl-9"}
+            className={INPUT_CLS + " pl-10"}
             placeholder="Search cases..."
             value={caseSearch}
             onChange={e => { setCaseSearch(e.target.value); setShowDropdown(true); }}
@@ -528,7 +693,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{c.title || c.case_num}</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{c.case_num}</p>
               </div>
-              {c.status && <span className={BADGE_CLS + " bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"}>{c.status}</span>}
+              {c.status && <span className={BADGE_CLS + " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50"}>{c.status}</span>}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
@@ -604,23 +769,41 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                 )}
                 <div className="space-y-2">
                   {witnesses.map((w, idx) => (
-                    <div key={w.id} className={CARD_CLS + " p-3 flex items-center gap-3"}>
+                    <React.Fragment key={w.id}>
+                    <div className={CARD_CLS + " p-3 flex items-center gap-3"}>
                       <span className="text-sm font-mono text-slate-400 w-6 text-center">{w.call_order || idx + 1}</span>
                       <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{w.name}</span>
-                          <span className={BADGE_CLS + (w.type === "prosecution" ? " bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : " bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300")}>{w.type}</span>
-                          <span className={BADGE_CLS + (w.status === "called" ? " bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30" : w.status === "excused" ? " bg-slate-100 text-slate-600 dark:bg-slate-700" : " bg-amber-100 text-amber-700 dark:bg-amber-900/30")}>{w.status}</span>
+                          <span className={BADGE_CLS + (w.type === "prosecution" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50")}>{w.type}</span>
+                          <span className={BADGE_CLS + (w.status === "called" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : w.status === "excused" ? " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{w.status}</span>
                         </div>
                         {w.expected_testimony && <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{w.expected_testimony}</p>}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => runWitnessAi(w)} className="px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 flex items-center gap-1" title="Witness Prep AI"><Sparkles size={10} /> Prep</button>
                         <button onClick={() => handleWitnessReorder(idx, -1)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronUp size={14} /></button>
                         <button onClick={() => handleWitnessReorder(idx, 1)} className="p-1 text-slate-400 hover:text-slate-600"><ChevronDown size={14} /></button>
                         <button onClick={() => openEditWitness(w)} className="p-1 text-slate-400 hover:text-slate-600"><Pencil size={14} /></button>
                         <button onClick={async () => { await apiDeleteTrialWitness(w.id); refreshTab("Witnesses"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                       </div>
                     </div>
+                    {witnessAiId === w.id && (
+                      <div className="ml-9 mb-2">
+                        {witnessAiLoading ? (
+                          <div className="flex items-center gap-2 text-sm text-slate-500 py-3"><Loader2 size={14} className="animate-spin" /> Generating witness prep...</div>
+                        ) : witnessAiResult && (
+                          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap text-sm text-slate-900 dark:text-slate-100 max-h-[400px] overflow-y-auto">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1"><Sparkles size={10} /> Witness Prep AI</span>
+                              <button onClick={() => { setWitnessAiId(null); setWitnessAiResult(""); }} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                            </div>
+                            {witnessAiResult}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    </React.Fragment>
                   ))}
                   {witnesses.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No witnesses added yet.</p>}
                 </div>
@@ -642,9 +825,21 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     </div>
                     <div><label className={LABEL_CLS}>Description</label><input className={INPUT_CLS} value={eForm.description} onChange={e => setEForm({ ...eForm, description: e.target.value })} /></div>
                     <div><label className={LABEL_CLS}>Notes</label><textarea className={INPUT_CLS + " h-20"} value={eForm.notes} onChange={e => setEForm({ ...eForm, notes: e.target.value })} /></div>
+                    {!editExhibit && (
+                      <div>
+                        <label className={LABEL_CLS}>Attach Document</label>
+                        <div className="flex items-center gap-2">
+                          <label className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center gap-1.5">
+                            <Upload size={12} /> Choose File
+                            <input type="file" className="hidden" onChange={e => setExhibitFile(e.target.files?.[0] || null)} />
+                          </label>
+                          {exhibitFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{exhibitFile.name}</span>}
+                        </div>
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <button onClick={handleExhibitSave} className={BTN_CLS}>{editExhibit ? "Update" : "Save"}</button>
-                      <button onClick={() => { setShowExhibitForm(false); setEditExhibit(null); }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
+                      <button onClick={() => { setShowExhibitForm(false); setEditExhibit(null); setExhibitFile(null); }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
                     </div>
                   </div>
                 )}
@@ -656,6 +851,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Description</th>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Type</th>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Document</th>
                         <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Actions</th>
                       </tr>
                     </thead>
@@ -664,8 +860,13 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                         <tr key={ex.id} className="border-b border-slate-100 dark:border-slate-700 last:border-b-0">
                           <td className="px-4 py-2.5 font-mono text-slate-900 dark:text-slate-100">{ex.exhibit_number}</td>
                           <td className="px-4 py-2.5 text-slate-900 dark:text-slate-100">{ex.description}</td>
-                          <td className="px-4 py-2.5"><span className={BADGE_CLS + " bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300"}>{ex.type}</span></td>
-                          <td className="px-4 py-2.5"><span className={BADGE_CLS + (ex.status === "admitted" ? " bg-emerald-100 text-emerald-700" : ex.status === "objected" ? " bg-red-100 text-red-700" : ex.status === "excluded" ? " bg-slate-100 text-slate-600" : " bg-amber-100 text-amber-700")}>{ex.status}</span></td>
+                          <td className="px-4 py-2.5"><span className={BADGE_CLS + " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600"}>{ex.type}</span></td>
+                          <td className="px-4 py-2.5"><span className={BADGE_CLS + (ex.status === "admitted" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : ex.status === "objected" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : ex.status === "excluded" ? " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{ex.status}</span></td>
+                          <td className="px-4 py-2.5">
+                            {ex.linked_document_id ? (
+                              <button onClick={() => handleDownloadDoc(ex.linked_document_id)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"><Download size={12} /> {ex.document_name || "Download"}</button>
+                            ) : <span className="text-xs text-slate-400">&mdash;</span>}
+                          </td>
                           <td className="px-4 py-2.5 text-right">
                             <button onClick={() => openEditExhibit(ex)} className="p-1 text-slate-400 hover:text-slate-600"><Pencil size={14} /></button>
                             <button onClick={async () => { await apiDeleteTrialExhibit(ex.id); refreshTab("Exhibits"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
@@ -723,8 +924,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       </div>
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{j.name}</p>
                       {j.notes && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{j.notes}</p>}
-                      {j.strike_type && j.strike_type !== "none" && <span className={BADGE_CLS + " mt-1 inline-block " + (j.strike_type === "peremptory" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700")}>{j.strike_type} strike</span>}
-                      {j.is_selected && <span className={BADGE_CLS + " mt-1 inline-block bg-emerald-100 text-emerald-700"}>Selected</span>}
+                      {j.strike_type && j.strike_type !== "none" && <span className={BADGE_CLS + " mt-1 inline-block " + (j.strike_type === "peremptory" ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{j.strike_type} strike</span>}
+                      {j.is_selected && <span className={BADGE_CLS + " mt-1 inline-block bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50"}>Selected</span>}
                     </div>
                   ))}
                 </div>
@@ -759,8 +960,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{m.title}</span>
-                          <span className={BADGE_CLS + (m.type === "defense" ? " bg-blue-100 text-blue-700" : " bg-red-100 text-red-700")}>{m.type}</span>
-                          <span className={BADGE_CLS + (m.status === "granted" ? " bg-emerald-100 text-emerald-700" : m.status === "denied" ? " bg-red-100 text-red-700" : " bg-amber-100 text-amber-700")}>{m.status}</span>
+                          <span className={BADGE_CLS + (m.type === "defense" ? " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50" : " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50")}>{m.type}</span>
+                          <span className={BADGE_CLS + (m.status === "granted" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : m.status === "denied" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{m.status}</span>
                         </div>
                         {m.ruling_summary && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{m.ruling_summary}</p>}
                       </div>
@@ -819,8 +1020,20 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Jury Instructions ({juryInstructions.length})</h3>
-                  <button onClick={() => { setEditInstruction(null); setIForm({ instruction_text: "", status: "requested", objection_notes: "", source: "" }); setShowInstructionForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Instruction</button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={runJiAi} disabled={jiAiLoading} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 flex items-center gap-1">{jiAiLoading ? <><Loader2 size={10} className="animate-spin" /> Suggesting...</> : <><Sparkles size={10} /> Suggest Instructions</>}</button>
+                    <button onClick={() => { setEditInstruction(null); setIForm({ instruction_text: "", status: "requested", objection_notes: "", source: "" }); setShowInstructionForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Instruction</button>
+                  </div>
                 </div>
+                {jiAiResult && (
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap text-sm text-slate-900 dark:text-slate-100 max-h-[400px] overflow-y-auto">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1"><Sparkles size={10} /> AI Suggested Instructions</span>
+                      <button onClick={() => setJiAiResult("")} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                    </div>
+                    {jiAiResult}
+                  </div>
+                )}
                 {showInstructionForm && (
                   <div className={CARD_CLS + " p-4 space-y-3"}>
                     <div><label className={LABEL_CLS}>Instruction Text</label><textarea className={INPUT_CLS + " h-24"} value={iForm.instruction_text} onChange={e => setIForm({ ...iForm, instruction_text: e.target.value })} /></div>
@@ -840,7 +1053,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     <div key={inst.id} className={CARD_CLS + " p-3 flex items-center gap-3"}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className={BADGE_CLS + (inst.status === "given" ? " bg-emerald-100 text-emerald-700" : inst.status === "refused" ? " bg-red-100 text-red-700" : " bg-blue-100 text-blue-700")}>{inst.status}</span>
+                          <span className={BADGE_CLS + (inst.status === "given" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : inst.status === "refused" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50")}>{inst.status}</span>
                           {inst.source && <span className="text-xs text-slate-400">{inst.source}</span>}
                         </div>
                         <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{inst.instruction_text}</p>
@@ -856,51 +1069,65 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               </div>
             )}
 
-            {activeTab === "Timeline" && (
+            {activeTab === "Demonstratives" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Trial Timeline</h3>
-                  <button onClick={() => { setEditEvent(null); setTForm({ event_date: "", title: "", description: "" }); setShowEventForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Event</button>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Demonstratives ({timelineEvents.length})</h3>
+                  <button onClick={() => { setShowDemoForm(true); setDemoFile(null); setDemoForm({ title: "", description: "", association: "general" }); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Demonstrative</button>
                 </div>
-                {showEventForm && (
+                {showDemoForm && (
                   <div className={CARD_CLS + " p-4 space-y-3"}>
                     <div className="grid grid-cols-2 gap-3">
-                      <div><label className={LABEL_CLS}>Date</label><input type="date" className={INPUT_CLS} value={tForm.event_date} onChange={e => setTForm({ ...tForm, event_date: e.target.value })} /></div>
-                      <div><label className={LABEL_CLS}>Title</label><input className={INPUT_CLS} value={tForm.title} onChange={e => setTForm({ ...tForm, title: e.target.value })} /></div>
+                      <div><label className={LABEL_CLS}>Title</label><input className={INPUT_CLS} value={demoForm.title} onChange={e => setDemoForm({ ...demoForm, title: e.target.value })} /></div>
+                      <div>
+                        <label className={LABEL_CLS}>Association</label>
+                        <select className={INPUT_CLS} value={demoForm.association} onChange={e => setDemoForm({ ...demoForm, association: e.target.value })}>
+                          <option value="general">General</option>
+                          <option value="opening">Opening Statement</option>
+                          <option value="closing">Closing Argument</option>
+                          {witnesses.map(w => <option key={w.id} value={`witness-${w.id}`}>{w.name} (Witness)</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <div><label className={LABEL_CLS}>Description</label><textarea className={INPUT_CLS + " h-20"} value={tForm.description} onChange={e => setTForm({ ...tForm, description: e.target.value })} /></div>
+                    <div><label className={LABEL_CLS}>Description</label><textarea className={INPUT_CLS + " h-20"} value={demoForm.description} onChange={e => setDemoForm({ ...demoForm, description: e.target.value })} /></div>
+                    <div>
+                      <label className={LABEL_CLS}>Upload File</label>
+                      <div className="flex items-center gap-2">
+                        <label className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center gap-1.5">
+                          <Upload size={12} /> Choose File
+                          <input type="file" className="hidden" onChange={e => setDemoFile(e.target.files?.[0] || null)} />
+                        </label>
+                        {demoFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{demoFile.name}</span>}
+                      </div>
+                    </div>
                     <div className="flex gap-2">
-                      <button onClick={handleEventSave} className={BTN_CLS}>{editEvent ? "Update" : "Save"}</button>
-                      <button onClick={() => { setShowEventForm(false); setEditEvent(null); }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
+                      <button onClick={handleDemoUpload} className={BTN_CLS}>Upload</button>
+                      <button onClick={() => { setShowDemoForm(false); setDemoFile(null); }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
                     </div>
                   </div>
                 )}
-                <div className="relative">
-                  {timelineEvents.length > 0 && <div className="absolute left-[72px] top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />}
-                  <div className="space-y-4">
-                    {timelineEvents.map(ev => (
-                      <div key={ev.id} className="flex gap-4 relative">
-                        <div className="w-[60px] text-right flex-shrink-0 pt-0.5">
-                          <span className="text-xs text-slate-500 dark:text-slate-400">{fmtDate(ev.event_date)}</span>
-                        </div>
-                        <div className="w-3 h-3 rounded-full bg-slate-900 dark:bg-slate-100 border-2 border-white dark:border-slate-800 flex-shrink-0 mt-1.5 relative z-10" />
-                        <div className={CARD_CLS + " p-3 flex-1"}>
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{ev.title}</p>
-                              {ev.description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{ev.description}</p>}
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <button onClick={() => openEditEvent(ev)} className="p-1 text-slate-400 hover:text-slate-600"><Pencil size={12} /></button>
-                              <button onClick={async () => { await apiDeleteTrialTimelineEvent(ev.id); refreshTab("Timeline"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={12} /></button>
-                            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {timelineEvents.map(ev => {
+                    const assocLabel = ev.association === "opening" ? "Opening Statement" : ev.association === "closing" ? "Closing Argument" : ev.association === "general" ? "General" : ev.association?.startsWith("witness-") ? (witnesses.find(w => String(w.id) === ev.association.split("-")[1])?.name || "Witness") : "General";
+                    return (
+                      <div key={ev.id} className={CARD_CLS + " p-4"}>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{ev.title}</p>
+                            <span className={BADGE_CLS + " bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50 mt-1 inline-block"}>{assocLabel}</span>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            {ev.file_name && <button onClick={() => handleDemoDownload(ev)} className="p-1 text-slate-400 hover:text-slate-600" title="Download"><Download size={14} /></button>}
+                            <button onClick={async () => { await apiDeleteTrialTimelineEvent(ev.id); refreshTab("Demonstratives"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                           </div>
                         </div>
+                        {ev.description && <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{ev.description}</p>}
+                        {ev.file_name && <p className="text-xs text-slate-400 flex items-center gap-1"><FileText size={10} /> {ev.file_name}</p>}
                       </div>
-                    ))}
-                  </div>
-                  {timelineEvents.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No timeline events yet.</p>}
+                    );
+                  })}
                 </div>
+                {timelineEvents.length === 0 && !showDemoForm && <p className="text-sm text-slate-400 text-center py-8">No demonstratives uploaded yet.</p>}
               </div>
             )}
 
@@ -926,18 +1153,36 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     </div>
                   </div>
                 )}
+                {docViewerId && docViewerUrl && (
+                  <div className={CARD_CLS + " p-4"}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">Document Viewer</h4>
+                      <button onClick={closeDocViewer} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                    </div>
+                    <iframe src={docViewerUrl} className="w-full h-[500px] rounded-lg border border-slate-200 dark:border-slate-700" title="Document Viewer" />
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {pinnedDocs.map(pd => (
                     <div key={pd.id} className={CARD_CLS + " p-4"}>
                       <div className="flex items-start justify-between">
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{pd.label || pd.document_name || "Document"}</p>
+                          {pd.file_type && <p className="text-xs text-slate-400 mt-0.5">{pd.file_type}</p>}
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
-                          {pd.case_document_id && <button onClick={() => handleDownloadDoc(pd.case_document_id)} className="p-1 text-slate-400 hover:text-slate-600"><Download size={14} /></button>}
+                          {pd.case_document_id && <button onClick={() => openDocViewer(pd)} className="p-1 text-indigo-500 hover:text-indigo-700" title="View"><Eye size={14} /></button>}
+                          {pd.case_document_id && <button onClick={() => runDocSummary(pd)} className="p-1 text-amber-500 hover:text-amber-700" title="AI Summary">{docSummaryLoading === pd.id ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}</button>}
+                          {pd.case_document_id && <button onClick={() => handleDownloadDoc(pd.case_document_id)} className="p-1 text-slate-400 hover:text-slate-600" title="Download"><Download size={14} /></button>}
                           <button onClick={async () => { await apiDeleteTrialPinnedDoc(pd.id); refreshTab("Quick Docs"); }} className="p-1 text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                         </div>
                       </div>
+                      {(docSummaries[pd.id] || pd.document_summary) && (
+                        <div className="mt-3 bg-amber-50/50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/50">
+                          <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1"><Sparkles size={10} /> AI Summary</p>
+                          <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap max-h-[200px] overflow-y-auto">{docSummaries[pd.id] || pd.document_summary}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -961,10 +1206,21 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                 {showLogForm && (
                   <div className={CARD_CLS + " p-4 space-y-3"}>
                     <div><label className={LABEL_CLS}>Category</label><select className={INPUT_CLS} value={lForm.category} onChange={e => setLForm({ ...lForm, category: e.target.value })}><option value="ruling">Ruling</option><option value="objection">Objection</option><option value="testimony">Testimony</option><option value="note">Note</option><option value="followup">Follow-up</option></select></div>
-                    <div><label className={LABEL_CLS}>Content</label><textarea className={INPUT_CLS + " h-24"} value={lForm.content} onChange={e => setLForm({ ...lForm, content: e.target.value })} /></div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className={LABEL_CLS + " !mb-0"}>Content</label>
+                        {speechSupported && (
+                          <button onClick={toggleSpeech} className={`px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1 ${isListening ? "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600"}`}>
+                            <Mic size={10} className={isListening ? "animate-pulse" : ""} />
+                            {isListening ? "Listening..." : "Dictate"}
+                          </button>
+                        )}
+                      </div>
+                      <textarea className={INPUT_CLS + " h-24"} value={lForm.content} onChange={e => setLForm({ ...lForm, content: e.target.value })} />
+                    </div>
                     <div className="flex gap-2">
                       <button onClick={handleLogSave} className={BTN_CLS}>Save</button>
-                      <button onClick={() => setShowLogForm(false)} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
+                      <button onClick={() => { setShowLogForm(false); if (isListening && speechRecRef.current) { speechRecRef.current.stop(); setIsListening(false); } }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
                     </div>
                   </div>
                 )}

@@ -1,7 +1,9 @@
 const express = require("express");
 const pool = require("../db");
+const multer = require("multer");
 const { requireAuth } = require("../middleware/auth");
 
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 const router = express.Router();
 
 async function verifyCaseAccess(caseId, req) {
@@ -160,6 +162,27 @@ buildCrud("exhibits", "trial_exhibits", [
   "exhibit_number", "description", "type", "status", "linked_document_id", "notes"
 ]);
 
+router.get("/exhibits-full/:sessionId", requireAuth, async (req, res) => {
+  try {
+    const sess = await pool.query("SELECT case_id FROM trial_sessions WHERE id = $1", [req.params.sessionId]);
+    if (!sess.rows.length) return res.status(404).json({ error: "Session not found" });
+    const caseRow = await verifyCaseAccess(sess.rows[0].case_id, req);
+    if (!caseRow) return res.status(403).json({ error: "Access denied" });
+    const { rows } = await pool.query(
+      `SELECT e.*, d.filename AS document_name, d.content_type AS file_content_type
+       FROM trial_exhibits e
+       LEFT JOIN case_documents d ON d.id = e.linked_document_id
+       WHERE e.trial_session_id = $1
+       ORDER BY e.created_at ASC`,
+      [req.params.sessionId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("Get exhibits-full error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 buildCrud("jurors", "trial_jurors", [
   "seat_number", "name", "notes", "strike_type", "is_selected", "demographics"
 ]);
@@ -177,8 +200,79 @@ buildCrud("jury-instructions", "trial_jury_instructions", [
 ]);
 
 buildCrud("timeline-events", "trial_timeline_events", [
-  "event_date", "title", "description", "sort_order"
+  "event_date", "title", "description", "sort_order", "association"
 ]);
+
+router.post("/demonstratives/upload", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    const { sessionId, title, description, association } = req.body;
+    if (!sessionId) return res.status(400).json({ error: "sessionId required" });
+    const sess = await pool.query("SELECT case_id FROM trial_sessions WHERE id = $1", [sessionId]);
+    if (!sess.rows.length) return res.status(404).json({ error: "Session not found" });
+    const caseRow = await verifyCaseAccess(sess.rows[0].case_id, req);
+    if (!caseRow) return res.status(403).json({ error: "Access denied" });
+    const file = req.file;
+    const { rows } = await pool.query(
+      `INSERT INTO trial_timeline_events (trial_session_id, title, description, association, file_data, file_name, file_type, file_size)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, trial_session_id, title, description, association, file_name, file_type, file_size, event_date, sort_order, created_at`,
+      [sessionId, title || "", description || "", association || "general",
+       file ? file.buffer : null, file ? file.originalname : "", file ? file.mimetype : "", file ? file.size : 0]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error("Demonstrative upload error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/demonstratives/:id/download", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM trial_timeline_events WHERE id = $1", [req.params.id]);
+    if (!rows.length || !rows[0].file_data) return res.status(404).json({ error: "File not found" });
+    const sess = await pool.query("SELECT case_id FROM trial_sessions WHERE id = $1", [rows[0].trial_session_id]);
+    if (!sess.rows.length) return res.status(404).json({ error: "Session not found" });
+    const caseRow = await verifyCaseAccess(sess.rows[0].case_id, req);
+    if (!caseRow) return res.status(403).json({ error: "Access denied" });
+    res.setHeader("Content-Type", rows[0].file_type || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(rows[0].file_name)}"`);
+    res.send(rows[0].file_data);
+  } catch (err) {
+    console.error("Demonstrative download error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/exhibits/upload", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    const { sessionId, exhibit_number, description, type, status, notes } = req.body;
+    if (!sessionId) return res.status(400).json({ error: "sessionId required" });
+    const sess = await pool.query("SELECT case_id FROM trial_sessions WHERE id = $1", [sessionId]);
+    if (!sess.rows.length) return res.status(404).json({ error: "Session not found" });
+    const caseRow = await verifyCaseAccess(sess.rows[0].case_id, req);
+    if (!caseRow) return res.status(403).json({ error: "Access denied" });
+    let linkedDocId = null;
+    let docName = "";
+    if (req.file) {
+      const docResult = await pool.query(
+        `INSERT INTO case_documents (case_id, filename, content_type, file_size, file_data, uploaded_by, uploaded_by_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, filename`,
+        [sess.rows[0].case_id, req.file.originalname, req.file.mimetype, req.file.size, req.file.buffer, req.session.userId, req.session.userName || ""]
+      );
+      linkedDocId = docResult.rows[0].id;
+      docName = docResult.rows[0].filename;
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO trial_exhibits (trial_session_id, exhibit_number, description, type, status, notes, linked_document_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [sessionId, exhibit_number || "", description || "", type || "physical", status || "pending", notes || "", linkedDocId]
+    );
+    rows[0].document_name = docName;
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error("Exhibit upload error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 buildCrud("pinned-docs", "trial_pinned_docs", [
   "case_document_id", "label", "sort_order"
@@ -191,7 +285,7 @@ router.get("/pinned-docs-full/:sessionId", requireAuth, async (req, res) => {
     const caseRow = await verifyCaseAccess(sess.rows[0].case_id, req);
     if (!caseRow) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      `SELECT p.*, d.filename AS document_name, d.content_type AS file_type
+      `SELECT p.*, d.filename AS document_name, d.content_type AS file_type, d.summary AS document_summary, d.file_size AS document_size
        FROM trial_pinned_docs p
        LEFT JOIN case_documents d ON d.id = p.case_document_id
        WHERE p.trial_session_id = $1

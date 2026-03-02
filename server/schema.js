@@ -727,6 +727,12 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`ALTER TABLE trial_timeline_events ADD COLUMN IF NOT EXISTS file_data BYTEA`);
+    await client.query(`ALTER TABLE trial_timeline_events ADD COLUMN IF NOT EXISTS file_name TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE trial_timeline_events ADD COLUMN IF NOT EXISTS file_type TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE trial_timeline_events ADD COLUMN IF NOT EXISTS file_size INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE trial_timeline_events ADD COLUMN IF NOT EXISTS association TEXT DEFAULT 'general'`);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

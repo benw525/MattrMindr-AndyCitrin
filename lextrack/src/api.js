@@ -378,10 +378,15 @@ export const apiUpdateTrialWitness = (id, data) => apiFetch(`/api/trial-center/w
 export const apiDeleteTrialWitness = (id) => apiFetch(`/api/trial-center/witnesses/${id}`, { method: "DELETE" });
 export const apiReorderTrialWitnesses = (sessionId, order) => apiFetch(`/api/trial-center/witnesses/reorder/${sessionId}`, { method: "PUT", body: { order } });
 
-export const apiGetTrialExhibits = (sessionId) => apiFetch(`/api/trial-center/exhibits/${sessionId}`);
+export const apiGetTrialExhibits = (sessionId) => apiFetch(`/api/trial-center/exhibits-full/${sessionId}`);
 export const apiCreateTrialExhibit = (data) => apiFetch("/api/trial-center/exhibits", { method: "POST", body: data });
 export const apiUpdateTrialExhibit = (id, data) => apiFetch(`/api/trial-center/exhibits/${id}`, { method: "PUT", body: data });
 export const apiDeleteTrialExhibit = (id) => apiFetch(`/api/trial-center/exhibits/${id}`, { method: "DELETE" });
+export async function apiUploadTrialExhibit(formData) {
+  const res = await fetch("/api/trial-center/exhibits/upload", { method: "POST", credentials: "include", body: formData });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
 
 export const apiGetTrialJurors = (sessionId) => apiFetch(`/api/trial-center/jurors/${sessionId}`);
 export const apiCreateTrialJuror = (data) => apiFetch("/api/trial-center/jurors", { method: "POST", body: data });
@@ -407,6 +412,16 @@ export const apiGetTrialTimelineEvents = (sessionId) => apiFetch(`/api/trial-cen
 export const apiCreateTrialTimelineEvent = (data) => apiFetch("/api/trial-center/timeline-events", { method: "POST", body: data });
 export const apiUpdateTrialTimelineEvent = (id, data) => apiFetch(`/api/trial-center/timeline-events/${id}`, { method: "PUT", body: data });
 export const apiDeleteTrialTimelineEvent = (id) => apiFetch(`/api/trial-center/timeline-events/${id}`, { method: "DELETE" });
+export async function apiUploadDemonstrative(formData) {
+  const res = await fetch("/api/trial-center/demonstratives/upload", { method: "POST", credentials: "include", body: formData });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
+export async function apiDownloadDemonstrative(id) {
+  const res = await fetch(`/api/trial-center/demonstratives/${id}/download`, { credentials: "include" });
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  return res.blob();
+}
 
 export const apiGetTrialPinnedDocs = (sessionId) => apiFetch(`/api/trial-center/pinned-docs-full/${sessionId}`);
 export const apiCreateTrialPinnedDoc = (data) => apiFetch("/api/trial-center/pinned-docs", { method: "POST", body: data });
