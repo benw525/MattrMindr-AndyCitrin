@@ -1,7 +1,7 @@
 modules = ["nodejs-20", "python-3.11", "postgresql-16"]
 [nix]
 channel = "stable-25_05"
-packages = ["poppler", "unzip"]
+packages = ["poppler", "unzip", "ffmpeg"]
 
 [agent]
 expertMode = true
