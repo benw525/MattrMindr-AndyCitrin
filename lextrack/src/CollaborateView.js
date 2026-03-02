@@ -37,7 +37,7 @@ function dateLabel(dateStr) {
 function Avatar({ name, avatar, initials, size = 32 }) {
   return (
     <div style={{
-      width: size, height: size, borderRadius: "50%", background: avatar || "#4C7AC9",
+      width: size, height: size, borderRadius: "50%", background: avatar || "#334155",
       display: "flex", alignItems: "center", justifyContent: "center",
       color: "#fff", fontSize: size * 0.38, fontWeight: 700, flexShrink: 0, letterSpacing: 0.5,
     }}>
@@ -60,7 +60,7 @@ function renderBody(body, allUsers) {
   if (matches.length === 0) return body;
   for (const mt of matches) {
     if (mt.start > lastIdx) parts.push(<span key={key++}>{body.substring(lastIdx, mt.start)}</span>);
-    parts.push(<span key={key++} style={{ background: "rgba(99,102,241,0.15)", color: "#6366f1", borderRadius: 4, padding: "1px 4px", fontWeight: 600 }}>@{mt.name}</span>);
+    parts.push(<span key={key++} style={{ background: "rgba(79,70,229,0.12)", color: "#4f46e5", borderRadius: 4, padding: "1px 4px", fontWeight: 600 }}>@{mt.name}</span>);
     lastIdx = mt.end;
   }
   if (lastIdx < body.length) parts.push(<span key={key++}>{body.substring(lastIdx)}</span>);
@@ -324,7 +324,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
               value={searchQuery}
               onChange={e => handleSearch(e.target.value)}
               placeholder="Search messages..."
-              style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid var(--c-border, #e2e8f0)", background: "var(--c-bg2, #f8fafc)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
             />
           </div>
 
@@ -332,7 +332,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
             <div style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
               <div style={{ padding: "4px 8px", fontSize: 11, color: "var(--c-text3)", fontWeight: 600 }}>
                 {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}
-                <button onClick={() => { setSearchQuery(""); setSearchResults(null); }} style={{ float: "right", background: "transparent", border: "none", color: "var(--c-accent, #f59e0b)", fontSize: 11, cursor: "pointer" }}>Clear</button>
+                <button onClick={() => { setSearchQuery(""); setSearchResults(null); }} style={{ float: "right", background: "transparent", border: "none", color: "#4f46e5", fontSize: 11, cursor: "pointer" }}>Clear</button>
               </div>
               {searchResults.map(r => (
                 <div key={r.id} onClick={() => openChannel(r.channelId)} style={{ padding: "8px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 2, border: "1px solid transparent" }}
@@ -353,8 +353,8 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                 {[{ id: "cases", label: "Cases" }, { id: "groups", label: "Groups" }, { id: "private", label: "Private" }].map(t => (
                   <button key={t.id} onClick={() => setTab(t.id)} style={{
                     flex: 1, padding: "8px 0", fontSize: 12, fontWeight: tab === t.id ? 700 : 500,
-                    color: tab === t.id ? "var(--c-accent, #f59e0b)" : "var(--c-text3)",
-                    background: "transparent", border: "none", borderBottom: tab === t.id ? "2px solid var(--c-accent, #f59e0b)" : "2px solid transparent",
+                    color: tab === t.id ? "var(--c-text-h, #0f172a)" : "var(--c-text3)",
+                    background: "transparent", border: "none", borderBottom: tab === t.id ? "2px solid var(--c-text-h, #0f172a)" : "2px solid transparent",
                     cursor: "pointer", transition: "all 0.15s",
                   }}>{t.label}</button>
                 ))}
@@ -378,7 +378,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                         }}
                           onMouseEnter={e => { if (!(activeChannel && ch && ch.id === activeChannel)) e.currentTarget.style.background = "var(--c-bg2)"; }}
                           onMouseLeave={e => { if (!(activeChannel && ch && ch.id === activeChannel)) e.currentTarget.style.background = "transparent"; }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontSize: 14, flexShrink: 0, position: "relative" }}>⚖️{pinnedIds.includes(c.id) && <span style={{ position: "absolute", top: -4, right: -4 }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>}</div>
+                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontSize: 14, flexShrink: 0, position: "relative" }}>⚖️{pinnedIds.includes(c.id) && <span style={{ position: "absolute", top: -4, right: -4 }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.case_num || c.title}</div>
                             <div style={{ fontSize: 11, color: "var(--c-text3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.defendant_name || ""}</div>
@@ -386,7 +386,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                             {ch?.lastMessageAt && <div style={{ fontSize: 10, color: "var(--c-text3)" }}>{formatTime(ch.lastMessageAt)}</div>}
-                            {unread > 0 && <div style={{ background: "#e05252", color: "#fff", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "1px 6px", minWidth: 16, textAlign: "center" }}>{unread}</div>}
+                            {unread > 0 && <div style={{ background: "#ef4444", color: "#fff", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "1px 6px", minWidth: 16, textAlign: "center" }}>{unread}</div>}
                           </div>
                         </div>
                       );
@@ -397,7 +397,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                 {tab === "groups" && (
                   <div>
                     <div style={{ padding: "8px 12px" }}>
-                      <button onClick={() => { setShowNewGroup(true); setNewGroupSearch(""); setNewGroupDropdown(false); setNewGroupName(""); setNewGroupDesc(""); setNewGroupMembers([]); }} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px dashed var(--c-border)", background: "transparent", color: "var(--c-accent, #f59e0b)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ New Group</button>
+                      <button onClick={() => { setShowNewGroup(true); setNewGroupSearch(""); setNewGroupDropdown(false); setNewGroupName(""); setNewGroupDesc(""); setNewGroupMembers([]); }} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px dashed var(--c-border)", background: "transparent", color: "#4f46e5", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ New Group</button>
                     </div>
                     {groupChannels.map(ch => (
                       <div key={ch.id} onClick={() => openChannel(ch.id)} style={{
@@ -429,7 +429,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                 {tab === "private" && (
                   <div>
                     <div style={{ padding: "8px 12px" }}>
-                      <button onClick={() => setShowNewPrivate(true)} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px dashed var(--c-border)", background: "transparent", color: "var(--c-accent, #f59e0b)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ New Message</button>
+                      <button onClick={() => setShowNewPrivate(true)} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px dashed var(--c-border)", background: "transparent", color: "#4f46e5", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ New Message</button>
                     </div>
                     {privateChannels.map(ch => (
                       <div key={ch.id} onClick={() => openChannel(ch.id)} style={{
@@ -505,7 +505,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                             {msg.attachmentName && msg.attachmentUrl && (
                               <div style={{ marginTop: 6, padding: "6px 10px", background: "var(--c-bg)", borderRadius: 6, border: "1px solid var(--c-border)", display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ fontSize: 16 }}>📎</span>
-                                <a href={msg.attachmentUrl} download={msg.attachmentName} style={{ fontSize: 12, color: "var(--c-accent, #f59e0b)", textDecoration: "none", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.attachmentName}</a>
+                                <a href={msg.attachmentUrl} download={msg.attachmentName} style={{ fontSize: 12, color: "#4f46e5", textDecoration: "none", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.attachmentName}</a>
                               </div>
                             )}
                           </div>
@@ -558,7 +558,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                     style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 16, outline: "none" }}
                   />
                   <button onClick={handleSend} disabled={!msgInput.trim() || sending} style={{
-                    background: msgInput.trim() ? "var(--c-accent, #f59e0b)" : "var(--c-border)",
+                    background: msgInput.trim() ? "#0f172a" : "var(--c-border)",
                     color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13,
                     fontWeight: 600, cursor: msgInput.trim() ? "pointer" : "default", flexShrink: 0,
                     opacity: sending ? 0.6 : 1, position: "relative", zIndex: 3,
@@ -642,7 +642,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button onClick={() => setShowNewGroup(false)} style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid var(--c-border)", background: "transparent", color: "var(--c-text2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-              <button onClick={handleCreateGroup} disabled={!newGroupName.trim()} style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "var(--c-accent, #f59e0b)", color: "#0f172a", fontSize: 12, cursor: "pointer", fontWeight: 600, opacity: newGroupName.trim() ? 1 : 0.5 }}>Create Group</button>
+              <button onClick={handleCreateGroup} disabled={!newGroupName.trim()} style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "#0f172a", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 600, opacity: newGroupName.trim() ? 1 : 0.5 }}>Create Group</button>
             </div>
           </div>
         </div>
@@ -723,7 +723,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
               <button onClick={async () => { await apiDeleteCollabChannel(groupSettings.id); setGroupSettings(null); setActiveChannel(null); loadChannels(); }} style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #e05252", background: "transparent", color: "#e05252", fontSize: 12, cursor: "pointer" }}>Delete Group</button>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setGroupSettings(null)} style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid var(--c-border)", background: "transparent", color: "var(--c-text2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                <button onClick={handleSaveGroupSettings} style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "var(--c-accent, #f59e0b)", color: "#0f172a", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Save</button>
+                <button onClick={handleSaveGroupSettings} style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "#0f172a", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Save</button>
               </div>
             </div>
           </div>

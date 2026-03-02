@@ -411,7 +411,7 @@ label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; tex
 .case-overlay-tabs { flex-shrink: 0; display: flex; gap: 0; border-bottom: 1px solid #e2e8f0; padding: 0 32px; background: #FFFFFF; }
 .case-overlay-tab { padding: 12px 20px; font-size: 13px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; font-family: 'Inter', sans-serif; }
 .case-overlay-tab:hover { color: #334155; }
-.case-overlay-tab.active { color: #0f172a; border-bottom-color: #f59e0b; font-weight: 600; }
+.case-overlay-tab.active { color: #0f172a; border-bottom-color: #1e293b; font-weight: 600; }
 .case-overlay-body { flex: 1; overflow-y: auto; padding: 28px 32px; background: #f8fafc; }
 .case-overlay-body > * { max-width: 1100px; width: 100%; margin-left: auto; margin-right: auto; }
 .case-overlay-section { margin-bottom: 32px; }
@@ -522,7 +522,7 @@ body.dark-body { background: #0E1116; }
 .dark .case-overlay-tabs { background: #161B22; border-bottom-color: #27313D; }
 .dark .case-overlay-tab { color: #94a3b8; }
 .dark .case-overlay-tab:hover { color: #e2e8f0; }
-.dark .case-overlay-tab.active { color: #e2e8f0; border-bottom-color: #f59e0b; }
+.dark .case-overlay-tab.active { color: #e2e8f0; border-bottom-color: #f1f5f9; }
 .dark .case-overlay-section-title { color: #6E7681; }
 .dark .case-overlay-body { background: #020617; }
 .dark .activity-entry { border-bottom-color: #1C2330; }
@@ -697,9 +697,9 @@ body.dark-body { background: #0E1116; }
 .advocate-fab {
   position: fixed; bottom: 80px; right: 24px; z-index: 9998;
   width: 52px; height: 52px; border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  background: #4f46e5;
   border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 12px rgba(99,102,241,0.3);
+  box-shadow: 0 2px 12px rgba(79,70,229,0.3);
   animation: advocate-fab-pulse 2.5s ease-in-out infinite;
   transition: transform 0.2s;
 }
@@ -1873,8 +1873,8 @@ export default function App() {
             const Icon = item.icon;
             const isActive = view === item.id;
             return (
-              <div key={item.id} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer text-[13px] transition-all border-l-[3px] ${isActive ? "text-white bg-slate-800 border-l-amber-400 font-medium" : "text-slate-400 border-l-transparent hover:text-slate-200 hover:bg-slate-800/50"}`} onClick={() => { setView(item.id); setSelectedCase(null); setSidebarOpen(false); }}>
-                <Icon size={17} className={isActive ? "text-amber-400" : ""} />
+              <div key={item.id} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer text-[13px] transition-all border-l-[3px] ${isActive ? "text-white bg-slate-800 border-l-amber-500 font-medium" : "text-slate-400 border-l-transparent hover:text-slate-200 hover:bg-slate-800/50"}`} onClick={() => { setView(item.id); setSelectedCase(null); setSidebarOpen(false); }}>
+                <Icon size={17} className={isActive ? "text-amber-500" : ""} />
                 {item.label}
                 {item.badge && <span className="ml-auto bg-red-500/20 text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}
               </div>
@@ -2005,13 +2005,13 @@ export default function App() {
               const displayText = msg.content;
               const parsedTasks = msg.suggestedTasks && Array.isArray(msg.suggestedTasks) && msg.suggestedTasks.length > 0 ? msg.suggestedTasks : null;
               const msgAdded = advocateTasksAdded[i] || {};
-              const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
+              const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
               return (
               <div key={i}>
               <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
                 <div style={{
                   maxWidth: "88%", padding: "8px 12px", borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                  background: msg.role === "user" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "var(--c-card-alt, #1a2332)",
+                  background: msg.role === "user" ? "#0f172a" : "var(--c-card-alt, #1a2332)",
                   color: msg.role === "user" ? "#fff" : "#E6EDF3",
                   fontSize: 12, lineHeight: 1.6, position: "relative",
                   border: msg.role === "user" ? "none" : "1px solid var(--c-border)"
@@ -2064,7 +2064,7 @@ export default function App() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 11, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
                           <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
-                            <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[t.priority] || "#b8860b") + "18", color: priorityColors[t.priority] || "#b8860b" }}>{t.priority}</span>
+                            <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[t.priority] || "#d97706") + "18", color: priorityColors[t.priority] || "#d97706" }}>{t.priority}</span>
                             {t.assignedRole && <span style={{ fontSize: 9, color: "#64748b" }}>{t.assignedRole}</span>}
                             {t.dueInDays && <span style={{ fontSize: 9, color: "#64748b" }}>{t.dueInDays}d</span>}
                           </div>
@@ -2134,7 +2134,7 @@ export default function App() {
             />
             <button
               className="btn btn-sm"
-              style={{ background: advocateInput.trim() && !advocateLoading ? "#6366f1" : "#4b5563", color: "#fff", border: "none", padding: "7px 14px", borderRadius: 8, cursor: advocateInput.trim() && !advocateLoading ? "pointer" : "not-allowed", fontSize: 12 }}
+              style={{ background: advocateInput.trim() && !advocateLoading ? "#4f46e5" : "#64748b", color: "#fff", border: "none", padding: "7px 14px", borderRadius: 8, cursor: advocateInput.trim() && !advocateLoading ? "pointer" : "not-allowed", fontSize: 12 }}
               disabled={!advocateInput.trim() || advocateLoading}
               onClick={() => advocateSend(advocateInput)}
             >Send</button>
@@ -2347,7 +2347,7 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
 // ─── Settings Modal ──────────────────────────────────────────────────────────
 function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, onSignOut, onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[1100]" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[1100]" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-transparent border-none cursor-pointer text-lg"><X size={18} /></button>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-5">Settings</h2>
@@ -2371,7 +2371,7 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Security</div>
         <button className="!w-full !py-2.5 !text-sm !font-medium !text-slate-700 dark:!text-slate-300 !bg-transparent !border !border-slate-200 dark:!border-slate-700 !rounded-lg hover:!bg-slate-50 dark:hover:!bg-slate-700 !transition-colors !cursor-pointer !mb-4" onClick={onChangePassword}>Change Password</button>
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Session</div>
-        <button className="!w-full !py-2.5 !text-sm !font-medium !text-red-500 !bg-transparent !border !border-red-200 dark:!border-red-900 !rounded-lg hover:!bg-red-50 dark:hover:!bg-red-900/20 !transition-colors !cursor-pointer" onClick={onSignOut}>Sign Out</button>
+        <button className="!w-full !py-2.5 !text-sm !font-medium !text-red-600 dark:!text-red-400 !bg-transparent !border !border-red-200 dark:!border-red-900/50 !rounded-lg hover:!bg-red-50 dark:hover:!bg-red-900/20 !transition-colors !cursor-pointer" onClick={onSignOut}>Sign Out</button>
       </div>
     </div>
   );
@@ -2434,7 +2434,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
         <div style={{ fontSize: 12, color: "var(--c-text3)", marginBottom: 16 }}>Guides, answers, and support for MattrMindr</div>
         <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--c-border)", marginBottom: 16, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           {tabs.map(t => (
-            <div key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: tab === t.id ? 600 : 400, color: tab === t.id ? "var(--c-text-h)" : "var(--c-text3)", borderBottom: tab === t.id ? "2px solid var(--c-accent)" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s", userSelect: "none", whiteSpace: "nowrap" }}>{t.label}</div>
+            <div key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: tab === t.id ? 600 : 400, marginBottom: -2, transition: "all 0.15s", userSelect: "none", whiteSpace: "nowrap" }} className={tab === t.id ? "text-slate-900 dark:text-slate-100 border-b-2 border-b-slate-900 dark:border-b-slate-100" : "text-slate-400 dark:text-slate-500 border-b-2 border-b-transparent"}>{t.label}</div>
           ))}
         </div>
         <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
@@ -2507,7 +2507,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
               {supportStatus && supportStatus !== "success" && (
                 <div style={{ fontSize: 13, color: "#C94C4C", marginBottom: 12 }}>{supportStatus}</div>
               )}
-              <button className="btn btn-gold" style={{ width: "100%", padding: 10 }} onClick={handleSendSupport} disabled={supportBusy || !supportMessage.trim()}>
+              <button className="btn" style={{ width: "100%", padding: 10, background: "#4f46e5", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }} onClick={handleSendSupport} disabled={supportBusy || !supportMessage.trim()}>
                 {supportBusy ? "Sending..." : "Send to Support"}
               </button>
             </div>
@@ -2876,7 +2876,7 @@ function NewCaseModal({ onSave, onClose }) {
               apiGetChargeClass({ statute: form.chargeStatute, description: form.chargeDescription }).then(r => { setForm(p => p.chargeClass ? { ...p, _classifying: false } : { ...p, chargeClass: r.chargeClass, _classifying: false }); }).catch(() => set("_classifying", false));
             }
           }} /></div>
-          <div className="form-group"><label>Charge Class {form._classifying && <span style={{ fontSize: 10, color: "#b8860b" }}>(classifying...)</span>}</label>
+          <div className="form-group"><label>Charge Class {form._classifying && <span style={{ fontSize: 10, color: "#b45309" }}>(classifying...)</span>}</label>
             <select value={form.chargeClass} onChange={e => set("chargeClass", e.target.value)}>
               <option value="">— Select —</option>
               {["Class A Felony", "Class B Felony", "Class C Felony", "Misdemeanor A", "Misdemeanor B", "Misdemeanor C", "Violation", "Other"].map(o => <option key={o} value={o}>{o}</option>)}
@@ -2889,7 +2889,7 @@ function NewCaseModal({ onSave, onClose }) {
         {(form.chargeDescription || form.chargeStatute) && (
           <div style={{ marginBottom: 10 }}>
             {!chargeAi.show ? (
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={() => {
                 setChargeAi({ loading: true, result: null, error: null, show: true });
                 apiChargeAnalysis({ chargeDescription: form.chargeDescription, chargeStatute: form.chargeStatute, chargeClass: form.chargeClass, caseType: form.caseType, courtDivision: form.courtDivision })
                   .then(r => setChargeAi(p => ({ ...p, loading: false, result: r.result })))
@@ -3076,7 +3076,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
                 display: "flex", alignItems: "center", gap: 8, padding: "8px 4px",
                 borderBottom: "1px solid var(--c-border)",
                 opacity: isDragging ? 0.4 : 1,
-                borderTop: isOver ? "2px solid #b8860b" : "2px solid transparent",
+                borderTop: isOver ? "2px solid #d97706" : "2px solid transparent",
                 background: isDragging ? "var(--c-hover, #f5f5f5)" : "transparent",
                 borderRadius: 4,
                 transition: "border-top 0.15s ease, opacity 0.15s ease",
@@ -3919,11 +3919,11 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
               const caseObj = allCases.find(cc => cc.id === t.id);
               return (
                 <div key={t.id || i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: i < triageResults.length - 1 ? "1px solid var(--c-border2)" : "none", cursor: caseObj ? "pointer" : "default" }} onClick={() => caseObj && onSelectCase(caseObj)}>
-                  <div style={{ minWidth: 28, height: 28, borderRadius: "50%", background: t.urgency >= 8 ? "#dc2626" : t.urgency >= 5 ? "#e07a30" : "#b8860b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{t.urgency}</div>
+                  <div style={{ minWidth: 28, height: 28, borderRadius: "50%", background: t.urgency >= 8 ? "#dc2626" : t.urgency >= 5 ? "#e07a30" : "#d97706", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{t.urgency}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: "var(--c-text)" }}>{t.title}</div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{t.reason}</div>
-                    <div style={{ fontSize: 11, color: "#b8860b", marginTop: 2, fontWeight: 500 }}>→ {t.action}</div>
+                    <div style={{ fontSize: 11, color: "#b45309", marginTop: 2, fontWeight: 500 }}>→ {t.action}</div>
                   </div>
                 </div>
               );
@@ -4363,11 +4363,11 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                 const caseObj = allCases.find(cc => cc.id === t.id);
                 return (
                   <div key={t.id || i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", borderBottom: i < triageResults.length - 1 ? "1px solid #e8e0d0" : "none", cursor: caseObj ? "pointer" : "default" }} onClick={() => caseObj && setSelectedCase(caseObj)}>
-                    <div style={{ minWidth: 26, height: 26, borderRadius: "50%", background: t.urgency >= 8 ? "#dc2626" : t.urgency >= 5 ? "#e07a30" : "#b8860b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{t.urgency}</div>
+                    <div style={{ minWidth: 26, height: 26, borderRadius: "50%", background: t.urgency >= 8 ? "#dc2626" : t.urgency >= 5 ? "#e07a30" : "#d97706", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{t.urgency}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 12, color: "#0f172a" }}>{t.title}</div>
                       <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>{t.reason}</div>
-                      <div style={{ fontSize: 11, color: "#b8860b", marginTop: 1, fontWeight: 500 }}>→ {t.action}</div>
+                      <div style={{ fontSize: 11, color: "#b45309", marginTop: 1, fontWeight: 500 }}>→ {t.action}</div>
                     </div>
                   </div>
                 );
@@ -5763,7 +5763,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               style={editMode ? { background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", lineHeight: "20px" } : { lineHeight: "20px" }}
               onClick={() => setEditMode(e => !e)}
             >{editMode ? "✓ Done" : "✎ Edit"}</button>
-            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
+            <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={() => {
               setAiStrategy(p => ({ ...p, show: true, loading: true, result: null, error: null }));
               apiCaseStrategy({ caseId: c.id }).then(r => setAiStrategy(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiStrategy(p => ({ ...p, loading: false, error: e.message })));
             }}><Sparkles size={12} className="inline mr-0.5" /> Strategy</button>
@@ -5802,11 +5802,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             {/* AI Quick Actions Bar */}
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={() => {
                 setAiClientSummary({ loading: true, result: null, error: null, show: true });
                 apiClientSummary({ caseId: c.id }).then(r => setAiClientSummary(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiClientSummary(p => ({ ...p, loading: false, error: e.message })));
               }}><Sparkles size={12} className="inline mr-0.5" /> Client Summary</button>
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b8860b", borderColor: "#d4c9a8" }} onClick={() => {
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={() => {
                 setAiChargeAnalysis({ loading: true, result: null, error: null, show: true });
                 apiChargeAnalysis({ chargeDescription: draft.chargeDescription, chargeStatute: draft.chargeStatute, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, charges: draft._charges || [] })
                   .then(r => setAiChargeAnalysis(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiChargeAnalysis(p => ({ ...p, loading: false, error: e.message })));
@@ -5978,7 +5978,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div className="case-overlay-section">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, color: "#b8860b", borderColor: "#d4c9a8", padding: "2px 8px" }} onClick={() => {
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)", padding: "2px 8px" }} onClick={() => {
                     setAiDeadlines({ loading: true, deadlines: null, error: null, show: true });
                     apiDeadlineGenerator({ caseId: c.id, stage: draft.stage, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, arrestDate: draft.arrestDate, arraignmentDate: draft.arraignmentDate, trialDate: draft.trialDate, nextCourtDate: draft.nextCourtDate, existingDeadlines: deadlines.map(d => ({ title: d.title, date: d.date })) })
                       .then(r => setAiDeadlines(p => ({ ...p, loading: false, deadlines: r.deadlines })))
@@ -6006,7 +6006,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div style={{ marginTop: 8 }}>
                     {aiDeadlines.loading && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", color: "#64748b", fontSize: 11 }}>
-                        <div style={{ width: 14, height: 14, border: "2px solid #d4c9a8", borderTopColor: "#b8860b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                        <div style={{ width: 14, height: 14, border: "2px solid #d4c9a8", borderTopColor: "#d97706", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
                         Generating deadlines...
                       </div>
                     )}
@@ -6035,7 +6035,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div className="case-overlay-section">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b8860b", borderColor: "#d4c9a8" }} disabled={aiTasks.loading} onClick={() => {
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} disabled={aiTasks.loading} onClick={() => {
                     setAiTasks({ loading: true, tasks: null, error: null, show: true, added: {} });
                     apiTaskSuggestions({ caseId: c.id })
                       .then(r => setAiTasks(p => ({ ...p, loading: false, tasks: r.tasks })))
@@ -6119,7 +6119,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div style={{ marginTop: 8, borderTop: "1px dashed #d4c9a8", paddingTop: 8 }}>
                     {aiTasks.loading && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", color: "#64748b", fontSize: 11 }}>
-                        <div style={{ width: 14, height: 14, border: "2px solid #d4c9a8", borderTopColor: "#b8860b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                        <div style={{ width: 14, height: 14, border: "2px solid #d4c9a8", borderTopColor: "#d97706", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
                         Analyzing case for task suggestions...
                       </div>
                     )}
@@ -6129,7 +6129,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                           <div className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1"><Sparkles size={11} className="text-amber-500" /> Suggested Tasks ({aiTasks.tasks.length})</div>
                           {aiTasks.tasks.some((_, i) => !aiTasks.added[i]) && (
-                            <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={async () => {
+                            <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={async () => {
                               const toAdd = aiTasks.tasks.filter((_, i) => !aiTasks.added[i]);
                               const newAdded = { ...aiTasks.added };
                               for (let i = 0; i < aiTasks.tasks.length; i++) {
@@ -6150,14 +6150,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         </div>
                         {aiTasks.tasks.map((s, i) => {
                           const isAdded = aiTasks.added[i];
-                          const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
+                          const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "7px 0", borderBottom: "1px dashed #d4c9a8", opacity: isAdded ? 0.45 : 1 }}>
-                              <span style={{ fontSize: 10, color: "#b8860b", marginTop: 2 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
+                              <span style={{ fontSize: 10, color: "#b45309", marginTop: 2 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12, color: "#0f172a", fontWeight: 500 }}>{s.title}</div>
                                 <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
-                                  <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[s.priority] || "#b8860b") + "18", color: priorityColors[s.priority] || "#b8860b" }}>{s.priority}</span>
+                                  <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[s.priority] || "#d97706") + "18", color: priorityColors[s.priority] || "#d97706" }}>{s.priority}</span>
                                   {s.assignedRole && <span style={{ fontSize: 9, color: "#64748b" }}>{s.assignedRole}</span>}
                                   {s.dueInDays && <span style={{ fontSize: 9, color: "#64748b" }}>· {s.dueInDays}d</span>}
                                 </div>
@@ -6260,7 +6260,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               }).catch(() => {}).finally(() => setClassifyingChargeIdx(null));
                             }
                           }} /></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Class {classifyingChargeIdx === idx && <span style={{ fontSize: 10, color: "#b8860b" }}>(classifying...)</span>}</label>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Class {classifyingChargeIdx === idx && <span style={{ fontSize: 10, color: "#b45309" }}>(classifying...)</span>}</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
                           value={charge.chargeClass} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, chargeClass: e.target.value }; onUpdate({ charges: updated }); }}>
                           <option value="">— Select —</option>
@@ -7106,7 +7106,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url);
                         } catch (err) { alert("Download failed: " + err.message); }
                       }}>Download</button>
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b8860b", borderColor: "#d4c9a8" }} disabled={docSummarizing === doc.id} onClick={async () => {
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} disabled={docSummarizing === doc.id} onClick={async () => {
                         setDocSummarizing(doc.id);
                         try {
                           const { summary } = await apiSummarizeDocument(doc.id);
@@ -7128,7 +7128,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                   {doc.summary && (
                     <div style={{ marginTop: 8 }}>
-                      <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#b8860b", fontWeight: 500, padding: 0 }}>
+                      <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#b45309", fontWeight: 500, padding: 0 }}>
                         {expandedDocId === doc.id ? "▾ Hide Summary" : "▸ View Summary"}
                       </button>
                       {expandedDocId === doc.id && (
@@ -9119,7 +9119,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
     cells.push(dateStr);
   }
 
-  const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#b8860b", trial: "#dc2626", arraignment: "#0891b2", sentencing: "#7c3aed", external: "#5588cc" };
+  const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#d97706", trial: "#dc2626", arraignment: "#0891b2", sentencing: "#7c3aed", external: "#5588cc" };
   const KIND_ICONS = { deadline: "📋", task: "✅", "court-date": "⚖", trial: "⚖", arraignment: "⚖", sentencing: "⚖", external: "📅" };
   const KIND_LABELS = { deadline: "Deadline", task: "Task", "court-date": "Court Date", trial: "Trial", arraignment: "Arraignment", sentencing: "Sentencing", external: "External" };
 
@@ -9179,7 +9179,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
             <span style={{ fontSize: 11, color: "var(--c-text2)" }}>✅ Tasks</span>
           </div>
           <div style={toggleStyle(showCourtDates)} onClick={() => setShowCourtDates(v => !v)}>
-            <input type="checkbox" checked={showCourtDates} readOnly style={{ accentColor: "#b8860b", width: 13, height: 13, cursor: "pointer" }} />
+            <input type="checkbox" checked={showCourtDates} readOnly style={{ accentColor: "#d97706", width: 13, height: 13, cursor: "pointer" }} />
             <span style={{ fontSize: 11, color: "var(--c-text2)" }}>⚖ Court Dates</span>
           </div>
           <div style={toggleStyle(showExternal)} onClick={() => setShowExternal(v => !v)}>
@@ -9206,7 +9206,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
               <div key={dateStr} onClick={() => setSelected(isSelected ? null : dateStr)}
                 style={{ minHeight: 80, borderRight: borderR, borderBottom: "1px solid var(--c-border2)", padding: "6px 7px", cursor: "pointer", background: isSelected ? "#f1f5f9" : isToday ? "#f1f5f9" : "transparent", transition: "background 0.1s", position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? "#f59e0b" : "#64748b", width: 22, height: 22, borderRadius: "50%", background: isToday ? "#1E2A3A12" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{dayNum}</span>
+                  <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? "#f59e0b" : "#64748b", width: 22, height: 22, borderRadius: "50%", background: isToday ? "rgba(245,158,11,0.08)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{dayNum}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {events.slice(0, 3).map((ev, ei) => {
@@ -9653,7 +9653,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                     <div style={{ fontSize: 11, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Result</div>
                     <div style={{ fontSize: 24, fontFamily: "'Inter',sans-serif", color: "var(--c-text-h)", marginBottom: 8 }}>{fmt(calcResult.result)}</div>
                     <div style={{ fontSize: 13, color: "var(--c-text2)" }}><strong style={{ color: "#0f172a" }}>{calcResult.rule.name}</strong><br />{calcResult.rule.days < 0 ? `${Math.abs(calcResult.rule.days)} days before` : calcResult.rule.days === 0 ? "Same day as" : `${calcResult.rule.days} days from`} {fmt(calcResult.from)} · <span style={{ fontFamily: "monospace", fontSize: 12 }}>{calcResult.rule.rule}</span></div>
-                    <div style={{ marginTop: 10, fontSize: 12, color: "#e07a30", fontStyle: "italic" }}>⚠ Always verify against current court orders and Alabama Rules of Criminal Procedure.</div>
+                    <div style={{ marginTop: 10, fontSize: 12, color: "#ea580c", fontStyle: "italic" }}>⚠ Always verify against current court orders and Alabama Rules of Criminal Procedure.</div>
                   </div>
                 )}
               </div>
@@ -9721,7 +9721,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
             <p className="!text-xs !text-slate-500 dark:!text-slate-400 !mt-0.5">{tasks.filter(t => t.assigned === currentUser.id && t.status !== "Completed").length} open · {tasks.filter(t => t.assigned === currentUser.id && t.recurring).length} recurring · {tasks.filter(t => t.assigned === currentUser.id && t.status !== "Completed" && daysUntil(t.due) < 0).length} overdue</p>
           </div>
         </div>
-        <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-amber-500 hover:!bg-amber-600 !rounded-lg !transition-colors !border-none !cursor-pointer !shadow-sm" onClick={() => setShowForm(!showForm)}><Plus size={14} className="inline mr-1" />New Task</button>
+        <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-slate-900 dark:!bg-slate-800 hover:!bg-slate-800 dark:hover:!bg-slate-700 !rounded-lg !transition-colors !border-none !cursor-pointer !shadow-sm" onClick={() => setShowForm(!showForm)}><Plus size={14} className="inline mr-1" />New Task</button>
       </div>
       <div className="content">
         <div className="tabs">
@@ -9834,7 +9834,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 
               <div className="form-group"><label>Notes</label><textarea rows={2} value={newTask.notes} onChange={e => setNewTask(p => ({ ...p, notes: e.target.value }))} /></div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-gold" disabled={!newTask.title || !newTask.caseId} onClick={() => { onAddTask({ ...newTask }); setShowForm(false); setCaseSearch(""); setNewTask({ ...blank }); }}>Add Task</button>
+                <button className="btn" style={{ background: "#0f172a", color: "#fff", border: "none" }} disabled={!newTask.title || !newTask.caseId} onClick={() => { onAddTask({ ...newTask }); setShowForm(false); setCaseSearch(""); setNewTask({ ...blank }); }}>Add Task</button>
                 <button className="btn btn-outline" onClick={() => { setShowForm(false); setCaseSearch(""); }}>Cancel</button>
               </div>
             </div>
@@ -9888,7 +9888,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                         <td data-label="">
                           <button
                             onClick={() => setExpandedTask(isExpanded ? null : t.id)}
-                            style={{ background: "none", border: "none", color: isExpanded ? "#f59e0b" : "#64748b", cursor: "pointer", fontSize: 13, padding: "2px 6px", borderRadius: 3, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
+                            style={{ background: "none", border: "none", color: isExpanded ? "#0f172a" : "#64748b", cursor: "pointer", fontSize: 13, padding: "2px 6px", borderRadius: 3, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
                             title="Edit due date, priority, assignee"
                           >✎</button>
                         </td>
@@ -10744,14 +10744,14 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
       </div>
       <div className="content" style={{ maxWidth: 900 }}>
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
-          <button onClick={() => setAiCenterTab("agents")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "agents" ? "#b8860b" : "var(--c-text2)", borderBottom: aiCenterTab === "agents" ? "2px solid #b8860b" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }}>AI Agents</button>
-          <button onClick={() => setAiCenterTab("trainer")} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: aiCenterTab === "trainer" ? "#6366f1" : "var(--c-text2)", borderBottom: aiCenterTab === "trainer" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -2, transition: "all 0.15s" }} className="flex items-center gap-1.5"><Brain size={16} /> Advocate AI Trainer</button>
+          <button onClick={() => setAiCenterTab("agents")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] ${aiCenterTab === "agents" ? "border-b-indigo-600 dark:border-b-indigo-400 text-indigo-600 dark:text-indigo-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>AI Agents</button>
+          <button onClick={() => setAiCenterTab("trainer")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${aiCenterTab === "trainer" ? "border-b-indigo-600 dark:border-b-indigo-400 text-indigo-600 dark:text-indigo-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><Brain size={16} /> Advocate AI Trainer</button>
         </div>
 
         {aiCenterTab === "agents" && <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px,100%), 1fr))", gap: 14, marginBottom: 24 }}>
           {agents.map(a => (
-            <div key={a.id} onClick={() => selectAgent(a.id)} className={`!rounded-lg !p-4 !cursor-pointer !transition-all ${activeAgent === a.id ? "!bg-slate-50 dark:!bg-slate-800 !border-2 !border-amber-500" : "!bg-white dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 hover:!border-amber-300 dark:hover:!border-amber-700"}`}>
+            <div key={a.id} onClick={() => selectAgent(a.id)} className={`!rounded-xl !p-5 !cursor-pointer !transition-all !flex !flex-col !h-full ${activeAgent === a.id ? "!bg-slate-50 dark:!bg-slate-800 !border-2 !border-indigo-500 dark:!border-indigo-400" : "!bg-white dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 hover:!border-indigo-300 dark:hover:!border-indigo-500/50"}`}>
               <div className={`w-9 h-9 rounded-lg ${a.bg} flex items-center justify-center mb-3`}><a.Icon className={`w-5 h-5 ${a.color}`} /></div>
               <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1">{a.title}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 flex-1">{a.desc}</div>
@@ -11164,7 +11164,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div className="font-['Inter'] text-[15px] font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5"><Sparkles size={14} className="text-amber-500" /> Suggested Tasks ({aiCenterTasks.tasks.length})</div>
                   {aiCenterTasks.tasks.some((_, i) => !aiCenterTasks.added[i]) && (
-                    <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b8860b", borderColor: "#d4c9a8" }} onClick={async () => {
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#b45309", borderColor: "#fde68a", background: "rgba(254,243,199,0.5)" }} onClick={async () => {
                       const newAdded = { ...aiCenterTasks.added };
                       for (let i = 0; i < aiCenterTasks.tasks.length; i++) {
                         if (!aiCenterTasks.added[i]) {
@@ -11182,14 +11182,14 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                 </div>
                 {aiCenterTasks.tasks.map((s, i) => {
                   const isAdded = aiCenterTasks.added[i];
-                  const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#b8860b", Low: "#2F7A5F" };
+                  const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--c-border)", opacity: isAdded ? 0.45 : 1 }}>
                       <span style={{ fontSize: 12, marginTop: 1 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={12} className="text-amber-500" />}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: "var(--c-text-h)", fontWeight: 500 }}>{s.title}</div>
                         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: (priorityColors[s.priority] || "#b8860b") + "18", color: priorityColors[s.priority] || "#b8860b" }}>{s.priority}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: (priorityColors[s.priority] || "#d97706") + "18", color: priorityColors[s.priority] || "#d97706" }}>{s.priority}</span>
                           {s.assignedRole && <span style={{ fontSize: 10, color: "#64748b" }}>{s.assignedRole}</span>}
                           {s.dueInDays && <span style={{ fontSize: 10, color: "#64748b" }}>· Due in {s.dueInDays} days</span>}
                         </div>
@@ -11661,8 +11661,8 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
           </div>
         </div>
         <div className="topbar-actions flex gap-2">
-          <button className="!px-3 !py-2 !text-xs !font-medium !text-slate-600 dark:!text-slate-300 !bg-white dark:!bg-slate-800 !border !border-slate-200 dark:!border-slate-700 !rounded-lg hover:!bg-slate-50 !transition-colors !cursor-pointer" onClick={() => setShowAddForm(true)}><Plus size={14} className="inline mr-1" />Add Entry</button>
-          <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-amber-500 hover:!bg-amber-600 !rounded-lg !transition-colors !border-none !cursor-pointer !shadow-sm" disabled={rows.length === 0} onClick={exportCSV} title={rows.length === 0 ? "No activity in this range" : "Download CSV"}><Download size={14} className="inline mr-1" />Export CSV</button>
+          <button className="!px-3 !py-2 !text-xs !font-medium !text-white !bg-slate-700 dark:!bg-slate-600 hover:!bg-slate-600 dark:hover:!bg-slate-500 !rounded-lg !transition-colors !border-none !cursor-pointer !shadow-sm" onClick={() => setShowAddForm(true)}><Plus size={14} className="inline mr-1" />Add Entry</button>
+          <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-slate-800 dark:!bg-slate-700 hover:!bg-slate-700 dark:hover:!bg-slate-600 !rounded-lg !transition-colors !border-none !cursor-pointer !shadow-sm" disabled={rows.length === 0} onClick={exportCSV} title={rows.length === 0 ? "No activity in this range" : "Download CSV"}><Download size={14} className="inline mr-1" />Export CSV</button>
         </div>
       </div>
 
@@ -11933,15 +11933,15 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
 const CONTACT_CATEGORIES = ["Client", "Prosecutor", "Judge", "Court", "Witness", "Expert", "Family Member", "Social Worker", "Treatment Provider"];
 
 const CONTACT_CAT_STYLE = {
-  Client:             { bg: "#f1f5f9", color: "#5599cc", border: "#e2e8f0" },
-  Prosecutor:         { bg: "#fef9c3", color: "#0f172a", border: "#fef9c3" },
-  Judge:              { bg: "#f3e8ff", color: "#9966cc", border: "#f3e8ff" },
-  Court:              { bg: "#f3e8ff", color: "#9966cc", border: "#f3e8ff" },
-  Witness:            { bg: "#fef3c7", color: "#e07a30", border: "#fde68a" },
-  Expert:             { bg: "#dcfce7", color: "#4CAE72", border: "#bbf7d0" },
-  "Family Member":    { bg: "#ffe4e6", color: "#e05252", border: "#fecdd3" },
-  "Social Worker":    { bg: "#f1f5f9", color: "#5599cc", border: "#e2e8f0" },
-  "Treatment Provider": { bg: "#ccfbf1", color: "#44bbaa", border: "#ccfbf1" },
+  Client:             { bg: "#f1f5f9", color: "#2563eb", border: "#e2e8f0" },
+  Prosecutor:         { bg: "#fef9c3", color: "#92400e", border: "#fef9c3" },
+  Judge:              { bg: "#f3e8ff", color: "#7c3aed", border: "#f3e8ff" },
+  Court:              { bg: "#f3e8ff", color: "#7c3aed", border: "#f3e8ff" },
+  Witness:            { bg: "#fef3c7", color: "#b45309", border: "#fde68a" },
+  Expert:             { bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
+  "Family Member":    { bg: "#ffe4e6", color: "#dc2626", border: "#fecdd3" },
+  "Social Worker":    { bg: "#f1f5f9", color: "#2563eb", border: "#e2e8f0" },
+  "Treatment Provider": { bg: "#ccfbf1", color: "#0d9488", border: "#ccfbf1" },
   Miscellaneous:        { bg: "#f1f5f9", color: "#6B7280", border: "#e2e8f0" },
 };
 
@@ -12926,7 +12926,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                 <div className="card" style={{ marginBottom: 16 }}>
                   <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setPinnedContactsExpanded(p => !p)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <Pin size={14} className="text-amber-500" />
+                      <Pin size={14} className="text-red-500" />
                       <span style={{ fontSize: 13, fontWeight: 700, color: "var(--c-text-h)" }}>Pinned Contacts</span>
                       <span style={{ fontSize: 11, color: "#64748b" }}>({pinnedContacts.length})</span>
                     </div>
@@ -12944,14 +12944,14 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                           return (
                             <tr key={c.id} onClick={() => handleSelectContact(c)} style={{ borderBottom: "1px solid var(--c-border2)", cursor: "pointer", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"} onMouseLeave={e => e.currentTarget.style.background = ""}>
                               <td style={{ width: 30, padding: "10px 4px 10px 10px" }}>
-                                <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title="Unpin" className="bg-transparent border-none cursor-pointer p-0 leading-none"><Pin size={14} className="text-amber-500" /></button>
+                                <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title="Unpin" className="bg-transparent border-none cursor-pointer p-0 leading-none"><Pin size={14} className="text-red-500" /></button>
                               </td>
                               <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
                                 <span style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontWeight: 700, background: catStyle.bg, color: "#1e293b" }}>{c.category}</span>
                               </td>
                               <td data-label="Name" style={{ padding: "10px 12px 10px 0", color: "var(--c-text)", fontWeight: 500 }}>{c.name}</td>
                               <td data-label="Phone" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "var(--c-text2)", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
-                              <td data-label="Email" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12, wordBreak: "break-all" }}>{c.email || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
+                              <td data-label="Email" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "#2563eb", fontSize: 12, wordBreak: "break-all" }}>{c.email || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
                               <td data-label="Cases" style={{ padding: "10px 0", color: caseCount > 0 ? "#f59e0b" : "var(--c-border)", fontWeight: caseCount > 0 ? 600 : 400 }}>{caseCount > 0 ? caseCount : "—"}</td>
                             </tr>
                           );
@@ -13025,7 +13025,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                       )}
                       {!mergeMode && (
                         <td data-label="" style={{ padding: "10px 4px 10px 0", width: 30 }}>
-                          <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title={isPinned ? "Unpin" : "Pin"} className={`bg-transparent border-none cursor-pointer p-0 leading-none transition-opacity ${isPinned ? "opacity-100" : "opacity-30 hover:opacity-100"}`}><Pin size={14} className={isPinned ? "text-amber-500" : "text-slate-300 dark:text-slate-600"} /></button>
+                          <button onClick={e => { e.stopPropagation(); togglePinContact(c.id); }} title={isPinned ? "Unpin" : "Pin"} className={`bg-transparent border-none cursor-pointer p-0 leading-none transition-opacity ${isPinned ? "opacity-100" : "opacity-30 hover:opacity-100"}`}><Pin size={14} className={isPinned ? "text-red-500" : "text-slate-300 dark:text-slate-600"} /></button>
                         </td>
                       )}
                       <td data-label="Category" style={{ padding: "10px 12px 10px 0" }}>
@@ -13035,7 +13035,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                       </td>
                       <td data-label="Name" style={{ padding: "10px 12px 10px 0", color: "var(--c-text)", fontWeight: 500 }}>{c.name}</td>
                       <td data-label="Phone" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "var(--c-text2)", fontFamily: "monospace", fontSize: 12 }}>{c.phone || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
-                      <td data-label="Email" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "#5599cc", fontSize: 12, wordBreak: "break-all" }}>{c.email || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
+                      <td data-label="Email" className="hide-mobile" style={{ padding: "10px 12px 10px 0", color: "#2563eb", fontSize: 12, wordBreak: "break-all" }}>{c.email || <span style={{ color: "var(--c-border)" }}>—</span>}</td>
                       <td data-label="Cases" style={{ padding: "10px 0", color: caseCount > 0 ? "#f59e0b" : "var(--c-border)", fontWeight: caseCount > 0 ? 600 : 400 }}>
                         {caseCount > 0 ? caseCount : "—"}
                       </td>
@@ -13314,7 +13314,7 @@ function getCaseFieldValue(c, key, parties) {
 
 const TEMPLATE_CATEGORIES = ["Motions", "Orders", "Notices", "Subpoenas", "Client Letters", "General"];
 const LETTER_SUB_TYPES = ["Client", "Prosecutor", "Court", "Other"];
-const CATEGORY_COLORS = { Pleadings: "#dbeafe", Letters: "#fef3c7", Subpoenas: "#fce7f3", Reports: "#d1fae5", General: "#f1f5f9" };
+const CATEGORY_COLORS = { Pleadings: "#dbeafe", Letters: "#fef3c7", Subpoenas: "#e2e8f0", Reports: "#dbeafe", General: "#f1f5f9" };
 
 function getPartyName(p) {
   const d = p.data || {};
@@ -13660,7 +13660,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
           </div>
           <div style={{ display: "flex", gap: 0, marginTop: 12 }}>
             <button onClick={() => setMode("template")} style={{ fontSize: 13, fontWeight: mode === "template" ? 600 : 400, padding: "8px 18px", border: "none", borderBottom: mode === "template" ? "2px solid #1E2A3A" : "2px solid transparent", background: "none", color: mode === "template" ? "var(--c-text-h)" : "var(--c-text2)", cursor: "pointer" }}>From Template</button>
-            <button onClick={() => setMode("ai")} style={{ fontSize: 13, fontWeight: mode === "ai" ? 600 : 400, padding: "8px 18px", border: "none", borderBottom: mode === "ai" ? "2px solid #b8860b" : "2px solid transparent", background: "none", color: mode === "ai" ? "#b8860b" : "var(--c-text2)", cursor: "pointer" }}>AI Draft</button>
+            <button onClick={() => setMode("ai")} style={{ fontSize: 13, fontWeight: mode === "ai" ? 600 : 400, padding: "8px 18px", border: "none", borderBottom: mode === "ai" ? "2px solid #1e293b" : "2px solid transparent", background: "none", color: mode === "ai" ? "#1e293b" : "var(--c-text2)", cursor: "pointer" }}>AI Draft</button>
           </div>
           {mode === "template" && selected && (
             <div style={{ fontSize: 12, color: "#0f172a", padding: "8px 0 4px", cursor: "pointer" }} onClick={() => { setSelected(null); setValues({}); }}>
@@ -13902,7 +13902,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle }) {
             <h1 className="!text-xl !font-semibold !text-slate-900 dark:!text-slate-100 !font-['Inter']">Document Templates</h1>
             <p className="!text-xs !text-slate-500 dark:!text-slate-400 !mt-0.5">{templates.length} template{templates.length !== 1 ? "s" : ""}</p>
           </div>
-          <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-amber-500 hover:!bg-amber-600 !rounded-lg !transition-colors !border-none !cursor-pointer !shadow-sm !ml-auto" onClick={() => document.getElementById("docUploadInput").click()}><Plus size={14} className="inline mr-1" />New Template</button>
+          <button className="!px-4 !py-2 !text-xs !font-medium !text-white !bg-slate-900 dark:!bg-slate-800 hover:!bg-slate-800 dark:hover:!bg-slate-700 !rounded-lg !transition-colors !border-none !cursor-pointer !shadow-sm !ml-auto" onClick={() => document.getElementById("docUploadInput").click()}><Plus size={14} className="inline mr-1" />New Template</button>
           <input id="docUploadInput" type="file" accept=".docx,.doc" style={{ display: "none" }} onChange={async e => {
             const file = e.target.files[0]; if (!file) return; e.target.value = "";
             try {
@@ -14006,7 +14006,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle }) {
           <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
             {(wizard.editingId ? ["Placeholders", "Review & Save"] : ["Name & Category", "Placeholders", "Review & Save"]).map((label, i) => {
               const stepNum = wizard.editingId ? i + 2 : i + 1;
-              return <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: wizard.step === stepNum ? 700 : 400, color: wizard.step === stepNum ? "#f59e0b" : "#64748b", borderBottom: `2px solid ${wizard.step === stepNum ? "#f59e0b" : "var(--c-border)"}` }}>{i + 1}. {label}</div>;
+              return <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: wizard.step === stepNum ? 700 : 400, color: wizard.step === stepNum ? "#0f172a" : "#64748b", borderBottom: `2px solid ${wizard.step === stepNum ? "#0f172a" : "var(--c-border)"}` }}>{i + 1}. {label}</div>;
             })}
           </div>
 
@@ -14042,7 +14042,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle }) {
                           } catch { setWizard(w => ({ ...w, detectingPleading: false, detectionDone: true, detectedSections: { hasHeader: false, hasSignature: false, hasCos: false } })); }
                         }
                       }}
-                        style={{ padding: "8px 16px", borderRadius: 8, border: `2px solid ${wizard.category === cat ? "#f59e0b" : "var(--c-border)"}`, background: wizard.category === cat ? CATEGORY_COLORS[cat] : "var(--c-bg2)", cursor: "pointer", fontSize: 13, fontWeight: wizard.category === cat ? 700 : 400, color: "var(--c-text)" }}
+                        style={{ padding: "8px 16px", borderRadius: 8, border: `2px solid ${wizard.category === cat ? "#4f46e5" : "var(--c-border)"}`, background: wizard.category === cat ? CATEGORY_COLORS[cat] : "var(--c-bg2)", cursor: "pointer", fontSize: 13, fontWeight: wizard.category === cat ? 700 : 400, color: "var(--c-text)" }}
                       >{cat}</button>
                     ))}
                   </div>
@@ -14133,12 +14133,12 @@ function DocumentsView({ currentUser, allCases, onMenuToggle }) {
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 6 }}>Visibility</label>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => setWizard(w => ({ ...w, visibility: "global" }))}
-                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${(wizard.visibility || "global") === "global" ? "#f59e0b" : "var(--c-border)"}`, background: (wizard.visibility || "global") === "global" ? "#f1f5f9" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
+                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${(wizard.visibility || "global") === "global" ? "#4f46e5" : "var(--c-border)"}`, background: (wizard.visibility || "global") === "global" ? "#f1f5f9" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Everyone</div>
                       <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>All staff can use this template</div>
                     </button>
                     <button onClick={() => setWizard(w => ({ ...w, visibility: "personal" }))}
-                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${wizard.visibility === "personal" ? "#f59e0b" : "var(--c-border)"}`, background: wizard.visibility === "personal" ? "#f1f5f9" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
+                      style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${wizard.visibility === "personal" ? "#4f46e5" : "var(--c-border)"}`, background: wizard.visibility === "personal" ? "#f1f5f9" : "var(--c-bg2)", cursor: "pointer", textAlign: "left" }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Only Me</div>
                       <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Only visible to you</div>
                     </button>
