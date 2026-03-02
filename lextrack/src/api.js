@@ -149,6 +149,36 @@ export async function apiUploadTranscript(formData) {
   if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
   return res.json();
 }
+const UPLOAD_CHUNK_SIZE = 20 * 1024 * 1024;
+export async function apiUploadTranscriptChunked(file, caseId, onProgress) {
+  const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
+  const initRes = await fetch("/api/transcripts/upload/init", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ caseId, filename: file.name, contentType: file.type, fileSize: file.size, totalChunks }),
+  });
+  if (!initRes.ok) { let msg = `API error ${initRes.status}`; try { const j = await initRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  const { uploadId } = await initRes.json();
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * UPLOAD_CHUNK_SIZE;
+    const end = Math.min(start + UPLOAD_CHUNK_SIZE, file.size);
+    const chunk = file.slice(start, end);
+    const fd = new FormData();
+    fd.append("chunk", chunk, `chunk_${i}`);
+    fd.append("uploadId", uploadId);
+    fd.append("chunkIndex", String(i));
+    const chunkRes = await fetch("/api/transcripts/upload/chunk", { method: "POST", credentials: "include", body: fd });
+    if (!chunkRes.ok) { let msg = `Chunk ${i} failed: ${chunkRes.status}`; try { const j = await chunkRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+    if (onProgress) onProgress(Math.round(((i + 1) / totalChunks) * 100));
+  }
+  const completeRes = await fetch("/api/transcripts/upload/complete", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uploadId }),
+  });
+  if (!completeRes.ok) { let msg = `API error ${completeRes.status}`; try { const j = await completeRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return completeRes.json();
+}
 export const apiUpdateTranscript = (id, data) => apiFetch(`/api/transcripts/${id}`, { method: "PUT", body: data });
 export const apiDeleteTranscript = (id) => apiFetch(`/api/transcripts/${id}`, { method: "DELETE" });
 export async function apiDownloadTranscriptAudio(id) {

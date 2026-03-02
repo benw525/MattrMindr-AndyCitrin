@@ -38,7 +38,7 @@ import {
   apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms,
   apiSendSupport,
   apiGetCollabUnreadCount,
-  apiGetTranscripts, apiUploadTranscript, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript,
+  apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 
@@ -5464,6 +5464,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [transcripts, setTranscripts] = useState([]);
   const [transcriptsLoading, setTranscriptsLoading] = useState(false);
   const [transcriptUploading, setTranscriptUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [expandedTranscriptId, setExpandedTranscriptId] = useState(null);
   const [transcriptDetail, setTranscriptDetail] = useState(null);
   const [transcriptDetailLoading, setTranscriptDetailLoading] = useState(false);
@@ -7446,24 +7447,32 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fileInput = e.target.querySelector('input[type="file"]');
-                if (!fileInput.files[0]) return;
+                const file = fileInput.files[0];
+                if (!file) return;
                 setTranscriptUploading(true);
-                const formData = new FormData();
-                formData.append("audio", fileInput.files[0]);
-                formData.append("caseId", c.id);
+                setUploadProgress(null);
                 try {
-                  const saved = await apiUploadTranscript(formData);
+                  let saved;
+                  if (file.size > 20 * 1024 * 1024) {
+                    saved = await apiUploadTranscriptChunked(file, c.id, (pct) => setUploadProgress(pct));
+                  } else {
+                    const formData = new FormData();
+                    formData.append("audio", file);
+                    formData.append("caseId", c.id);
+                    saved = await apiUploadTranscript(formData);
+                  }
                   setTranscripts(prev => [saved, ...prev]);
                   fileInput.value = "";
                 } catch (err) { alert("Upload failed: " + err.message); }
                 setTranscriptUploading(false);
+                setUploadProgress(null);
               }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Audio File (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4)</label>
                   <input type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,audio/*" style={{ fontSize: 12, width: "100%" }} />
                 </div>
                 <button type="submit" className="btn btn-sm" disabled={transcriptUploading} style={{ background: "#1e293b", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                  {transcriptUploading ? <><Loader2 size={12} className="animate-spin" /> Uploading...</> : <><Upload size={12} /> Upload & Transcribe</>}
+                  {transcriptUploading ? <><Loader2 size={12} className="animate-spin" /> {uploadProgress !== null ? `Uploading ${uploadProgress}%` : "Uploading..."}</> : <><Upload size={12} /> Upload & Transcribe</>}
                 </button>
               </form>
             </div>
@@ -11672,13 +11681,21 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   const fileInput = e.target.querySelector('input[type="file"]');
-                  if (!fileInput.files[0]) return;
+                  const file = fileInput.files[0];
+                  if (!file) return;
                   setAiState({ loading: true, result: null, error: null });
-                  const formData = new FormData();
-                  formData.append("audio", fileInput.files[0]);
-                  formData.append("caseId", selectedCaseId);
                   try {
-                    const saved = await apiUploadTranscript(formData);
+                    let saved;
+                    if (file.size > 20 * 1024 * 1024) {
+                      saved = await apiUploadTranscriptChunked(file, Number(selectedCaseId), (pct) => {
+                        setAiState(prev => ({ ...prev, result: `Uploading... ${pct}%` }));
+                      });
+                    } else {
+                      const formData = new FormData();
+                      formData.append("audio", file);
+                      formData.append("caseId", selectedCaseId);
+                      saved = await apiUploadTranscript(formData);
+                    }
                     fileInput.value = "";
                     setAiState({ loading: false, result: `Transcription started for "${saved.filename}". The file is now being processed — you can view the progress and results under Documents > Transcripts in the case detail overlay.`, error: null });
                   } catch (err) {

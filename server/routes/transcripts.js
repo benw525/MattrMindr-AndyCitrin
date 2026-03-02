@@ -247,6 +247,94 @@ async function processTranscription(transcriptId) {
   }
 }
 
+const CHUNK_SIZE = 20 * 1024 * 1024;
+const pendingChunks = new Map();
+
+router.post("/upload/init", requireAuth, express.json(), async (req, res) => {
+  try {
+    const { caseId, filename, contentType, fileSize, totalChunks } = req.body;
+    if (!caseId || !filename || !totalChunks) return res.status(400).json({ error: "Missing required fields" });
+    if (fileSize > 100 * 1024 * 1024) return res.status(400).json({ error: "File too large (max 100MB)" });
+    if (totalChunks > 10) return res.status(400).json({ error: "Too many chunks" });
+    if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
+
+    const uploadId = randomUUID();
+    pendingChunks.set(uploadId, {
+      caseId, filename, contentType, fileSize, totalChunks,
+      userId: req.session.userId,
+      chunks: new Array(totalChunks).fill(null),
+      received: 0,
+      createdAt: Date.now(),
+    });
+
+    setTimeout(() => { pendingChunks.delete(uploadId); }, 30 * 60 * 1000);
+
+    res.json({ uploadId, totalChunks });
+  } catch (err) {
+    console.error("Chunk init error:", err.message);
+    res.status(500).json({ error: "Failed to initialize upload" });
+  }
+});
+
+router.post("/upload/chunk", requireAuth, upload.single("chunk"), async (req, res) => {
+  try {
+    const { uploadId, chunkIndex } = req.body;
+    if (!uploadId || chunkIndex === undefined || !req.file) {
+      return res.status(400).json({ error: "Missing uploadId, chunkIndex, or chunk data" });
+    }
+    const pending = pendingChunks.get(uploadId);
+    if (!pending) return res.status(404).json({ error: "Upload session not found or expired" });
+    if (pending.userId !== req.session.userId) return res.status(403).json({ error: "Access denied" });
+
+    const idx = parseInt(chunkIndex);
+    if (idx < 0 || idx >= pending.totalChunks) return res.status(400).json({ error: "Invalid chunk index" });
+
+    if (pending.chunks[idx] === null) {
+      pending.received++;
+    }
+    pending.chunks[idx] = req.file.buffer;
+
+    res.json({ received: pending.received, totalChunks: pending.totalChunks });
+  } catch (err) {
+    console.error("Chunk upload error:", err.message);
+    res.status(500).json({ error: "Failed to upload chunk" });
+  }
+});
+
+router.post("/upload/complete", requireAuth, express.json(), async (req, res) => {
+  try {
+    const { uploadId } = req.body;
+    if (!uploadId) return res.status(400).json({ error: "Missing uploadId" });
+    const pending = pendingChunks.get(uploadId);
+    if (!pending) return res.status(404).json({ error: "Upload session not found or expired" });
+    if (pending.userId !== req.session.userId) return res.status(403).json({ error: "Access denied" });
+
+    const missing = pending.chunks.findIndex(c => c === null);
+    if (missing !== -1) return res.status(400).json({ error: `Missing chunk ${missing}` });
+
+    const fullBuffer = Buffer.concat(pending.chunks);
+    pendingChunks.delete(uploadId);
+
+    const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [pending.userId]);
+    const uploaderName = userRows.length ? userRows[0].name : "";
+
+    const { rows } = await pool.query(
+      `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by, uploaded_by_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [pending.caseId, pending.filename, pending.contentType, fullBuffer, fullBuffer.length, pending.userId, uploaderName]
+    );
+
+    res.json(toFrontend(rows[0]));
+
+    processTranscription(rows[0].id).catch(err => {
+      console.error("Background transcription failed:", err.message);
+    });
+  } catch (err) {
+    console.error("Chunk complete error:", err.message);
+    res.status(500).json({ error: "Failed to complete upload" });
+  }
+});
+
 router.post("/upload", requireAuth, upload.single("audio"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No audio file provided" });

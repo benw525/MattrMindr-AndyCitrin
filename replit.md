@@ -28,6 +28,7 @@ Login: email + password (existing users default: `1234`, new users get temp pass
   - Seed step removed — production database already has all data; seed.js is only for initial setup
   - Production has a **separate PostgreSQL database** from development
 - **Run**: `NODE_ENV=production node server/index.js` (serves API + React build on port 5000)
+- **Large File Uploads**: Files >20MB use chunked upload (init → chunk × N → complete) to bypass Replit's ~32MB reverse proxy body limit. Files ≤20MB use standard single-request upload. Chunked upload shows progress percentage in UI.
 - In production: Express serves static React build, secure cookies enabled, trust proxy set
 - Health check (`/api/health`) verifies database connectivity
 - Startup logs database user count for deployment verification
