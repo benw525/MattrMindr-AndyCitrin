@@ -965,6 +965,117 @@ export default function App() {
   const advocatePrevOpenRef = useRef(false);
   const [advocateScreenChips, setAdvocateScreenChips] = useState(null);
   const [advocateFromHelpCenter, setAdvocateFromHelpCenter] = useState(false);
+  const [hideAdvocateAI, setHideAdvocateAI] = useState(() => currentUser?.preferences?.hideAdvocateAI || false);
+  const [fabPosition, setFabPosition] = useState(() => currentUser?.preferences?.fabPosition || null);
+  const [fabDragging, setFabDragging] = useState(false);
+  const [fabContextMenu, setFabContextMenu] = useState(null);
+  const fabRef = useRef(null);
+  const fabDragState = useRef({ active: false, offsetX: 0, offsetY: 0, longPressTimer: null, moved: false, startX: 0, startY: 0 });
+
+  const fabPositionRef = useRef(fabPosition);
+  useEffect(() => { fabPositionRef.current = fabPosition; }, [fabPosition]);
+
+  const fabStartDrag = useCallback((clientX, clientY) => {
+    const el = fabRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    fabDragState.current.active = true;
+    fabDragState.current.offsetX = clientX - rect.left;
+    fabDragState.current.offsetY = clientY - rect.top;
+    fabDragState.current.moved = false;
+    fabDragState.current.startX = clientX;
+    fabDragState.current.startY = clientY;
+    setFabDragging(true);
+  }, []);
+
+  const fabClampAndSet = useCallback((clientX, clientY) => {
+    const x = Math.max(0, Math.min(window.innerWidth - 52, clientX - fabDragState.current.offsetX));
+    const y = Math.max(0, Math.min(window.innerHeight - 52, clientY - fabDragState.current.offsetY));
+    const pos = { x, y };
+    setFabPosition(pos);
+    fabPositionRef.current = pos;
+  }, []);
+
+  const fabOnMouseMove = useCallback((e) => {
+    if (!fabDragState.current.active) return;
+    e.preventDefault();
+    const dx = Math.abs(e.clientX - fabDragState.current.startX);
+    const dy = Math.abs(e.clientY - fabDragState.current.startY);
+    if (dx > 3 || dy > 3) fabDragState.current.moved = true;
+    fabClampAndSet(e.clientX, e.clientY);
+  }, [fabClampAndSet]);
+
+  const fabOnMouseUp = useCallback(() => {
+    if (!fabDragState.current.active) return;
+    fabDragState.current.active = false;
+    setFabDragging(false);
+    setFabMoveMode(false);
+    if (fabDragState.current.moved && fabPositionRef.current) {
+      apiSavePreferences({ fabPosition: fabPositionRef.current }).catch(() => {});
+    }
+    setTimeout(() => { fabDragState.current.moved = false; }, 50);
+  }, []);
+
+  const fabOnTouchMove = useCallback((e) => {
+    if (!fabDragState.current.active) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const dx = Math.abs(t.clientX - fabDragState.current.startX);
+    const dy = Math.abs(t.clientY - fabDragState.current.startY);
+    if (dx > 3 || dy > 3) fabDragState.current.moved = true;
+    fabClampAndSet(t.clientX, t.clientY);
+  }, [fabClampAndSet]);
+
+  const fabOnTouchEnd = useCallback(() => {
+    if (fabDragState.current.longPressTimer) {
+      clearTimeout(fabDragState.current.longPressTimer);
+      fabDragState.current.longPressTimer = null;
+    }
+    if (!fabDragState.current.active) return;
+    fabDragState.current.active = false;
+    setFabDragging(false);
+    if (fabDragState.current.moved && fabPositionRef.current) {
+      apiSavePreferences({ fabPosition: fabPositionRef.current }).catch(() => {});
+    }
+    setTimeout(() => { fabDragState.current.moved = false; }, 50);
+  }, []);
+
+  const fabOnTouchCancel = useCallback(() => {
+    if (fabDragState.current.longPressTimer) {
+      clearTimeout(fabDragState.current.longPressTimer);
+      fabDragState.current.longPressTimer = null;
+    }
+    fabDragState.current.active = false;
+    fabDragState.current.moved = false;
+    setFabDragging(false);
+  }, []);
+
+  const [fabMoveMode, setFabMoveMode] = useState(false);
+
+  useEffect(() => {
+    if (!fabMoveMode) return;
+    const handleEsc = (e) => { if (e.key === "Escape") setFabMoveMode(false); };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [fabMoveMode]);
+
+  useEffect(() => {
+    if (fabDragging) {
+      window.addEventListener("mousemove", fabOnMouseMove);
+      window.addEventListener("mouseup", fabOnMouseUp);
+      window.addEventListener("touchmove", fabOnTouchMove, { passive: false });
+      window.addEventListener("touchend", fabOnTouchEnd);
+      window.addEventListener("touchcancel", fabOnTouchCancel);
+      return () => {
+        window.removeEventListener("mousemove", fabOnMouseMove);
+        window.removeEventListener("mouseup", fabOnMouseUp);
+        window.removeEventListener("touchmove", fabOnTouchMove);
+        window.removeEventListener("touchend", fabOnTouchEnd);
+        window.removeEventListener("touchcancel", fabOnTouchCancel);
+      };
+    }
+  }, [fabDragging, fabOnMouseMove, fabOnMouseUp, fabOnTouchMove, fabOnTouchEnd, fabOnTouchCancel]);
+
   useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading, advocateScreenChips]);
   const [contextContactsCache, setContextContactsCache] = useState(null);
   const [pinnedContactsList, setPinnedContactsList] = useState([]);
@@ -1895,7 +2006,7 @@ export default function App() {
         <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
       )}
       {showSettings && (
-        <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} />
+        <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} hideAdvocateAI={hideAdvocateAI} onToggleHideAdvocate={(val) => { setHideAdvocateAI(val); apiSavePreferences({ hideAdvocateAI: val }).catch(() => {}); if (val) setShowAdvocateGlobal(false); }} />
       )}
       {showHelpCenter && (
         <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} />
@@ -1923,15 +2034,76 @@ export default function App() {
         pending={pendingTimePrompt}
         onSubmit={(taskId, timeLogged, completedBy, timeLogUser) => finishCompleteTask(taskId, timeLogged, completedBy, timeLogUser)}
       />
-      {!showAdvocateGlobal && (
+      {!showAdvocateGlobal && !hideAdvocateAI && (
         <button
+          ref={fabRef}
           className="advocate-fab"
-          onClick={() => setShowAdvocateGlobal(true)}
-          title="Advocate AI"
-          style={view === "collaborate" ? { bottom: "auto", top: 62 } : undefined}
+          onClick={() => { if (!fabDragState.current.moved && !fabMoveMode) setShowAdvocateGlobal(true); }}
+          title={fabMoveMode ? "Click and drag to move" : "Advocate AI"}
+          style={fabPosition ? { left: fabPosition.x, top: fabPosition.y, right: "auto", bottom: "auto", ...(fabDragging || fabMoveMode ? { animation: "none", cursor: fabDragging ? "grabbing" : "grab", transition: "none" } : {}) } : (view === "collaborate" ? { bottom: "auto", top: 62 } : (fabMoveMode ? { animation: "none", cursor: "grab" } : undefined))}
+          onMouseDown={(e) => {
+            if (fabMoveMode && e.button === 0) {
+              e.preventDefault();
+              fabStartDrag(e.clientX, e.clientY);
+            }
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (!fabMoveMode) setFabContextMenu({ x: e.clientX, y: e.clientY });
+          }}
+          onTouchStart={(e) => {
+            const t = e.touches[0];
+            fabDragState.current.startX = t.clientX;
+            fabDragState.current.startY = t.clientY;
+            fabDragState.current.longPressTimer = setTimeout(() => {
+              const el = fabRef.current;
+              if (el) {
+                const rect = el.getBoundingClientRect();
+                fabDragState.current.active = true;
+                fabDragState.current.offsetX = fabDragState.current.startX - rect.left;
+                fabDragState.current.offsetY = fabDragState.current.startY - rect.top;
+                fabDragState.current.moved = false;
+                setFabDragging(true);
+              }
+            }, 500);
+          }}
+          onTouchMove={(e) => {
+            if (fabDragState.current.longPressTimer) {
+              const t = e.touches[0];
+              const dx = Math.abs(t.clientX - fabDragState.current.startX);
+              const dy = Math.abs(t.clientY - fabDragState.current.startY);
+              if (dx > 10 || dy > 10) {
+                clearTimeout(fabDragState.current.longPressTimer);
+                fabDragState.current.longPressTimer = null;
+              }
+            }
+          }}
+          onTouchEnd={() => {
+            if (fabDragState.current.longPressTimer) {
+              clearTimeout(fabDragState.current.longPressTimer);
+              fabDragState.current.longPressTimer = null;
+            }
+          }}
         >
           <Bot size={22} className="text-white" />
         </button>
+      )}
+      {fabContextMenu && (
+        <div className="fixed inset-0 z-[10000]" onClick={() => setFabContextMenu(null)} onContextMenu={e => { e.preventDefault(); setFabContextMenu(null); }}>
+          <div className="absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[140px]" style={{ left: fabContextMenu.x, top: fabContextMenu.y }}>
+            <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-transparent border-none cursor-pointer" onClick={(e) => {
+              e.stopPropagation();
+              setFabContextMenu(null);
+              setFabMoveMode(true);
+            }}>Move</button>
+            <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-transparent border-none cursor-pointer" onClick={(e) => {
+              e.stopPropagation();
+              setFabContextMenu(null);
+              setFabPosition(null);
+              apiSavePreferences({ fabPosition: null }).catch(() => {});
+            }}>Reset Position</button>
+          </div>
+        </div>
       )}
       {showAdvocateGlobal && (
         <div className="advocate-panel" style={view === "collaborate" ? { bottom: "auto", top: 62 } : undefined}>
@@ -2346,7 +2518,7 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
 }
 
 // ─── Settings Modal ──────────────────────────────────────────────────────────
-function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, onSignOut, onClose }) {
+function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, onSignOut, onClose, hideAdvocateAI, onToggleHideAdvocate }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[1100]" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
@@ -2368,6 +2540,14 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
             <Toggle on={darkMode} onChange={onToggleDark} />
             <span className="text-xs text-slate-400">🌙</span>
           </div>
+        </div>
+        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Advocate AI</div>
+        <div className="flex items-center justify-between py-2.5 mb-4">
+          <div>
+            <span className="text-sm text-slate-700 dark:text-slate-300">Hide Advocate AI</span>
+            <div className="text-[11px] text-slate-400 mt-0.5">Hides the floating AI button on all screens</div>
+          </div>
+          <Toggle on={hideAdvocateAI} onChange={() => onToggleHideAdvocate(!hideAdvocateAI)} />
         </div>
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Security</div>
         <button className="!w-full !py-2.5 !text-sm !font-medium !text-slate-700 dark:!text-slate-300 !bg-transparent !border !border-slate-200 dark:!border-slate-700 !rounded-lg hover:!bg-slate-50 dark:hover:!bg-slate-700 !transition-colors !cursor-pointer !mb-4" onClick={onChangePassword}>Change Password</button>
