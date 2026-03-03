@@ -780,6 +780,58 @@ async function createSchema() {
 
     await client.query(`ALTER TABLE trial_pinned_docs ADD COLUMN IF NOT EXISTS transcript_id INTEGER`);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS client_users (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        contact_id      INTEGER REFERENCES contacts(id),
+        name            TEXT NOT NULL,
+        email           TEXT NOT NULL UNIQUE,
+        phone           TEXT NOT NULL DEFAULT '',
+        password_hash   TEXT NOT NULL DEFAULT '',
+        must_change_password BOOLEAN NOT NULL DEFAULT TRUE,
+        last_login      TIMESTAMPTZ,
+        is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_by      INTEGER REFERENCES users(id)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS client_portal_settings (
+        id                      SERIAL PRIMARY KEY,
+        case_id                 INTEGER NOT NULL UNIQUE REFERENCES cases(id) ON DELETE CASCADE,
+        show_stage              BOOLEAN NOT NULL DEFAULT TRUE,
+        show_next_court_date    BOOLEAN NOT NULL DEFAULT FALSE,
+        show_attorney_name      BOOLEAN NOT NULL DEFAULT TRUE,
+        show_case_type          BOOLEAN NOT NULL DEFAULT TRUE,
+        show_accident_date      BOOLEAN NOT NULL DEFAULT FALSE,
+        show_documents          BOOLEAN NOT NULL DEFAULT TRUE,
+        show_messaging          BOOLEAN NOT NULL DEFAULT TRUE,
+        show_medical_treatments BOOLEAN NOT NULL DEFAULT FALSE,
+        show_negotiations       BOOLEAN NOT NULL DEFAULT FALSE,
+        show_case_value         BOOLEAN NOT NULL DEFAULT FALSE,
+        status_message          TEXT NOT NULL DEFAULT '',
+        updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_by              INTEGER REFERENCES users(id)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS client_messages (
+        id          SERIAL PRIMARY KEY,
+        case_id     INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        sender_type TEXT NOT NULL CHECK (sender_type IN ('client', 'firm')),
+        sender_id   INTEGER,
+        sender_name TEXT NOT NULL DEFAULT '',
+        body        TEXT NOT NULL,
+        read_at     TIMESTAMPTZ,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'firm'`);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

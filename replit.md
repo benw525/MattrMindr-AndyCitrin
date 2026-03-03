@@ -50,12 +50,21 @@ server/
     ai-agents.js    — All AI agent endpoints
     trial-center.js — Trial Center CRUD
     trial-center-ai.js — Trial Center AI agents (civil PI context)
+    portal-auth.js  — Client portal auth (login/logout/me/change-password)
+    portal-case.js  — Client portal data (case info, messages, documents)
+    portal-admin.js — Firm-side portal management (settings, clients, messaging)
     batch-cases.js  — Batch case operations
     ...
+  middleware/
+    auth.js         — Firm user authentication middleware
+    clientAuth.js   — Client portal authentication middleware
 
 lextrack/
   src/
-    App.js          — All UI components and business logic (~14,800 lines)
+    App.js          — All UI components and business logic (~14,900 lines)
+    portal/
+      PortalApp.js  — Client portal UI (login, dashboard, messages, documents)
+      portalApi.js  — Portal API fetch wrapper
     CollaborateView.js — Internal chat feature
     TrialCenterView.js — Trial Center (civil PI trial context)
     api.js          — Thin fetch wrapper for all API calls
@@ -116,6 +125,23 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - **Jurisdictions**: AL, GA, TN, TX, FL, MS, CA, NY
 - **Case naming**: Client name format for pre-litigation ("Tamika Washington"), litigation-style only for filed cases
 - **Default password**: `1234` for all seeded users; Admin account: `admin@mitchellpi.com`
+
+### Client Portal
+- **Path**: `/portal` — client-facing portal for case status, messaging, and document uploads
+- **Login**: Separate `client_users` table, fully isolated from firm sessions (uses `req.session.clientId` + `req.session.isClient`)
+- **Invite Flow**: Firm staff invite clients from case detail's "Client Portal" tab → generates temp password → optional welcome email via SendGrid
+- **Portal Settings** (`client_portal_settings`): Per-case toggle switches controlling what clients can see (stage, attorney name, case type, accident date, court date, documents, messaging, medical treatments, negotiations, case value) + custom status message
+- **Portal Features**:
+  - Case progress timeline (PI stages mapped to client-friendly labels)
+  - Case info cards (filtered by visibility settings)
+  - Messaging (client ↔ firm, chat-style thread via `client_messages` table)
+  - Document upload (client uploads marked with `source='client'`) + view firm-shared documents
+  - "What to Expect" section explaining the PI process
+  - Attorney / firm contact info
+- **Firm-Side Management**: "Client Portal" tab in case detail view with settings toggles, client user management, and message reply
+- **Documents**: `case_documents.source` column distinguishes `'firm'` (default) vs `'client'` uploads; firm Documents tab shows "Client Upload" badge
+- **Files**: `server/routes/portal-auth.js`, `server/routes/portal-case.js`, `server/routes/portal-admin.js`, `server/middleware/clientAuth.js`, `lextrack/src/portal/PortalApp.js`, `lextrack/src/portal/portalApi.js`
+- **Firm Login**: "Click here if you are a client" link on firm login screen navigates to `/portal`
 
 ### Default Tasks (auto-created for new cases)
 Initial Client Interview → Send Preservation Letters → Obtain Police Report → Identify Insurance Policies → Check for Conflicts → Order Medical Records

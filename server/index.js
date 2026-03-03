@@ -41,6 +41,9 @@ const collaborateRoutes      = require("./routes/collaborate");
 const transcriptsRoutes      = require("./routes/transcripts");
 const trialCenterAiRoutes    = require("./routes/trial-center-ai");
 const trialCenterRoutes      = require("./routes/trial-center");
+const portalAuthRoutes       = require("./routes/portal-auth");
+const portalCaseRoutes       = require("./routes/portal-case");
+const portalAdminRoutes      = require("./routes/portal-admin");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -113,6 +116,9 @@ app.use("/api/collaborate", collaborateRoutes);
 app.use("/api/transcripts", transcriptsRoutes);
 app.use("/api/trial-center", trialCenterRoutes);
 app.use("/api/trial-center/ai", trialCenterAiRoutes);
+app.use("/api/portal/auth", portalAuthRoutes);
+app.use("/api/portal/case", portalCaseRoutes);
+app.use("/api/portal-admin", portalAdminRoutes);
 
 app.post("/api/support", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });

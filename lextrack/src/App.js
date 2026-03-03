@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
+import PortalApp from "./portal/PortalApp.js";
 import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
@@ -37,6 +38,8 @@ import {
   apiGetDamages, apiCreateDamage, apiUpdateDamage, apiDeleteDamage,
   apiGetNegotiations, apiCreateNegotiation, apiUpdateNegotiation, apiDeleteNegotiation,
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
+  apiGetPortalSettings, apiUpdatePortalSettings, apiGetPortalClients, apiCreatePortalClient, apiDeletePortalClient,
+  apiGetPortalMessages, apiSendPortalMessage, apiMarkPortalMsgRead,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
   apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms,
@@ -938,6 +941,12 @@ function FollowUpPromptModal({ prompt, onDecide }) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  const isPortal = window.location.pathname.startsWith("/portal");
+  if (isPortal) return <PortalApp />;
+  return <FirmApp />;
+}
+
+function FirmApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [view, setView] = useState("dashboard");
@@ -2422,6 +2431,9 @@ function LoginScreen({ onLogin }) {
             {busy ? "Signing in…" : "Sign In"}
           </button>
           <button type="button" className={linkClass + " block w-full text-center"} onClick={() => { setErr(""); setMsg(""); setView("forgot"); }}>Forgot password?</button>
+          <div className="mt-6 pt-4 border-t border-slate-200">
+            <a href="/portal" className="block w-full text-center text-sm text-slate-500 hover:text-slate-700 transition-colors">Click here if you are a client</a>
+          </div>
         </>)}
 
         {view === "forgot" && (<>
@@ -5061,6 +5073,48 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [linkExternalForm, setLinkExternalForm] = useState({ externalCaseNumber: "", externalCaseStyle: "", externalCourt: "", externalCounty: "Mobile", externalCharges: "", externalAttorney: "", externalStatus: "Active", externalNotes: "", relationship: "" });
   const [expandedLinkedId, setExpandedLinkedId] = useState(null);
   const [linkRelationship, setLinkRelationship] = useState("");
+  const [portalSettings, setPortalSettings] = useState(null);
+  const [portalClients, setPortalClients] = useState([]);
+  const [portalMessages, setPortalMessages] = useState([]);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalInviteOpen, setPortalInviteOpen] = useState(false);
+  const [portalInviteForm, setPortalInviteForm] = useState({ name: "", email: "", phone: "", sendWelcomeEmail: true });
+  const [portalInviteResult, setPortalInviteResult] = useState(null);
+  const [portalMsgBody, setPortalMsgBody] = useState("");
+  const [portalSaving, setPortalSaving] = useState(false);
+  const [portalSaveMsg, setPortalSaveMsg] = useState("");
+  const portalLoadedForCase = useRef(null);
+
+  useEffect(() => {
+    if (activeTab === "portal" && c && portalLoadedForCase.current !== c.id) {
+      portalLoadedForCase.current = c.id;
+      setPortalLoading(true);
+      Promise.all([
+        apiGetPortalSettings(c.id),
+        apiGetPortalClients(c.id),
+        apiGetPortalMessages(c.id),
+      ]).then(([s, cl, msgs]) => {
+        setPortalSettings(s);
+        setPortalClients(cl);
+        setPortalMessages(msgs);
+      }).catch(err => console.error("Portal load error:", err))
+        .finally(() => setPortalLoading(false));
+    }
+  }, [activeTab, c]);
+
+  useEffect(() => {
+    if (activeTab === "portal" && portalMessages.length > 0) {
+      const unread = portalMessages.filter(m => m.sender_type === "client" && !m.read_at);
+      unread.forEach(msg => {
+        apiMarkPortalMsgRead(c.id, msg.id).catch(() => {});
+      });
+      if (unread.length > 0) {
+        setPortalMessages(prev => prev.map(m => m.sender_type === "client" && !m.read_at ? { ...m, read_at: new Date().toISOString() } : m));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, portalMessages.length]);
+
   const [transcripts, setTranscripts] = useState([]);
   const [transcriptsLoading, setTranscriptsLoading] = useState(false);
   const [transcriptUploading, setTranscriptUploading] = useState(false);
@@ -5709,6 +5763,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
           <div className={`case-overlay-tab ${activeTab === "linked" ? "active" : ""}`} onClick={() => setActiveTab("linked")}>
             Linked Cases {linkedCases.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({linkedCases.length})</span>}
+          </div>
+          <div className={`case-overlay-tab ${activeTab === "portal" ? "active" : ""}`} onClick={() => setActiveTab("portal")}>
+            Client Portal
           </div>
         </div>
 
@@ -7224,6 +7281,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <>
                           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.filename}</div>
                           <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
+                            {doc.source === "client" && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600, marginRight: 6 }}>Client Upload</span>}
                             <span style={{ cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.docType}</span> · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
                           </div>
                         </>
@@ -7841,60 +7899,72 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0", textAlign: "center" }}>No unmatched texts.</div>
               )}
               <div style={{ flex: 1, overflow: "auto" }}>
-                {smsUnmatched.map(msg => (
-                  <div key={msg.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--c-border2)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)", fontFamily: "monospace" }}>{msg.phoneNumber}</span>
-                      <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap" }}>{msg.sentAt ? new Date(msg.sentAt).toLocaleString() : ""}</span>
-                    </div>
-                    <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 8, whiteSpace: "pre-wrap" }}>{msg.body}</div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <input
-                        placeholder="Search case # or defendant..."
-                        value={smsUnmatchedSearch[msg.id] || ""}
-                        onChange={e => setSmsUnmatchedSearch(p => ({ ...p, [msg.id]: e.target.value }))}
-                        style={{ flex: 1, fontSize: 11, padding: "4px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }}
-                      />
-                      <button className="btn btn-primary btn-sm" style={{ fontSize: 11, padding: "3px 10px" }} onClick={() => {
-                        const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
-                        if (!q) return;
-                        const match = allCases.find(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q)));
-                        if (!match) { alert("No case found matching that search."); return; }
-                        apiAssignSms(msg.id, match.id).then(() => {
-                          setSmsUnmatched(p => p.filter(x => x.id !== msg.id));
-                          setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; });
-                          apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
-                        }).catch(err => alert(err.message || "Failed to assign"));
-                      }}>Assign</button>
-                    </div>
-                    {(() => {
-                      const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
-                      if (!q || q.length < 2) return null;
-                      const matches = allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q))).slice(0, 5);
-                      if (matches.length === 0) return null;
-                      return (
-                        <div style={{ marginTop: 4, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg2)", maxHeight: 120, overflow: "auto" }}>
-                          {matches.map(cs => (
-                            <div key={cs.id} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--c-border2)" }}
-                              onClick={() => {
-                                apiAssignSms(msg.id, cs.id).then(() => {
-                                  setSmsUnmatched(p => p.filter(x => x.id !== msg.id));
-                                  setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; });
-                                  apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
-                                }).catch(err => alert(err.message || "Failed to assign"));
-                              }}
-                              onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"}
-                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                            >
-                              <span style={{ color: "#5599cc", fontFamily: "monospace" }}>{cs.caseNum}</span>
-                              <span style={{ color: "var(--c-text)" }}>{cs.title || cs.clientName}</span>
-                            </div>
-                          ))}
+                {smsUnmatched.map(msg => {
+                  const isLinking = smsUnmatchedSearch[msg.id] !== undefined && smsUnmatchedSearch[msg.id] !== null;
+                  const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
+                  const matches = q.length >= 2 ? allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q))).slice(0, 6) : [];
+                  const doAssign = (caseId) => {
+                    apiAssignSms(msg.id, caseId).then(() => {
+                      setSmsUnmatched(p => p.filter(x => x.id !== msg.id));
+                      setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; });
+                      apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
+                    }).catch(err => alert(err.message || "Failed to link"));
+                  };
+                  return (
+                    <div key={msg.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--c-border2)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", fontFamily: "monospace" }}>{msg.phoneNumber}</span>
+                          {msg.contactName && <span style={{ fontSize: 12, color: "var(--c-text2)", marginLeft: 8 }}>{msg.contactName}</span>}
                         </div>
-                      );
-                    })()}
-                  </div>
-                ))}
+                        <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap" }}>{msg.sentAt ? new Date(msg.sentAt).toLocaleString() : ""}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10, whiteSpace: "pre-wrap", background: "var(--c-bg2)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border2)" }}>{msg.body}</div>
+                      {!isLinking ? (
+                        <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
+                          onClick={() => setSmsUnmatchedSearch(p => ({ ...p, [msg.id]: "" }))}>
+                          <Briefcase size={14} /> Link to Case
+                        </button>
+                      ) : (
+                        <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 10 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: matches.length > 0 ? 8 : 0 }}>
+                            <Search size={14} style={{ color: "#64748b", flexShrink: 0 }} />
+                            <input
+                              autoFocus
+                              placeholder="Search by case #, client name, or title..."
+                              value={smsUnmatchedSearch[msg.id] || ""}
+                              onChange={e => setSmsUnmatchedSearch(p => ({ ...p, [msg.id]: e.target.value }))}
+                              style={{ flex: 1, fontSize: 12, padding: "6px 10px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }}
+                            />
+                            <button className="btn btn-sm btn-outline" style={{ fontSize: 11 }}
+                              onClick={() => setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; })}>Cancel</button>
+                          </div>
+                          {q.length > 0 && q.length < 2 && <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 22 }}>Type at least 2 characters...</div>}
+                          {q.length >= 2 && matches.length === 0 && <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 22 }}>No cases found.</div>}
+                          {matches.length > 0 && (
+                            <div style={{ borderRadius: 6, border: "1px solid var(--c-border)", overflow: "hidden" }}>
+                              {matches.map(cs => (
+                                <div key={cs.id}
+                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--c-border2)", background: "var(--c-bg)", transition: "background 0.15s" }}
+                                  onClick={() => doAssign(cs.id)}
+                                  onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
+                                  onMouseLeave={e => e.currentTarget.style.background = "var(--c-bg)"}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <Briefcase size={13} style={{ color: "#f59e0b" }} />
+                                    <span style={{ color: "#5599cc", fontFamily: "monospace", fontWeight: 600 }}>{cs.caseNum}</span>
+                                    <span style={{ color: "var(--c-text)" }}>{cs.title || cs.clientName}</span>
+                                  </div>
+                                  <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 600 }}>Link</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -8765,6 +8835,199 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
           </div>
         )}
+
+        {/* ── Client Portal Tab ── */}
+        {activeTab === "portal" && (() => {
+          const TOGGLES = [
+            { key: "show_stage", label: "Case Stage / Progress" },
+            { key: "show_attorney_name", label: "Attorney Name" },
+            { key: "show_case_type", label: "Case Type" },
+            { key: "show_accident_date", label: "Accident Date" },
+            { key: "show_next_court_date", label: "Next Court Date" },
+            { key: "show_documents", label: "Firm Documents" },
+            { key: "show_messaging", label: "Messaging" },
+            { key: "show_medical_treatments", label: "Medical Treatments" },
+            { key: "show_negotiations", label: "Negotiations" },
+            { key: "show_case_value", label: "Case Value" },
+          ];
+
+          const saveSettings = async () => {
+            setPortalSaving(true);
+            try {
+              await apiUpdatePortalSettings(c.id, portalSettings);
+              setPortalSaveMsg("Settings saved");
+              setTimeout(() => setPortalSaveMsg(""), 3000);
+            } catch (err) { alert("Save failed: " + err.message); }
+            setPortalSaving(false);
+          };
+
+          const sendMessage = async () => {
+            if (!portalMsgBody.trim()) return;
+            try {
+              const msg = await apiSendPortalMessage(c.id, portalMsgBody.trim());
+              setPortalMessages(p => [...p, msg]);
+              setPortalMsgBody("");
+            } catch (err) { alert("Send failed: " + err.message); }
+          };
+
+          const inviteClient = async () => {
+            const f = portalInviteForm;
+            if (!f.name || !f.email) { alert("Name and email are required"); return; }
+            try {
+              const result = await apiCreatePortalClient(c.id, f);
+              setPortalClients(p => [result, ...p]);
+              setPortalInviteResult(result);
+            } catch (err) { alert("Invite failed: " + err.message); }
+          };
+
+          const unreadCount = portalMessages.filter(m => m.sender_type === "client" && !m.read_at).length;
+
+          return (
+            <div className="case-overlay-body">
+              {portalLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading portal settings...</div>}
+
+              {portalSettings && (<>
+                <div className="case-overlay-section">
+                  <div className="case-overlay-section-title" style={{ marginBottom: 16 }}>
+                    <span>Visibility Settings</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {portalSaveMsg && <span style={{ fontSize: 11, color: "#2F7A5F", fontWeight: 600 }}>{portalSaveMsg}</span>}
+                      <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 11 }} onClick={saveSettings} disabled={portalSaving}>
+                        {portalSaving ? "Saving..." : "Save Settings"}
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {TOGGLES.map(t => (
+                      <label key={t.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--c-text)", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!portalSettings[t.key]} onChange={e => setPortalSettings(p => ({ ...p, [t.key]: e.target.checked }))}
+                          style={{ width: 16, height: 16, accentColor: "#f59e0b" }} />
+                        {t.label}
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 16 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Custom Status Message for Client</label>
+                    <textarea
+                      value={portalSettings.status_message || ""}
+                      onChange={e => setPortalSettings(p => ({ ...p, status_message: e.target.value }))}
+                      placeholder="e.g. We are currently waiting on medical records from your provider..."
+                      rows={3}
+                      style={{ width: "100%", fontSize: 13, padding: "8px 10px", border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical" }}
+                    />
+                  </div>
+                </div>
+
+                <div className="case-overlay-section" style={{ marginTop: 24 }}>
+                  <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>
+                    <span>Client Portal Users</span>
+                    <button className="btn btn-sm btn-outline" style={{ fontSize: 11 }} onClick={() => { setPortalInviteOpen(true); setPortalInviteForm({ name: "", email: "", phone: "", sendWelcomeEmail: true }); setPortalInviteResult(null); }}>+ Invite Client</button>
+                  </div>
+                  {portalClients.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "10px 0" }}>No clients have been invited to the portal yet.</div>}
+                  {portalClients.map(cl => (
+                    <div key={cl.id} className="card" style={{ padding: "10px 14px", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{cl.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--c-text2)" }}>{cl.email}{cl.phone ? ` · ${cl.phone}` : ""}</div>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                          {cl.is_active === false ? <span style={{ color: "#e05252" }}>Deactivated</span> : <span style={{ color: "#2F7A5F" }}>Active</span>}
+                          {cl.last_login ? ` · Last login: ${new Date(cl.last_login).toLocaleDateString()}` : " · Never logged in"}
+                        </div>
+                      </div>
+                      {cl.is_active !== false && (
+                        <button className="btn btn-sm btn-outline" style={{ color: "#e05252", borderColor: "#fca5a533", fontSize: 11 }} onClick={async () => {
+                          if (!window.confirm(`Deactivate portal access for ${cl.name}?`)) return;
+                          try {
+                            await apiDeletePortalClient(c.id, cl.id);
+                            setPortalClients(p => p.map(x => x.id === cl.id ? { ...x, is_active: false } : x));
+                          } catch (err) { alert(err.message); }
+                        }}>Deactivate</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="case-overlay-section" style={{ marginTop: 24 }}>
+                  <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>
+                    <span>Client Messages {unreadCount > 0 && <span style={{ fontSize: 10, background: "#e05252", color: "#fff", borderRadius: "50%", padding: "1px 6px", marginLeft: 6 }}>{unreadCount}</span>}</span>
+                  </div>
+                  <div style={{ maxHeight: 360, overflow: "auto", border: "1px solid var(--c-border)", borderRadius: 8, padding: 12, marginBottom: 12, background: "var(--c-bg2)" }}>
+                    {portalMessages.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "20px 0" }}>No messages yet.</div>}
+                    {portalMessages.map(msg => {
+                      const isFirm = msg.sender_type === "firm";
+                      return (
+                        <div key={msg.id} style={{ marginBottom: 10, display: "flex", flexDirection: "column", alignItems: isFirm ? "flex-end" : "flex-start" }}>
+                          <div style={{ maxWidth: "75%", padding: "8px 12px", borderRadius: 10, background: isFirm ? "#1e3a5f" : "var(--c-bg)", border: isFirm ? "none" : "1px solid var(--c-border)", color: isFirm ? "#fff" : "var(--c-text)", fontSize: 13 }}>
+                            {msg.body}
+                          </div>
+                          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                            {msg.sender_name} · {msg.created_at ? new Date(msg.created_at).toLocaleString() : ""}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={portalMsgBody}
+                      onChange={e => setPortalMsgBody(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && sendMessage()}
+                      placeholder="Reply to client..."
+                      style={{ flex: 1, fontSize: 13, padding: "8px 12px", border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }}
+                    />
+                    <button className="btn btn-sm" style={{ background: "#1e3a5f", color: "#fff" }} onClick={sendMessage}>Send</button>
+                  </div>
+                </div>
+              </>)}
+
+              {portalInviteOpen && (
+                <div className="case-overlay" style={{ zIndex: 10002 }} onClick={() => setPortalInviteOpen(false)}>
+                  <div className="login-box" onClick={e => e.stopPropagation()} style={{ width: 440, maxWidth: "95vw" }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text)", marginBottom: 16 }}>Invite Client to Portal</div>
+                    {!portalInviteResult ? (<>
+                      <div className="form-group">
+                        <label>Client Name</label>
+                        <input value={portalInviteForm.name} onChange={e => setPortalInviteForm(p => ({ ...p, name: e.target.value }))} placeholder="John Doe" />
+                      </div>
+                      <div className="form-group">
+                        <label>Email</label>
+                        <input type="email" value={portalInviteForm.email} onChange={e => setPortalInviteForm(p => ({ ...p, email: e.target.value }))} placeholder="client@email.com" />
+                      </div>
+                      <div className="form-group">
+                        <label>Phone (optional)</label>
+                        <input value={portalInviteForm.phone} onChange={e => setPortalInviteForm(p => ({ ...p, phone: e.target.value }))} placeholder="(555) 555-5555" />
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--c-text)", marginBottom: 16, cursor: "pointer" }}>
+                        <input type="checkbox" checked={portalInviteForm.sendWelcomeEmail} onChange={e => setPortalInviteForm(p => ({ ...p, sendWelcomeEmail: e.target.checked }))} />
+                        Send welcome email with login instructions
+                      </label>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <button className="btn btn-sm btn-outline" onClick={() => setPortalInviteOpen(false)}>Cancel</button>
+                        <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff" }} onClick={inviteClient}>Create Account</button>
+                      </div>
+                    </>) : (
+                      <div>
+                        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#166534", marginBottom: 8 }}>Account Created</div>
+                          <div style={{ fontSize: 13, color: "#15803d" }}>
+                            <div><strong>Name:</strong> {portalInviteResult.name}</div>
+                            <div><strong>Email:</strong> {portalInviteResult.email}</div>
+                            <div style={{ marginTop: 8 }}><strong>Temporary Password:</strong></div>
+                            <div style={{ fontFamily: "monospace", fontSize: 18, color: "#1e3a5f", background: "#f0f4f8", border: "1px solid #d0d7de", borderRadius: 6, padding: "8px 16px", textAlign: "center", marginTop: 4, letterSpacing: 2 }}>{portalInviteResult.tempPassword}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                              {portalInviteForm.sendWelcomeEmail ? "A welcome email has been sent with these credentials." : "Share these credentials with the client securely."}
+                            </div>
+                          </div>
+                        </div>
+                        <button className="btn btn-sm" style={{ background: "#1e3a5f", color: "#fff", width: "100%" }} onClick={() => setPortalInviteOpen(false)}>Done</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Activity Tab ── */}
         {activeTab === "activity" && (() => {

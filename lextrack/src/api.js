@@ -499,3 +499,13 @@ export async function apiUploadCollabFile(file) {
   if (!res.ok) { let msg = `Upload error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
   return res.json();
 }
+
+// Portal Admin
+export const apiGetPortalSettings    = (caseId)        => apiFetch(`/api/portal-admin/${caseId}/settings`);
+export const apiUpdatePortalSettings = (caseId, data)  => apiFetch(`/api/portal-admin/${caseId}/settings`, { method: "PUT", body: data });
+export const apiGetPortalClients     = (caseId)        => apiFetch(`/api/portal-admin/${caseId}/clients`);
+export const apiCreatePortalClient   = (caseId, data)  => apiFetch(`/api/portal-admin/${caseId}/clients`, { method: "POST", body: data });
+export const apiDeletePortalClient   = (caseId, clientId) => apiFetch(`/api/portal-admin/${caseId}/clients/${clientId}`, { method: "DELETE" });
+export const apiGetPortalMessages    = (caseId)        => apiFetch(`/api/portal-admin/${caseId}/messages`);
+export const apiSendPortalMessage    = (caseId, body)  => apiFetch(`/api/portal-admin/${caseId}/messages`, { method: "POST", body: { body } });
+export const apiMarkPortalMsgRead   = (caseId, msgId) => apiFetch(`/api/portal-admin/${caseId}/messages/${msgId}/read`, { method: "PUT" });
