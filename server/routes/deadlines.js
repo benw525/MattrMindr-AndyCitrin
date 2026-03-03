@@ -27,8 +27,8 @@ router.get("/", requireAuth, async (req, res) => {
       `SELECT d.* FROM deadlines d
        JOIN cases c ON d.case_id = c.id
        WHERE c.lead_attorney = $1 OR c.second_attorney = $1
-          OR c.trial_coordinator = $1 OR c.investigator = $1
-          OR c.social_worker = $1
+          OR c.case_manager = $1 OR c.investigator = $1
+          OR c.paralegal = $1
        ORDER BY d.date`,
       [uid]
     );
@@ -52,6 +52,8 @@ router.post("/", requireAuth, async (req, res) => {
     let eventType = "deadline";
     if (type === "hearing" || type === "court appearance") eventType = "hearing";
     if (type === "court date") eventType = "court_date";
+    if (type === "appointment" || type === "treatment") eventType = "appointment";
+    if (type === "sol" || type === "statute of limitations") eventType = "deadline";
     const { scheduleForNewEvent } = require("../sms-scheduler");
     scheduleForNewEvent(created.case_id, eventType, created.title, created.date).catch(err => console.error("SMS auto-schedule error:", err));
 
@@ -91,6 +93,8 @@ router.put("/:id", requireAuth, async (req, res) => {
       let eventType = "deadline";
       if (t === "hearing" || t === "court appearance") eventType = "hearing";
       if (t === "court date") eventType = "court_date";
+      if (t === "appointment" || t === "treatment") eventType = "appointment";
+      if (t === "sol" || t === "statute of limitations") eventType = "deadline";
       scheduleForNewEvent(updated.case_id, eventType, updated.title, updated.date).catch(err => console.error("SMS reschedule error:", err));
     }
 

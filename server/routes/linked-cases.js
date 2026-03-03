@@ -37,8 +37,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
       `SELECT lc.*,
               c.case_num AS linked_case_num,
               c.title AS linked_case_title,
-              c.defendant_name AS linked_defendant,
-              c.charges AS linked_charges,
+              c.client_name AS linked_client,
               c.status AS linked_status,
               c.stage AS linked_stage,
               c.court AS linked_court,
@@ -71,15 +70,14 @@ router.post("/", requireAuth, async (req, res) => {
 
     if (rows[0].linked_case_id) {
       const { rows: caseRows } = await pool.query(
-        "SELECT case_num, title, defendant_name, charges, status, stage, court, county, lead_attorney FROM cases WHERE id = $1",
+        "SELECT case_num, title, client_name, status, stage, court, county, lead_attorney FROM cases WHERE id = $1",
         [rows[0].linked_case_id]
       );
       if (caseRows.length) {
         const c = caseRows[0];
         rows[0].linked_case_num = c.case_num;
         rows[0].linked_case_title = c.title;
-        rows[0].linked_defendant = c.defendant_name;
-        rows[0].linked_charges = c.charges;
+        rows[0].linked_client = c.client_name;
         rows[0].linked_status = c.status;
         rows[0].linked_stage = c.stage;
         rows[0].linked_court = c.court;

@@ -13,41 +13,44 @@ async function generateScheduledMessages(configId) {
 
   const events = [];
 
-  if (config.notify_court_dates || config.notify_hearings) {
+  if (config.notify_court_dates || config.notify_hearings || config.notify_meetings || config.notify_deadlines) {
     const caseRes = await pool.query("SELECT * FROM cases WHERE id = $1", [caseId]);
     const c = caseRes.rows[0];
     if (c) {
       if (config.notify_court_dates && c.next_court_date) {
         events.push({ type: "court_date", title: "Court Date", date: c.next_court_date });
       }
-      if (config.notify_hearings && c.arraignment_date) {
-        events.push({ type: "hearing", title: "Arraignment", date: c.arraignment_date });
-      }
       if (config.notify_court_dates && c.trial_date) {
         events.push({ type: "court_date", title: "Trial Date", date: c.trial_date });
       }
-      if (config.notify_court_dates && c.sentencing_date) {
-        events.push({ type: "court_date", title: "Sentencing", date: c.sentencing_date });
+      if (config.notify_meetings && c.mediation_date) {
+        events.push({ type: "appointment", title: "Mediation", date: c.mediation_date });
+      }
+      if (config.notify_deadlines && c.statute_of_limitations_date) {
+        events.push({ type: "deadline", title: "Statute of Limitations", date: c.statute_of_limitations_date });
       }
     }
   }
 
-  if (config.notify_deadlines || config.notify_hearings) {
+  if (config.notify_deadlines || config.notify_hearings || config.notify_meetings) {
     const deadRes = await pool.query("SELECT * FROM deadlines WHERE case_id = $1 AND date >= CURRENT_DATE", [caseId]);
     deadRes.rows.forEach(d => {
       const type = (d.type || "").toLowerCase();
-      if (config.notify_deadlines && (type === "filing" || type === "deadline" || type === "motion")) {
+      if (config.notify_deadlines && (type === "filing" || type === "deadline" || type === "motion" || type === "sol" || type === "statute of limitations")) {
         events.push({ type: "deadline", title: d.title, date: d.date });
       }
       if (config.notify_hearings && (type === "hearing" || type === "court date" || type === "court appearance")) {
         events.push({ type: "hearing", title: d.title, date: d.date });
       }
+      if (config.notify_meetings && (type === "appointment" || type === "treatment" || type === "mediation" || type === "deposition" || type === "ime")) {
+        events.push({ type: "appointment", title: d.title, date: d.date });
+      }
     });
   }
 
-  const caseRes2 = await pool.query("SELECT title, defendant_name FROM cases WHERE id = $1", [caseId]);
+  const caseRes2 = await pool.query("SELECT title, client_name FROM cases WHERE id = $1", [caseId]);
   const caseName = caseRes2.rows[0]?.title || "";
-  const defName = caseRes2.rows[0]?.defendant_name || "";
+  const clientName = caseRes2.rows[0]?.client_name || "";
 
   for (const event of events) {
     const eventDate = new Date(event.date);
@@ -70,7 +73,7 @@ async function generateScheduledMessages(configId) {
       let messageBody = config.custom_message || "";
       if (!messageBody) {
         const daysText = daysBefore === 0 ? "today" : daysBefore === 1 ? "tomorrow" : `in ${daysBefore} days`;
-        messageBody = `Reminder: ${config.contact_name || defName || "You"} have a ${event.title || event.type} scheduled ${daysText} on ${dateStr}. If you have questions, please contact the Mobile County Public Defender's Office.`;
+        messageBody = `Reminder: ${config.contact_name || clientName || "You"} have a ${event.title || event.type} scheduled ${daysText} on ${dateStr}. If you have questions, please contact our office.`;
       }
 
       for (const phone of phoneNumbers) {
@@ -135,7 +138,8 @@ async function scheduleForNewEvent(caseId, eventType, eventTitle, eventDate) {
         (eventType === "hearing" && config.notify_hearings) ||
         (eventType === "court_date" && config.notify_court_dates) ||
         (eventType === "deadline" && config.notify_deadlines) ||
-        (eventType === "meeting" && config.notify_meetings);
+        (eventType === "meeting" && config.notify_meetings) ||
+        (eventType === "appointment" && config.notify_meetings);
       if (!typeMatch) continue;
 
       const reminderDays = config.reminder_days || [1, 7];
@@ -152,7 +156,7 @@ async function scheduleForNewEvent(caseId, eventType, eventTitle, eventDate) {
 
         const daysText = daysBefore === 0 ? "today" : daysBefore === 1 ? "tomorrow" : `in ${daysBefore} days`;
         const messageBody = config.custom_message ||
-          `Reminder: ${config.contact_name || "You"} have a ${eventTitle || eventType} scheduled ${daysText} on ${dateStr}. If you have questions, please contact the Mobile County Public Defender's Office.`;
+          `Reminder: ${config.contact_name || "You"} have a ${eventTitle || eventType} scheduled ${daysText} on ${dateStr}. If you have questions, please contact our office.`;
 
         for (const phone of (config.phone_numbers || [])) {
           const exists = await pool.query(

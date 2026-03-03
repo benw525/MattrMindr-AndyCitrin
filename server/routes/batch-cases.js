@@ -5,10 +5,9 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 
 const ALLOWED_ROLES = [
-  "Public Defender",
-  "Chief Deputy Public Defender",
-  "Deputy Public Defender",
-  "Senior Trial Attorney",
+  "Managing Partner",
+  "Senior Partner",
+  "Partner",
   "IT Specialist",
   "App Admin",
 ];
@@ -16,22 +15,21 @@ const ALLOWED_ROLES = [
 const ROLE_FIELD_MAP = {
   assignedAttorney: "lead_attorney",
   secondAttorney: "second_attorney",
-  trialCoordinator: "trial_coordinator",
+  caseManager: "case_manager",
   investigator: "investigator",
-  socialWorker: "social_worker",
+  paralegal: "paralegal",
 };
 
 const ROLE_FIELD_LABELS = {
-  assignedAttorney: "Assigned Attorney",
+  assignedAttorney: "Lead Attorney",
   secondAttorney: "Second Attorney",
-  trialCoordinator: "Trial Coordinator",
+  caseManager: "Case Manager",
   investigator: "Investigator",
-  socialWorker: "Social Worker",
+  paralegal: "Paralegal",
 };
 
-const VALID_STATUSES = ["Active", "Closed", "Pending", "Disposed", "Transferred"];
-const VALID_STAGES = ["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"];
-const VALID_DIVISIONS = ["Circuit", "District", "Juvenile"];
+const VALID_STATUSES = ["Active", "Pre-Litigation", "In Litigation", "Settled", "Closed", "Referred Out"];
+const VALID_STAGES = ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"];
 
 function requireBatchRole(req, res, next) {
   const userRoles = req.session.userRoles || [req.session.userRole];
@@ -45,16 +43,16 @@ const toFrontendCase = (row) => ({
   id: row.id,
   title: row.title,
   caseNum: row.case_num,
-  defendantName: row.defendant_name,
+  clientName: row.client_name,
   status: row.status,
   stage: row.stage,
-  courtDivision: row.court_division,
+  stateJurisdiction: row.state_jurisdiction,
   nextCourtDate: row.next_court_date,
   assignedAttorney: row.lead_attorney,
   secondAttorney: row.second_attorney,
-  trialCoordinator: row.trial_coordinator,
+  caseManager: row.case_manager,
   investigator: row.investigator,
-  socialWorker: row.social_worker,
+  paralegal: row.paralegal,
 });
 
 function validateStatusFilter(statusFilter) {
@@ -64,7 +62,7 @@ function validateStatusFilter(statusFilter) {
 }
 
 function buildQuery(operation, params) {
-  const { fromUserId, toUserId, roleField, statusFilter, caseIds, newStatus, fromStage, toStage, newDate, newDivision } = params;
+  const { fromUserId, toUserId, roleField, statusFilter, caseIds, newStatus, fromStage, toStage, newDate, newJurisdiction } = params;
 
   switch (operation) {
     case "reassign-staff": {
@@ -103,9 +101,8 @@ function buildQuery(operation, params) {
       const placeholders = caseIds.map((_, i) => `$${i + 1}`).join(", ");
       return { where: `id IN (${placeholders}) AND deleted_at IS NULL`, vals: caseIds.map(Number) };
     }
-    case "transfer-division": {
-      if (!caseIds || !caseIds.length || !newDivision) throw new Error("caseIds and newDivision are required");
-      if (!VALID_DIVISIONS.includes(newDivision)) throw new Error("Invalid division");
+    case "change-jurisdiction": {
+      if (!caseIds || !caseIds.length || !newJurisdiction) throw new Error("caseIds and newJurisdiction are required");
       const placeholders = caseIds.map((_, i) => `$${i + 1}`).join(", ");
       return { where: `id IN (${placeholders}) AND deleted_at IS NULL`, vals: caseIds.map(Number) };
     }
@@ -217,14 +214,13 @@ router.post("/", requireAuth, requireBatchRole, async (req, res) => {
         }
         break;
       }
-      case "transfer-division": {
-        if (!VALID_DIVISIONS.includes(params.newDivision)) throw new Error("Invalid division");
-        detail = `Court division changed to ${params.newDivision}`;
+      case "change-jurisdiction": {
+        detail = `State jurisdiction changed to ${params.newJurisdiction}`;
         for (const c of cases) {
-          await client.query("UPDATE cases SET court_division = $1 WHERE id = $2", [params.newDivision, c.id]);
+          await client.query("UPDATE cases SET state_jurisdiction = $1 WHERE id = $2", [params.newJurisdiction, c.id]);
           await client.query(
             "INSERT INTO case_activity (case_id, user_id, user_name, user_role, action, detail) VALUES ($1, $2, $3, $4, $5, $6)",
-            [c.id, userId, userName, userRole, "Field Updated", `Division: ${c.court_division || "None"} → ${params.newDivision} (batch update)`]
+            [c.id, userId, userName, userRole, "Field Updated", `Jurisdiction: ${c.state_jurisdiction || "None"} → ${params.newJurisdiction} (batch update)`]
           );
         }
         break;

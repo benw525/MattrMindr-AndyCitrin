@@ -15,7 +15,7 @@ async function verifyCaseAccess(caseId, req) {
   const roles = req.session.userRoles || [req.session.userRole];
   if (roles.includes("App Admin")) return row;
   const uid = req.session.userId;
-  if ([row.lead_attorney, row.second_attorney, row.trial_coordinator, row.investigator, row.social_worker].includes(uid)) return row;
+  if ([row.lead_attorney, row.second_attorney, row.case_manager, row.investigator, row.paralegal].includes(uid)) return row;
   const customTeam = Array.isArray(row.custom_team) ? row.custom_team : [];
   if (customTeam.some(m => m.userId === uid)) return row;
   return null;
@@ -403,7 +403,7 @@ router.post("/witness-prep/export", requireAuth, async (req, res) => {
       doc.render({
         case_title: caseName || "",
         case_number: caseNumber || "",
-        defendant_name: "",
+        client_name: "",
         court: "",
         judge: "",
       });

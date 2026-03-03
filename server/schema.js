@@ -35,44 +35,127 @@ async function createSchema() {
         id              SERIAL PRIMARY KEY,
         case_num        TEXT    NOT NULL DEFAULT '',
         title           TEXT    NOT NULL,
-        defendant_name  TEXT    NOT NULL DEFAULT '',
-        prosecutor      TEXT    NOT NULL DEFAULT '',
+        client_name     TEXT    NOT NULL DEFAULT '',
         county          TEXT    NOT NULL DEFAULT '',
         court           TEXT    NOT NULL DEFAULT '',
-        court_division  TEXT    NOT NULL DEFAULT '',
-        charge_description TEXT NOT NULL DEFAULT '',
-        charge_statute  TEXT    NOT NULL DEFAULT '',
-        charge_class    TEXT    NOT NULL DEFAULT '',
-        case_type       TEXT    NOT NULL DEFAULT 'Felony',
-        type            TEXT    NOT NULL DEFAULT 'Felony',
+        case_type       TEXT    NOT NULL DEFAULT 'Auto Accident',
+        type            TEXT    NOT NULL DEFAULT 'Auto Accident',
         status          TEXT    NOT NULL DEFAULT 'Active',
-        stage           TEXT    NOT NULL DEFAULT 'Arraignment',
-        custody_status  TEXT    NOT NULL DEFAULT '',
-        bond_amount     TEXT    NOT NULL DEFAULT '',
-        bond_conditions TEXT    NOT NULL DEFAULT '',
-        jail_location   TEXT    NOT NULL DEFAULT '',
+        stage           TEXT    NOT NULL DEFAULT 'Intake',
+        state_jurisdiction TEXT NOT NULL DEFAULT '',
+        accident_date   DATE,
+        incident_description TEXT NOT NULL DEFAULT '',
+        incident_location TEXT NOT NULL DEFAULT '',
+        injury_type     TEXT    NOT NULL DEFAULT '',
+        injury_description TEXT NOT NULL DEFAULT '',
+        statute_of_limitations_date DATE,
+        case_value_estimate NUMERIC(12,2),
+        settlement_amount NUMERIC(12,2),
+        settlement_date DATE,
+        demand_amount   NUMERIC(12,2),
+        demand_date     DATE,
+        contingency_fee_pct NUMERIC(5,2),
+        case_expenses   NUMERIC(12,2),
+        liability_assessment TEXT NOT NULL DEFAULT '',
+        comparative_fault_pct NUMERIC(5,2),
+        police_report_number TEXT NOT NULL DEFAULT '',
+        weather_conditions TEXT NOT NULL DEFAULT '',
+        property_damage_amount NUMERIC(12,2),
         disposition_type TEXT   NOT NULL DEFAULT '',
         lead_attorney INTEGER REFERENCES users(id),
         second_attorney   INTEGER REFERENCES users(id),
-        trial_coordinator  INTEGER REFERENCES users(id),
+        case_manager      INTEGER REFERENCES users(id),
         investigator      INTEGER REFERENCES users(id),
-        social_worker     INTEGER REFERENCES users(id),
+        paralegal         INTEGER REFERENCES users(id),
         offices         TEXT[]  NOT NULL DEFAULT '{}',
-        arrest_date     DATE,
-        arraignment_date DATE,
         next_court_date DATE,
         trial_date      DATE,
-        sentencing_date DATE,
+        mediation_date  DATE,
         disposition_date DATE,
         judge           TEXT    NOT NULL DEFAULT '',
-        charges         JSONB   NOT NULL DEFAULT '[]',
+        referring_attorney TEXT NOT NULL DEFAULT '',
+        referral_source TEXT    NOT NULL DEFAULT '',
         custom_fields   JSONB   NOT NULL DEFAULT '[]',
         custom_dates    JSONB   NOT NULL DEFAULT '[]',
         hidden_fields   JSONB   NOT NULL DEFAULT '[]',
         confidential    BOOLEAN NOT NULL DEFAULT FALSE,
-        death_penalty   BOOLEAN NOT NULL DEFAULT FALSE,
         custom_team     JSONB   NOT NULL DEFAULT '[]',
         deleted_at      TIMESTAMPTZ,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_insurance_policies (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        policy_type     TEXT    NOT NULL DEFAULT 'Liability',
+        carrier_name    TEXT    NOT NULL DEFAULT '',
+        policy_number   TEXT    NOT NULL DEFAULT '',
+        policy_limits   TEXT    NOT NULL DEFAULT '',
+        adjuster_name   TEXT    NOT NULL DEFAULT '',
+        adjuster_phone  TEXT    NOT NULL DEFAULT '',
+        adjuster_email  TEXT    NOT NULL DEFAULT '',
+        claim_number    TEXT    NOT NULL DEFAULT '',
+        insured_name    TEXT    NOT NULL DEFAULT '',
+        notes           TEXT    NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_medical_treatments (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        provider_name   TEXT    NOT NULL DEFAULT '',
+        provider_type   TEXT    NOT NULL DEFAULT 'Other',
+        first_visit_date DATE,
+        last_visit_date DATE,
+        still_treating  BOOLEAN NOT NULL DEFAULT false,
+        total_billed    NUMERIC(12,2),
+        total_paid      NUMERIC(12,2),
+        description     TEXT    NOT NULL DEFAULT '',
+        notes           TEXT    NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_liens (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        lien_type       TEXT    NOT NULL DEFAULT 'Medical',
+        lienholder_name TEXT    NOT NULL DEFAULT '',
+        amount          NUMERIC(12,2),
+        negotiated_amount NUMERIC(12,2),
+        status          TEXT    NOT NULL DEFAULT 'Pending',
+        notes           TEXT    NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_damages (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        category        TEXT    NOT NULL DEFAULT 'Medical Bills',
+        description     TEXT    NOT NULL DEFAULT '',
+        amount          NUMERIC(12,2),
+        documentation_status TEXT NOT NULL DEFAULT 'Pending',
+        notes           TEXT    NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_negotiations (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        date            DATE,
+        direction       TEXT    NOT NULL DEFAULT 'Demand',
+        amount          NUMERIC(12,2),
+        from_party      TEXT    NOT NULL DEFAULT '',
+        notes           TEXT    NOT NULL DEFAULT '',
         created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
@@ -255,7 +338,7 @@ async function createSchema() {
       CREATE TABLE IF NOT EXISTS contacts (
         id         SERIAL PRIMARY KEY,
         name       TEXT    NOT NULL,
-        category   TEXT    NOT NULL CHECK (category = ANY(ARRAY['Client','Prosecutor','Judge','Court','Witness','Expert','Family Member','Social Worker','Treatment Provider','Adjuster','Miscellaneous'])),
+        category   TEXT    NOT NULL CHECK (category = ANY(ARRAY['Client','Insurance Adjuster','Insurance Company','Medical Provider','Defense Attorney','Judge','Court','Witness','Expert','Family Member','Lienholder','Referring Attorney','Treatment Provider','Miscellaneous'])),
         phone      TEXT    NOT NULL DEFAULT '',
         email      TEXT    NOT NULL DEFAULT '',
         fax        TEXT    NOT NULL DEFAULT '',
@@ -315,7 +398,7 @@ async function createSchema() {
       CREATE TABLE IF NOT EXISTS case_parties (
         id          SERIAL PRIMARY KEY,
         case_id     INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
-        party_type  TEXT    NOT NULL DEFAULT 'Defendant',
+        party_type  TEXT    NOT NULL DEFAULT 'Individual',
         entity_kind TEXT    NOT NULL DEFAULT 'individual',
         data        JSONB   NOT NULL DEFAULT '{}',
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -396,71 +479,22 @@ async function createSchema() {
       );
     `);
 
-    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS probation BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {});
-    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS probation_data JSONB NOT NULL DEFAULT '{}'`).catch(() => {});
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS case_probation_violations (
-        id                      SERIAL PRIMARY KEY,
-        case_id                 INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
-        violation_date          DATE,
-        violation_type          TEXT NOT NULL DEFAULT 'Technical',
-        description             TEXT NOT NULL DEFAULT '',
-        source                  TEXT NOT NULL DEFAULT '',
-        related_charges         TEXT NOT NULL DEFAULT '',
-        preliminary_hearing_date DATE,
-        reconvening_date        DATE,
-        custom_dates            JSONB NOT NULL DEFAULT '[]',
-        hearing_type            TEXT NOT NULL DEFAULT '',
-        attorney                INTEGER REFERENCES users(id),
-        judge                   TEXT NOT NULL DEFAULT '',
-        outcome                 TEXT NOT NULL DEFAULT 'Pending',
-        jail_time_imposed       TEXT NOT NULL DEFAULT '',
-        jail_credit             TEXT NOT NULL DEFAULT '',
-        remaining_probation     TEXT NOT NULL DEFAULT '',
-        sentence_imposed        TEXT NOT NULL DEFAULT '',
-        notes                   TEXT NOT NULL DEFAULT '',
-        created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-
     await client.query(`
       CREATE TABLE IF NOT EXISTS linked_cases (
         id                  SERIAL PRIMARY KEY,
         case_id             INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
-        is_pd_case          BOOLEAN NOT NULL DEFAULT false,
+        is_internal         BOOLEAN NOT NULL DEFAULT false,
         linked_case_id      INTEGER REFERENCES cases(id) ON DELETE SET NULL,
         external_case_number TEXT NOT NULL DEFAULT '',
         external_case_style  TEXT NOT NULL DEFAULT '',
         external_court       TEXT NOT NULL DEFAULT '',
-        external_county      TEXT NOT NULL DEFAULT 'Mobile',
-        external_charges     TEXT NOT NULL DEFAULT '',
-        external_attorney    TEXT NOT NULL DEFAULT '',
-        external_status      TEXT NOT NULL DEFAULT '',
+        external_county      TEXT NOT NULL DEFAULT '',
         external_notes       TEXT NOT NULL DEFAULT '',
         relationship         TEXT NOT NULL DEFAULT '',
         added_by             TEXT NOT NULL DEFAULT '',
         added_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
-
-    await client.query(`
-      DO $$ BEGIN
-        ALTER TABLE case_probation_violations ALTER COLUMN attorney DROP DEFAULT;
-        ALTER TABLE case_probation_violations ALTER COLUMN attorney TYPE TEXT USING CASE WHEN attorney IS NOT NULL THEN attorney::TEXT ELSE NULL END;
-        ALTER TABLE case_probation_violations ALTER COLUMN attorney SET DEFAULT '';
-      EXCEPTION WHEN others THEN NULL;
-      END $$;
-    `);
-
-    await client.query(`
-      DO $$ BEGIN
-        ALTER TABLE case_notes ALTER COLUMN case_id DROP NOT NULL;
-      EXCEPTION WHEN others THEN NULL;
-      END $$;
-    `);
-
-    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS custody_tracking JSONB NOT NULL DEFAULT '{}'`);
 
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'`);
 
@@ -488,7 +522,7 @@ async function createSchema() {
         id              SERIAL PRIMARY KEY,
         sms_config_id   INTEGER REFERENCES sms_configs(id) ON DELETE CASCADE,
         case_id         INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-        event_type      TEXT    NOT NULL DEFAULT 'hearing',
+        event_type      TEXT    NOT NULL DEFAULT 'appointment',
         event_title     TEXT    NOT NULL DEFAULT '',
         event_date      DATE,
         send_at         TIMESTAMPTZ,
@@ -594,7 +628,7 @@ async function createSchema() {
         court TEXT,
         judge TEXT,
         status TEXT DEFAULT 'preparing',
-        jury_size INTEGER DEFAULT 12,
+        jury_size INTEGER DEFAULT 6,
         notes TEXT DEFAULT '',
         created_by INTEGER,
         created_at TIMESTAMP DEFAULT NOW(),
@@ -608,7 +642,7 @@ async function createSchema() {
         id SERIAL PRIMARY KEY,
         trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
-        type TEXT DEFAULT 'defense',
+        type TEXT DEFAULT 'plaintiff',
         contact_info TEXT DEFAULT '',
         expected_testimony TEXT DEFAULT '',
         impeachment_notes TEXT DEFAULT '',
@@ -625,7 +659,7 @@ async function createSchema() {
         trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
         exhibit_number TEXT DEFAULT '',
         description TEXT NOT NULL,
-        type TEXT DEFAULT 'defense',
+        type TEXT DEFAULT 'plaintiff',
         status TEXT DEFAULT 'pending',
         linked_document_id INTEGER,
         notes TEXT DEFAULT '',
@@ -654,7 +688,7 @@ async function createSchema() {
         id SERIAL PRIMARY KEY,
         trial_session_id INTEGER NOT NULL REFERENCES trial_sessions(id) ON DELETE CASCADE,
         title TEXT NOT NULL,
-        type TEXT DEFAULT 'defense',
+        type TEXT DEFAULT 'plaintiff',
         status TEXT DEFAULT 'pending',
         ruling_summary TEXT DEFAULT '',
         notes TEXT DEFAULT '',

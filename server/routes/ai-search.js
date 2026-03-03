@@ -118,36 +118,29 @@ router.post("/", requireAuth, async (req, res) => {
       parts.push(`ID:${c.id}`);
       parts.push(`"${c.title}"`);
       if (c.case_num) parts.push(`Case#:${c.case_num}`);
-      if (c.defendant_name) parts.push(`Defendant:${c.defendant_name}`);
-      if (c.prosecutor) parts.push(`Prosecutor:${c.prosecutor}`);
+      if (c.client_name) parts.push(`Client:${c.client_name}`);
       if (c.county) parts.push(`County:${c.county}`);
       if (c.court) parts.push(`Court:${c.court}`);
-      parts.push(`Type:${c.type || "Felony"}`);
+      parts.push(`Type:${c.type || "Auto Accident"}`);
       parts.push(`Status:${c.status}`);
       if (c.stage) parts.push(`Stage:${c.stage}`);
-      if (c.court_division) parts.push(`Division:${c.court_division}`);
-      if (c.custody_status) parts.push(`Custody:${c.custody_status}`);
-      if (c.bond_amount) parts.push(`Bond:${c.bond_amount}`);
-      if (c.jail_location) parts.push(`Jail:${c.jail_location}`);
-      if (c.charge_description) parts.push(`Charge:${c.charge_description}`);
-      if (c.charge_statute) parts.push(`Statute:${c.charge_statute}`);
-      if (c.charge_class) parts.push(`Class:${c.charge_class}`);
+      if (c.state_jurisdiction) parts.push(`State:${c.state_jurisdiction}`);
+      if (c.injury_type) parts.push(`Injury:${c.injury_type}`);
+      if (c.injury_description) parts.push(`InjuryDesc:${c.injury_description}`);
+      if (c.incident_location) parts.push(`Location:${c.incident_location}`);
+      if (c.case_value_estimate) parts.push(`Value:${c.case_value_estimate}`);
+      if (c.settlement_amount) parts.push(`Settlement:${c.settlement_amount}`);
+      if (c.demand_amount) parts.push(`Demand:${c.demand_amount}`);
+      if (c.liability_assessment) parts.push(`Liability:${c.liability_assessment}`);
       if (c.lead_attorney && usersMap[c.lead_attorney]) parts.push(`LeadAtty:${usersMap[c.lead_attorney]}`);
       if (c.second_attorney && usersMap[c.second_attorney]) parts.push(`2ndAtty:${usersMap[c.second_attorney]}`);
-      if (c.trial_coordinator && usersMap[c.trial_coordinator]) parts.push(`TrialCoordinator:${usersMap[c.trial_coordinator]}`);
+      if (c.case_manager && usersMap[c.case_manager]) parts.push(`CaseMgr:${usersMap[c.case_manager]}`);
       if (c.judge) parts.push(`Judge:${c.judge}`);
       if (c.trial_date) parts.push(`Trial:${c.trial_date.toISOString().split("T")[0]}`);
-      if (c.arrest_date) parts.push(`Arrest:${c.arrest_date.toISOString().split("T")[0]}`);
+      if (c.accident_date) parts.push(`AccidentDate:${c.accident_date.toISOString().split("T")[0]}`);
+      if (c.statute_of_limitations_date) parts.push(`SOL:${c.statute_of_limitations_date.toISOString().split("T")[0]}`);
       if (c.next_court_date) parts.push(`NextCourt:${c.next_court_date.toISOString().split("T")[0]}`);
       if (c.disposition_type) parts.push(`Disposition:${c.disposition_type}`);
-      if (c.death_penalty) parts.push(`DeathPenalty:YES`);
-      if (c.probation) parts.push(`Probation:YES`);
-
-      const charges = Array.isArray(c.charges) ? c.charges : [];
-      if (charges.length) {
-        const chargeStr = charges.slice(0, 5).map(ch => `${ch.description || ""}${ch.statute ? " (" + ch.statute + ")" : ""}${ch.class ? " [" + ch.class + "]" : ""}`).filter(Boolean).join("; ");
-        if (chargeStr) parts.push(`Charges:[${chargeStr}]`);
-      }
 
       const customFields = Array.isArray(c.custom_fields) ? c.custom_fields : [];
       for (const cf of customFields.slice(0, 3)) {
@@ -197,7 +190,7 @@ router.post("/", requireAuth, async (req, res) => {
       return parts.join(" | ");
     });
 
-    const systemPrompt = `You are a legal case search assistant for a criminal defense case management system. The user will ask a question and you must find matching cases from the data provided.
+    const systemPrompt = `You are a legal case search assistant for a personal injury law firm case management system. The user will ask a question and you must find matching cases from the data provided.
 
 RULES:
 - Return ONLY a JSON array of matching cases
@@ -206,7 +199,7 @@ RULES:
 - If no cases match, return an empty array []
 - The "reason" should be specific about what data matched the query
 - Do NOT include markdown formatting, just raw JSON
-- Search across ALL fields: title, defendant, charges, custody status, notes, activity, tasks, deadlines, parties, staff, dates, etc.`;
+- Search across ALL fields: title, client, injury type, case value, settlement, notes, activity, tasks, deadlines, parties, staff, dates, etc.`;
 
     let caseDataText = caseSummaries.join("\n");
     const MAX_CHARS = 700000;

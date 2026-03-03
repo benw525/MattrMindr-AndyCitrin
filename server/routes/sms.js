@@ -221,14 +221,14 @@ router.post("/draft", requireAuth, async (req, res) => {
     const userMap = {};
     usersRes.rows.forEach(u => { userMap[u.id] = u.name; });
 
-    const systemPrompt = `You are drafting a short, professional SMS text message for a criminal defense attorney's office (Mobile County Public Defender). The message is to a ${contactType || "client"} about an upcoming case event. Keep it under 160 characters so it fits in a single SMS segment. Use plain, simple language. Be warm but professional. Include the date and what they need to know. Do NOT include legal advice. Do NOT use emojis. Write exactly ONE text message — do not provide multiple options, alternatives, or variations.`;
+    const systemPrompt = `You are drafting a short, professional SMS text message for a personal injury law firm. The message is to a ${contactType || "client"} about an upcoming case event or appointment. Keep it under 160 characters so it fits in a single SMS segment. Use plain, simple language. Be warm but professional. Include the date and what they need to know. Do NOT include legal advice. Do NOT use emojis. Write exactly ONE text message — do not provide multiple options, alternatives, or variations.`;
 
     const userPrompt = `Draft a single text message reminder (under 160 characters):
 Recipient: ${contactName || "the client"} (${contactType || "client"})
 Case: ${c.title || c.case_num || ""}
-Defendant: ${c.defendant_name || ""}
+Client: ${c.client_name || ""}
 Attorney: ${userMap[c.lead_attorney] || "Your attorney"}
-Event: ${eventType || "hearing"} — ${eventTitle || "Court appearance"}
+Event: ${eventType || "appointment"} — ${eventTitle || "Upcoming appointment"}
 Date: ${eventDate || "upcoming"}
 ${customInstructions ? `Special instructions: ${customInstructions}` : ""}
 
@@ -257,9 +257,9 @@ router.get("/suggest-numbers/:caseId", requireAuth, async (req, res) => {
     const caseId = req.params.caseId;
     const suggestions = [];
 
-    const caseRes = await pool.query("SELECT defendant_name FROM cases WHERE id = $1", [caseId]);
+    const caseRes = await pool.query("SELECT client_name FROM cases WHERE id = $1", [caseId]);
     if (!caseRes.rows[0]) return res.status(404).json({ error: "Case not found" });
-    const defName = caseRes.rows[0].defendant_name || "";
+    const clientName = caseRes.rows[0].client_name || "";
 
     const [partiesRes, expertsRes, miscRes, contactsRes] = await Promise.all([
       pool.query("SELECT party_type, data FROM case_parties WHERE case_id = $1", [caseId]),
@@ -273,7 +273,7 @@ router.get("/suggest-numbers/:caseId", requireAuth, async (req, res) => {
       const phone = d.phone || d.cellPhone || d.homePhone || "";
       if (phone) {
         const name = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || p.party_type;
-        suggestions.push({ name, phone, type: p.party_type === "Defendant" ? "client" : "party", source: "Case Parties" });
+        suggestions.push({ name, phone, type: p.party_type === "Client" ? "client" : "party", source: "Case Parties" });
       }
     });
 
@@ -287,9 +287,9 @@ router.get("/suggest-numbers/:caseId", requireAuth, async (req, res) => {
       if (d.phone) suggestions.push({ name: d.name || m.contact_type, phone: d.phone, type: "misc", source: "Case Contacts" });
     });
 
-    if (defName) {
+    if (clientName) {
       contactsRes.rows.forEach(c => {
-        if (c.name && c.phone && c.name.toLowerCase().includes(defName.split(" ")[0]?.toLowerCase())) {
+        if (c.name && c.phone && c.name.toLowerCase().includes(clientName.split(" ")[0]?.toLowerCase())) {
           suggestions.push({ name: c.name, phone: c.phone, type: c.category?.toLowerCase() || "contact", source: "Contacts" });
         }
       });

@@ -17,7 +17,7 @@ import {
   apiGetContactPhones, apiAddContactPhone, apiUpdateContactPhone, apiDeleteContactPhone,
   apiGetContactCaseLinks, apiAddContactCaseLink, apiDeleteContactCaseLink,
   apiAiSearch,
-  apiChargeAnalysis, apiGetChargeClass, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary, apiTaskSuggestions, apiAdvocateChat,
+  apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary, apiTaskSuggestions, apiAdvocateChat,
   apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
   apiGetFilings, apiUploadFiling, apiDeleteFiling, apiSummarizeFiling, apiUpdateFiling, apiClassifyFiling,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
@@ -31,7 +31,11 @@ import {
   apiGetPinnedCases, apiSetPinnedCases,
   apiBatchPreview, apiBatchApply,
   apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
-  apiGetProbationViolations, apiCreateProbationViolation, apiUpdateProbationViolation, apiDeleteProbationViolation,
+  apiGetInsurancePolicies, apiCreateInsurancePolicy, apiUpdateInsurancePolicy, apiDeleteInsurancePolicy,
+  apiGetMedicalTreatments, apiCreateMedicalTreatment, apiUpdateMedicalTreatment, apiDeleteMedicalTreatment,
+  apiGetLiens, apiCreateLien, apiUpdateLien, apiDeleteLien,
+  apiGetDamages, apiCreateDamage, apiUpdateDamage, apiDeleteDamage,
+  apiGetNegotiations, apiCreateNegotiation, apiUpdateNegotiation, apiDeleteNegotiation,
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
@@ -46,7 +50,7 @@ import TrialCenterView from "./TrialCenterView.js";
 const FONTS = ``;
 
 
-const STAFF_ROLES = ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","Trial Attorney","Office Administrator","Administrative Assistant","IT Specialist","Trial Coordinator Supervisor","Trial Coordinator","Chief Social Worker","Social Worker","Client Advocate","Investigator","Paralegal","App Admin"];
+const STAFF_ROLES = ["Managing Partner","Senior Partner","Partner","Associate Attorney","Of Counsel","Paralegal","Legal Assistant","Case Manager","Medical Records Coordinator","Intake Specialist","Office Administrator","IT Specialist","Investigator","App Admin"];
 const hasRole = (user, role) => (user?.roles || (user?.role ? [user.role] : [])).includes(role);
 const isAppAdmin = (user) => hasRole(user, "App Admin");
 const AVATAR_PALETTE = ["#C9A84C","#4C7AC9","#4CAE72","#C94C4C","#9B4CC9","#4CC9C9","#C97B4C","#4C9BC9","#7BC94C","#C94C8C","#884CC9","#4CC96A","#C9C94C","#4C6AC9","#C94C6A","#4CAEC9","#6AC94C","#C9844C","#4CC9A8","#5884C9"];
@@ -105,36 +109,36 @@ const getEffectivePriority = (task) => {
 // create the next task. dueDaysFromCompletion is calculated from the completion date.
 const TASK_CHAINS = {
   "Initial Client Interview": {
-    title: "Request Discovery from Prosecutor",
-    assignedRole: "trialCoordinator",
+    title: "Send Preservation Letters",
+    assignedRole: "caseManager",
     priority: "High",
     dueDaysFromCompletion: 3,
     autoEscalate: true,
     notes: "Auto-generated after Initial Client Interview was completed.",
   },
-  "Request Discovery from Prosecutor": {
-    title: "Review Discovery Materials",
+  "Send Preservation Letters": {
+    title: "Order Medical Records",
+    assignedRole: "caseManager",
+    priority: "High",
+    dueDaysFromCompletion: 7,
+    autoEscalate: true,
+    notes: "Auto-generated after Send Preservation Letters was completed.",
+  },
+  "Order Medical Records": {
+    title: "Review Medical Records",
     assignedRole: "assignedAttorney",
     priority: "High",
     dueDaysFromCompletion: 14,
     autoEscalate: true,
-    notes: "Auto-generated after Request Discovery from Prosecutor was completed.",
+    notes: "Auto-generated after Order Medical Records was completed.",
   },
-  "Review Discovery Materials": {
-    title: "Investigation and Witness Interviews",
-    assignedRole: "investigator",
-    priority: "Medium",
+  "Review Medical Records": {
+    title: "Prepare Demand Package",
+    assignedRole: "assignedAttorney",
+    priority: "High",
     dueDaysFromCompletion: 21,
     autoEscalate: true,
-    notes: "Auto-generated after Review Discovery Materials was completed.",
-  },
-  "File Pre-Trial Motions": {
-    title: "Prepare for Motion Hearing",
-    assignedRole: "assignedAttorney",
-    priority: "High",
-    dueDaysFromCompletion: 14,
-    autoEscalate: true,
-    notes: "Auto-generated after File Pre-Trial Motions was completed.",
+    notes: "Auto-generated after Review Medical Records was completed.",
   },
 };
 
@@ -145,12 +149,12 @@ const DUAL_CHAINS = [];
 const generateDefaultTasks = (caseObj, userId) => {
   const resolveRole = (role) => role ? (caseObj[role] || userId) : userId;
   const base = [
-    { title: "Initial Client Interview",              assignedRole: "assignedAttorney", priority: "Urgent", dueDays: 1,  notes: "Meet with client to discuss charges and case details." },
-    { title: "Request Discovery from Prosecutor",     assignedRole: "trialCoordinator",        priority: "High",   dueDays: 3,  notes: "Request all discovery materials from the DA's office." },
-    { title: "Obtain Arrest Report and Booking Info",  assignedRole: "trialCoordinator", priority: "High",   dueDays: 3,  notes: "" },
-    { title: "Review Bond Conditions",                 assignedRole: "assignedAttorney", priority: "High",   dueDays: 2,  notes: "Review and assess bond conditions; file motion to modify if needed." },
+    { title: "Initial Client Interview",              assignedRole: "assignedAttorney", priority: "Urgent", dueDays: 1,  notes: "Meet with client to discuss accident, injuries, and treatment." },
+    { title: "Send Preservation Letters",              assignedRole: "caseManager",        priority: "High",   dueDays: 3,  notes: "Send evidence preservation letters to all relevant parties." },
+    { title: "Obtain Police Report",                   assignedRole: "caseManager", priority: "High",   dueDays: 3,  notes: "Request accident/police report from law enforcement." },
+    { title: "Identify Insurance Policies",            assignedRole: "caseManager", priority: "High",   dueDays: 5,  notes: "Identify all applicable insurance policies (liability, UM/UIM, MedPay, PIP)." },
     { title: "Check for Conflicts of Interest",        assignedRole: "assignedAttorney", priority: "Urgent", dueDays: 1,  notes: "Run conflict check against existing cases." },
-    { title: "Client Background Investigation",        assignedRole: "investigator",     priority: "Medium", dueDays: 14, notes: "Gather background info, employment, family ties, community involvement." },
+    { title: "Order Medical Records",                  assignedRole: "caseManager",      priority: "High",   dueDays: 7,  notes: "Send medical record requests to all treating providers." },
   ];
   const ids = base.map(() => newId());
   return base.map((t, i) => ({
@@ -179,14 +183,17 @@ const statusBadgeStyle = (status) => {
     Pending: { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
     Disposed: { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
     Transferred: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
-    Arraignment: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
-    "Preliminary Hearing": { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
-    "Grand Jury/Indictment": { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
-    "Pre-Trial Motions": { bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" },
-    "Plea Negotiations": { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+    Intake: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    Investigation: { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+    Treatment: { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" },
+    "Pre-Litigation Demand": { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+    Negotiation: { bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" },
+    "Litigation Filed": { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+    Discovery: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    Mediation: { bg: "#fdf4ff", color: "#a21caf", border: "#f0abfc" },
+    "Trial Preparation": { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
     Trial: { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
-    Sentencing: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
-    "Post-Conviction": { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
+    "Settlement/Verdict": { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" },
     Appeal: { bg: "#fff1f2", color: "#e11d48", border: "#fecdd3" },
     Urgent: { bg: "#fee2e2", color: "#dc2626", border: "#fca5a5" },
     Overdue: { bg: "#fee2e2", color: "#dc2626", border: "#fca5a5" },
@@ -227,21 +234,23 @@ const SortTh = ({ col, label, sortCol, sortDir, onSort, style, className }) => (
   </th>
 );
 
+const US_STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia"];
+
 const COURT_RULES = [
-  { id: 1, name: "Speedy Trial (from Demand)", days: 180, from: "Demand Filed", rule: "ARCrP 8.1" },
-  { id: 2, name: "Preliminary Hearing (In Custody)", days: 30, from: "Arrest Date", rule: "ARCrP 5.1" },
-  { id: 3, name: "Preliminary Hearing (Out on Bond)", days: 60, from: "Arrest Date", rule: "ARCrP 5.1" },
-  { id: 4, name: "Grand Jury Indictment Deadline", days: 180, from: "Arrest Date", rule: "ARCrP 5.1 / Ala. Code §15-8-30" },
-  { id: 5, name: "Motion to Suppress", days: -20, from: "Trial Date", rule: "ARCrP 15.4" },
-  { id: 6, name: "Notice of Alibi Defense", days: -10, from: "Trial Date", rule: "ARCrP 16.4" },
-  { id: 7, name: "Notice of Insanity Defense", days: -30, from: "Trial Date", rule: "ARCrP 16.3" },
-  { id: 8, name: "Discovery Response", days: 14, from: "Request Served", rule: "ARCrP 16" },
-  { id: 9, name: "Motion to Dismiss Response", days: 14, from: "Motion Filed", rule: "ARCrP 13.5" },
-  { id: 10, name: "Motion for New Trial", days: 30, from: "Judgment/Verdict Date", rule: "ARCrP 24" },
-  { id: 11, name: "Notice of Appeal", days: 42, from: "Judgment/Sentence Date", rule: "ARAP 4(b)(1)" },
-  { id: 12, name: "Bond Reduction Hearing (In Custody)", days: 3, from: "Motion Filed", rule: "ARCrP 7.2(d)" },
-  { id: 13, name: "Petition for Writ of Habeas Corpus", days: 0, from: "Filing Date", rule: "Ala. Code §15-21-1" },
-  { id: 14, name: "Youthful Offender Application", days: 0, from: "At or Before Arraignment", rule: "Ala. Code §15-19-1" },
+  { id: 1, name: "SOL — Personal Injury (2 years)", days: 730, from: "Accident Date", rule: "Varies by state" },
+  { id: 2, name: "SOL — Medical Malpractice (2 years)", days: 730, from: "Date of Injury/Discovery", rule: "Varies by state" },
+  { id: 3, name: "SOL — Wrongful Death (2 years)", days: 730, from: "Date of Death", rule: "Varies by state" },
+  { id: 4, name: "SOL — Product Liability (2 years)", days: 730, from: "Date of Injury", rule: "Varies by state" },
+  { id: 5, name: "Discovery Response", days: 30, from: "Request Served", rule: "FRCP 33/34" },
+  { id: 6, name: "Summary Judgment Response", days: 21, from: "Motion Filed", rule: "FRCP 56" },
+  { id: 7, name: "Expert Disclosure Deadline", days: -90, from: "Trial Date", rule: "FRCP 26(a)(2)" },
+  { id: 8, name: "Rebuttal Expert Disclosure", days: -60, from: "Trial Date", rule: "FRCP 26(a)(2)" },
+  { id: 9, name: "Mediation Deadline", days: -60, from: "Trial Date", rule: "Local Rules" },
+  { id: 10, name: "Pretrial Disclosures", days: -30, from: "Trial Date", rule: "FRCP 26(a)(3)" },
+  { id: 11, name: "Motion in Limine Deadline", days: -14, from: "Trial Date", rule: "Local Rules" },
+  { id: 12, name: "Notice of Appeal", days: 30, from: "Judgment Date", rule: "FRAP 4(a)" },
+  { id: 13, name: "Daubert/Expert Challenge", days: -30, from: "Trial Date", rule: "FRE 702" },
+  { id: 14, name: "IME Scheduling", days: 30, from: "Request Received", rule: "FRCP 35" },
 ];
 
 const CSS = `
@@ -753,7 +762,7 @@ body.dark-body { background: #0E1116; }
 
 
 // ─── TimePromptModal ──────────────────────────────────────────────────────────
-const ATTY_PARA_ROLES = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "Trial Attorney", "Trial Coordinator"];
+const ATTY_PARA_ROLES = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "Paralegal"];
 const isAttyPara  = (u) => ATTY_PARA_ROLES.some(r => hasRole(u, r));
 const isSupportStaff = (u) => u && !isAttyPara(u);
 
@@ -769,7 +778,7 @@ function TimePromptModal({ pending, onSubmit }) {
   const showClaimPrompt  = isAttyPara(completingUser)  && task?.assigned > 0 && task.assigned !== completingUser?.id;
   const showAssignPrompt = isSupportStaff(completingUser);
 
-  const caseTeamIds   = caseForTask ? [caseForTask.assignedAttorney, caseForTask.secondAttorney, caseForTask.trialCoordinator, caseForTask.investigator, caseForTask.socialWorker].filter(id => id > 0) : [];
+  const caseTeamIds   = caseForTask ? [caseForTask.assignedAttorney, caseForTask.secondAttorney, caseForTask.caseManager, caseForTask.investigator, caseForTask.paralegal].filter(id => id > 0) : [];
   const caseTeamUsers = USERS.filter(u => caseTeamIds.includes(u.id) && isAttyPara(u));
   const otherAttyPara = USERS.filter(u => !caseTeamIds.includes(u.id) && isAttyPara(u));
   const assignedUser  = task ? getUserById(task.assigned) : null;
@@ -1161,7 +1170,7 @@ export default function App() {
       if (upcoming.length > 0) lines.push(`Next deadlines: ${upcoming.sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0, 8).map(d => `${d.title} (${d.date}, case: ${caseMap[d.caseId] || d.caseId})`).join("; ")}`);
       if (pinnedCaseIds.length > 0) {
         const pinned = allCases.filter(c => pinnedCaseIds.includes(c.id));
-        lines.push(`Pinned cases: ${pinned.map(c => `${c.case_num || ""} ${c.defendant_name || c.title}`).join("; ")}`);
+        lines.push(`Pinned cases: ${pinned.map(c => `${c.case_num || ""} ${c.client_name || c.title}`).join("; ")}`);
       }
     } else if (v === "cases") {
       lines.push(`Screen: Cases`);
@@ -1175,8 +1184,7 @@ export default function App() {
       if (selectedCase) {
         const sc = selectedCase;
         lines.push(`\nViewing case: ${sc.case_num || ""} — ${sc.title}`);
-        lines.push(`Defendant: ${sc.defendant_name || "Unknown"}, Type: ${sc.case_type || "Unknown"}, Stage: ${sc.stage || "Unknown"}, Status: ${sc.status || "Unknown"}`);
-        if (sc.charges?.length) lines.push(`Charges: ${sc.charges.map(ch => ch.description || ch.statute || "").join("; ")}`);
+        lines.push(`Client: ${sc.client_name || "Unknown"}, Type: ${sc.case_type || "Unknown"}, Stage: ${sc.stage || "Unknown"}, Status: ${sc.status || "Unknown"}`);
       }
     } else if (v === "deadlines") {
       lines.push(`Screen: Calendar`);
@@ -1218,7 +1226,7 @@ export default function App() {
         contextTemplatesCache.forEach(t => { (t.placeholders || []).forEach(p => allPlaceholders.add(p)); });
         if (allPlaceholders.size > 0) lines.push(`Available placeholders: ${[...allPlaceholders].slice(0, 30).join(", ")}`);
       } else {
-        lines.push(`Templates support placeholders like {{defendant_name}}, {{case_number}} that auto-fill with case data.`);
+        lines.push(`Templates support placeholders like {{client_name}}, {{case_number}} that auto-fill with case data.`);
       }
     } else if (v === "timelog") {
       lines.push(`Screen: Time Log`);
@@ -1247,7 +1255,7 @@ export default function App() {
         });
       });
 
-      const myCaseIds = new Set(allCases.filter(c => [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(currentUser?.id)).map(c => c.id));
+      const myCaseIds = new Set(allCases.filter(c => [c.assignedAttorney, c.secondAttorney, c.caseManager, c.investigator, c.paralegal].includes(currentUser?.id)).map(c => c.id));
       allCorrespondence.forEach(email => {
         if (!myCaseIds.has(email.caseId)) return;
         if (!inTR(email.receivedAt)) return;
@@ -1289,12 +1297,12 @@ export default function App() {
       const byStage = {};
       allCases.forEach(c => { byStage[c.stage || "Unknown"] = (byStage[c.stage || "Unknown"] || 0) + 1; });
       lines.push(`Cases by stage: ${Object.entries(byStage).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
-      const byCustody = {};
-      allCases.forEach(c => { byCustody[c.custodyStatus || "Unknown"] = (byCustody[c.custodyStatus || "Unknown"] || 0) + 1; });
-      lines.push(`Cases by custody: ${Object.entries(byCustody).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
+      const byType = {};
+      allCases.forEach(c => { byType[c.caseType || "Unknown"] = (byType[c.caseType || "Unknown"] || 0) + 1; });
+      lines.push(`Cases by type: ${Object.entries(byType).map(([k, v2]) => `${k}: ${v2}`).join(", ")}`);
     } else if (v === "aicenter") {
       lines.push(`Screen: AI Center`);
-      lines.push(`Available AI agents: Charge Analysis, Deadline Generator, Case Strategy, Document Drafting, Case Triage, Client Communication Summary, Document Summary, Task Suggestions, Filing Classifier, Charge Class Lookup, Advocate AI, Batch Case Manager`);
+      lines.push(`Available AI agents: Liability Analysis, Deadline Generator, Case Valuation & Strategy, Document Drafting, Case Triage, Client Communication Summary, Medical Record Summarizer, Task Suggestions, Filing Classifier, Advocate AI, Batch Case Manager`);
       lines.push(`The "Advocate AI Trainer" tab allows creating training entries to customize AI behavior.`);
     } else if (v === "contacts") {
       lines.push(`Screen: Contacts`);
@@ -1311,7 +1319,7 @@ export default function App() {
         const recent = contextContactsCache.slice(0, 10);
         lines.push(`Sample contacts: ${recent.map(c => `${c.name} (${c.category || "Other"})`).join(", ")}`);
       } else {
-        lines.push(`Contact directory for prosecutors, judges, courts, witnesses, experts, clients, and more.`);
+        lines.push(`Contact directory for insurance adjusters, medical providers, defense attorneys, judges, courts, witnesses, experts, clients, and more.`);
       }
     } else if (v === "staff") {
       lines.push(`Screen: Staff`);
@@ -1558,7 +1566,7 @@ export default function App() {
   if (!sessionChecked) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 40 }} />
-      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Personal Injury Case Management</div>
       <div style={{ fontSize: 13, color: "#64748b" }}>Restoring session…</div>
     </div>
   );
@@ -1572,7 +1580,7 @@ export default function App() {
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 40 }} />
-      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Personal Injury Case Management</div>
       <div style={{ fontSize: 13, color: "#64748b" }}>Loading case data…</div>
     </div>
   );
@@ -1580,7 +1588,7 @@ export default function App() {
   if (dataError) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 40 }} />
-      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Personal Injury Case Management</div>
       <div style={{ fontSize: 13, color: "#e05252" }}>Failed to load data: {dataError}</div>
       <button className="btn btn-outline" onClick={() => setCurrentUser(null)}>Return to Login</button>
     </div>
@@ -1591,8 +1599,8 @@ export default function App() {
   const handleAddRecord = async (record) => {
     try {
       const payload = {
-        arrestDate: "", arraignmentDate: "", nextCourtDate: "",
-        trialDate: "", sentencingDate: "", dispositionDate: "", judge: "",
+        accidentDate: "", nextCourtDate: "",
+        trialDate: "", judge: "",
         ...record,
         status: "Active",
       };
@@ -1627,7 +1635,7 @@ export default function App() {
     }
   };
 
-  const TEAM_ROLES = ["assignedAttorney", "secondAttorney", "trialCoordinator", "investigator", "socialWorker"];
+  const TEAM_ROLES = ["assignedAttorney", "secondAttorney", "caseManager", "investigator", "paralegal"];
 
   const handleUpdateCase = async (updated) => {
     try {
@@ -1966,7 +1974,7 @@ export default function App() {
           <img src="/mattrmindr-icon.png" alt="MattrMindr" className="w-8 h-8 rounded object-cover mix-blend-lighten" />
           <div>
             <div className="text-sm font-bold text-white tracking-wide">MattrMindr</div>
-            <div className="text-[8px] text-slate-500 uppercase tracking-widest">Public Defender</div>
+            <div className="text-[8px] text-slate-500 uppercase tracking-widest">Case Management</div>
           </div>
         </div>
         <div className="sidebar-user !border-b-slate-800">
@@ -2395,14 +2403,14 @@ function LoginScreen({ onLogin }) {
       <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-10">
         <div className="flex flex-col items-center mb-8">
           <img src="/mattrmindr-logo.png" alt="MattrMindr" className="h-12 object-contain mb-3 mix-blend-multiply dark:mix-blend-lighten dark:invert" />
-          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center mb-1">Mobile County Public Defender's Office</div>
+          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center mb-1">Personal Injury Law Firm</div>
           <div className="text-[10px] text-slate-400 uppercase tracking-widest text-center">Case Management System</div>
         </div>
 
         {view === "login" && (<>
           <div className="mb-5">
             <label className={labelClass}>Email</label>
-            <input type="email" placeholder="your.email@mobiledefender.org" value={email} onChange={e => { setEmail(e.target.value); setErr(""); setMsg(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} className={inputClass} />
+            <input type="email" placeholder="your.email@firm.com" value={email} onChange={e => { setEmail(e.target.value); setErr(""); setMsg(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} className={inputClass} />
           </div>
           <div className="mb-6">
             <label className={labelClass}>Password</label>
@@ -2420,7 +2428,7 @@ function LoginScreen({ onLogin }) {
           <div className="text-sm text-slate-500 mb-4">Enter your email and we'll send a reset code.</div>
           <div className="mb-5">
             <label className={labelClass}>Email</label>
-            <input type="email" placeholder="your.email@mobiledefender.org" value={email} onChange={e => { setEmail(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doForgot()} className={inputClass} />
+            <input type="email" placeholder="your.email@firm.com" value={email} onChange={e => { setEmail(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doForgot()} className={inputClass} />
           </div>
           {err && <div className="text-red-500 text-sm mb-3">{err}</div>}
           <button className={btnClass + " mb-4"} onClick={doForgot} disabled={busy}>
@@ -2483,7 +2491,7 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
   const content = (
     <>
       <img src="/mattrmindr-logo.png" alt="MattrMindr" style={{ height: 36, marginBottom: 2 }} />
-      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mobile County Public Defender's Office</div>
+      <div style={{ fontSize: 10, color: "#0f172a", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Personal Injury Case Management</div>
       {forced && <div style={{ fontSize: 13, color: "#64748b", margin: "8px 0 16px" }}>You must set a new password before continuing.</div>}
       {!forced && (
         <div className="form-group">
@@ -2718,31 +2726,31 @@ function HelpTutorials({ Accordion }) {
         <p><strong>Understanding the Dashboard:</strong> Your dashboard shows personalized widgets including active case counts, upcoming deadlines, overdue tasks, and recent activity. Click "Customize" in the top-right to add, remove, or reorder widgets. Quick Notes lets you jot down thoughts and assign them to cases later.</p>
       </Accordion>
       <Accordion sectionKey="tut-cases" title="Case Management" icon="⚖️">
-        <p><strong>Creating a New Case:</strong> Click "+ New Case" in the Cases view. Enter the defendant name, case number, charges, and assign team members. A conflict check runs automatically when you enter a defendant name. Fill in custody status, bond details, and court dates as available.</p>
-        <p><strong>Viewing & Editing Case Details:</strong> Click any case row to open the case detail overlay. The Details tab shows case info, charges, co-defendants, experts, and parties. Click any field value to edit it inline — changes save automatically.</p>
-        <p><strong>Managing Charges:</strong> On the Details tab, expand the Charges section. Add charges with statute, description, and class. The AI will attempt to look up the charge classification automatically. Track original vs. amended charges and dispositions.</p>
-        <p><strong>Custody Tracking:</strong> The Custody Tracking section (below Case Info) lets you track bond status, release orders, and transport requests. Each action has "ordered/set" and "completed/posted" date pairs. Pending actions show amber badges on the case row.</p>
-        <p><strong>Probation Module:</strong> Toggle "Probation" in the case header to enable the Probation tab. Enter probation type, officer, dates, conditions, and fees. Track violations with full hearing details, judges, attorneys, and outcomes.</p>
-        <p><strong>Linked Cases:</strong> The Linked Cases tab lets you link related cases — co-defendant cases, prior cases, appeals, or external cases from other jurisdictions. Search existing PD cases by number or enter external case details manually.</p>
+        <p><strong>Creating a New Case:</strong> Click "+ New Case" in the Cases view. Enter the client name, case number, case type, and assign team members. A conflict check runs automatically when you enter a client name. Fill in accident date, injury details, and jurisdiction as available.</p>
+        <p><strong>Viewing & Editing Case Details:</strong> Click any case row to open the case detail overlay. The Details tab shows case info, injury & incident details, at-fault parties, experts, and parties. Click any field value to edit it inline — changes save automatically.</p>
+        <p><strong>Tracking Medical Treatment:</strong> The Medical tab tracks all treatment providers, visit dates, billing totals, and treatment status. Add each provider with their type, visit dates, and billing amounts for a running total of medical specials.</p>
+        <p><strong>Insurance Policies:</strong> The Insurance tab manages all insurance policies on the case — liability, UM/UIM, MedPay, PIP, and more. Track carrier details, policy limits, adjuster info, and claim numbers.</p>
+        <p><strong>Damages & Negotiations:</strong> The Damages tab tracks all damage categories with documentation status. The Negotiations tab provides a timeline view of all demands, offers, and counteroffers with amounts.</p>
+        <p><strong>Linked Cases:</strong> The Linked Cases tab lets you link related cases — companion cases, prior claims, appeals, or external cases from other jurisdictions. Search existing cases by number or enter external case details manually.</p>
       </Accordion>
       <Accordion sectionKey="tut-calendar" title="Calendar & Deadlines" icon="📅">
         <p><strong>Adding Deadlines:</strong> In the Calendar view, click "+ Add Deadline" or use the "Suggest" button in a case detail to let AI generate procedural deadlines. Each deadline includes a title, date, type, and optional case assignment.</p>
-        <p><strong>Court Rules Calculator:</strong> Open the "Rules Calc" tab in Calendar to calculate deadlines based on Alabama Rules of Criminal Procedure. Select a rule (e.g., Speedy Trial, Motion to Suppress), enter a reference date, and the calculator shows the resulting deadline.</p>
-        <p><strong>Importing Calendar Feeds:</strong> In the "Feeds" tab, paste an iCal URL (from AlaCourt, Outlook, Google Calendar, etc.) to import external events. The system auto-detects case numbers and defendant names in imported events. Feeds refresh each time you log in.</p>
+        <p><strong>SOL Calculator:</strong> Open the "Rules Calc" tab in Calendar to calculate statute of limitations deadlines based on jurisdiction. Select a state and case type, enter the accident date, and the calculator shows the SOL deadline.</p>
+        <p><strong>Importing Calendar Feeds:</strong> In the "Feeds" tab, paste an iCal URL (from court systems, Outlook, Google Calendar, etc.) to import external events. The system auto-detects case numbers and client names in imported events. Feeds refresh each time you log in.</p>
         <p><strong>Calendar Views:</strong> Toggle between calendar grid view and list view. Use the visibility checkboxes to show/hide deadlines, tasks, court dates, and imported events. Click any day in the grid to see a detailed breakdown of that day's events.</p>
       </Accordion>
       <Accordion sectionKey="tut-tasks" title="Tasks" icon="✅">
         <p><strong>Creating Tasks:</strong> Click "+ Add Task" in the Tasks view or in a case detail. Assign a title, priority, due date, case, and team member. Tasks can be created individually or in bulk via AI suggestions.</p>
-        <p><strong>AI Task Suggestions:</strong> In a case detail's Tasks section, click "Suggest Tasks" to have AI analyze the case and recommend concrete defense tasks with priorities, assignments, and due dates. Add individual suggestions or all at once.</p>
+        <p><strong>AI Task Suggestions:</strong> In a case detail's Tasks section, click "Suggest Tasks" to have AI analyze the case and recommend concrete PI case tasks with priorities, assignments, and due dates. Add individual suggestions or all at once.</p>
         <p><strong>Completing Tasks:</strong> Click the checkbox next to any task to mark it complete. You'll be prompted to log time spent and optionally create a follow-up task. Completed tasks track who completed them and when.</p>
         <p><strong>Recurring Tasks:</strong> When creating a task, set a recurrence pattern (daily, weekly, biweekly, or monthly). When you complete a recurring task, a new instance is automatically created with the next due date.</p>
       </Accordion>
       <Accordion sectionKey="tut-documents" title="Documents & Filings" icon="📄">
         <p><strong>Uploading Documents:</strong> In a case detail's Documents tab, click "Upload" to attach PDF, DOCX, DOC, or TXT files. Documents are stored securely and can be downloaded, summarized, or deleted.</p>
-        <p><strong>Audio Transcription:</strong> In a case detail's Documents tab, switch to the Transcripts sub-tab to upload audio files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe custody statements, jail call recordings, and other audio. The system automatically transcribes the audio with timestamps and speaker labels. Click any segment to edit the text, click a speaker chip to rename speakers, and use the Export Text button to download a formatted transcript. You can also upload audio from the Audio Transcription card in AI Center.</p>
-        <p><strong>Generating Documents from Templates:</strong> Go to the Templates view to create reusable document templates with placeholders (e.g., defendant name, case number). Generate filled documents for any case with one click. Use "AI Draft" for AI-assisted document creation.</p>
+        <p><strong>Audio Transcription:</strong> In a case detail's Documents tab, switch to the Transcripts sub-tab to upload audio files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe client interviews, witness statements, and other audio. The system automatically transcribes the audio with timestamps and speaker labels. Click any segment to edit the text, click a speaker chip to rename speakers, and use the Export Text button to download a formatted transcript. You can also upload audio from the Audio Transcription card in AI Center.</p>
+        <p><strong>Generating Documents from Templates:</strong> Go to the Templates view to create reusable document templates with placeholders (e.g., client name, case number). Generate filled documents for any case with one click. Use "AI Draft" for AI-assisted document creation.</p>
         <p><strong>Court Filings:</strong> The Filings tab in case detail manages court filings separately from general documents. Upload filings and use AI classification to auto-detect the filing type, party, date, and summary.</p>
-        <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI extracts key facts, timeline, people mentioned, inconsistencies, Miranda/constitutional issues, and a defense-relevant takeaway.</p>
+        <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI extracts key facts, timeline, people mentioned, inconsistencies, liability issues, and a case-relevant takeaway.</p>
       </Accordion>
       <Accordion sectionKey="tut-correspondence" title="Correspondence & SMS" icon="💬">
         <p><strong>Email Correspondence:</strong> The Correspondence tab in case detail shows all emails linked to the case (received via the office's inbound email system). View email threads, attachments, and manage correspondence history.</p>
@@ -2751,19 +2759,19 @@ function HelpTutorials({ Accordion }) {
       </Accordion>
       <Accordion sectionKey="tut-ai" title="AI Tools" icon="✦">
         <p><strong>Using Advocate AI:</strong> Open Advocate AI from the Help Center's "Advocate AI" tab, or click the floating AI button (bottom-right corner) on any screen. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature.</p>
-        <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Charge Analysis, Deadline Generator, Case Strategy, Document Drafting, Case Triage, Client Communication Summary, Document Summary, Task Suggestions, Filing Classifier, and Batch Case Manager.</p>
-        <p><strong>Training AI Agents:</strong> Use the "Advocate AI Trainer" tab in AI Center to customize AI behavior. Add personal or office-wide training entries with local rules, office policies, defense strategies, or court preferences. Target specific agents or apply to all. Upload documents or type instructions directly.</p>
+        <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Liability Analysis, Deadline Generator, Case Valuation & Strategy, Document Drafting, Case Triage, Client Communication Summary, Medical Record Summarizer, Task Suggestions, Filing Classifier, and Batch Case Manager.</p>
+        <p><strong>Training AI Agents:</strong> Use the "Advocate AI Trainer" tab in AI Center to customize AI behavior. Add personal or office-wide training entries with local rules, office policies, settlement strategies, or jurisdiction preferences. Target specific agents or apply to all. Upload documents or type instructions directly.</p>
       </Accordion>
       <Accordion sectionKey="tut-contacts" title="Contacts & Staff" icon="📇">
-        <p><strong>Managing Contacts:</strong> The Contacts view stores judges, prosecutors, court clerks, witnesses, experts, and other contacts. Add contact details, notes, and associate contacts with cases. Pin frequently-used contacts for quick access.</p>
+        <p><strong>Managing Contacts:</strong> The Contacts view stores judges, insurance adjusters, medical providers, defense attorneys, witnesses, experts, and other contacts. Add contact details, notes, and associate contacts with cases. Pin frequently-used contacts for quick access.</p>
         <p><strong>Staff Directory:</strong> The Staff view shows all office personnel with their roles and assignments. Administrators can manage roles, send temporary passwords, and remove staff members. Staff members can have multiple roles.</p>
       </Accordion>
       <Accordion sectionKey="tut-reports" title="Reports & Time Log" icon="📊">
-        <p><strong>Running Reports:</strong> The Reports view offers pre-built report types including caseload analysis, deadline compliance, task completion, custody status, and pending actions. Filter by attorney, date range, or case type. Export results to CSV or print directly.</p>
+        <p><strong>Running Reports:</strong> The Reports view offers pre-built report types including caseload analysis, deadline compliance, task completion, SOL tracking, settlement reports, and case value pipeline. Filter by attorney, state, or case type. Export results to CSV or print directly.</p>
         <p><strong>Time Log Tracking:</strong> The Time Log view consolidates all time entries from task completions, case notes, and correspondence. Add manual time entries for activities not captured elsewhere. View entries by day, week, or custom date range. Filter by case or attorney.</p>
       </Accordion>
       <Accordion sectionKey="tut-admin" title="Administration" icon="🔧">
-        <p><strong>Batch Operations:</strong> Authorized staff (Public Defender, Deputies, Senior Trial Attorneys, IT, App Admin) can perform bulk operations via the Batch Case Manager in AI Center. Operations include staff reassignment, status changes, stage advancement, court date updates, and division transfers.</p>
+        <p><strong>Batch Operations:</strong> Authorized staff (Managing Partner, Senior Partner, Partners, IT, App Admin) can perform bulk operations via the Batch Case Manager in AI Center. Operations include staff reassignment, status changes, stage advancement, court date updates, and jurisdiction changes.</p>
         <p><strong>Staff Management:</strong> Administrators can add new staff members (who receive a temporary password via email), assign or modify roles, and remove staff. Use the "Send Temp Password" button to reset a staff member's credentials.</p>
       </Accordion>
     </div>
@@ -2775,7 +2783,7 @@ function HelpFAQ({ Accordion }) {
     <div>
       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 4 }}>General</div>
       <Accordion sectionKey="faq-what" title="What is MattrMindr?">
-        <p>MattrMindr is a case management system built specifically for the Mobile County Public Defender's Office. It tracks criminal defense cases, manages deadlines, assigns tasks, handles documents and court filings, and provides AI-powered tools for defense strategy, document drafting, and task management.</p>
+        <p>MattrMindr is a case management system built for personal injury law firms. It tracks PI cases, manages deadlines and statutes of limitations, assigns tasks, handles documents and court filings, and provides AI-powered tools for liability analysis, case valuation, demand letter drafting, and task management.</p>
       </Accordion>
       <Accordion sectionKey="faq-reset-pw" title="How do I reset my password?">
         <p>Click "Settings" in the sidebar footer, then "Change Password." If you've forgotten your password entirely, click "Forgot password?" on the login screen and enter your email. You'll receive a temporary reset code via email. If you still can't get in, contact your office administrator to send a new temporary password.</p>
@@ -2789,10 +2797,10 @@ function HelpFAQ({ Accordion }) {
         <p>Open the case detail and look for the "Confidential" toggle in the case header (next to the case number). Toggle it on to flag the case. Confidential cases are visually marked but remain accessible to assigned staff. This is an informational flag — it does not restrict access permissions.</p>
       </Accordion>
       <Accordion sectionKey="faq-stages" title="What do the case stages mean?">
-        <p>Case stages track the procedural progress: Arraignment (initial appearance), Preliminary Hearing, Grand Jury/Indictment, Pre-Trial Motions, Plea Negotiations, Trial, Sentencing, Post-Conviction, and Appeal. Change the stage in case details as the case progresses — the AI agents use this information to provide stage-appropriate suggestions.</p>
+        <p>Case stages track the procedural progress: Intake, Investigation, Treatment, Pre-Litigation Demand, Negotiation, Litigation Filed, Discovery, Mediation, Trial Preparation, Trial, Settlement/Verdict, and Closed. Change the stage in case details as the case progresses — the AI agents use this information to provide stage-appropriate suggestions.</p>
       </Accordion>
       <Accordion sectionKey="faq-conflict" title="How does conflict checking work?">
-        <p>When you create a new case and enter a defendant name, the system automatically searches all existing cases and contacts for matching or similar names. If potential conflicts are found, a warning panel appears showing the matches. You can proceed with case creation or investigate the conflicts first.</p>
+        <p>When you create a new case and enter a client name, the system automatically searches all existing cases and contacts for matching or similar names. If potential conflicts are found, a warning panel appears showing the matches. You can proceed with case creation or investigate the conflicts first.</p>
       </Accordion>
 
       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>AI Features</div>
@@ -2814,7 +2822,7 @@ function HelpFAQ({ Accordion }) {
         <p>When you upload a court filing, the AI Filing Classifier extracts the document text and analyzes it to determine the filing party (State, Defendant, Court, etc.), document type, filing date, and a brief summary. Classification can also be triggered manually via the "Classify" button on any filing.</p>
       </Accordion>
       <Accordion sectionKey="faq-templates" title="Can I create my own document templates?">
-        <p>Yes. Go to the Templates view and click "+ New Template." You can create templates with placeholders like {"{{defendant_name}}"}, {"{{case_number}}"}, etc., that auto-fill when generating a document for a specific case. Templates support categories like Motions, Letters, and Pleadings (which auto-include court caption and signature blocks).</p>
+        <p>Yes. Go to the Templates view and click "+ New Template." You can create templates with placeholders like {"{{client_name}}"}, {"{{case_number}}"}, etc., that auto-fill when generating a document for a specific case. Templates support categories like Motions, Letters, and Pleadings (which auto-include court caption and signature blocks).</p>
       </Accordion>
 
       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Communication</div>
@@ -2827,10 +2835,10 @@ function HelpFAQ({ Accordion }) {
 
       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Calendar</div>
       <Accordion sectionKey="faq-ical" title="Can I import my court calendar?">
-        <p>Yes. In the Calendar view, go to the "Feeds" tab and add an iCal feed URL. MattrMindr supports feeds from AlaCourt, Outlook 365, Google Calendar, and any standard iCal/ICS source. Events are imported and displayed alongside your case deadlines and tasks. The system auto-detects case numbers and defendant names in imported events.</p>
+        <p>Yes. In the Calendar view, go to the "Feeds" tab and add an iCal feed URL. MattrMindr supports feeds from Outlook 365, Google Calendar, court systems, and any standard iCal/ICS source. Events are imported and displayed alongside your case deadlines and tasks. The system auto-detects case numbers and client names in imported events.</p>
       </Accordion>
       <Accordion sectionKey="faq-deadlines-calc" title="How are deadlines calculated?">
-        <p>The Court Rules Calculator in the Calendar view uses Alabama Rules of Criminal Procedure to calculate procedural deadlines. Select a rule (e.g., Speedy Trial — 180 days, Motion to Suppress — 20 days before trial), enter a reference date, and the calculator shows the resulting deadline date. Some rules count forward, others count backward from a target date.</p>
+        <p>The Deadline Calculator in the Calendar view uses common civil procedure and PI deadlines to calculate important dates. Select a rule (e.g., SOL — Personal Injury, Discovery Response, Expert Disclosure), enter a reference date, and the calculator shows the resulting deadline date. Some rules count forward, others count backward from a target date.</p>
       </Accordion>
 
       <div style={{ padding: "16px 0 4px", borderTop: "1px solid var(--c-border)", marginTop: 16, fontSize: 13, color: "var(--c-text3)", textAlign: "center" }}>
@@ -2883,7 +2891,7 @@ function HelpChangeLog() {
       title: "Probation, Linked Cases & Custody",
       changes: [
         { text: "Probation module", sub: ["Probation details: type, officer, dates, conditions, fees", "Violation tracking with hearing dates, attorneys, judges, outcomes", "Violation hearing dates auto-sync to calendar"] },
-        { text: "Linked Cases tab", sub: ["Link PD-represented or external cases", "Relationship types: Co-Defendant, Related Charges, Prior Case, Appeal, etc.", "Searchable case linking with collapsible detail cards"] },
+        { text: "Linked Cases tab", sub: ["Link PD-represented or external cases", "Relationship types: At-Fault Party, Related Charges, Prior Case, Appeal, etc.", "Searchable case linking with collapsible detail cards"] },
         { text: "Custody tracking with bond/release/transport status and pending action badges" },
         { text: "Death penalty case flag with capital-specific AI analysis" },
         { text: "Pinned contacts in Contacts view" },
@@ -2894,8 +2902,8 @@ function HelpChangeLog() {
       date: "January 2026",
       title: "Initial Release",
       changes: [
-        { text: "Core case management system", sub: ["Criminal defense case tracking with Alabama-specific fields", "Charge tracking with statute, class, disposition, and amended status", "Multi-role staff assignments (lead attorney, co-counsel, investigator, social worker, paralegal)"] },
-        { text: "Nine AI-powered agents", sub: ["Charge Analysis, Deadline Generator, Case Strategy, Document Drafting", "Case Triage, Client Communication Summary, Document Summary", "Task Suggestions, Filing Classifier"] },
+        { text: "Core case management system", sub: ["Personal injury case tracking with multi-state jurisdiction support", "Insurance, medical treatment, liens, damages, and negotiations tracking", "Multi-role staff assignments (lead attorney, co-counsel, case manager, investigator, paralegal)"] },
+        { text: "Eleven AI-powered agents", sub: ["Liability Analysis, Deadline Generator, Case Valuation & Strategy, Document Drafting", "Case Triage, Client Communication Summary, Medical Record Summarizer", "Task Suggestions, Filing Classifier, Advocate AI, Batch Case Manager"] },
         { text: "Document management with AI summarization and OCR for scanned PDFs" },
         { text: "Court filing management with AI auto-classification" },
         { text: "Calendar with deadline tracking, court rules calculator, and task due dates" },
@@ -2994,11 +3002,10 @@ function AiPanel({ title, result, loading, error, onRun, onClose, actions, child
 
 // ─── New Case Modal ──────────────────────────────────────────────────────────
 function NewCaseModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ caseNum: "", title: "", defendantName: "", prosecutor: "", county: "Mobile", court: "Mobile County", courtDivision: "", chargeDescription: "", chargeStatute: "", chargeClass: "", caseType: "Felony", stage: "Arraignment", assignedAttorney: 0, secondAttorney: 0, trialCoordinator: 0, investigator: 0, socialWorker: 0, arrestDate: "", notes: "", deathPenalty: false });
+  const [form, setForm] = useState({ caseNum: "", title: "", clientName: "", county: "", court: "", caseType: "Auto Accident", stage: "Intake", stateJurisdiction: "", accidentDate: "", injuryType: "", assignedAttorney: 0, secondAttorney: 0, caseManager: 0, investigator: 0, paralegal: 0, notes: "" });
   const [autoTasks, setAutoTasks] = useState(true);
   const [conflicts, setConflicts] = useState(null);
   const [conflictChecking, setConflictChecking] = useState(false);
-  const [chargeAi, setChargeAi] = useState({ loading: false, result: null, error: null, show: false });
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const checkConflicts = async (name) => {
     if (!name || name.trim().length < 2) { setConflicts(null); return; }
@@ -3024,105 +3031,53 @@ function NewCaseModal({ onSave, onClose }) {
         </div>
 
         <div className="form-row">
-          <div className="form-group"><label>Case Number</label><input value={form.caseNum} onChange={e => set("caseNum", e.target.value)} placeholder="e.g. CC-2025-001234" /></div>
-          <div className="form-group"><label>Case Title *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. State v. Smith" /></div>
+          <div className="form-group"><label>Case Number</label><input value={form.caseNum} onChange={e => set("caseNum", e.target.value)} placeholder="e.g. PI-2025-001234" /></div>
+          <div className="form-group"><label>Case Title *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Smith v. Jones" /></div>
         </div>
         <div className="form-row">
-          <div className="form-group"><label>Defendant Name</label><input value={form.defendantName} onChange={e => set("defendantName", e.target.value)} onBlur={e => checkConflicts(e.target.value)} /></div>
-          <div className="form-group"><label>Prosecutor</label><input value={form.prosecutor} onChange={e => set("prosecutor", e.target.value)} /></div>
+          <div className="form-group"><label>Client Name</label><input value={form.clientName} onChange={e => set("clientName", e.target.value)} onBlur={e => checkConflicts(e.target.value)} /></div>
+          <div className="form-group"><label>Case Type</label>
+            <select value={form.caseType} onChange={e => set("caseType", e.target.value)}>
+              {["Auto Accident", "Truck Accident", "Motorcycle Accident", "Slip & Fall", "Medical Malpractice", "Product Liability", "Wrongful Death", "Workers Compensation", "Dog Bite", "Premises Liability", "Nursing Home Abuse", "Other"].map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
         </div>
         {conflictChecking && <div style={{ padding: "8px 12px", background: "#FFF8E1", border: "1px solid #FFD54F", borderRadius: 6, marginBottom: 10, fontSize: 12, color: "#795548" }}>Checking for conflicts...</div>}
         {conflicts && (
           <div style={{ padding: "10px 14px", background: "#FFF3E0", border: "1px solid #FF9800", borderRadius: 6, marginBottom: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#E65100", marginBottom: 6 }}>⚠ Potential Conflict Detected</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#E65100", marginBottom: 6 }}>Potential Conflict Detected</div>
             {conflicts.cases.length > 0 && <div style={{ fontSize: 12, color: "#BF360C", marginBottom: 4 }}>
-              <strong>Matching cases:</strong> {conflicts.cases.map(cc => `${cc.title} (${cc.case_num || "no case #"})`).join(", ")}
+              <strong>Matching cases:</strong> {conflicts.cases.map(cc => `${cc.title} (${cc.caseNum || "no case #"})`).join(", ")}
             </div>}
             {conflicts.contacts.length > 0 && <div style={{ fontSize: 12, color: "#BF360C" }}>
-              <strong>Matching contacts:</strong> {conflicts.contacts.map(cc => `${cc.first_name} ${cc.last_name}`).join(", ")}
+              <strong>Matching contacts:</strong> {conflicts.contacts.map(cc => `${cc.name}`).join(", ")}
             </div>}
             <div style={{ fontSize: 11, color: "#795548", marginTop: 4 }}>Review potential conflicts before proceeding.</div>
           </div>
         )}
         <div className="form-row">
-          <div className="form-group"><label>Court Division</label>
-            <select value={form.courtDivision} onChange={e => set("courtDivision", e.target.value)}>
+          <div className="form-group"><label>State</label>
+            <select value={form.stateJurisdiction} onChange={e => set("stateJurisdiction", e.target.value)}>
               <option value="">— Select —</option>
-              <option value="Circuit">Circuit Court</option>
-              <option value="District">District Court</option>
-              <option value="Juvenile">Juvenile Court</option>
+              {["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="form-group"><label>County</label><input value={form.county} onChange={e => set("county", e.target.value)} /></div>
         </div>
         <div className="form-row">
-          <div className="form-group"><label>Court</label><input value={form.court} onChange={e => set("court", e.target.value)} /></div>
-          <div className="form-group"><label>Judge</label><input value={form.judge || ""} onChange={e => set("judge", e.target.value)} /></div>
+          <div className="form-group"><label>Accident Date</label><input type="date" value={form.accidentDate} onChange={e => set("accidentDate", e.target.value)} /></div>
+          <div className="form-group"><label>Injury Type</label><input value={form.injuryType} onChange={e => set("injuryType", e.target.value)} placeholder="e.g. Soft tissue, TBI, Fracture" /></div>
         </div>
-        <div className="form-row">
-          <div className="form-group"><label>Case Type</label>
-            <select value={form.caseType} onChange={e => set("caseType", e.target.value)}>
-              {["Felony", "Misdemeanor", "Juvenile", "Probation Violation", "Mental Health/Commitment", "Appeal", "Other"].map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </div>
-          <div className="form-group"><label>Charge Description</label><input value={form.chargeDescription} onChange={e => set("chargeDescription", e.target.value)} onBlur={() => {
-            if ((form.chargeDescription || form.chargeStatute) && !form.chargeClass) {
-              set("_classifying", true);
-              apiGetChargeClass({ statute: form.chargeStatute, description: form.chargeDescription }).then(r => { setForm(p => p.chargeClass ? { ...p, _classifying: false } : { ...p, chargeClass: r.chargeClass, _classifying: false }); }).catch(() => set("_classifying", false));
-            }
-          }} /></div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label>Charge Statute</label><input value={form.chargeStatute} onChange={e => set("chargeStatute", e.target.value)} onBlur={() => {
-            if ((form.chargeDescription || form.chargeStatute) && !form.chargeClass) {
-              set("_classifying", true);
-              apiGetChargeClass({ statute: form.chargeStatute, description: form.chargeDescription }).then(r => { setForm(p => p.chargeClass ? { ...p, _classifying: false } : { ...p, chargeClass: r.chargeClass, _classifying: false }); }).catch(() => set("_classifying", false));
-            }
-          }} /></div>
-          <div className="form-group"><label>Charge Class {form._classifying && <span className="text-xs text-amber-700 dark:text-amber-400">(classifying...)</span>}</label>
-            <select value={form.chargeClass} onChange={e => set("chargeClass", e.target.value)}>
-              <option value="">— Select —</option>
-              {["Class A Felony", "Class B Felony", "Class C Felony", "Misdemeanor A", "Misdemeanor B", "Misdemeanor C", "Violation", "Other"].map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label>Arrest Date</label><input type="date" value={form.arrestDate} onChange={e => set("arrestDate", e.target.value)} /></div>
-        </div>
-        {(form.chargeDescription || form.chargeStatute) && (
-          <div style={{ marginBottom: 10 }}>
-            {!chargeAi.show ? (
-              <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" onClick={() => {
-                setChargeAi({ loading: true, result: null, error: null, show: true });
-                apiChargeAnalysis({ chargeDescription: form.chargeDescription, chargeStatute: form.chargeStatute, chargeClass: form.chargeClass, caseType: form.caseType, courtDivision: form.courtDivision })
-                  .then(r => setChargeAi(p => ({ ...p, loading: false, result: r.result })))
-                  .catch(e => setChargeAi(p => ({ ...p, loading: false, error: e.message })));
-              }}><Sparkles size={12} className="inline mr-0.5" /> Analyze Charges</button>
-            ) : (
-              <AiPanel title="Charge Analysis" result={chargeAi.result} loading={chargeAi.loading} error={chargeAi.error} onClose={() => setChargeAi({ loading: false, result: null, error: null, show: false })} onRun={() => {
-                setChargeAi({ loading: true, result: null, error: null, show: true });
-                apiChargeAnalysis({ chargeDescription: form.chargeDescription, chargeStatute: form.chargeStatute, chargeClass: form.chargeClass, caseType: form.caseType, courtDivision: form.courtDivision })
-                  .then(r => setChargeAi(p => ({ ...p, loading: false, result: r.result })))
-                  .catch(e => setChargeAi(p => ({ ...p, loading: false, error: e.message })));
-              }} />
-            )}
-          </div>
-        )}
         <div className="form-row">
           <div className="form-group"><label>Stage</label>
             <select value={form.stage} onChange={e => set("stage", e.target.value)}>
-              {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(o => <option key={o} value={o}>{o}</option>)}
+              {["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"].map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
-          <div className="form-group" style={{ display: "flex", alignItems: "flex-end", paddingBottom: 6 }}>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: form.deathPenalty ? 700 : 400, color: form.deathPenalty ? "#991b1b" : "#64748b", cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={form.deathPenalty} onChange={e => set("deathPenalty", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#991b1b" }} />
-              Death Penalty Case
-            </label>
-          </div>
+          <div className="form-group"><label>Court</label><input value={form.court} onChange={e => set("court", e.target.value)} /></div>
         </div>
         <div className="form-row">
-          <div className="form-group"><label>Assigned Attorney</label>
+          <div className="form-group"><label>Lead Attorney</label>
             <StaffSearchField value={form.assignedAttorney} onChange={val => set("assignedAttorney", val)} placeholder="Search attorneys…" />
           </div>
           <div className="form-group"><label>2nd Attorney</label>
@@ -3130,16 +3085,16 @@ function NewCaseModal({ onSave, onClose }) {
           </div>
         </div>
         <div className="form-row">
-          <div className="form-group"><label>Trial Coordinator</label>
-            <StaffSearchField value={form.trialCoordinator} onChange={val => set("trialCoordinator", val)} placeholder="Search staff…" />
+          <div className="form-group"><label>Case Manager</label>
+            <StaffSearchField value={form.caseManager} onChange={val => set("caseManager", val)} placeholder="Search staff…" />
           </div>
           <div className="form-group"><label>Investigator</label>
             <StaffSearchField value={form.investigator} onChange={val => set("investigator", val)} placeholder="Search staff…" />
           </div>
         </div>
         <div className="form-row">
-          <div className="form-group"><label>Social Worker</label>
-            <StaffSearchField value={form.socialWorker} onChange={val => set("socialWorker", val)} placeholder="Search staff…" />
+          <div className="form-group"><label>Paralegal</label>
+            <StaffSearchField value={form.paralegal} onChange={val => set("paralegal", val)} placeholder="Search staff…" />
           </div>
           <div className="form-group" />
         </div>
@@ -3449,7 +3404,7 @@ const CaseDropdownItem = ({ c, onClick, showDetails }) => (
     onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"}
     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
   >
-    <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{c.defendantName || c.title}</div>
+    <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{c.clientName || c.title}</div>
     <div style={{ fontSize: 11, color: "#64748b" }}>{c.caseNum || "—"}{showDetails && c.trialDate ? ` · Trial: ${new Date(c.trialDate).toLocaleDateString()}` : ""}</div>
   </div>
 );
@@ -3474,7 +3429,7 @@ function CaseSearchField({ allCases, value, onChange, placeholder, userId, pinne
     const matched = q ? active.filter(c =>
       (c.title || "").toLowerCase().includes(q) ||
       (c.caseNum || "").toLowerCase().includes(q) ||
-      (c.defendantName || "").toLowerCase().includes(q)
+      (c.clientName || "").toLowerCase().includes(q)
     ) : active;
     const sortFn = (a, b) => {
       const aDate = a.trialDate ? new Date(a.trialDate) : null;
@@ -4034,7 +3989,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                 <Pin size={14} className="text-amber-500 mr-1.5 flex-shrink-0" />
                 <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
                   <div className="dl-title" style={{ fontSize: 13 }}>{c.title}</div>
-                  <div className="dl-case">{c.caseNum || "—"}{c.defendantName ? ` · ${c.defendantName}` : ""}</div>
+                  <div className="dl-case">{c.caseNum || "—"}{c.clientName ? ` · ${c.clientName}` : ""}</div>
                 </div>
                 <div style={{ fontSize: 11, color: "#64748b", flexShrink: 0 }}>{c.status}</div>
               </div>
@@ -4381,7 +4336,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const [divisionFilter, setDivisionFilter] = useState("All");
   const [stageFilter, setStageFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
-  const [sortCol, setSortCol] = useState("arrestDate");
+  const [sortCol, setSortCol] = useState("accidentDate");
   const [sortDir, setSortDir] = useState("desc");
   const [aiQuery, setAiQuery] = useState("");
   const [aiResults, setAiResults] = useState(null);
@@ -4458,27 +4413,27 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const filtered = useMemo(() => {
     let list = allCases.filter(c => {
       if (statusFilter !== "All" && statusFilter !== "Deleted" && c.status !== statusFilter) return false;
-      if (attyFilter !== "All") { const fid = Number(attyFilter); if (![c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(fid)) return false; }
-      if (divisionFilter !== "All" && c.courtDivision !== divisionFilter) return false;
+      if (attyFilter !== "All") { const fid = Number(attyFilter); if (![c.assignedAttorney, c.secondAttorney, c.caseManager, c.investigator, c.paralegal].includes(fid)) return false; }
+      if (divisionFilter !== "All" && c.stateJurisdiction !== divisionFilter) return false;
       if (stageFilter !== "All" && c.stage !== stageFilter) return false;
       if (search) {
         const q = search.toLowerCase();
-        return c.title?.toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q) || (c.defendantName || "").toLowerCase().includes(q) || (c.prosecutor || "").toLowerCase().includes(q) || (c.county || "").toLowerCase().includes(q) || (c.court || "").toLowerCase().includes(q) || (c.chargeDescription || "").toLowerCase().includes(q);
+        return c.title?.toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q) || (c.clientName || "").toLowerCase().includes(q) || (c.county || "").toLowerCase().includes(q) || (c.court || "").toLowerCase().includes(q) || (c.injuryType || "").toLowerCase().includes(q) || (c.stateJurisdiction || "").toLowerCase().includes(q);
       }
       return true;
     });
     list.sort((a, b) => {
       let av = "", bv = "";
-      if (sortCol === "title") { av = a.defendantName || a.title || ""; bv = b.defendantName || b.title || ""; }
+      if (sortCol === "title") { av = a.clientName || a.title || ""; bv = b.clientName || b.title || ""; }
       else if (sortCol === "caseNum") { av = a.caseNum || ""; bv = b.caseNum || ""; }
-      else if (sortCol === "defendant") { av = a.defendantName || ""; bv = b.defendantName || ""; }
+      else if (sortCol === "defendant") { av = a.clientName || ""; bv = b.clientName || ""; }
       else if (sortCol === "stage") {
-        const STAGE_ORDER = { "Arraignment": 0, "Preliminary Hearing": 1, "Grand Jury/Indictment": 2, "Pre-Trial Motions": 3, "Plea Negotiations": 4, "Trial": 5, "Sentencing": 6, "Post-Conviction": 7, "Appeal": 8 };
+        const STAGE_ORDER = { "Intake": 0, "Investigation": 1, "Treatment": 2, "Pre-Litigation Demand": 3, "Negotiation": 4, "Litigation Filed": 5, "Discovery": 6, "Mediation": 7, "Trial Preparation": 8, "Trial": 9, "Settlement/Verdict": 10, "Closed": 11 };
         const ai = STAGE_ORDER[a.stage] ?? 99, bi = STAGE_ORDER[b.stage] ?? 99;
         return (sortDir === "asc" ? 1 : -1) * (ai - bi);
       }
       else if (sortCol === "trialDate") { av = a.trialDate || "9999"; bv = b.trialDate || "9999"; }
-      else if (sortCol === "arrestDate") { av = a.arrestDate || "9999"; bv = b.arrestDate || "9999"; }
+      else if (sortCol === "accidentDate") { av = a.accidentDate || "9999"; bv = b.accidentDate || "9999"; }
       else if (sortCol === "lead") { av = getUserById(a.assignedAttorney)?.name || ""; bv = getUserById(b.assignedAttorney)?.name || ""; }
       return (sortDir === "asc" ? 1 : -1) * av.localeCompare(bv);
     });
@@ -4495,7 +4450,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
   const [showPrint, setShowPrint] = useState(false);
 
   const allStaff = useMemo(() => {
-    const fields = ["assignedAttorney", "secondAttorney", "trialCoordinator", "investigator", "socialWorker"];
+    const fields = ["assignedAttorney", "secondAttorney", "caseManager", "investigator", "paralegal"];
     const assignedIds = new Set();
     allCases.forEach(c => fields.forEach(f => { if (c[f] > 0) assignedIds.add(c[f]); }));
     assignedIds.add(currentUser.id);
@@ -4529,14 +4484,12 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
         </div>
         <div className="topbar-actions">
           <select className="!text-sm !border-slate-200 dark:!border-slate-700 !rounded-lg !bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300" style={{ width: 160 }} value={divisionFilter} onChange={e => setDivisionFilter(e.target.value)}>
-            <option value="All">All Divisions</option>
-            <option value="Circuit">Circuit Court</option>
-            <option value="District">District Court</option>
-            <option value="Juvenile">Juvenile Court</option>
+            <option value="All">All States</option>
+            {[...new Set(allCases.map(c => c.stateJurisdiction).filter(Boolean))].sort().map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select className="!text-sm !border-slate-200 dark:!border-slate-700 !rounded-lg !bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300" style={{ width: 160 }} value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
             <option value="All">All Stages</option>
-            {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(s => <option key={s} value={s}>{s}</option>)}
+            {["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <StaffSearchPicker
             staffSearchRef={staffSearchRef}
@@ -4639,14 +4592,14 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{c.title}</span>
-                          {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
+                          
                           {c.caseNum && <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{c.caseNum}</span>}
                         </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{r.reason}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex gap-3">
-                          {c.defendantName && <span>Defendant: {c.defendantName}</span>}
+                          {c.clientName && <span>Client: {c.clientName}</span>}
                           {c.stage && <span>Stage: {c.stage}</span>}
-                          {c.courtDivision && <span>Division: {c.courtDivision}</span>}
+                          {c.stateJurisdiction && <span>State: {c.stateJurisdiction}</span>}
                         </div>
                       </div>
                       <div className="text-xs text-amber-600 dark:text-amber-500 font-medium flex-shrink-0">View →</div>
@@ -4697,15 +4650,15 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td data-label="Style">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
-                            {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
-                            {(() => { const ct = c.custodyTracking || {}; const pend = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted); return pend ? <span title="Pending custody action" style={{ fontSize: 9, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>⚠ PENDING</span> : null; })()}
+                            
+                            {(() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
                           </div>
-                          {c.prosecutor && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.prosecutor}</div>}
+                          {c.clientName && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.clientName}</div>}
                         </td>
                         <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Type">{c.caseType || "—"}</td>
                         <td data-label="Stage"><Badge label={c.stage} /></td>
                         <td data-label="Trial" className={`text-sm whitespace-nowrap ${c.trialDate ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500"}`}>{fmt(c.trialDate)}</td>
-                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Arrest">{fmt(c.arrestDate)}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Accident">{fmt(c.accidentDate)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -4744,7 +4697,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         return (
                           <tr key={c.id}>
                             <td data-label="Case #" style={{ fontFamily: "monospace", fontSize: 11, color: "#0f172a", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
-                            <td data-label="Style"><div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>{c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}</div>{c.defendantName && <div style={{ fontSize: 11, color: "#64748b" }}>Def: {c.defendantName}</div>}</td>
+                            <td data-label="Style"><div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span></div>{c.clientName && <div style={{ fontSize: 11, color: "#64748b" }}>Client: {c.clientName}</div>}</td>
                             <td data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
                             <td data-label="Deleted" style={{ fontSize: 12, color: "#e05252" }}>{deletedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                             <td data-label="Expires" style={{ fontSize: 12, color: daysLeft <= 7 ? "#e05252" : "#64748b" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</td>
@@ -4770,7 +4723,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                       <th className="hide-mobile">Case Type</th>
                       <SortTh col="stage" label="Stage" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="trialDate" label="Trial Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                      <SortTh col="arrestDate" label="Arrest Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hide-mobile" />
+                      <SortTh col="accidentDate" label="Accident Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hide-mobile" />
                     </tr>
                   </thead>
                   <tbody>
@@ -4785,15 +4738,15 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td data-label="Style">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
-                            {c.deathPenalty && <span style={{ fontSize: 9, fontWeight: 700, background: "#991b1b", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>DP</span>}
-                            {(() => { const ct = c.custodyTracking || {}; const pend = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted); return pend ? <span title="Pending custody action" style={{ fontSize: 9, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>⚠ PENDING</span> : null; })()}
+                            
+                            {(() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
                           </div>
-                          {c.prosecutor && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.prosecutor}</div>}
+                          {c.clientName && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.clientName}</div>}
                         </td>
                         <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400" data-label="Type">{c.caseType || "—"}</td>
                         <td data-label="Stage"><Badge label={c.stage} /></td>
                         <td data-label="Trial" className={`text-sm whitespace-nowrap ${c.trialDate ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500"}`}>{fmt(c.trialDate)}</td>
-                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Arrest">{fmt(c.arrestDate)}</td>
+                        <td className="hide-mobile text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap" data-label="Accident">{fmt(c.accidentDate)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -4853,43 +4806,42 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
 // ─── Case Detail Overlay ──────────────────────────────────────────────────────
 // Field definitions: key = JS property name, label = display name, type = input type
 const CORE_FIELDS = [
-  // Details section
   { key: "title",            label: "Case Title",           type: "text",   section: "details" },
   { key: "caseNum",          label: "Case Number",          type: "text",   section: "details" },
-  { key: "defendantName",    label: "Defendant",            type: "text",   section: "details" },
-  { key: "prosecutor",       label: "Prosecutor",           type: "text",   section: "details" },
-  { key: "chargeDescription",label: "Charge Description",   type: "text",   section: "details" },
-  { key: "chargeStatute",    label: "Statute",              type: "text",   section: "details" },
-  { key: "chargeClass",      label: "Charge Class",         type: "select", section: "details", options: ["Class A Felony", "Class B Felony", "Class C Felony", "Misdemeanor A", "Misdemeanor B", "Misdemeanor C", "Violation", "Other"] },
-  { key: "caseType",         label: "Case Type",            type: "select", section: "details", options: ["Felony", "Misdemeanor", "Juvenile", "Probation Violation", "Mental Health/Commitment", "Appeal", "Other"] },
+  { key: "clientName",       label: "Client Name",          type: "text",   section: "details" },
+  { key: "caseType",         label: "Case Type",            type: "select", section: "details", options: ["Auto Accident", "Truck Accident", "Motorcycle Accident", "Slip & Fall", "Medical Malpractice", "Product Liability", "Wrongful Death", "Workers Compensation", "Dog Bite", "Premises Liability", "Nursing Home Abuse", "Other"] },
+  { key: "stateJurisdiction",label: "State",                type: "select", section: "details", options: ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"] },
   { key: "judge",            label: "Judge",                type: "text",   section: "details" },
-  { key: "status",           label: "Status",               type: "select", section: "details", options: ["Active", "Closed", "Pending", "Disposed", "Transferred"] },
-  { key: "stage",            label: "Stage",                type: "select", section: "details", options: ["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"] },
-  // Info section
-  { key: "custodyStatus",    label: "Custody Status",       type: "select", section: "info", options: ["In Custody", "Out on Bond", "Released on Own Recognizance", "Supervision", "In Treatment"] },
-  { key: "bondAmount",       label: "Bond Amount",          type: "text",   section: "info" },
-  { key: "bondConditions",   label: "Bond Conditions",      type: "text",   section: "info" },
-  { key: "jailLocation",     label: "Jail Location",        type: "text",   section: "info" },
-  { key: "courtDivision",    label: "Court Division",       type: "select", section: "info", options: ["Circuit", "District", "Juvenile"] },
+  { key: "status",           label: "Status",               type: "select", section: "details", options: ["Active", "Pre-Litigation", "In Litigation", "Settled", "Closed", "Referred Out"] },
+  { key: "stage",            label: "Stage",                type: "select", section: "details", options: ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"] },
+  { key: "accidentDate",     label: "Accident Date",        type: "date",   section: "info" },
+  { key: "incidentLocation", label: "Incident Location",    type: "text",   section: "info" },
+  { key: "injuryType",       label: "Injury Type",          type: "text",   section: "info" },
+  { key: "injuryDescription",label: "Injury Description",   type: "text",   section: "info" },
+  { key: "liabilityAssessment",label: "Liability Assessment",type: "text",  section: "info" },
+  { key: "comparativeFaultPct",label: "Comparative Fault %", type: "text",  section: "info" },
+  { key: "policeReportNumber",label: "Police Report #",     type: "text",   section: "info" },
+  { key: "weatherConditions",label: "Weather Conditions",   type: "text",   section: "info" },
   { key: "county",           label: "County",               type: "text",   section: "info" },
   { key: "court",            label: "Court",                type: "text",   section: "info" },
-  { key: "dispositionType",  label: "Disposition",          type: "select", section: "info", options: ["", "Guilty Plea", "Not Guilty Verdict", "Nolle Prosequi", "Dismissed", "Acquitted", "Convicted at Trial", "Youthful Offender", "Other"] },
-  // Dates section
-  { key: "arrestDate",       label: "Arrest Date",          type: "date",   section: "dates" },
-  { key: "arraignmentDate",  label: "Arraignment Date",     type: "date",   section: "dates" },
+  { key: "referringAttorney",label: "Referring Attorney",   type: "text",   section: "info" },
+  { key: "referralSource",   label: "Referral Source",      type: "text",   section: "info" },
+  { key: "dispositionType",  label: "Disposition",          type: "select", section: "info", options: ["", "Settlement", "Verdict - Plaintiff", "Verdict - Defense", "Dismissed", "Withdrawn", "Arbitration Award", "Mediated Settlement", "Other"] },
+  { key: "statuteOfLimitationsDate", label: "Statute of Limitations", type: "date", section: "dates" },
   { key: "nextCourtDate",    label: "Next Court Date",      type: "date",   section: "dates" },
   { key: "trialDate",        label: "Trial Date",           type: "date",   section: "dates" },
-  { key: "sentencingDate",   label: "Sentencing Date",      type: "date",   section: "dates" },
+  { key: "mediationDate",    label: "Mediation Date",       type: "date",   section: "dates" },
   { key: "dispositionDate",  label: "Disposition Date",     type: "date",   section: "dates" },
-  // Team section
-  { key: "assignedAttorney", label: "Assigned Attorney",    type: "user",   section: "team" },
+  { key: "demandDate",       label: "Demand Date",          type: "date",   section: "dates" },
+  { key: "settlementDate",   label: "Settlement Date",      type: "date",   section: "dates" },
+  { key: "assignedAttorney", label: "Lead Attorney",        type: "user",   section: "team" },
   { key: "secondAttorney",   label: "2nd Attorney",         type: "user",   section: "team" },
-  { key: "trialCoordinator", label: "Trial Coordinator",     type: "user",   section: "team" },
+  { key: "caseManager",      label: "Case Manager",         type: "user",   section: "team" },
   { key: "investigator",     label: "Investigator",         type: "user",   section: "team" },
-  { key: "socialWorker",     label: "Social Worker",        type: "user",   section: "team" },
+  { key: "paralegal",        label: "Paralegal",            type: "user",   section: "team" },
 ];
 
-const isAttorney = (user) => hasRole(user, "Public Defender") || hasRole(user, "Chief Deputy Public Defender") || hasRole(user, "Deputy Public Defender") || hasRole(user, "Senior Trial Attorney") || hasRole(user, "Trial Attorney");
+const isAttorney = (user) => hasRole(user, "Managing Partner") || hasRole(user, "Senior Partner") || hasRole(user, "Partner") || hasRole(user, "Associate Attorney") || hasRole(user, "Of Counsel");
 
 function EditField({ fieldKey, label, type, options, value, onChange, onBlur, onRemove, canRemove, isCustom, userList, readOnly, onContactClick }) {
   const displayVal = type === "date" ? (value || "") : (value ?? "");
@@ -4956,381 +4908,11 @@ function EditField({ fieldKey, label, type, options, value, onChange, onBlur, on
   );
 }
 
-const CONTACT_LINKABLE_KEYS = new Set(["defendantName", "prosecutor", "judge"]);
+const CONTACT_LINKABLE_KEYS = new Set(["clientName", "judge", "referringAttorney"]);
 
-const KEY_DATE_FIELDS = ["arrestDate", "arraignmentDate", "nextCourtDate", "trialDate", "sentencingDate", "dispositionDate"];
-const KEY_DATE_TYPES = { arrestDate: "Other", arraignmentDate: "Hearing", nextCourtDate: "Hearing", trialDate: "Hearing", sentencingDate: "Hearing", dispositionDate: "Other" };
+const KEY_DATE_FIELDS = ["accidentDate", "statuteOfLimitationsDate", "nextCourtDate", "trialDate", "mediationDate", "dispositionDate", "demandDate", "settlementDate"];
+const KEY_DATE_TYPES = { accidentDate: "Other", statuteOfLimitationsDate: "SOL", nextCourtDate: "Hearing", trialDate: "Hearing", mediationDate: "Mediation", dispositionDate: "Other", demandDate: "Filing", settlementDate: "Other" };
 
-function ProbationTabContent({ c, draft, pd, setPd, setPdBatch, conditions, PROBATION_TYPES, CONDITION_OPTIONS, VIOLATION_SOURCES, HEARING_TYPES, OUTCOMES, editMode, onSyncDeadlines, deadlines, allContacts, onContactClick }) {
-  const [violations, setViolations] = useState([]);
-  const [loadingV, setLoadingV] = useState(false);
-  const [expandedV, setExpandedV] = useState(null);
-  const [editingV, setEditingV] = useState(null);
-  const [addingV, setAddingV] = useState(false);
-  const [newV, setNewV] = useState({});
-  const [condInput, setCondInput] = useState("");
-
-  useEffect(() => {
-    if (!c?.id) return;
-    setLoadingV(true);
-    apiGetProbationViolations(c.id).then(v => { setViolations(v); setLoadingV(false); }).catch(() => setLoadingV(false));
-  }, [c?.id]);
-
-  const pvPrefix = (vId) => `PV#${vId}:`;
-
-  const syncViolationDeadlines = (vId, data) => {
-    if (!onSyncDeadlines) return;
-    const prefix = pvPrefix(vId);
-    const wantedDates = [];
-    if (data.preliminaryHearingDate) wantedDates.push({ label: "Preliminary Hearing", date: data.preliminaryHearingDate });
-    if (data.reconveningDate) wantedDates.push({ label: "Reconvening", date: data.reconveningDate });
-    (data.customDates || []).forEach(cd => { if (cd.date) wantedDates.push({ label: cd.label || "Hearing", date: cd.date }); });
-    onSyncDeadlines(prefix, wantedDates);
-  };
-
-  const removeViolationDeadlines = (vId) => {
-    if (!onSyncDeadlines) return;
-    onSyncDeadlines(pvPrefix(vId), []);
-  };
-
-  const saveViolation = async (data) => {
-    try {
-      const saved = await apiCreateProbationViolation(c.id, data);
-      setViolations(prev => [saved, ...prev]);
-      setAddingV(false);
-      setNewV({});
-      syncViolationDeadlines(saved.id, data);
-    } catch (e) { alert("Failed to save: " + e.message); }
-  };
-
-  const updateViolation = async (id, data) => {
-    try {
-      const updated = await apiUpdateProbationViolation(c.id, id, data);
-      setViolations(prev => prev.map(v => v.id === id ? updated : v));
-      setEditingV(null);
-      syncViolationDeadlines(id, data);
-    } catch (e) { alert("Failed to update: " + e.message); }
-  };
-
-  const deleteViolation = async (id) => {
-    if (!window.confirm("Delete this violation record?")) return;
-    try {
-      await apiDeleteProbationViolation(c.id, id);
-      setViolations(prev => prev.filter(v => v.id !== id));
-      if (expandedV === id) setExpandedV(null);
-      removeViolationDeadlines(id);
-    } catch (e) { alert("Failed to delete: " + e.message); }
-  };
-
-  const addCondition = (cond) => {
-    if (!cond.trim()) return;
-    if (conditions.includes(cond.trim())) return;
-    setPd("additionalConditions", [...conditions, cond.trim()]);
-  };
-  const removeCondition = (cond) => setPd("additionalConditions", conditions.filter(c2 => c2 !== cond));
-
-  const parseTermMonths = (term) => {
-    if (!term) return null;
-    const s = String(term).trim().toLowerCase();
-    const ym = s.match(/^(\d+)\s*year/);
-    if (ym) return parseInt(ym[1], 10) * 12;
-    const mm = s.match(/^(\d+)/);
-    if (mm) return parseInt(mm[1], 10);
-    return null;
-  };
-
-  const calcEndDate = (start, term) => {
-    if (!start || !term) return "";
-    const months = parseTermMonths(term);
-    if (!months) return "";
-    const d = new Date(start + "T00:00:00");
-    if (isNaN(d.getTime())) return "";
-    const origDay = d.getDate();
-    d.setMonth(d.getMonth() + months);
-    if (d.getDate() !== origDay) d.setDate(0);
-    return d.toISOString().split("T")[0];
-  };
-
-  const handleStartDateChange = (val) => {
-    setPdBatch({ startDate: val, endDate: calcEndDate(val, pd.termLength) });
-  };
-
-  const handleTermChange = (val) => {
-    setPdBatch({ termLength: val, endDate: calcEndDate(pd.startDate, val) });
-  };
-
-  const outcomeColor = (o) => {
-    if (!o || o === "Pending") return "#64748b";
-    if (o === "Warning" || o === "Modified Conditions") return "#e07a30";
-    if (o.startsWith("Revoked")) return "#dc2626";
-    if (o === "Reinstated" || o === "Time Served") return "#2F7A5F";
-    return "#4F7393";
-  };
-
-  const typeColor = (t) => t === "Substantive" ? "#dc2626" : "#e07a30";
-
-  const judgeNames = [...new Set((allContacts || []).filter(ct => !ct.deletedAt && (ct.category === "Judge" || ct.category === "Miscellaneous")).map(ct => ct.name).filter(Boolean))];
-
-  const ViolationForm = ({ data, onSave, onCancel, title }) => {
-    const [form, setForm] = useState({ ...data });
-    const cd = form.customDates || [];
-    return (
-      <div className="card" style={{ marginBottom: 16, border: "2px solid #1e3a5f33" }}>
-        <div className="card-header"><div className="card-title">{title}</div></div>
-        <div style={{ padding: 16 }}>
-          <div className="form-row">
-            <div className="form-group"><label>Violation Date</label><input type="date" value={form.violationDate || ""} onChange={e => setForm(p => ({ ...p, violationDate: e.target.value }))} /></div>
-            <div className="form-group"><label>Type</label>
-              <select value={form.violationType || "Technical"} onChange={e => setForm(p => ({ ...p, violationType: e.target.value }))}>
-                <option>Technical</option><option>Substantive</option>
-              </select>
-            </div>
-            <div className="form-group"><label>Source</label>
-              <select value={form.source || ""} onChange={e => setForm(p => ({ ...p, source: e.target.value }))}>
-                <option value="">Select...</option>
-                {VIOLATION_SOURCES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="form-group"><label>Description</label><textarea rows={3} value={form.description || ""} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Describe the alleged violation..." /></div>
-          {form.violationType === "Substantive" && (
-            <div className="form-group"><label>Related New Charges</label><input value={form.relatedCharges || ""} onChange={e => setForm(p => ({ ...p, relatedCharges: e.target.value }))} placeholder="New charges if applicable..." /></div>
-          )}
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#1e3a5f", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, marginTop: 12 }}>Key Dates</div>
-          <div className="form-row">
-            <div className="form-group"><label>Preliminary Hearing</label><input type="date" value={form.preliminaryHearingDate || ""} onChange={e => setForm(p => ({ ...p, preliminaryHearingDate: e.target.value }))} /></div>
-            <div className="form-group"><label>Reconvening Date</label><input type="date" value={form.reconveningDate || ""} onChange={e => setForm(p => ({ ...p, reconveningDate: e.target.value }))} /></div>
-          </div>
-          {cd.map((d, i) => (
-            <div key={i} className="form-row" style={{ alignItems: "flex-end" }}>
-              <div className="form-group"><label>Date Label</label><input value={d.label || ""} onChange={e => { const up = [...cd]; up[i] = { ...up[i], label: e.target.value }; setForm(p => ({ ...p, customDates: up })); }} placeholder="e.g. Status Conference" /></div>
-              <div className="form-group"><label>Date</label><input type="date" value={d.date || ""} onChange={e => { const up = [...cd]; up[i] = { ...up[i], date: e.target.value }; setForm(p => ({ ...p, customDates: up })); }} /></div>
-              <button className="btn btn-outline btn-sm" style={{ marginBottom: 16, color: "#e05252" }} onClick={() => { const up = cd.filter((_, j) => j !== i); setForm(p => ({ ...p, customDates: up })); }}>✕</button>
-            </div>
-          ))}
-          <button className="btn btn-outline btn-sm" style={{ marginBottom: 12, fontSize: 11 }} onClick={() => setForm(p => ({ ...p, customDates: [...(p.customDates || []), { label: "", date: "" }] }))}>+ Add Date</button>
-
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#1e3a5f", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, marginTop: 8 }}>Hearing & Outcome</div>
-          <div className="form-row">
-            <div className="form-group"><label>Hearing Type</label>
-              <select value={form.hearingType || ""} onChange={e => setForm(p => ({ ...p, hearingType: e.target.value }))}>
-                <option value="">Select...</option>
-                {HEARING_TYPES.map(h => <option key={h}>{h}</option>)}
-              </select>
-            </div>
-            <div className="form-group"><label>Attorney Assigned</label>
-              <input list="pv-attorney-list" value={form.attorney || ""} onChange={e => setForm(p => ({ ...p, attorney: e.target.value }))} placeholder="Type or select..." />
-              <datalist id="pv-attorney-list">{USERS.map(u => <option key={u.id} value={u.name} />)}</datalist>
-            </div>
-            <div className="form-group"><label>Judge</label>
-              <input list="pv-judge-list" value={form.judge || ""} onChange={e => setForm(p => ({ ...p, judge: e.target.value }))} placeholder="Type or select..." />
-              <datalist id="pv-judge-list">{judgeNames.map(n => <option key={n} value={n} />)}</datalist>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Outcome</label>
-              <select value={form.outcome || "Pending"} onChange={e => setForm(p => ({ ...p, outcome: e.target.value }))}>
-                {OUTCOMES.map(o => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-          </div>
-          {(form.outcome === "Revoked — Partial") && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, marginTop: 8 }}>Partial Revocation Details</div>
-              <div className="form-row">
-                <div className="form-group"><label>Jail Time Imposed</label><input value={form.jailTimeImposed || ""} onChange={e => setForm(p => ({ ...p, jailTimeImposed: e.target.value }))} placeholder="e.g. 6 months" /></div>
-                <div className="form-group"><label>Jail Credit (Time Served)</label><input value={form.jailCredit || ""} onChange={e => setForm(p => ({ ...p, jailCredit: e.target.value }))} placeholder="e.g. 45 days" /></div>
-                <div className="form-group"><label>Remaining Probation</label><input value={form.remainingProbation || ""} onChange={e => setForm(p => ({ ...p, remainingProbation: e.target.value }))} placeholder="e.g. 18 months" /></div>
-              </div>
-            </>
-          )}
-          {(form.outcome === "Revoked — Full") && (
-            <div className="form-group"><label>Sentence Imposed</label><textarea rows={2} value={form.sentenceImposed || ""} onChange={e => setForm(p => ({ ...p, sentenceImposed: e.target.value }))} placeholder="Sentence details..." /></div>
-          )}
-          <div className="form-group"><label>Notes</label><textarea rows={2} value={form.notes || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} /></div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button className="btn btn-gold" onClick={() => onSave(form)}>Save Violation</button>
-            <button className="btn btn-outline" onClick={onCancel}>Cancel</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="case-overlay-body">
-      <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div className="case-overlay-section">
-          <div className="case-overlay-section-title">Probation Details</div>
-          <div className="form-group"><label>Probation Type</label>
-            {editMode ? (
-              <select value={pd.probationType || ""} onChange={e => setPd("probationType", e.target.value)}>
-                <option value="">Select...</option>
-                {PROBATION_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            ) : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.probationType || "—"}</div>}
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Officer Name</label>
-              {editMode ? <input value={pd.officerName || ""} onChange={e => setPd("officerName", e.target.value)} placeholder="Probation officer name" />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.officerName || "—"}</div>}
-            </div>
-            <div className="form-group"><label>Officer Contact</label>
-              {editMode ? <input value={pd.officerContact || ""} onChange={e => setPd("officerContact", e.target.value)} placeholder="Phone or email" />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.officerContact || "—"}</div>}
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Start Date</label>
-              {editMode ? <input type="date" value={pd.startDate || ""} onChange={e => handleStartDateChange(e.target.value)} />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.startDate ? fmt(pd.startDate) : "—"}</div>}
-            </div>
-            <div className="form-group"><label>Term Length</label>
-              {editMode ? <input value={pd.termLength || ""} onChange={e => handleTermChange(e.target.value)} placeholder="e.g. 24 months" />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.termLength || "—"}</div>}
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>End Date {editMode && pd.startDate && pd.termLength && <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400, fontStyle: "italic" }}>(auto-calculated)</span>}</label>
-              {editMode ? <input type="date" value={pd.endDate || ""} readOnly style={{ background: "#f3f4f6", cursor: "default" }} tabIndex={-1} />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.endDate ? fmt(pd.endDate) : "—"}</div>}
-            </div>
-            <div className="form-group"><label>Supervising Agency</label>
-              {editMode ? <input value={pd.supervisingAgency || ""} onChange={e => setPd("supervisingAgency", e.target.value)} placeholder="Agency name" />
-              : <div style={{ fontSize: 13, color: "var(--c-text)" }}>{pd.supervisingAgency || "—"}</div>}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="case-overlay-section">
-            <div className="case-overlay-section-title">Additional Conditions</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: editMode ? 10 : 0 }}>
-              {conditions.length === 0 && !editMode && <span style={{ fontSize: 12, color: "#64748b" }}>None specified.</span>}
-              {conditions.map(cond => (
-                <span key={cond} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#1e3a5f15", color: "#1e3a5f", border: "1px solid #1e3a5f33", borderRadius: 4, padding: "3px 8px", fontSize: 12, fontWeight: 500 }}>
-                  {cond}
-                  {editMode && <span style={{ cursor: "pointer", marginLeft: 2, color: "#e05252", fontWeight: 700 }} onClick={() => removeCondition(cond)}>×</span>}
-                </span>
-              ))}
-            </div>
-            {editMode && (
-              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <select value="" onChange={e => { if (e.target.value) { addCondition(e.target.value); e.target.value = ""; } }} style={{ flex: 1 }}>
-                  <option value="">Add a condition...</option>
-                  {CONDITION_OPTIONS.filter(o => !conditions.includes(o)).map(o => <option key={o}>{o}</option>)}
-                </select>
-                <input value={condInput} onChange={e => setCondInput(e.target.value)} placeholder="Custom..." style={{ flex: 1 }} onKeyDown={e => { if (e.key === "Enter" && condInput.trim()) { addCondition(condInput.trim()); setCondInput(""); } }} />
-                {condInput.trim() && <button className="btn btn-outline btn-sm" onClick={() => { addCondition(condInput.trim()); setCondInput(""); }}>Add</button>}
-              </div>
-            )}
-          </div>
-
-          <div className="case-overlay-section" style={{ marginTop: 12 }}>
-            <div className="case-overlay-section-title">Fees & Obligations</div>
-            <div className="form-group"><label>Total Owed</label>
-              {editMode ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 14, color: "#64748b" }}>$</span>
-                  <input type="text" value={pd.totalFeesOwed || ""} onChange={e => setPd("totalFeesOwed", e.target.value)} placeholder="0.00" style={{ flex: 1 }} />
-                </div>
-              ) : <div style={{ fontSize: 15, color: "var(--c-text)", fontWeight: 600 }}>{pd.totalFeesOwed ? `$${pd.totalFeesOwed}` : "—"}</div>}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="case-overlay-section" style={{ marginTop: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Violations ({violations.length})</div>
-          {!addingV && <button className="btn btn-gold btn-sm" onClick={() => { setAddingV(true); setNewV({ violationType: "Technical", outcome: "Pending", violationDate: today }); }}>+ Add Violation</button>}
-        </div>
-
-        {addingV && (
-          <ViolationForm data={newV} title="New Violation" onSave={saveViolation} onCancel={() => { setAddingV(false); setNewV({}); }} />
-        )}
-
-        {loadingV && <div className="empty">Loading violations...</div>}
-        {!loadingV && violations.length === 0 && !addingV && <div className="empty">No violations recorded.</div>}
-
-        {violations.map(v => {
-          const isExpanded = expandedV === v.id;
-          const isEditing = editingV === v.id;
-
-          if (isEditing) {
-            return <ViolationForm key={v.id} data={v} title="Edit Violation" onSave={(data) => updateViolation(v.id, data)} onCancel={() => setEditingV(null)} />;
-          }
-
-          return (
-            <div key={v.id} className="card" style={{ marginBottom: 10, borderLeft: `3px solid ${typeColor(v.violationType)}` }}>
-              <div style={{ padding: "12px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }} onClick={() => setExpandedV(isExpanded ? null : v.id)}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>
-                      {v.violationDate ? fmt(v.violationDate) : "No date"}
-                    </span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: typeColor(v.violationType), padding: "1px 7px", borderRadius: 3, textTransform: "uppercase" }}>{v.violationType}</span>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: outcomeColor(v.outcome), background: outcomeColor(v.outcome) + "18", padding: "1px 7px", borderRadius: 3 }}>{v.outcome}</span>
-                    {v.source && <span style={{ fontSize: 10, color: "#64748b" }}>via {v.source}</span>}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.description || "No description"}</div>
-                </div>
-                <span style={{ fontSize: 14, color: "#64748b", flexShrink: 0 }}>{isExpanded ? "▾" : "▸"}</span>
-              </div>
-
-              {isExpanded && (
-                <div style={{ padding: "0 16px 14px", borderTop: "1px solid var(--c-border2)" }}>
-                  <div style={{ paddingTop: 12 }}>
-                    {v.description && <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10, lineHeight: 1.5 }}>{v.description}</div>}
-
-                    <div className="form-row" style={{ fontSize: 12, color: "var(--c-text2)" }}>
-                      {v.preliminaryHearingDate && <div><strong>Preliminary Hearing:</strong> {fmt(v.preliminaryHearingDate)}</div>}
-                      {v.reconveningDate && <div><strong>Reconvening:</strong> {fmt(v.reconveningDate)}</div>}
-                      {(v.customDates || []).map((cd, i) => cd.date && <div key={i}><strong>{cd.label || "Date"}:</strong> {fmt(cd.date)}</div>)}
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10, fontSize: 12 }}>
-                      {v.hearingType && <div><span style={{ color: "#64748b" }}>Hearing Type:</span> <span style={{ color: "var(--c-text)" }}>{v.hearingType}</span></div>}
-                      {v.attorney && <div><span style={{ color: "#64748b" }}>Attorney:</span> <span style={{ color: "var(--c-text)" }}>{v.attorney}</span></div>}
-                      {v.judge && <div><span style={{ color: "#64748b" }}>Judge:</span> {onContactClick ? <span onClick={(e) => { e.stopPropagation(); onContactClick(v.judge); }} style={{ color: "#0f172a", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }} title="View contact card">{v.judge}</span> : <span style={{ color: "var(--c-text)" }}>{v.judge}</span>}</div>}
-                    </div>
-
-                    {v.relatedCharges && <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 8 }}><strong>Related Charges:</strong> {v.relatedCharges}</div>}
-
-                    {v.outcome === "Revoked — Partial" && (v.jailTimeImposed || v.jailCredit || v.remainingProbation) && (
-                      <div style={{ background: "#dc262610", border: "1px solid #dc262633", borderRadius: 6, padding: "10px 12px", marginTop: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Partial Revocation</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, fontSize: 12 }}>
-                          {v.jailTimeImposed && <div><span style={{ color: "#64748b" }}>Jail Time:</span> <span style={{ color: "var(--c-text)", fontWeight: 600 }}>{v.jailTimeImposed}</span></div>}
-                          {v.jailCredit && <div><span style={{ color: "#64748b" }}>Jail Credit:</span> <span style={{ color: "var(--c-text)", fontWeight: 600 }}>{v.jailCredit}</span></div>}
-                          {v.remainingProbation && <div><span style={{ color: "#64748b" }}>Remaining:</span> <span style={{ color: "var(--c-text)", fontWeight: 600 }}>{v.remainingProbation}</span></div>}
-                        </div>
-                      </div>
-                    )}
-
-                    {v.outcome === "Revoked — Full" && v.sentenceImposed && (
-                      <div style={{ background: "#dc262610", border: "1px solid #dc262633", borderRadius: 6, padding: "10px 12px", marginTop: 10, fontSize: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Full Revocation — Sentence</div>
-                        <div style={{ color: "var(--c-text)" }}>{v.sentenceImposed}</div>
-                      </div>
-                    )}
-
-                    {v.notes && <div style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 8, fontStyle: "italic" }}>{v.notes}</div>}
-
-                    {editMode && <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                      <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); setEditingV(v.id); }}>Edit</button>
-                      <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={(e) => { e.stopPropagation(); deleteViolation(v.id); }}>Delete</button>
-                    </div>}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate, onOpenTrialCenter }) {
   const [draft, setDraft] = useState({ ...c });
@@ -5433,6 +5015,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [newMiscContactType, setNewMiscContactType] = useState("Other");
   const miscContactTimers = useRef({});
   const miscContactPendingData = useRef({});
+  const [insurancePolicies, setInsurancePolicies] = useState([]);
+  const [medicalTreatments, setMedicalTreatments] = useState([]);
+  const [liens, setLiens] = useState([]);
+  const [damages, setDamages] = useState([]);
+  const [negotiations, setNegotiations] = useState([]);
+  const [piDataLoading, setPiDataLoading] = useState(false);
   const [showTeamPopup, setShowTeamPopup] = useState(false);
   const [showDocGen, setShowDocGen] = useState(false);
   const [activityFilter, setActivityFilter] = useState("all");
@@ -5445,9 +5033,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [tkForm, setTkForm] = useState({ title: "", priority: "Medium", due: "" });
   const [aiClientSummary, setAiClientSummary] = useState({ loading: false, result: null, error: null, show: false });
   const [aiChargeAnalysis, setAiChargeAnalysis] = useState({ loading: false, result: null, error: null, show: false });
-  const [classifyingChargeIdx, setClassifyingChargeIdx] = useState(null);
-  const chargesRef = useRef(c.charges);
-  chargesRef.current = c.charges;
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docUploadType, setDocUploadType] = useState("Police Report");
@@ -5547,6 +5132,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     apiGetSmsConfigs(c.id).then(setSmsConfigs).catch(() => {});
     apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
     apiGetSmsScheduled(c.id).then(setSmsScheduled).catch(() => {});
+    setPiDataLoading(true);
+    Promise.all([
+      apiGetInsurancePolicies(c.id).catch(() => []),
+      apiGetMedicalTreatments(c.id).catch(() => []),
+      apiGetLiens(c.id).catch(() => []),
+      apiGetDamages(c.id).catch(() => []),
+      apiGetNegotiations(c.id).catch(() => []),
+    ]).then(([ins, med, li, dam, neg]) => {
+      setInsurancePolicies(ins); setMedicalTreatments(med); setLiens(li); setDamages(dam); setNegotiations(neg);
+    }).finally(() => setPiDataLoading(false));
     apiGetSmsWatch(c.id).then(setSmsWatchNumbers).catch(() => {});
     apiGetUnmatchedSms().then(setSmsUnmatched).catch(() => {});
     const timersRef = partyTimers.current;
@@ -5825,10 +5420,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setAiStrategy({ loading: false, result: null, error: null, show: false })}>
           <div className="modal" style={{ maxWidth: 700, maxHeight: "85vh", overflow: "auto" }}>
             <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="flex items-center gap-1.5"><Sparkles size={16} className="text-amber-500" /> Defense Strategy Analysis</span>
+              <span className="flex items-center gap-1.5"><Sparkles size={16} className="text-amber-500" /> Case Valuation & Strategy</span>
               <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b" }} onClick={() => setAiStrategy({ loading: false, result: null, error: null, show: false })}>✕</button>
             </div>
-            <div className="modal-sub">{draft.title} — {draft.defendantName || "Defendant"}</div>
+            <div className="modal-sub">{draft.title} — {draft.clientName || "Client"}</div>
             <AiPanel title="Strategy Analysis" result={aiStrategy.result} loading={aiStrategy.loading} error={aiStrategy.error}
               onRun={() => {
                 setAiStrategy(p => ({ ...p, loading: true, result: null, error: null }));
@@ -5837,7 +5432,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               actions={aiStrategy.result ? (
                 <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => {
                   onAddNote({ caseId: c.id, body: aiStrategy.result, type: "Strategy" });
-                  onLogActivity("AI Strategy Saved", "Defense strategy analysis saved as note");
+                  onLogActivity("AI Strategy Saved", "Case valuation & strategy analysis saved as note");
                   alert("Strategy saved as case note.");
                 }}>Save as Note</button>
               ) : null}
@@ -6009,14 +5604,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
                 {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
               </label>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: draft.deathPenalty ? 700 : 400, color: draft.deathPenalty ? "#fff" : "#64748b", background: draft.deathPenalty ? "#991b1b" : "transparent", padding: draft.deathPenalty ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none", marginLeft: 4, letterSpacing: "0.03em" }} title="Flag this case as a death penalty / capital case">
-                <input type="checkbox" checked={!!draft.deathPenalty} onChange={e => setAndLog("deathPenalty", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#991b1b" }} />
-                {draft.deathPenalty ? "DEATH PENALTY" : "Death Penalty"}
-              </label>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: draft.probation ? 700 : 400, color: draft.probation ? "#fff" : "#64748b", background: draft.probation ? "#1e3a5f" : "transparent", padding: draft.probation ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none", marginLeft: 4, letterSpacing: "0.03em" }} title="Flag this case as a probation case">
-                <input type="checkbox" checked={!!draft.probation} onChange={e => setAndLog("probation", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#1e3a5f" }} />
-                {draft.probation ? "PROBATION" : "Probation"}
-              </label>
             </div>
             <div className="md:hidden" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: showMobileHeader ? 6 : 0 }}>
               <button onClick={() => setShowMobileHeader(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", display: "flex", alignItems: "center" }}>
@@ -6026,8 +5613,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               {draft.caseNum && <span style={{ fontSize: 11, color: "var(--c-text3)", fontFamily: "monospace" }}>{draft.caseNum}</span>}
               <span style={{ fontSize: 10, color: "#64748b", padding: "1px 6px", background: "var(--c-bg2)", borderRadius: 4, border: "1px solid var(--c-border)" }}>{draft.status || "Active"}</span>
               {draft.confidential && <span style={{ fontSize: 9, color: "#dc2626", fontWeight: 700 }}>CONF</span>}
-              {draft.deathPenalty && <span style={{ fontSize: 9, color: "#fff", background: "#991b1b", padding: "1px 4px", borderRadius: 3, fontWeight: 700 }}>DP</span>}
-              {draft.probation && <span style={{ fontSize: 9, color: "#fff", background: "#1e3a5f", padding: "1px 4px", borderRadius: 3, fontWeight: 700 }}>PROB</span>}
               {editMode && <span style={{ fontSize: 9, fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 3, padding: "1px 5px" }}>EDIT</span>}
             </div>
             {showMobileHeader && (
@@ -6049,14 +5634,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: draft.confidential ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none" }}>
                   <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
                   {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
-                </label>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: draft.deathPenalty ? 700 : 400, color: draft.deathPenalty ? "#fff" : "#64748b", background: draft.deathPenalty ? "#991b1b" : "transparent", padding: draft.deathPenalty ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none" }}>
-                  <input type="checkbox" checked={!!draft.deathPenalty} onChange={e => setAndLog("deathPenalty", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#991b1b" }} />
-                  {draft.deathPenalty ? "DEATH PENALTY" : "Death Penalty"}
-                </label>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: draft.probation ? 700 : 400, color: draft.probation ? "#fff" : "#64748b", background: draft.probation ? "#1e3a5f" : "transparent", padding: draft.probation ? "2px 8px" : "0", borderRadius: 4, cursor: "pointer", userSelect: "none" }}>
-                  <input type="checkbox" checked={!!draft.probation} onChange={e => setAndLog("probation", e.target.checked)} style={{ margin: 0, cursor: "pointer", accentColor: "#1e3a5f" }} />
-                  {draft.probation ? "PROBATION" : "Probation"}
                 </label>
               </div>
             )}
@@ -6115,7 +5692,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="case-overlay-tabs">
           <div className={`case-overlay-tab ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}>Overview</div>
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
-          {draft.probation && <div className={`case-overlay-tab ${activeTab === "probation" ? "active" : ""}`} onClick={() => setActiveTab("probation")} style={{ color: activeTab === "probation" ? "#1e3a5f" : undefined }}>Probation</div>}
+          <div className={`case-overlay-tab ${activeTab === "medical" ? "active" : ""}`} onClick={() => setActiveTab("medical")}>Medical</div>
+          <div className={`case-overlay-tab ${activeTab === "insurance" ? "active" : ""}`} onClick={() => setActiveTab("insurance")}>Insurance</div>
+          <div className={`case-overlay-tab ${activeTab === "damages" ? "active" : ""}`} onClick={() => setActiveTab("damages")}>Damages</div>
+          <div className={`case-overlay-tab ${activeTab === "liens" ? "active" : ""}`} onClick={() => setActiveTab("liens")}>Liens</div>
+          <div className={`case-overlay-tab ${activeTab === "negotiations" ? "active" : ""}`} onClick={() => setActiveTab("negotiations")}>Negotiations</div>
           <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Documents</div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
             Correspondence {(correspondence.length + smsMessages.length) > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length + smsMessages.length})</span>}
@@ -6143,9 +5724,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               }}><Sparkles size={16} className="text-amber-500" /> Client Summary</button>
               <button className="px-4 py-2 border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-md text-sm font-medium hover:bg-amber-50 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-2 cursor-pointer" onClick={() => {
                 setAiChargeAnalysis({ loading: true, result: null, error: null, show: true });
-                apiChargeAnalysis({ chargeDescription: draft.chargeDescription, chargeStatute: draft.chargeStatute, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, charges: draft._charges || [] })
+                apiChargeAnalysis({ caseId: c.id })
                   .then(r => setAiChargeAnalysis(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiChargeAnalysis(p => ({ ...p, loading: false, error: e.message })));
-              }}><Sparkles size={16} className="text-amber-500" /> Analyze Charges</button>
+              }}><Sparkles size={16} className="text-amber-500" /> Liability Analysis</button>
             </div>
 
             {aiClientSummary.show && (
@@ -6163,11 +5744,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             {aiChargeAnalysis.show && (
               <div style={{ marginBottom: 16 }}>
-                <AiPanel title="Charge Analysis" result={aiChargeAnalysis.result} loading={aiChargeAnalysis.loading} error={aiChargeAnalysis.error}
+                <AiPanel title="Liability Analysis" result={aiChargeAnalysis.result} loading={aiChargeAnalysis.loading} error={aiChargeAnalysis.error}
                   onClose={() => setAiChargeAnalysis({ loading: false, result: null, error: null, show: false })}
                   onRun={() => {
                     setAiChargeAnalysis({ loading: true, result: null, error: null, show: true });
-                    apiChargeAnalysis({ chargeDescription: draft.chargeDescription, chargeStatute: draft.chargeStatute, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, charges: draft._charges || [] })
+                    apiChargeAnalysis({ caseId: c.id })
                       .then(r => setAiChargeAnalysis(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiChargeAnalysis(p => ({ ...p, loading: false, error: e.message })));
                   }}
                 />
@@ -6319,7 +5900,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </button>
                     <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" onClick={() => {
                       setAiDeadlines({ loading: true, deadlines: null, error: null, show: true });
-                      apiDeadlineGenerator({ caseId: c.id, stage: draft.stage, chargeClass: draft.chargeClass, caseType: draft.caseType, courtDivision: draft.courtDivision, arrestDate: draft.arrestDate, arraignmentDate: draft.arraignmentDate, trialDate: draft.trialDate, nextCourtDate: draft.nextCourtDate, existingDeadlines: deadlines.map(d => ({ title: d.title, date: d.date })) })
+                      apiDeadlineGenerator({ caseId: c.id, stage: draft.stage, caseType: draft.caseType, stateJurisdiction: draft.stateJurisdiction, accidentDate: draft.accidentDate, statuteOfLimitationsDate: draft.statuteOfLimitationsDate, trialDate: draft.trialDate, nextCourtDate: draft.nextCourtDate, mediationDate: draft.mediationDate, existingDeadlines: deadlines.map(d => ({ title: d.title, date: d.date })) })
                         .then(r => setAiDeadlines(p => ({ ...p, loading: false, deadlines: r.deadlines })))
                         .catch(e => setAiDeadlines(p => ({ ...p, loading: false, error: e.message })));
                     }}><Sparkles size={10} className="inline mr-0.5" /> Suggest</button>
@@ -6622,78 +6203,45 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             {/* Two-column: Charges + Case Info */}
             <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
 
-              {/* Left column: Charges */}
+              {/* Left column: Injury & Incident Details */}
               <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Charges</div>
-                  <button className="btn btn-sm" style={{ fontSize: 12, padding: "4px 12px", background: "#f59e0b", color: "#fff", border: "none", borderRadius: 5 }}
-                    onClick={() => {
-                      const newCharge = { id: Date.now(), statute: "", description: "", chargeClass: "", originalOrAmended: "Original", disposition: "", dispositionDate: "" };
-                      onUpdate({ charges: [...(c.charges || []), newCharge] });
-                    }}>+ Add Charge</button>
-                </div>
-                {(!c.charges || c.charges.length === 0) && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No charges added yet.</div>}
-                {(c.charges || []).map((charge, idx) => (
-                  <div key={charge.id || idx} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>
-                          {charge.description || "Untitled Charge"}{charge.statute ? ` (§${charge.statute})` : ""}
+                <div className="case-overlay-section-title">Injury & Incident Details</div>
+                {(() => {
+                  const solDate = draft.statuteOfLimitationsDate ? new Date(draft.statuteOfLimitationsDate) : null;
+                  const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
+                  const solColor = solDays !== null ? (solDays <= 60 ? "#dc2626" : solDays <= 180 ? "#d97706" : "#16a34a") : "#64748b";
+                  return (
+                    <>
+                      {solDays !== null && solDays <= 180 && (
+                        <div style={{ background: solDays <= 60 ? "#fef2f2" : "#fffbeb", border: `1px solid ${solDays <= 60 ? "#fca5a5" : "#fcd34d"}`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 20 }}>{solDays <= 60 ? "⚠️" : "⏳"}</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: solColor }}>SOL {solDays <= 0 ? "EXPIRED" : `in ${solDays} days`}</div>
+                            <div style={{ fontSize: 11, color: "#64748b" }}>Statute of Limitations: {solDate.toLocaleDateString()}</div>
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                          {charge.chargeClass && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 4, background: /Felony/.test(charge.chargeClass) ? "#FDECEA" : "#E8F4FD", color: /Felony/.test(charge.chargeClass) ? "#9A3030" : "#1A6FA0", fontWeight: 600 }}>{charge.chargeClass}</span>}
-                          {charge.originalOrAmended && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 4, background: "#f1f5f9", color: "#475569", fontWeight: 600 }}>{charge.originalOrAmended}</span>}
-                          {charge.disposition && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 4, background: "#EAF5EA", color: "#2F6A3A", fontWeight: 600 }}>{charge.disposition}</span>}
-                        </div>
+                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
+                        <EditField fieldKey="accidentDate" label="Accident Date" type="date" value={draft.accidentDate} onChange={val => set("accidentDate", val)} onBlur={() => handleBlur("accidentDate")} readOnly={!editMode} />
+                        <EditField fieldKey="injuryType" label="Injury Type" type="select" options={["Soft Tissue", "Fracture", "TBI", "Spinal Cord", "Burns", "Internal Injuries", "Amputation", "Scarring/Disfigurement", "Dental", "Multiple Injuries", "Wrongful Death", "Other"]} value={draft.injuryType} onChange={val => setAndLog("injuryType", val)} readOnly={!editMode} />
+                        <EditField fieldKey="stateJurisdiction" label="State Jurisdiction" type="select" options={["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"]} value={draft.stateJurisdiction} onChange={val => setAndLog("stateJurisdiction", val)} readOnly={!editMode} />
+                        <EditField fieldKey="statuteOfLimitationsDate" label="SOL Date" type="date" value={draft.statuteOfLimitationsDate} onChange={val => set("statuteOfLimitationsDate", val)} onBlur={() => handleBlur("statuteOfLimitationsDate")} readOnly={!editMode} />
+                        <EditField fieldKey="policeReportNumber" label="Police Report #" type="text" value={draft.policeReportNumber} onChange={val => set("policeReportNumber", val)} onBlur={() => handleBlur("policeReportNumber")} readOnly={!editMode} />
+                        <EditField fieldKey="liabilityAssessment" label="Liability Assessment" type="select" options={["Clear Liability", "Comparative Fault", "Disputed Liability", "Shared Fault", "Pending Investigation", "Undetermined"]} value={draft.liabilityAssessment} onChange={val => setAndLog("liabilityAssessment", val)} readOnly={!editMode} />
+                        <EditField fieldKey="comparativeFaultPct" label="Comparative Fault %" type="text" value={draft.comparativeFaultPct} onChange={val => set("comparativeFaultPct", val)} onBlur={() => handleBlur("comparativeFaultPct")} readOnly={!editMode} />
+                        <EditField fieldKey="contingencyFeePct" label="Contingency Fee %" type="text" value={draft.contingencyFeePct} onChange={val => set("contingencyFeePct", val)} onBlur={() => handleBlur("contingencyFeePct")} readOnly={!editMode} />
                       </div>
-                      <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14 }}
-                        onClick={() => onUpdate({ charges: (c.charges || []).filter((_, i) => i !== idx) })}>✕</button>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginTop: 8 }}>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Statute</label>
-                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          value={charge.statute} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, statute: e.target.value }; onUpdate({ charges: updated }); }} onBlur={() => {
-                            if ((charge.statute || charge.description) && !charge.chargeClass) {
-                              setClassifyingChargeIdx(idx);
-                              apiGetChargeClass({ statute: charge.statute, description: charge.description }).then(r => {
-                                const cur = chargesRef.current || []; if (cur[idx] && !cur[idx].chargeClass) { const updated = [...cur]; updated[idx] = { ...updated[idx], chargeClass: r.chargeClass }; onUpdate({ ...c, charges: updated }); }
-                              }).catch(() => {}).finally(() => setClassifyingChargeIdx(null));
-                            }
-                          }} /></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
-                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          value={charge.description} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, description: e.target.value }; onUpdate({ charges: updated }); }} onBlur={() => {
-                            if ((charge.statute || charge.description) && !charge.chargeClass) {
-                              setClassifyingChargeIdx(idx);
-                              apiGetChargeClass({ statute: charge.statute, description: charge.description }).then(r => {
-                                const cur = chargesRef.current || []; if (cur[idx] && !cur[idx].chargeClass) { const updated = [...cur]; updated[idx] = { ...updated[idx], chargeClass: r.chargeClass }; onUpdate({ ...c, charges: updated }); }
-                              }).catch(() => {}).finally(() => setClassifyingChargeIdx(null));
-                            }
-                          }} /></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Class {classifyingChargeIdx === idx && <span className="text-xs text-amber-700 dark:text-amber-400">(classifying...)</span>}</label>
-                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          value={charge.chargeClass} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, chargeClass: e.target.value }; onUpdate({ charges: updated }); }}>
-                          <option value="">— Select —</option>
-                          {["Class A Felony", "Class B Felony", "Class C Felony", "Misdemeanor A", "Misdemeanor B", "Misdemeanor C", "Violation", "Other"].map(o => <option key={o} value={o}>{o}</option>)}
-                        </select></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Original / Amended</label>
-                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          value={charge.originalOrAmended} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, originalOrAmended: e.target.value }; onUpdate({ charges: updated }); }}>
-                          <option value="Original">Original</option>
-                          <option value="Amended">Amended</option>
-                        </select></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Disposition</label>
-                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          value={charge.disposition} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, disposition: e.target.value }; onUpdate({ charges: updated }); }}>
-                          <option value="">— None —</option>
-                          {["Guilty Plea", "Not Guilty Verdict", "Nolle Prosequi", "Dismissed", "Acquitted", "Convicted"].map(o => <option key={o} value={o}>{o}</option>)}
-                        </select></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Disposition Date</label>
-                        <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          value={charge.dispositionDate} onChange={e => { const updated = [...(c.charges || [])]; updated[idx] = { ...charge, dispositionDate: e.target.value }; onUpdate({ charges: updated }); }} /></div>
-                    </div>
-                  </div>
-                ))}
+                      <div style={{ marginTop: 12 }}>
+                        <EditField fieldKey="injuryDescription" label="Injury Description" type="text" value={draft.injuryDescription} onChange={val => set("injuryDescription", val)} onBlur={() => handleBlur("injuryDescription")} readOnly={!editMode} />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", marginTop: 12 }}>
+                        <EditField fieldKey="demandAmount" label="Demand Amount" type="text" value={draft.demandAmount} onChange={val => set("demandAmount", val)} onBlur={() => handleBlur("demandAmount")} readOnly={!editMode} />
+                        <EditField fieldKey="settlementAmount" label="Settlement Amount" type="text" value={draft.settlementAmount} onChange={val => set("settlementAmount", val)} onBlur={() => handleBlur("settlementAmount")} readOnly={!editMode} />
+                        <EditField fieldKey="caseValueEstimate" label="Case Value Estimate" type="text" value={draft.caseValueEstimate} onChange={val => set("caseValueEstimate", val)} onBlur={() => handleBlur("caseValueEstimate")} readOnly={!editMode} />
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
 
@@ -6721,66 +6269,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             </div>
 
-            {/* Custody Tracking Section */}
-            {(() => {
-              const ct = draft.custodyTracking || {};
-              const setCt = (key, val) => {
-                const updated = { ...(draft.custodyTracking || {}), [key]: val };
-                setAndLog("custodyTracking", updated);
-              };
-              const hasPending = (ct.bondSet && !ct.bondPosted) || (ct.releaseOrdered && !ct.releaseCompleted) || (ct.transportOrdered && !ct.transportCompleted);
-              const trackRow = (label, setKey, setDateKey, completeKey, completeDateKey, extraFields) => {
-                const isSet = !!ct[setKey];
-                const isComplete = !!ct[completeKey];
-                const isPending = isSet && !isComplete;
-                return (
-                  <div style={{ padding: "10px 0", borderBottom: "1px solid var(--c-border)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isPending || isSet ? 6 : 0 }}>
-                      {isPending && <span style={{ fontSize: 11, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>PENDING</span>}
-                      {isComplete && <span style={{ fontSize: 11, fontWeight: 700, background: "#16a34a", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>COMPLETED</span>}
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{label}</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginTop: 4 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: "pointer" }}>
-                        <input type="checkbox" checked={isSet} onChange={e => setCt(setKey, e.target.checked)} style={{ margin: 0 }} />
-                        {setKey === "bondSet" ? "Bond Set" : setKey === "releaseOrdered" ? "Release Ordered" : "Transport Ordered"}
-                      </label>
-                      <div>
-                        <input type="date" value={ct[setDateKey] || ""} onChange={e => setCt(setDateKey, e.target.value)} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text2)" }} />
-                      </div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: isSet ? "pointer" : "default" }}>
-                        <input type="checkbox" checked={isComplete} onChange={e => setCt(completeKey, e.target.checked)} disabled={!isSet} style={{ margin: 0 }} />
-                        {completeKey === "bondPosted" ? "Bond Posted" : completeKey === "releaseCompleted" ? "Release Completed" : "Transport Completed"}
-                      </label>
-                      <div>
-                        <input type="date" value={ct[completeDateKey] || ""} onChange={e => setCt(completeDateKey, e.target.value)} disabled={!isSet} style={{ fontSize: 12, padding: "3px 6px", width: "100%", border: "1px solid var(--c-border)", borderRadius: 4, background: isSet ? "var(--c-bg)" : "transparent", color: "var(--c-text2)" }} />
-                      </div>
-                      {extraFields}
-                    </div>
-                  </div>
-                );
-              };
-              return (
-                <div style={{ marginTop: 8 }}>
-                  <div className="case-overlay-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>Custody Tracking</span>
-                    {hasPending && <span style={{ fontSize: 10, fontWeight: 700, background: "#d97706", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>ACTION NEEDED</span>}
-                  </div>
-                  <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: "4px 16px" }}>
-                    {trackRow("Bond Status", "bondSet", "bondSetDate", "bondPosted", "bondPostedDate")}
-                    {trackRow("Release Status", "releaseOrdered", "releaseOrderedDate", "releaseCompleted", "releaseCompletedDate")}
-                    {trackRow("Transport Status", "transportOrdered", "transportOrderedDate", "transportCompleted", "transportCompletedDate",
-                      <>
-                        <label style={{ fontSize: 12, color: "var(--c-text2)", gridColumn: "1 / -1", marginTop: 4 }}>
-                          <span style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Destination</span>
-                          <input type="text" value={ct.transportDestination || ""} onChange={e => setCt("transportDestination", e.target.value)} onBlur={() => handleBlur("custodyTracking")} placeholder="Transport destination..." style={{ width: "100%", fontSize: 12, padding: "4px 6px", marginTop: 2, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }} />
-                        </label>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
 
             <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
@@ -7008,16 +6496,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
 
-              {/* Co-Defendants Section */}
+              {/* At-Fault Partys Section */}
               <div style={{ marginTop: 32, borderTop: "2px solid var(--c-border)", paddingTop: 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  {(() => { const coDefs = parties.filter(p => (p.party_type || p.partyType) === "Co-Defendant"); return <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Co-Defendant(s) ({coDefs.length})</div>; })()}
-                  <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={() => { setAddingParty(true); setNewCoDefFirst(""); setNewCoDefMiddle(""); setNewCoDefLast(""); }}>+ Add Co-Defendant</button>
+                  {(() => { const coDefs = parties.filter(p => (p.party_type || p.partyType) === "At-Fault Party"); return <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>At-Fault Party(s) ({coDefs.length})</div>; })()}
+                  <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={() => { setAddingParty(true); setNewCoDefFirst(""); setNewCoDefMiddle(""); setNewCoDefLast(""); }}>+ Add At-Fault Party</button>
                 </div>
 
                 {addingParty && (
                   <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>New Co-Defendant</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>New At-Fault Party</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 }}>First Name</label>
                         <input type="text" placeholder="First name" value={newCoDefFirst} onChange={e => setNewCoDefFirst(e.target.value)} style={{ width: "100%", fontSize: 13, padding: "6px 8px" }} /></div>
@@ -7031,12 +6519,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A" }} onClick={async () => {
                         const fullName = [newCoDefFirst, newCoDefMiddle, newCoDefLast].filter(Boolean).join(" ") || "Unnamed";
                         try {
-                          const saved = await apiCreateParty({ caseId: c.id, partyType: "Co-Defendant", entityKind: "individual", data: { firstName: newCoDefFirst, middleName: newCoDefMiddle, lastName: newCoDefLast } });
+                          const saved = await apiCreateParty({ caseId: c.id, partyType: "At-Fault Party", entityKind: "individual", data: { firstName: newCoDefFirst, middleName: newCoDefMiddle, lastName: newCoDefLast } });
                           setParties(p => [...p, saved]);
                           setAddingParty(false);
                           setNewCoDefFirst(""); setNewCoDefMiddle(""); setNewCoDefLast("");
                           setExpandedParty(saved.id);
-                          log("Co-Defendant Added", fullName);
+                          log("At-Fault Party Added", fullName);
                         } catch (err) { alert("Failed to add co-defendant: " + err.message); }
                       }}>Add</button>
                     </div>
@@ -7044,14 +6532,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 )}
 
                 {partiesLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "12px 0" }}>Loading co-defendants...</div>}
-                {!partiesLoading && parties.filter(p => (p.party_type || p.partyType) === "Co-Defendant").length === 0 && !addingParty && (
+                {!partiesLoading && parties.filter(p => (p.party_type || p.partyType) === "At-Fault Party").length === 0 && !addingParty && (
                   <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "12px 0" }}>No co-defendants added yet.</div>
                 )}
 
-                {!partiesLoading && parties.filter(p => (p.party_type || p.partyType) === "Co-Defendant").map(party => {
+                {!partiesLoading && parties.filter(p => (p.party_type || p.partyType) === "At-Fault Party").map(party => {
                   const isExp = expandedParty === party.id;
                   const d = party.data || {};
-                  const displayName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || "Unnamed Co-Defendant";
+                  const displayName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || "Unnamed At-Fault Party";
 
                   const STATUS_COLORS = {
                     "Pre-Trial": { bg: "#FDF0E6", text: "#8A5A1E" },
@@ -7143,9 +6631,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 await apiDeleteParty(party.id);
                                 setParties(p => p.filter(x => x.id !== party.id));
                                 setExpandedParty(null);
-                                log("Co-Defendant Removed", displayName);
+                                log("At-Fault Party Removed", displayName);
                               } catch (err) { alert("Failed: " + err.message); }
-                            }}>Remove Co-Defendant</button>
+                            }}>Remove At-Fault Party</button>
                           </div>
                         </div>
                       )}
@@ -7380,53 +6868,277 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
         )}
 
-        {/* ── Probation Tab ── */}
-        {activeTab === "probation" && draft.probation && (() => {
-          const PROBATION_TYPES = ["State Probation", "Community Corrections", "Court Referral Office", "Unsupervised"];
-          const CONDITION_OPTIONS = ["Community Service", "Drug Treatment", "Mental Health Treatment", "Anger Management", "Sex Offender Treatment", "Electronic Monitoring", "No Contact Order", "Curfew", "Employment Requirement", "Education Requirement", "Other"];
-          const VIOLATION_SOURCES = ["Probation Officer", "Law Enforcement", "Court", "Self-Report"];
-          const HEARING_TYPES = ["Preliminary", "Revocation", "Modification"];
-          const OUTCOMES = ["Pending", "Warning", "Modified Conditions", "Reinstated", "Revoked — Partial", "Revoked — Full", "Extended", "Time Served"];
-          const pd = draft.probationData || {};
-          const setPd = (key, val) => {
-            const updated = { ...(draft.probationData || {}), [key]: val };
-            setAndLog("probationData", updated);
-          };
-          const setPdBatch = (updates) => {
-            const updated = { ...(draft.probationData || {}), ...updates };
-            setAndLog("probationData", updated);
-          };
-          const conditions = pd.additionalConditions || [];
 
-          const handleSyncDeadlines = async (prefix, wantedDates) => {
-            const existing = (deadlines || []).filter(d => d.caseId === c.id && d.title.startsWith(prefix));
-            const usedIds = new Set();
-            for (const w of wantedDates) {
-              const fullTitle = `${prefix} ${w.label}`;
-              const match = existing.find(e => e.title === fullTitle && !usedIds.has(e.id));
-              if (match) {
-                usedIds.add(match.id);
-                if (match.date !== w.date && onUpdateDeadline) await onUpdateDeadline(match.id, { date: w.date });
-              } else if (onAddDeadline) {
-                await onAddDeadline({ caseId: c.id, title: fullTitle, date: w.date, type: "Hearing" });
-              }
-            }
-            for (const e of existing.filter(e => !usedIds.has(e.id))) {
-              if (onDeleteDeadline) await onDeleteDeadline(e.id);
-            }
-          };
+        {/* ── Medical Treatment Tab ── */}
+        {activeTab === "medical" && (
+          <div className="case-overlay-body">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Medical Treatment ({medicalTreatments.length})</div>
+              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
+                try {
+                  const saved = await apiCreateMedicalTreatment({ caseId: c.id, providerName: "", providerType: "Other", firstVisitDate: "", lastVisitDate: "", stillTreating: false, totalBilled: "", totalPaid: "", description: "", notes: "" });
+                  setMedicalTreatments(p => [...p, saved]);
+                } catch (err) { alert("Failed: " + err.message); }
+              }}>+ Add Provider</button>
+            </div>
+            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
+            {!piDataLoading && medicalTreatments.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No medical treatments recorded yet.</div>}
+            {(() => {
+              const totalBilled = medicalTreatments.reduce((s, t) => s + (Number(t.totalBilled || t.total_billed) || 0), 0);
+              const totalPaid = medicalTreatments.reduce((s, t) => s + (Number(t.totalPaid || t.total_paid) || 0), 0);
+              return medicalTreatments.length > 0 && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Billed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalBilled.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#0f766e" }}>${totalPaid.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Providers:</span> <span style={{ fontSize: 14, fontWeight: 700 }}>{medicalTreatments.length}</span></div>
+                </div>
+              );
+            })()}
+            {medicalTreatments.map(t => (
+              <div key={t.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", flex: 1 }}>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Provider Name</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={t.providerName || t.provider_name || ""} onBlur={e => apiUpdateMedicalTreatment(t.id, { providerName: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Type</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={t.providerType || t.provider_type || "Other"} onChange={e => apiUpdateMedicalTreatment(t.id, { providerType: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})}>
+                        {["ER", "Hospital", "Orthopedic", "Chiropractor", "PT", "Neurologist", "Pain Mgmt", "PCP", "Surgeon", "Dentist", "Psychologist", "Other"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>First Visit</label>
+                      <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={t.firstVisitDate || t.first_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(t.id, { firstVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Last Visit</label>
+                      <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={t.lastVisitDate || t.last_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(t.id, { lastVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Billed</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={t.totalBilled || t.total_billed || ""} onBlur={e => apiUpdateMedicalTreatment(t.id, { totalBilled: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Paid</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={t.totalPaid || t.total_paid || ""} onBlur={e => apiUpdateMedicalTreatment(t.id, { totalPaid: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: "pointer", gridColumn: "1 / -1" }}>
+                      <input type="checkbox" defaultChecked={!!(t.stillTreating || t.still_treating)} onChange={e => apiUpdateMedicalTreatment(t.id, { stillTreating: e.target.checked }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /> Still Treating
+                    </label>
+                  </div>
+                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
+                    onClick={() => { if (window.confirm("Remove this treatment record?")) apiDeleteMedicalTreatment(t.id).then(() => setMedicalTreatments(p => p.filter(x => x.id !== t.id))).catch(e => alert(e.message)); }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-          return (
-            <ProbationTabContent
-              c={c} draft={draft} pd={pd} setPd={setPd} setPdBatch={setPdBatch} conditions={conditions}
-              PROBATION_TYPES={PROBATION_TYPES} CONDITION_OPTIONS={CONDITION_OPTIONS}
-              VIOLATION_SOURCES={VIOLATION_SOURCES} HEARING_TYPES={HEARING_TYPES} OUTCOMES={OUTCOMES}
-              editMode={editMode}
-              onSyncDeadlines={handleSyncDeadlines} deadlines={deadlines}
-              allContacts={allContacts} onContactClick={handleContactClick}
-            />
-          );
-        })()}
+        {/* ── Insurance Tab ── */}
+        {activeTab === "insurance" && (
+          <div className="case-overlay-body">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Insurance Policies ({insurancePolicies.length})</div>
+              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
+                try {
+                  const saved = await apiCreateInsurancePolicy({ caseId: c.id, policyType: "Liability", carrierName: "", policyNumber: "", policyLimits: "", adjusterName: "", adjusterPhone: "", adjusterEmail: "", claimNumber: "", insuredName: "", notes: "" });
+                  setInsurancePolicies(p => [...p, saved]);
+                } catch (err) { alert("Failed: " + err.message); }
+              }}>+ Add Policy</button>
+            </div>
+            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
+            {!piDataLoading && insurancePolicies.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No insurance policies recorded yet.</div>}
+            {insurancePolicies.map(p => (
+              <div key={p.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Type</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={p.policyType || p.policy_type || "Liability"} onChange={e => apiUpdateInsurancePolicy(p.id, { policyType: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})}>
+                        {["Liability", "UM", "UIM", "MedPay", "PIP", "Homeowner", "Commercial", "Umbrella"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Carrier</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.carrierName || p.carrier_name || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { carrierName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy #</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.policyNumber || p.policy_number || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { policyNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Limits</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.policyLimits || p.policy_limits || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { policyLimits: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Claim #</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.claimNumber || p.claim_number || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { claimNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.adjusterName || p.adjuster_name || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { adjusterName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Phone</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.adjusterPhone || p.adjuster_phone || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { adjusterPhone: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Email</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.adjusterEmail || p.adjuster_email || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { adjusterEmail: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insured Name</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={p.insuredName || p.insured_name || ""} onBlur={e => apiUpdateInsurancePolicy(p.id, { insuredName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                  </div>
+                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
+                    onClick={() => { if (window.confirm("Remove this policy?")) apiDeleteInsurancePolicy(p.id).then(() => setInsurancePolicies(prev => prev.filter(x => x.id !== p.id))).catch(e => alert(e.message)); }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Damages Tab ── */}
+        {activeTab === "damages" && (
+          <div className="case-overlay-body">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Damages ({damages.length})</div>
+              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
+                try {
+                  const saved = await apiCreateDamage({ caseId: c.id, category: "Medical Bills", description: "", amount: "", documentationStatus: "Pending", notes: "" });
+                  setDamages(p => [...p, saved]);
+                } catch (err) { alert("Failed: " + err.message); }
+              }}>+ Add Damage</button>
+            </div>
+            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
+            {(() => {
+              const total = damages.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+              return damages.length > 0 && (
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Damages:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8" }}>${total.toLocaleString()}</span></div>
+                  {draft.demandAmount && <div><span style={{ fontSize: 11, color: "#64748b" }}>Demand:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>${Number(draft.demandAmount).toLocaleString()}</span></div>}
+                  {draft.settlementAmount && <div><span style={{ fontSize: 11, color: "#64748b" }}>Settlement:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${Number(draft.settlementAmount).toLocaleString()}</span></div>}
+                </div>
+              );
+            })()}
+            {!piDataLoading && damages.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No damages recorded yet.</div>}
+            {damages.map(d => (
+              <div key={d.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={d.category || "Other"} onChange={e => apiUpdateDamage(d.id, { category: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                        {["Medical Bills", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.amount || ""} onBlur={e => apiUpdateDamage(d.id, { amount: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => apiUpdateDamage(d.id, { documentationStatus: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                        {["Documented", "Pending", "Estimated"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                    <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.description || ""} onBlur={e => apiUpdateDamage(d.id, { description: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                  </div>
+                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
+                    onClick={() => { if (window.confirm("Remove this damage entry?")) apiDeleteDamage(d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e => alert(e.message)); }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Liens Tab ── */}
+        {activeTab === "liens" && (
+          <div className="case-overlay-body">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Liens ({liens.length})</div>
+              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
+                try {
+                  const saved = await apiCreateLien({ caseId: c.id, lienType: "Medical", lienholderName: "", amount: "", negotiatedAmount: "", status: "Pending", notes: "" });
+                  setLiens(p => [...p, saved]);
+                } catch (err) { alert("Failed: " + err.message); }
+              }}>+ Add Lien</button>
+            </div>
+            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
+            {(() => {
+              const totalOwed = liens.reduce((s, l) => s + (Number(l.amount) || 0), 0);
+              const totalNeg = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || 0), 0);
+              return liens.length > 0 && (
+                <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Liens:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#d97706" }}>${totalOwed.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Negotiated:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalNeg.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Savings:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>${(totalOwed - totalNeg).toLocaleString()}</span></div>
+                </div>
+              );
+            })()}
+            {!piDataLoading && liens.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No liens recorded yet.</div>}
+            {liens.map(l => (
+              <div key={l.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Lien Type</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={l.lienType || l.lien_type || "Medical"} onChange={e => apiUpdateLien(l.id, { lienType: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                        {["Medical", "Medicare", "Medicaid", "Health Insurance", "ERISA", "VA", "Child Support", "Workers Comp", "Attorney", "Other"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Lienholder</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={l.lienholderName || l.lienholder_name || ""} onBlur={e => apiUpdateLien(l.id, { lienholderName: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={l.amount || ""} onBlur={e => apiUpdateLien(l.id, { amount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Negotiated Amount</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={l.negotiatedAmount || l.negotiated_amount || ""} onBlur={e => apiUpdateLien(l.id, { negotiatedAmount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={l.status || "Pending"} onChange={e => apiUpdateLien(l.id, { status: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                        {["Pending", "Confirmed", "Negotiated", "Satisfied", "Disputed"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                  </div>
+                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
+                    onClick={() => { if (window.confirm("Remove this lien?")) apiDeleteLien(l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Negotiations Tab ── */}
+        {activeTab === "negotiations" && (
+          <div className="case-overlay-body">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Negotiation History ({negotiations.length})</div>
+              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
+                try {
+                  const saved = await apiCreateNegotiation({ caseId: c.id, date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "" });
+                  setNegotiations(p => [...p, saved]);
+                } catch (err) { alert("Failed: " + err.message); }
+              }}>+ Add Entry</button>
+            </div>
+            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
+            {!piDataLoading && negotiations.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No negotiation entries yet.</div>}
+            {negotiations.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
+              const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
+              return (
+                <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date</label>
+                        <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(n.id, { date: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Direction</label>
+                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
+                          defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(n.id, { direction: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})}>
+                          {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
+                        </select></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(n.id, { amount: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>From Party</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(n.id, { fromParty: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                    </div>
+                    <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
+                      onClick={() => { if (window.confirm("Remove this entry?")) apiDeleteNegotiation(n.id).then(() => setNegotiations(p => p.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Files Tab ── */}
         {activeTab === "files" && (
@@ -8146,7 +7858,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <button className="btn btn-primary btn-sm" style={{ fontSize: 11, padding: "3px 10px" }} onClick={() => {
                         const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
                         if (!q) return;
-                        const match = allCases.find(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.defendantName && cs.defendantName.toLowerCase().includes(q)));
+                        const match = allCases.find(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q)));
                         if (!match) { alert("No case found matching that search."); return; }
                         apiAssignSms(msg.id, match.id).then(() => {
                           setSmsUnmatched(p => p.filter(x => x.id !== msg.id));
@@ -8158,7 +7870,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     {(() => {
                       const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
                       if (!q || q.length < 2) return null;
-                      const matches = allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.defendantName && cs.defendantName.toLowerCase().includes(q))).slice(0, 5);
+                      const matches = allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q))).slice(0, 5);
                       if (matches.length === 0) return null;
                       return (
                         <div style={{ marginTop: 4, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg2)", maxHeight: 120, overflow: "auto" }}>
@@ -8175,7 +7887,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                             >
                               <span style={{ color: "#5599cc", fontFamily: "monospace" }}>{cs.caseNum}</span>
-                              <span style={{ color: "var(--c-text)" }}>{cs.title || cs.defendantName}</span>
+                              <span style={{ color: "var(--c-text)" }}>{cs.title || cs.clientName}</span>
                             </div>
                           ))}
                         </div>
@@ -8627,7 +8339,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       {smsNewMessage ? "Custom message — this exact text will be sent with each reminder." : "Default message shown below. Click to edit and customize."}
                     </div>
                     <textarea
-                      value={smsNewMessage || `Reminder: ${smsNewName || "[Name]"} have a [Event Type] scheduled [timing] on [Date]. If you have questions, please contact the Mobile County Public Defender's Office.`}
+                      value={smsNewMessage || `Reminder: ${smsNewName || "[Name]"} have a [Event Type] scheduled [timing] on [Date]. If you have questions, please contact our office.`}
                       onChange={e => setSmsNewMessage(e.target.value)}
                       rows={3}
                       style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: smsNewMessage ? "var(--c-bg)" : "var(--c-bg2)", color: "var(--c-text)", fontSize: 12, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", lineHeight: 1.5, fontStyle: smsNewMessage ? "normal" : "italic" }}
@@ -8749,7 +8461,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Filed By</label>
                 <select value={filingUploadFiledBy} onChange={e => setFilingUploadFiledBy(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB" }}>
                   <option value="">— Auto-detect —</option>
-                  <option>State</option><option>Defendant</option><option>Co-Defendant</option><option>Court</option><option>Other</option>
+                  <option>Plaintiff</option><option>Defendant</option><option>At-Fault Party</option><option>Court</option><option>Other</option>
                 </select>
               </div>
               <div>
@@ -8773,7 +8485,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280" }}>Filter by party:</label>
               <select value={filingFilterBy} onChange={e => setFilingFilterBy(e.target.value)} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #D1D5DB" }}>
                 <option value="All">All</option>
-                <option>State</option><option>Defendant</option><option>Co-Defendant</option><option>Court</option><option>Other</option>
+                <option>State</option><option>Defendant</option><option>At-Fault Party</option><option>Court</option><option>Other</option>
               </select>
               <span style={{ fontSize: 11, color: "#64748b" }}>
                 {filings.length} filing{filings.length !== 1 ? "s" : ""}
@@ -8784,7 +8496,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 
                 {filings.filter(f => filingFilterBy === "All" || f.filedBy === filingFilterBy).map(f => {
-                  const partyColors = { State: "#DC2626", Defendant: "#2563EB", "Co-Defendant": "#7C3AED", Court: "#059669", Other: "#6B7280" };
+                  const partyColors = { State: "#DC2626", Defendant: "#2563EB", "At-Fault Party": "#7C3AED", Court: "#059669", Other: "#6B7280" };
                   const partyColor = partyColors[f.filedBy] || "#6B7280";
                   const isEditing = editingFilingId === f.id;
                   return (
@@ -8798,7 +8510,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         {isEditing ? (
                           <select value={editingFilingData.filedBy || ""} onChange={e => setEditingFilingData(d => ({ ...d, filedBy: e.target.value }))} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
                             <option value="">— None —</option>
-                            <option>State</option><option>Defendant</option><option>Co-Defendant</option><option>Court</option><option>Other</option>
+                            <option>Plaintiff</option><option>Defendant</option><option>At-Fault Party</option><option>Court</option><option>Other</option>
                           </select>
                         ) : (
                           f.filedBy && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: partyColor, borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.filedBy}</span>
@@ -8883,7 +8595,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>Link a Case</div>
                   {linkIsPd === null && (
                     <div>
-                      <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 12 }}>Does the Public Defender's Office represent the defendant in the linked case?</div>
+                      <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 12 }}>Does our firm represent the client in the linked case?</div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff" }} onClick={() => setLinkIsPd(true)}>Yes</button>
                         <button className="btn btn-sm btn-outline" onClick={() => setLinkIsPd(false)}>No</button>
@@ -8894,7 +8606,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   {linkIsPd === true && (() => {
                     const q = linkCaseSearch.toLowerCase().trim();
                     const matches = q.length >= 2 ? (allCases || []).filter(ac => ac.id !== c.id && !linkedCases.some(lc => lc.linkedCaseId === ac.id) && (
-                      (ac.caseNum || "").toLowerCase().includes(q) || (ac.title || "").toLowerCase().includes(q) || (ac.defendantName || "").toLowerCase().includes(q)
+                      (ac.caseNum || "").toLowerCase().includes(q) || (ac.title || "").toLowerCase().includes(q) || (ac.clientName || "").toLowerCase().includes(q)
                     )).slice(0, 8) : [];
                     return (
                       <div>
@@ -8906,13 +8618,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           <label>Relationship</label>
                           <select value={linkRelationship} onChange={e => setLinkRelationship(e.target.value)}>
                             <option value="">Select relationship...</option>
-                            <option>Co-Defendant</option>
-                            <option>Related Charges</option>
+                            <option>At-Fault Party</option>
+                            <option>Related Claim</option>
                             <option>Prior Case</option>
                             <option>Companion Case</option>
-                            <option>Probation Revocation</option>
                             <option>Appeal</option>
-                            <option>Re-Indictment</option>
                             <option>Other</option>
                           </select>
                         </div>
@@ -8931,7 +8641,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                                 <div>
                                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{ac.caseNum || "No Case #"}</div>
-                                  <div style={{ fontSize: 12, color: "var(--c-text2)" }}>{ac.title || ac.defendantName || "Untitled"}</div>
+                                  <div style={{ fontSize: 12, color: "var(--c-text2)" }}>{ac.title || ac.clientName || "Untitled"}</div>
                                 </div>
                                 <div style={{ fontSize: 11, color: "#64748b" }}>{ac.status || ""}</div>
                               </div>
@@ -8950,10 +8660,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                         <div className="form-group"><label>Case Number</label><input value={linkExternalForm.externalCaseNumber} onChange={e => setLinkExternalForm(p => ({ ...p, externalCaseNumber: e.target.value }))} placeholder="e.g. CC-2025-001234" /></div>
-                        <div className="form-group"><label>Case Style (Parties)</label><input value={linkExternalForm.externalCaseStyle} onChange={e => setLinkExternalForm(p => ({ ...p, externalCaseStyle: e.target.value }))} placeholder="e.g. State v. John Doe" /></div>
-                        <div className="form-group"><label>Court</label><input value={linkExternalForm.externalCourt} onChange={e => setLinkExternalForm(p => ({ ...p, externalCourt: e.target.value }))} placeholder="e.g. Mobile County Circuit Court" /></div>
+                        <div className="form-group"><label>Case Style (Parties)</label><input value={linkExternalForm.externalCaseStyle} onChange={e => setLinkExternalForm(p => ({ ...p, externalCaseStyle: e.target.value }))} placeholder="e.g. Smith v. ABC Insurance Co." /></div>
+                        <div className="form-group"><label>Court</label><input value={linkExternalForm.externalCourt} onChange={e => setLinkExternalForm(p => ({ ...p, externalCourt: e.target.value }))} placeholder="e.g. Superior Court" /></div>
                         <div className="form-group"><label>County</label><input value={linkExternalForm.externalCounty} onChange={e => setLinkExternalForm(p => ({ ...p, externalCounty: e.target.value }))} /></div>
-                        <div className="form-group" style={{ gridColumn: "1 / -1" }}><label>Charges (brief description)</label><input value={linkExternalForm.externalCharges} onChange={e => setLinkExternalForm(p => ({ ...p, externalCharges: e.target.value }))} placeholder="e.g. Possession of Controlled Substance" /></div>
+                        <div className="form-group" style={{ gridColumn: "1 / -1" }}><label>Related Claims (brief description)</label><input value={linkExternalForm.externalCharges} onChange={e => setLinkExternalForm(p => ({ ...p, externalCharges: e.target.value }))} placeholder="e.g. Auto Accident - Personal Injury" /></div>
                         <div className="form-group"><label>Attorney / Counsel</label><input value={linkExternalForm.externalAttorney} onChange={e => setLinkExternalForm(p => ({ ...p, externalAttorney: e.target.value }))} placeholder="e.g. Private counsel name" /></div>
                         <div className="form-group"><label>Status</label>
                           <select value={linkExternalForm.externalStatus} onChange={e => setLinkExternalForm(p => ({ ...p, externalStatus: e.target.value }))}>
@@ -8963,7 +8673,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div className="form-group"><label>Relationship</label>
                           <select value={linkExternalForm.relationship} onChange={e => setLinkExternalForm(p => ({ ...p, relationship: e.target.value }))}>
                             <option value="">Select relationship...</option>
-                            <option>Co-Defendant</option><option>Related Charges</option><option>Prior Case</option><option>Companion Case</option><option>Probation Revocation</option><option>Appeal</option><option>Re-Indictment</option><option>Other</option>
+                            <option>At-Fault Party</option><option>Related Claim</option><option>Prior Case</option><option>Companion Case</option><option>Appeal</option><option>Other</option>
                           </select>
                         </div>
                         <div className="form-group"><label>Notes</label><input value={linkExternalForm.externalNotes} onChange={e => setLinkExternalForm(p => ({ ...p, externalNotes: e.target.value }))} placeholder="Optional notes" /></div>
@@ -9337,7 +9047,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
 
   const currentIsSupportStaff = isSupportStaff(currentUser);
 
-  const caseTeamIds   = caseRecord ? [caseRecord.assignedAttorney, caseRecord.secondAttorney, caseRecord.trialCoordinator, caseRecord.investigator, caseRecord.socialWorker].filter(id => id > 0) : [];
+  const caseTeamIds   = caseRecord ? [caseRecord.assignedAttorney, caseRecord.secondAttorney, caseRecord.caseManager, caseRecord.investigator, caseRecord.paralegal].filter(id => id > 0) : [];
   const caseTeamUsers = USERS.filter(u => caseTeamIds.includes(u.id) && isAttyPara(u));
   const otherAttyPara = USERS.filter(u => !caseTeamIds.includes(u.id) && isAttyPara(u));
 
@@ -9597,9 +9307,9 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
 
   const lead = getUserById(c.assignedAttorney);
   const second = getUserById(c.secondAttorney);
-  const para = getUserById(c.trialCoordinator);
+  const para = getUserById(c.caseManager);
   const inv = getUserById(c.investigator);
-  const sw = getUserById(c.socialWorker);
+  const sw = getUserById(c.paralegal);
   const now = new Date().toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
   return (
@@ -9640,23 +9350,25 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
             <h2>Case Information</h2>
             <div className="info-grid">
               {[
-                ["Defendant", c.defendantName],
-                ["Prosecutor", c.prosecutor],
-                ["Charge", c.chargeDescription],
-                ["Statute", c.chargeStatute],
-                ["Charge Class", c.chargeClass],
+                ["Client", c.clientName],
                 ["Case Type", c.caseType],
+                ["Injury Type", c.injuryType],
+                ["Accident Date", c.accidentDate],
+                ["State Jurisdiction", c.stateJurisdiction],
+                ["SOL Date", c.statuteOfLimitationsDate],
                 ["County", c.county],
                 ["Court", c.court],
-                ["Court Division", c.courtDivision],
                 ["Judge", c.judge],
-                ["Custody Status", c.custodyStatus],
-                ["Bond Amount", c.bondAmount],
+                ["Liability Assessment", c.liabilityAssessment],
+                ["Comparative Fault %", c.comparativeFaultPct],
+                ["Case Value Estimate", c.caseValueEstimate],
+                ["Demand Amount", c.demandAmount],
+                ["Settlement Amount", c.settlementAmount],
                 ["Assigned Attorney", lead?.name],
                 ["2nd Attorney", second?.name],
-                ["Trial Coordinator", para?.name],
+                ["Case Manager", para?.name],
                 ["Investigator", inv?.name],
-                ["Social Worker", sw?.name],
+                ["Paralegal", sw?.name],
                 ...(c._customTeam || []).map(m => [m.role, USERS.find(u => u.id === m.userId)?.name]),
               ].filter(([, v]) => v).map(([k, v]) => (
                 <div key={k} className="ip"><span className="ik">{k}</span><span className="iv">{v}</span></div>
@@ -9667,11 +9379,10 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
             <h2>Key Dates</h2>
             <div className="info-grid">
               {[
-                ["Arrest Date", fmt(c.arrestDate)],
-                ["Arraignment Date", fmt(c.arraignmentDate)],
+                ["Accident Date", fmt(c.accidentDate)],
+                ["SOL Date", fmt(c.statuteOfLimitationsDate)],
                 ["Next Court Date", fmt(c.nextCourtDate)],
                 ["Trial Date", fmt(c.trialDate)],
-                ["Sentencing Date", fmt(c.sentencingDate)],
                 ["Disposition Date", fmt(c.dispositionDate)],
               ].map(([k, v]) => (
                 <div key={k} className="ip"><span className="ik">{k}</span><span className="iv">{v}</span></div>
@@ -9797,7 +9508,7 @@ function parseICalText(text, calName, allCases) {
           }
           if (!matchedCaseId) {
             for (const c of allCases) {
-              if (c.defendantName && c.defendantName.length > 3 && combined.includes(c.defendantName.toLowerCase())) { matchedCaseId = c.id; break; }
+              if (c.clientName && c.clientName.length > 3 && combined.includes(c.clientName.toLowerCase())) { matchedCaseId = c.id; break; }
             }
           }
         }
@@ -9865,10 +9576,9 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
     if (showTasks) (tasks || []).forEach(t => { if (t.due && t.status !== "Completed") addTo(t.due, { id: t.id, title: t.title, date: t.due, kind: "task", priority: t.priority, status: t.status, caseId: t.caseId, assigned: t.assigned }); });
     if (showCourtDates) (allCases || []).forEach(c => {
       if (c.status !== "Active") return;
-      if (c.nextCourtDate) addTo(c.nextCourtDate, { id: `court-${c.id}`, title: `${c.defendantName || c.title} — Court Date`, date: c.nextCourtDate, kind: "court-date", caseId: c.id });
-      if (c.trialDate) addTo(c.trialDate, { id: `trial-${c.id}`, title: `${c.defendantName || c.title} — Trial`, date: c.trialDate, kind: "trial", caseId: c.id });
-      if (c.arraignmentDate) addTo(c.arraignmentDate, { id: `arraign-${c.id}`, title: `${c.defendantName || c.title} — Arraignment`, date: c.arraignmentDate, kind: "arraignment", caseId: c.id });
-      if (c.sentencingDate) addTo(c.sentencingDate, { id: `sent-${c.id}`, title: `${c.defendantName || c.title} — Sentencing`, date: c.sentencingDate, kind: "sentencing", caseId: c.id });
+      if (c.nextCourtDate) addTo(c.nextCourtDate, { id: `court-${c.id}`, title: `${c.clientName || c.title} — Court Date`, date: c.nextCourtDate, kind: "court-date", caseId: c.id });
+      if (c.trialDate) addTo(c.trialDate, { id: `trial-${c.id}`, title: `${c.clientName || c.title} — Trial`, date: c.trialDate, kind: "trial", caseId: c.id });
+      if (c.statuteOfLimitationsDate) addTo(c.statuteOfLimitationsDate, { id: `sol-${c.id}`, title: `${c.clientName || c.title} — SOL Deadline`, date: c.statuteOfLimitationsDate, kind: "sol-deadline", caseId: c.id });
     });
     if (showExternal) externalEvents.forEach(e => { if (e.date) addTo(e.date, { ...e, kind: "external" }); });
     return map;
@@ -9998,7 +9708,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
                     {cs && (
                       <div style={{ marginTop: 4 }}>
                         <span onClick={() => onSelectCase && onSelectCase(cs)} style={{ fontSize: 11, color: "#4F7393", cursor: "pointer", fontWeight: 500, textDecoration: "underline" }}>
-                          {cs.defendantName || cs.title}{cs.caseNum ? ` (${cs.caseNum})` : ""}
+                          {cs.clientName || cs.title}{cs.caseNum ? ` (${cs.caseNum})` : ""}
                         </span>
                       </div>
                     )}
@@ -10300,7 +10010,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                     const sc = allCases.find(c => c.id === newDl.caseId);
                     return (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #cbd5e1", borderRadius: 6, padding: "7px 10px", background: "var(--c-bg)", cursor: "default" }}>
-                        <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sc?.defendantName || sc?.title || "Unknown"}{sc?.caseNum ? <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{sc.caseNum}</span> : null}</span>
+                        <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sc?.clientName || sc?.title || "Unknown"}{sc?.caseNum ? <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{sc.caseNum}</span> : null}</span>
                         <button type="button" style={{ border: "none", background: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewDl(p => ({ ...p, caseId: 0 })); setDlCaseSearch(""); setDlCaseDropOpen(true); }}>×</button>
                       </div>
                     );
@@ -10316,7 +10026,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                       />
                       {dlCaseDropOpen && (() => {
                         const q = dlCaseSearch.toLowerCase().trim();
-                        const dlFiltered = [...allCases].filter(c => c.status === "Active").filter(c => !q || (c.defendantName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)).sort((a, b) => (a.defendantName || a.title || "").localeCompare(b.defendantName || b.title || ""));
+                        const dlFiltered = [...allCases].filter(c => c.status === "Active").filter(c => !q || (c.clientName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)).sort((a, b) => (a.clientName || a.title || "").localeCompare(b.clientName || b.title || ""));
                         const pIds = new Set(pinnedCaseIds);
                         const dlPinned = dlFiltered.filter(c => pIds.has(c.id));
                         const dlOthers = dlFiltered.filter(c => !pIds.has(c.id));
@@ -10326,14 +10036,14 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                             {dlPinned.length > 0 && <PinnedSectionHeader />}
                             {dlPinned.map(c => (
                               <div key={c.id} onMouseDown={e => { e.preventDefault(); setNewDl(p => ({ ...p, caseId: c.id })); setDlCaseSearch(""); setDlCaseDropOpen(false); }} style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                                <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.defendantName || c.title}</span>
+                                <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.clientName || c.title}</span>
                                 {c.caseNum && <span style={{ fontSize: 10, color: "#64748b", fontFamily: "monospace", flexShrink: 0, marginLeft: 8 }}>{c.caseNum}</span>}
                               </div>
                             ))}
                             {dlPinned.length > 0 && dlOthers.length > 0 && <div style={{ padding: "5px 10px", fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)" }}>All Cases</div>}
                             {dlOthers.slice(0, 20).map(c => (
                               <div key={c.id} onMouseDown={e => { e.preventDefault(); setNewDl(p => ({ ...p, caseId: c.id })); setDlCaseSearch(""); setDlCaseDropOpen(false); }} style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                                <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.defendantName || c.title}</span>
+                                <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.clientName || c.title}</span>
                                 {c.caseNum && <span style={{ fontSize: 10, color: "#64748b", fontFamily: "monospace", flexShrink: 0, marginLeft: 8 }}>{c.caseNum}</span>}
                               </div>
                             ))}
@@ -10388,7 +10098,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                     <div style={{ fontSize: 11, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Result</div>
                     <div style={{ fontSize: 24, fontFamily: "'Inter',sans-serif", color: "var(--c-text-h)", marginBottom: 8 }}>{fmt(calcResult.result)}</div>
                     <div style={{ fontSize: 13, color: "var(--c-text2)" }}><strong style={{ color: "#0f172a" }}>{calcResult.rule.name}</strong><br />{calcResult.rule.days < 0 ? `${Math.abs(calcResult.rule.days)} days before` : calcResult.rule.days === 0 ? "Same day as" : `${calcResult.rule.days} days from`} {fmt(calcResult.from)} · <span style={{ fontFamily: "monospace", fontSize: 12 }}>{calcResult.rule.rule}</span></div>
-                    <div style={{ marginTop: 10, fontSize: 12, color: "#ea580c", fontStyle: "italic" }}>⚠ Always verify against current court orders and Alabama Rules of Criminal Procedure.</div>
+                    <div style={{ marginTop: 10, fontSize: 12, color: "#ea580c", fontStyle: "italic" }}>⚠ Always verify against current court orders and applicable state/federal rules of civil procedure.</div>
                   </div>
                 )}
               </div>
@@ -10421,8 +10131,8 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
 
   const handleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
 
-  const sortedCases = useMemo(() => [...allCases].filter(c => c.status === "Active").sort((a, b) => (a.defendantName || a.title || "").localeCompare(b.defendantName || b.title || "")), [allCases]);
-  const filteredCases = useMemo(() => { const q = caseSearch.toLowerCase(); return q ? sortedCases.filter(c => (c.defendantName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)) : sortedCases; }, [sortedCases, caseSearch]);
+  const sortedCases = useMemo(() => [...allCases].filter(c => c.status === "Active").sort((a, b) => (a.clientName || a.title || "").localeCompare(b.clientName || b.title || "")), [allCases]);
+  const filteredCases = useMemo(() => { const q = caseSearch.toLowerCase(); return q ? sortedCases.filter(c => (c.clientName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q)) : sortedCases; }, [sortedCases, caseSearch]);
   const blank = useMemo(() => ({ caseId: 0, title: "", assigned: currentUser.id, due: addDays(today, 7), priority: "Low", autoEscalate: true, status: "Not Started", notes: "", recurring: false, recurringDays: 30, escalateMediumDays: 30, escalateHighDays: 14, escalateUrgentDays: 7 }), [currentUser.id]);
   const [newTask, setNewTask] = useState({ ...blank });
 
@@ -10473,7 +10183,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                 <div style={{ position: "relative" }}>
                   {newTask.caseId && !caseDropOpen ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #cbd5e1", borderRadius: 6, padding: "7px 10px", background: "var(--c-bg)", cursor: "default" }}>
-                      <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sortedCases.find(c => c.id === newTask.caseId)?.defendantName || sortedCases.find(c => c.id === newTask.caseId)?.title || "Unknown"}{sortedCases.find(c => c.id === newTask.caseId)?.caseNum ? <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{sortedCases.find(c => c.id === newTask.caseId)?.caseNum}</span> : null}</span>
+                      <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sortedCases.find(c => c.id === newTask.caseId)?.clientName || sortedCases.find(c => c.id === newTask.caseId)?.title || "Unknown"}{sortedCases.find(c => c.id === newTask.caseId)?.caseNum ? <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{sortedCases.find(c => c.id === newTask.caseId)?.caseNum}</span> : null}</span>
                       <button type="button" style={{ border: "none", background: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewTask(p => ({ ...p, caseId: 0 })); setCaseSearch(""); setCaseDropOpen(true); }}>×</button>
                     </div>
                   ) : (
@@ -10496,14 +10206,14 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                           {tPinned.length > 0 && <PinnedSectionHeader />}
                           {tPinned.map(c => (
                             <div key={c.id} tabIndex={0} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setNewTask(p => ({ ...p, caseId: c.id })); setCaseSearch(""); setCaseDropOpen(false); }} onClick={e => { e.preventDefault(); e.stopPropagation(); setNewTask(p => ({ ...p, caseId: c.id })); setCaseSearch(""); setCaseDropOpen(false); }} style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                              <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.defendantName || c.title}</span>
+                              <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.clientName || c.title}</span>
                               {c.caseNum && <span style={{ fontSize: 10, color: "#64748b", fontFamily: "monospace", flexShrink: 0, marginLeft: 8 }}>{c.caseNum}</span>}
                             </div>
                           ))}
                           {tPinned.length > 0 && tOthers.length > 0 && <div style={{ padding: "5px 10px", fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)" }}>All Cases</div>}
                           {tOthers.map(c => (
                             <div key={c.id} tabIndex={0} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setNewTask(p => ({ ...p, caseId: c.id })); setCaseSearch(""); setCaseDropOpen(false); }} onClick={e => { e.preventDefault(); e.stopPropagation(); setNewTask(p => ({ ...p, caseId: c.id })); setCaseSearch(""); setCaseDropOpen(false); }} style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                              <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.defendantName || c.title}</span>
+                              <span style={{ color: "var(--c-text)", fontWeight: 500 }}>{c.clientName || c.title}</span>
                               {c.caseNum && <span style={{ fontSize: 10, color: "#64748b", fontFamily: "monospace", flexShrink: 0, marginLeft: 8 }}>{c.caseNum}</span>}
                             </div>
                           ))}
@@ -10694,7 +10404,7 @@ const REPORT_DEFS = [
     Icon: Scale, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20",
     title: "Cases by Trial Date",
     desc: "All active cases with a trial date set, sorted soonest first. Includes judge, lead attorney, and stage.",
-    params: ["courtDivision"],
+    params: ["stateJurisdiction"],
   },
   {
     id: "attorney",
@@ -10708,21 +10418,21 @@ const REPORT_DEFS = [
     Icon: CalendarDays, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20",
     title: "Next Court Date Report",
     desc: "Active cases with a next court date, sorted soonest first. Includes judge and days remaining.",
-    params: ["courtDivision"],
+    params: ["stateJurisdiction"],
   },
   {
     id: "discovery",
     Icon: Search, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20",
     title: "Cases by Upcoming Dates",
-    desc: "Cases with arraignment or next court date deadlines within the specified window.",
-    params: ["window", "courtDivision"],
+    desc: "Cases with SOL or next court date deadlines within the specified window.",
+    params: ["window", "stateJurisdiction"],
   },
   {
     id: "task_filter",
     Icon: CheckSquare, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20",
     title: "Cases with Specific Open Task",
     desc: "Select an incomplete task type from the list and see all cases that have that task open.",
-    params: ["task", "courtDivision"],
+    params: ["task", "stateJurisdiction"],
   },
   {
     id: "no_trial",
@@ -10736,7 +10446,7 @@ const REPORT_DEFS = [
     Icon: AlertCircle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20",
     title: "Overdue Tasks by Case",
     desc: "All cases that have at least one overdue task, with a breakdown of each overdue item.",
-    params: ["courtDivision"],
+    params: ["stateJurisdiction"],
   },
   {
     id: "workload",
@@ -10750,37 +10460,37 @@ const REPORT_DEFS = [
     Icon: CalendarClock, color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-900/20",
     title: "Upcoming Deadlines by Window",
     desc: "All deadlines falling within a chosen time window — 7, 14, 30, 60, or 90 days.",
-    params: ["window", "courtDivision"],
+    params: ["window", "stateJurisdiction"],
   },
   {
-    id: "answer_due",
-    Icon: FileText, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/20",
-    title: "Cases by Arrest Date",
-    desc: "Cases sorted by arrest date. Useful for tracking case timelines and reviewing recent arrests.",
-    params: ["courtDivision"],
-  },
-  {
-    id: "custody_status",
-    Icon: Lock, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50",
-    title: "Cases by Custody Status",
-    desc: "Active cases grouped by custody status. Shows bond amounts, jail locations, and assigned attorneys.",
-    params: ["custodyStatus", "courtDivision"],
-  },
-  {
-    id: "pending_custody",
+    id: "sol_tracker",
     Icon: AlertTriangle, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-900/20",
-    title: "Pending Custody Actions",
-    desc: "Cases with unresolved custody actions — bond set but not posted, release ordered but not completed, transport ordered but not completed.",
-    params: ["courtDivision"],
+    title: "SOL Tracker",
+    desc: "Active cases sorted by statute of limitations date — identify cases approaching SOL deadlines.",
+    params: ["stateJurisdiction"],
+  },
+  {
+    id: "case_value_pipeline",
+    Icon: FileText, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/20",
+    title: "Case Value Pipeline",
+    desc: "Active cases sorted by estimated case value. Shows demand amounts, settlement amounts, and case stage.",
+    params: ["stateJurisdiction"],
+  },
+  {
+    id: "settlement_report",
+    Icon: Lock, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50",
+    title: "Settlement Report",
+    desc: "Settled cases with settlement amounts, contingency fees, and time-to-settlement metrics.",
+    params: ["stateJurisdiction"],
   },
 ];
 
 function buildReport(id, allCases, tasks, deadlines, params) {
-  const courtDivision = params.courtDivision || null;
-  const filteredCases = courtDivision ? allCases.filter(c => c.courtDivision === courtDivision) : allCases;
-  const filteredDeadlines = courtDivision ? deadlines.filter(d => {
+  const stateFilter = params.stateJurisdiction || null;
+  const filteredCases = stateFilter ? allCases.filter(c => c.stateJurisdiction === stateFilter) : allCases;
+  const filteredDeadlines = stateFilter ? deadlines.filter(d => {
     const c = allCases.find(x => x.id === d.caseId);
-    return c && c.courtDivision === courtDivision;
+    return c && c.stateJurisdiction === stateFilter;
   }) : deadlines;
   const activeCases = filteredCases.filter(c => c.status === "Active");
   allCases = filteredCases;
@@ -10844,7 +10554,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
       const win = params.window || 90;
       const rows = [];
       activeCases.forEach(c => {
-        const fields = [["Arraignment", c.arraignmentDate], ["Next Court Date", c.nextCourtDate]];
+        const fields = [["SOL Deadline", c.statuteOfLimitationsDate], ["Next Court Date", c.nextCourtDate]];
         fields.forEach(([label, date]) => {
           if (!date) return;
           const d = daysUntil(date);
@@ -10898,7 +10608,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
           c.caseNum || "—",
           c.title,
           c.stage || "—",
-          fmt(c.arrestDate),
+          fmt(c.accidentDate),
           getUserById(c.assignedAttorney)?.name || "—",
           c.caseType || "—",
         ]),
@@ -10963,41 +10673,33 @@ function buildReport(id, allCases, tasks, deadlines, params) {
         count: udEntries.length,
       };
     }
-    case "answer_due": {
-      const rows = allCases.filter(c => c.arrestDate).sort((a, b) => b.arrestDate.localeCompare(a.arrestDate));
+    case "sol_tracker": {
+      const rows = activeCases.filter(c => c.statuteOfLimitationsDate).sort((a, b) => a.statuteOfLimitationsDate.localeCompare(b.statuteOfLimitationsDate));
       return {
-        columns: ["Case Number", "Style", "Arrest Date", "Status", "Stage", "Assigned Attorney", "Defendant"],
-        rows: rows.map(c => [c.caseNum || "—", c.title, fmt(c.arrestDate), c.status, c.stage || "—", getUserById(c.assignedAttorney)?.name || "—", c.defendantName || "—"]),
+        columns: ["Case Number", "Style", "SOL Date", "Days Left", "State", "Case Type", "Assigned Attorney"],
+        rows: rows.map(c => [c.caseNum || "—", c.title, fmt(c.statuteOfLimitationsDate), daysUntil(c.statuteOfLimitationsDate) !== null ? `${daysUntil(c.statuteOfLimitationsDate)}d` : "—", c.stateJurisdiction || "—", c.caseType || "—", getUserById(c.assignedAttorney)?.name || "—"]),
+        caseIds: rows.map(c => c.id),
+        colorCol: 3,
+        colorFn: (val) => urgencyColor(parseInt(val)),
+        count: rows.length,
+      };
+    }
+    case "case_value_pipeline": {
+      const rows = activeCases.filter(c => c.caseValueEstimate).sort((a, b) => (Number(b.caseValueEstimate) || 0) - (Number(a.caseValueEstimate) || 0));
+      return {
+        columns: ["Case Number", "Style", "Case Value", "Demand", "Settlement", "Stage", "Assigned Attorney"],
+        rows: rows.map(c => [c.caseNum || "—", c.title, c.caseValueEstimate ? `$${Number(c.caseValueEstimate).toLocaleString()}` : "—", c.demandAmount ? `$${Number(c.demandAmount).toLocaleString()}` : "—", c.settlementAmount ? `$${Number(c.settlementAmount).toLocaleString()}` : "—", c.stage || "—", getUserById(c.assignedAttorney)?.name || "—"]),
         caseIds: rows.map(c => c.id),
         count: rows.length,
       };
     }
-    case "custody_status": {
-      const custodyFilter = params.custodyStatus || null;
-      const filtered = custodyFilter ? activeCases.filter(c => (c.custodyStatus || "Not Set") === custodyFilter) : activeCases;
-      const rows = filtered.slice().sort((a, b) => (a.custodyStatus || "").localeCompare(b.custodyStatus || "") || (a.caseNum || "").localeCompare(b.caseNum || ""));
+    case "settlement_report": {
+      const rows = allCases.filter(c => c.settlementAmount).sort((a, b) => (b.settlementDate || "").localeCompare(a.settlementDate || ""));
       return {
-        columns: ["Case Number", "Style", "Custody Status", "Bond Amount", "Jail Location", "Assigned Attorney", "Court Division"],
-        rows: rows.map(c => [c.caseNum || "—", c.title, c.custodyStatus || "Not Set", c.bondAmount || "—", c.jailLocation || "—", getUserById(c.assignedAttorney)?.name || "—", c.courtDivision || "—"]),
+        columns: ["Case Number", "Style", "Settlement Amount", "Contingency %", "Fee Amount", "Settlement Date", "State"],
+        rows: rows.map(c => { const fee = c.contingencyFeePct && c.settlementAmount ? `$${(Number(c.settlementAmount) * Number(c.contingencyFeePct) / 100).toLocaleString()}` : "—"; return [c.caseNum || "—", c.title, `$${Number(c.settlementAmount).toLocaleString()}`, c.contingencyFeePct ? `${c.contingencyFeePct}%` : "—", fee, fmt(c.settlementDate), c.stateJurisdiction || "—"]; }),
         caseIds: rows.map(c => c.id),
         count: rows.length,
-      };
-    }
-    case "pending_custody": {
-      const pending = [];
-      const daysSince = (dateStr) => dateStr ? -(daysUntil(dateStr)) : null;
-      activeCases.forEach(c => {
-        const ct = c.custodyTracking || {};
-        if (ct.bondSet && !ct.bondPosted) pending.push({ c, action: "Bond Set — Not Posted", date: ct.bondSetDate, daysPending: daysSince(ct.bondSetDate) });
-        if (ct.releaseOrdered && !ct.releaseCompleted) pending.push({ c, action: "Release Ordered — Not Completed", date: ct.releaseOrderedDate, daysPending: daysSince(ct.releaseOrderedDate) });
-        if (ct.transportOrdered && !ct.transportCompleted) pending.push({ c, action: "Transport Ordered — Not Completed", date: ct.transportOrderedDate, daysPending: daysSince(ct.transportOrderedDate) });
-      });
-      pending.sort((a, b) => (b.daysPending ?? -1) - (a.daysPending ?? -1));
-      return {
-        columns: ["Case Number", "Style", "Pending Action", "Date Ordered", "Days Pending", "Jail Location", "Assigned Attorney"],
-        rows: pending.map(p => [p.c.caseNum || "—", p.c.title, p.action, p.date ? fmt(p.date) : "—", p.daysPending !== null ? `${p.daysPending}d` : "—", p.c.jailLocation || "—", getUserById(p.c.assignedAttorney)?.name || "—"]),
-        caseIds: pending.map(p => p.c.id),
-        count: pending.length,
       };
     }
     default:
@@ -11099,21 +10801,12 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                     </select>
                   </div>
                 )}
-                {def?.params.includes("custodyStatus") && (
+                {def?.params.includes("stateJurisdiction") && (
                   <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
-                    <label>Custody Status</label>
-                    <select value={params.custodyStatus || ""} onChange={e => setParams(p => ({ ...p, custodyStatus: e.target.value || null }))}>
-                      <option value="">All Statuses</option>
-                      {["In Custody", "Out on Bond", "Released on Own Recognizance", "Supervision", "In Treatment", "Not Set"].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                )}
-                {def?.params.includes("courtDivision") && (
-                  <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
-                    <label>Court Division</label>
-                    <select value={params.courtDivision || ""} onChange={e => setParams(p => ({ ...p, courtDivision: e.target.value || null }))}>
-                      <option value="">All Divisions</option>
-                      {["Circuit", "District", "Juvenile"].map(d => <option key={d} value={d}>{d}</option>)}
+                    <label>State</label>
+                    <select value={params.stateJurisdiction || ""} onChange={e => setParams(p => ({ ...p, stateJurisdiction: e.target.value || null }))}>
+                      <option value="">All States</option>
+                      {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                 )}
@@ -11140,8 +10833,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                   {generated.params.attorney ? ` · ${getUserById(generated.params.attorney)?.name}` : ""}
                   {generated.params.window ? ` · Next ${generated.params.window} days` : ""}
                   {generated.params.task ? ` · Task: "${generated.params.task}"` : ""}
-                  {generated.params.custodyStatus ? ` · Custody: ${generated.params.custodyStatus}` : ""}
-                  {generated.params.courtDivision ? ` · Division: ${generated.params.courtDivision}` : ""}
+                  {generated.params.stateJurisdiction ? ` · State: ${generated.params.stateJurisdiction}` : ""}
                   {" · "}Generated {generated.generatedAt}
                 </div>
               </div>
@@ -11252,8 +10944,8 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
 }
 
 // ─── AI Center View ───────────────────────────────────────────────────────────
-const TRAINING_CATEGORIES = ["General", "Local Rules", "Office Policy", "Defense Strategy", "Court Preferences", "Sentencing", "Procedures"];
-const OFFICE_ROLES = ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","App Admin"];
+const TRAINING_CATEGORIES = ["General", "Local Rules", "Office Policy", "Settlement Strategy", "Medical Terminology", "Insurance Practices", "Procedures"];
+const OFFICE_ROLES = ["Managing Partner","Senior Partner","Partner","Associate Attorney","App Admin"];
 
 function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   const [selectedCaseId, setSelectedCaseId] = useState("");
@@ -11287,16 +10979,16 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   const selectedCase = allCases.find(c => String(c.id) === String(selectedCaseId));
 
   const agents = [
-    { id: "triage", Icon: AlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", title: "Case Triage", desc: "Rank active cases by urgency — death penalty, trial dates, custody status, overdue tasks.", needsCase: false },
-    { id: "charge", Icon: Scale, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", title: "Charge Analysis", desc: "Analyze charges under Alabama Code — sentencing ranges, mandatory minimums, diversion eligibility.", needsCase: true },
-    { id: "strategy", Icon: Brain, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-900/20", title: "Case Strategy", desc: "Full defense strategy analysis — motions, plea negotiations, sentencing exposure, investigation priorities.", needsCase: true },
-    { id: "deadlines", Icon: CalendarClock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", title: "Deadline Generator", desc: "Generate procedural deadlines based on Alabama Rules of Criminal Procedure and case stage.", needsCase: true },
-    { id: "draft", Icon: PenLine, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20", title: "Document Drafting", desc: "Generate first drafts of motions, pleas, and memoranda tailored to your case.", needsCase: true },
-    { id: "summary", Icon: MessageSquare, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", title: "Client Communication", desc: "Plain-language case status update suitable for sharing with clients and families.", needsCase: true },
-    { id: "docsummary", Icon: FileSearch, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/20", title: "Document Summary", desc: "Summarize police reports, witness statements, lab reports, and other case documents for defense-relevant details.", needsCase: true },
-    { id: "tasksuggestions", Icon: ListChecks, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", title: "Task Suggestions", desc: "Suggest concrete defense tasks based on case stage, charges, deadlines, and existing work — one-click to add.", needsCase: true },
-    { id: "filingclassifier", Icon: FolderOpen, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50", title: "Filing Classifier", desc: "Classify court filings — auto-name, identify filing party (State, Defendant, Court), and summarize significance.", needsCase: true },
-    { id: "transcription", Icon: Mic, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", title: "Audio Transcription", desc: "Transcribe custody statements, jail call recordings, and other audio — editable speaker labels, timestamps, and export.", needsCase: true },
+    { id: "triage", Icon: AlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", title: "Case Triage", desc: "Rank active cases by urgency — SOL proximity, case value, treatment status, pending deadlines.", needsCase: false },
+    { id: "charge", Icon: Scale, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", title: "Liability Analysis", desc: "Assess fault, comparative negligence, and applicable state law for your case — jurisdiction-aware.", needsCase: true },
+    { id: "strategy", Icon: Brain, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-900/20", title: "Case Valuation & Strategy", desc: "Estimate case value, settlement range, litigation strategy, and damages analysis.", needsCase: true },
+    { id: "deadlines", Icon: CalendarClock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", title: "Deadline Generator", desc: "Generate SOL deadlines, discovery deadlines, mediation dates, and IME scheduling — jurisdiction-aware.", needsCase: true },
+    { id: "draft", Icon: PenLine, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20", title: "Document & Demand Letter Drafting", desc: "Generate demand letters, motions, and correspondence tailored to your PI case.", needsCase: true },
+    { id: "summary", Icon: MessageSquare, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", title: "Client Communication", desc: "Plain-language case status update — treatment progress, claim status, next steps.", needsCase: true },
+    { id: "docsummary", Icon: FileSearch, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/20", title: "Medical Record Summarizer", desc: "Summarize medical records, accident reports, expert reports, and other case documents.", needsCase: true },
+    { id: "tasksuggestions", Icon: ListChecks, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", title: "Task Suggestions", desc: "Suggest PI-specific tasks — order records, preservation letters, IME scheduling, demand drafting.", needsCase: true },
+    { id: "filingclassifier", Icon: FolderOpen, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50", title: "Filing Classifier", desc: "Classify filings — auto-name, identify filing party (Plaintiff, Defendant, Court), and summarize significance.", needsCase: true },
+    { id: "transcription", Icon: Mic, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20", title: "Audio Transcription", desc: "Transcribe depositions, client interviews, and other audio — editable speaker labels, timestamps, and export.", needsCase: true },
   ];
 
   const TRAINING_AGENT_OPTIONS = [
@@ -11305,10 +10997,10 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
     ...agents.map(a => ({ id: a.id, label: a.title })),
   ];
 
-  const BATCH_ALLOWED_ROLES = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "IT Specialist", "App Admin"];
+  const BATCH_ALLOWED_ROLES = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "IT Specialist", "App Admin"];
   const canBatch = (currentUser?.roles || []).some(r => BATCH_ALLOWED_ROLES.includes(r));
   if (canBatch) {
-    agents.push({ id: "batch", Icon: Layers, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50", title: "Batch Case Manager", desc: "Perform bulk operations — reassign staff, change statuses, advance stages, update court dates, transfer divisions.", needsCase: false });
+    agents.push({ id: "batch", Icon: Layers, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/50", title: "Batch Case Manager", desc: "Perform bulk operations — reassign staff, change statuses, advance stages, update court dates, manage referrals.", needsCase: false });
   }
 
   const [batchOp, setBatchOp] = useState("reassign-staff");
@@ -11333,7 +11025,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
       if (agentId === "triage") {
         r = await apiCaseTriage();
       } else if (agentId === "charge") {
-        r = await apiChargeAnalysis({ caseId: Number(selectedCaseId) });
+        r = await apiChargeAnalysis({ caseId: Number(selectedCaseId) }); // liability analysis
       } else if (agentId === "strategy") {
         r = await apiCaseStrategy({ caseId: Number(selectedCaseId) });
       } else if (agentId === "deadlines") {
@@ -11347,7 +11039,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
         r = await apiClientSummary({ caseId: Number(selectedCaseId) });
       } else if (agentId === "docsummary") {
         if (!docSummaryText.trim()) throw new Error("Please paste document text to summarize.");
-        r = await apiDocSummary({ text: docSummaryText, docType: docSummaryType, caseTitle: selectedCase?.title || "", defendantName: selectedCase?.defendantName || "" });
+        r = await apiDocSummary({ text: docSummaryText, docType: docSummaryType, caseTitle: selectedCase?.title || "", clientName: selectedCase?.clientName || "" });
       } else if (agentId === "tasksuggestions") {
         const tsRes = await apiTaskSuggestions({ caseId: Number(selectedCaseId) });
         const tks = tsRes.tasks || [];
@@ -11510,9 +11202,8 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                 {selectedCase ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)" }}>
                     <div style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>
-                      <strong>{selectedCase.defendantName || selectedCase.title}</strong>
-                      <span style={{ color: "var(--c-text2)", marginLeft: 6, fontSize: 11 }}>{selectedCase.stage} · {selectedCase.caseType}{selectedCase.deathPenalty ? " · " : ""}</span>
-                      {selectedCase.deathPenalty && <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 11 }}>DP</span>}
+                      <strong>{selectedCase.clientName || selectedCase.title}</strong>
+                      <span style={{ color: "var(--c-text2)", marginLeft: 6, fontSize: 11 }}>{selectedCase.stage} · {selectedCase.caseType}</span>
                     </div>
                     <button onClick={() => { setSelectedCaseId(""); setCaseSearch(""); setAiState({ loading: false, result: null, error: null }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#64748b", padding: "0 2px" }}>✕</button>
                   </div>
@@ -11528,15 +11219,15 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                     />
                     {caseDropOpen && (() => {
                       const q = caseSearch.toLowerCase().trim();
-                      const filtered = (q ? activeCases.filter(c => (c.defendantName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNumber || "").toLowerCase().includes(q)) : activeCases).sort((a, b) => (a.defendantName || a.title || "").localeCompare(b.defendantName || b.title || ""));
+                      const filtered = (q ? activeCases.filter(c => (c.clientName || "").toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q) || (c.caseNumber || "").toLowerCase().includes(q)) : activeCases).sort((a, b) => (a.clientName || a.title || "").localeCompare(b.clientName || b.title || ""));
                       const aiPIds = new Set(pinnedCaseIds);
                       const aiPinned = filtered.filter(c => aiPIds.has(c.id));
                       const aiOthers = filtered.filter(c => !aiPIds.has(c.id));
                       const selectCase = (c) => { setSelectedCaseId(String(c.id)); setCaseSearch(""); setCaseDropOpen(false); setAiState({ loading: false, result: null, error: null }); };
                       const aiItem = (c) => (
                         <div key={c.id} onClick={() => selectCase(c)} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "var(--c-text)", borderBottom: "1px solid var(--c-border)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                          <div style={{ fontWeight: 500 }}>{c.defendantName || c.title}</div>
-                          <div style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseNumber || "—"} · {c.stage} · {c.caseType}{c.deathPenalty ? " · " : ""}{c.deathPenalty && <span style={{ color: "#dc2626", fontWeight: 700 }}>DP</span>}</div>
+                          <div style={{ fontWeight: 500 }}>{c.clientName || c.title}</div>
+                          <div style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseNumber || "—"} · {c.stage} · {c.caseType}</div>
                         </div>
                       );
                       return (aiPinned.length > 0 || aiOthers.length > 0) ? (
@@ -11616,16 +11307,16 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
               const ROLE_FIELDS = [
                 { id: "assignedAttorney", label: "Assigned Attorney" },
                 { id: "secondAttorney", label: "Second Attorney" },
-                { id: "trialCoordinator", label: "Trial Coordinator" },
+                { id: "caseManager", label: "Trial Coordinator" },
                 { id: "investigator", label: "Investigator" },
-                { id: "socialWorker", label: "Social Worker" },
+                { id: "paralegal", label: "Social Worker" },
               ];
-              const STATUSES = ["Active", "Closed", "Pending", "Disposed", "Transferred"];
-              const STAGES = ["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"];
+              const STATUSES = ["Active", "Pre-Litigation", "In Litigation", "Settled", "Closed", "Referred Out"];
+              const STAGES = ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"];
               const DIVISIONS = ["Circuit", "District", "Juvenile"];
               const needsCaseSelect = ["change-status", "update-court-date", "transfer-division"].includes(batchOp);
               const bq = batchCaseSearch.toLowerCase().trim();
-              const batchFilteredCases = bq ? allCases.filter(c => c.status !== "Closed" && c.deletedAt == null && ((c.defendantName || "").toLowerCase().includes(bq) || (c.title || "").toLowerCase().includes(bq) || (c.caseNum || "").toLowerCase().includes(bq))) : [];
+              const batchFilteredCases = bq ? allCases.filter(c => c.status !== "Closed" && c.deletedAt == null && ((c.clientName || "").toLowerCase().includes(bq) || (c.title || "").toLowerCase().includes(bq) || (c.caseNum || "").toLowerCase().includes(bq))) : [];
               const toggleCase = (c) => {
                 setBatchSelectedCases(prev => prev.find(x => x.id === c.id) ? prev.filter(x => x.id !== c.id) : [...prev, c]);
                 setBatchPreview(null);
@@ -11788,7 +11479,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                                 <div key={c.id} onClick={() => { toggleCase(c); setBatchCaseSearch(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "var(--c-text)", borderBottom: "1px solid var(--c-border)", background: sel ? "var(--c-bg)" : "transparent", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => { if (!sel) e.currentTarget.style.background = "var(--c-bg)"; }} onMouseLeave={e => { if (!sel) e.currentTarget.style.background = "transparent"; }}>
                                   <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>{sel ? "✓" : ""}</span>
                                   <div>
-                                    <div style={{ fontWeight: 500 }}>{c.defendantName || c.title}</div>
+                                    <div style={{ fontWeight: 500 }}>{c.clientName || c.title}</div>
                                     <div style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseNum || "—"} · {c.status} · {c.stage}</div>
                                   </div>
                                 </div>
@@ -11801,7 +11492,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                           {batchSelectedCases.map(c => (
                             <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, background: "var(--c-bg)", border: "1px solid var(--c-border)", fontSize: 11, color: "var(--c-text)" }}>
-                              {c.defendantName || c.title}
+                              {c.clientName || c.title}
                               <button onClick={() => toggleCase(c)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#e05252", padding: 0, lineHeight: 1 }}>✕</button>
                             </span>
                           ))}
@@ -11839,13 +11530,13 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                                 {batchPreview.cases.slice(0, 50).map(c => (
                                   <tr key={c.id} style={{ borderBottom: "1px solid var(--c-border)" }}>
                                     <td style={{ padding: "6px 10px", color: "var(--c-text)" }}>{c.caseNum || c.title}</td>
-                                    <td style={{ padding: "6px 10px", color: "var(--c-text)" }}>{c.defendantName || "—"}</td>
+                                    <td style={{ padding: "6px 10px", color: "var(--c-text)" }}>{c.clientName || "—"}</td>
                                     <td style={{ padding: "6px 10px", color: "var(--c-text2)", fontSize: 11 }}>
                                       {batchOp === "reassign-staff" && (c.currentStaffName || "—")}
                                       {batchOp === "change-status" && c.status}
                                       {batchOp === "advance-stage" && c.stage}
                                       {batchOp === "update-court-date" && (c.nextCourtDate ? new Date(c.nextCourtDate).toLocaleDateString() : "Not set")}
-                                      {batchOp === "transfer-division" && (c.courtDivision || "—")}
+                                      {batchOp === "change-jurisdiction" && (c.stateJurisdiction || "—")}
                                     </td>
                                   </tr>
                                 ))}
@@ -11999,7 +11690,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
                     {aiCenterFilingResult.filedBy && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Filed By:</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: { State: "#DC2626", Defendant: "#2563EB", "Co-Defendant": "#7C3AED", Court: "#059669", Other: "#6B7280" }[aiCenterFilingResult.filedBy] || "#6B7280", borderRadius: 4, padding: "2px 7px", textTransform: "uppercase" }}>{aiCenterFilingResult.filedBy}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: { State: "#DC2626", Defendant: "#2563EB", "At-Fault Party": "#7C3AED", Court: "#059669", Other: "#6B7280" }[aiCenterFilingResult.filedBy] || "#6B7280", borderRadius: 4, padding: "2px 7px", textTransform: "uppercase" }}>{aiCenterFilingResult.filedBy}</span>
                       </div>
                     )}
                     {aiCenterFilingResult.docType && (
@@ -12326,7 +12017,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
     });
 
     const myCaseIds = new Set(allCasesForLog.filter(c =>
-      [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(currentUser.id)
+      [c.assignedAttorney, c.secondAttorney, c.caseManager, c.investigator, c.paralegal].includes(currentUser.id)
     ).map(c => c.id));
     correspondence.forEach(email => {
       if (!myCaseIds.has(email.caseId)) return;
@@ -12581,11 +12272,11 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
   const filteredCases = useMemo(() => {
     let cases = allCases.filter(c => c.status !== "Closed" || todayCaseIds.has(c.id));
     if (caseFilter === "myMatters") {
-      cases = cases.filter(c => [c.assignedAttorney, c.secondAttorney, c.trialCoordinator, c.investigator, c.socialWorker].includes(currentUser.id));
+      cases = cases.filter(c => [c.assignedAttorney, c.secondAttorney, c.caseManager, c.investigator, c.paralegal].includes(currentUser.id));
     }
     if (caseSearch) {
       const q = caseSearch.toLowerCase();
-      cases = cases.filter(c => (c.title || "").toLowerCase().includes(q) || (c.defendantName || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q));
+      cases = cases.filter(c => (c.title || "").toLowerCase().includes(q) || (c.clientName || "").toLowerCase().includes(q) || (c.caseNum || "").toLowerCase().includes(q));
     }
     const todayGroup = cases.filter(c => todayCaseIds.has(c.id));
     const otherGroup = cases.filter(c => !todayCaseIds.has(c.id));
@@ -12643,7 +12334,7 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
                     style={{ padding: "8px 10px", cursor: "pointer", borderBottom: "1px solid #e2e8f0", fontSize: 13 }}
                     onMouseOver={e => e.currentTarget.style.background = "#F7F8FA"} onMouseOut={e => e.currentTarget.style.background = ""}>
                     <div style={{ fontWeight: 500, color: "#1e293b" }}>{c.title}</div>
-                    {c.defendantName && <span style={{ fontSize: 10, color: "#64748b" }}>{c.defendantName}</span>}
+                    {c.clientName && <span style={{ fontSize: 10, color: "#64748b" }}>{c.clientName}</span>}
                   </div>
                 );
                 return (
@@ -12818,7 +12509,7 @@ function NewContactModal({ onSave, onClose }) {
   );
 }
 
-const ATTORNEY_STAFF_TYPES = ["Paralegal", "Trial Coordinator", "Administrative Assistant", "Other"];
+const ATTORNEY_STAFF_TYPES = ["Paralegal", "Case Manager", "Legal Assistant", "Administrative Assistant", "Other"];
 const COURT_STAFF_TYPES = ["Judicial Assistant", "Clerk", "Court Reporter", "Bailiff", "Other"];
 
 function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, onUpdate, onDelete, onAddNote, onDeleteNote, onSelectCase }) {
@@ -12839,8 +12530,8 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   const staffPendingData = useRef({});
   const phoneTimers = useRef({});
 
-  const hasStaff = contact.category === "Prosecutor" || contact.category === "Court";
-  const staffTypes = contact.category === "Prosecutor" ? ATTORNEY_STAFF_TYPES : COURT_STAFF_TYPES;
+  const hasStaff = contact.category === "Insurance Company" || contact.category === "Court" || contact.category === "Defense Attorney";
+  const staffTypes = contact.category === "Court" ? COURT_STAFF_TYPES : ATTORNEY_STAFF_TYPES;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setDraft({ ...contact }); setShowDelete(false); }, [contact.id]);
@@ -12940,11 +12631,9 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
       if (contact.category === "Client") {
         nameMatched.push(...allCases.filter(c => {
           if (c.deletedAt) return false;
-          const dName = (c.defendantName || "").toLowerCase().trim();
+          const dName = (c.clientName || "").toLowerCase().trim();
           return dName && cName && (dName === cName || dName.includes(cName) || cName.includes(dName));
         }));
-      } else if (contact.category === "Prosecutor") {
-        nameMatched.push(...allCases.filter(c => c.prosecutor === contact.name && !c.deletedAt));
       } else if (contact.category === "Judge") {
         nameMatched.push(...allCases.filter(c => c.judge === contact.name && !c.deletedAt));
       }
@@ -13191,7 +12880,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               {linkDropdown && (() => {
                 const lower = linkSearch.trim().toLowerCase();
                 const existingIds = new Set([...assocCases.map(c => c.id), ...caseLinks.map(l => l.caseId)]);
-                const results = (allCases || []).filter(c => !c.deletedAt && !existingIds.has(c.id) && ((c.caseNum || "").toLowerCase().includes(lower) || (c.defendantName || "").toLowerCase().includes(lower) || (c.title || "").toLowerCase().includes(lower))).slice(0, 8);
+                const results = (allCases || []).filter(c => !c.deletedAt && !existingIds.has(c.id) && ((c.caseNum || "").toLowerCase().includes(lower) || (c.clientName || "").toLowerCase().includes(lower) || (c.title || "").toLowerCase().includes(lower))).slice(0, 8);
                 return results.length > 0 ? (
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
                     {results.map(c => (
@@ -13200,7 +12889,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                         <span style={{ color: "#5599cc", fontFamily: "monospace", fontSize: 11, marginRight: 8 }}>{c.caseNum}</span>
                         <span style={{ color: "var(--c-text)" }}>{c.title}</span>
-                        {c.defendantName && <span style={{ color: "var(--c-text3)", marginLeft: 6, fontSize: 11 }}>— {c.defendantName}</span>}
+                        {c.clientName && <span style={{ color: "var(--c-text3)", marginLeft: 6, fontSize: 11 }}>— {c.clientName}</span>}
                       </div>
                     ))}
                   </div>
@@ -13591,14 +13280,16 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
   const tabs = [
     { id: "All",              label: `All (${(contacts || []).length})` },
     { id: "Client",           label: `Clients (${counts.Client || 0})` },
-    { id: "Prosecutor",      label: `Prosecutors (${counts.Prosecutor || 0})` },
+    { id: "Insurance Adjuster", label: `Adjusters (${counts["Insurance Adjuster"] || 0})` },
+    { id: "Insurance Company", label: `Insurers (${counts["Insurance Company"] || 0})` },
+    { id: "Medical Provider", label: `Medical (${counts["Medical Provider"] || 0})` },
+    { id: "Defense Attorney", label: `Defense Atty (${counts["Defense Attorney"] || 0})` },
     { id: "Judge",            label: `Judges (${counts.Judge || 0})` },
     { id: "Court",            label: `Courts (${counts.Court || 0})` },
     { id: "Witness",          label: `Witnesses (${counts.Witness || 0})` },
     { id: "Expert",           label: `Experts (${counts.Expert || 0})` },
+    { id: "Lienholder",       label: `Lienholders (${counts.Lienholder || 0})` },
     { id: "Family Member",    label: `Family (${counts["Family Member"] || 0})` },
-    { id: "Social Worker",    label: `Social Workers (${counts["Social Worker"] || 0})` },
-    { id: "Treatment Provider", label: `Treatment (${counts["Treatment Provider"] || 0})` },
     { id: "Miscellaneous",    label: `Misc (${counts.Miscellaneous || 0})` },
     { id: "Deleted",          label: `Deleted (${(deletedContacts || []).length})`, red: true },
   ];
@@ -13712,8 +13403,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                       <tbody>
                         {pinnedContacts.map(c => {
                           const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
-                          const caseCount = c.category === "Client" ? allCases.filter(a => a.defendantName === c.name && !a.deletedAt).length
-                                          : c.category === "Prosecutor" ? allCases.filter(a => a.prosecutor === c.name && !a.deletedAt).length
+                          const caseCount = c.category === "Client" ? allCases.filter(a => a.clientName === c.name && !a.deletedAt).length
                                           : c.category === "Judge" ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
                                           : (contactCaseCounts[c.id] || 0);
                           return (
@@ -13779,8 +13469,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
                   </td></tr>
                 ) : filtered.map(c => {
                   const catStyle = CONTACT_CAT_STYLE[c.category] || CONTACT_CAT_STYLE.Miscellaneous;
-                  const caseCount = c.category === "Client"   ? allCases.filter(a => a.defendantName === c.name && !a.deletedAt).length
-                                  : c.category === "Prosecutor" ? allCases.filter(a => a.prosecutor === c.name && !a.deletedAt).length
+                  const caseCount = c.category === "Client"   ? allCases.filter(a => a.clientName === c.name && !a.deletedAt).length
                                   : c.category === "Judge"    ? allCases.filter(a => a.judge === c.name && !a.deletedAt).length
                                   : (contactCaseCounts[c.id] || 0);
                   const isChecked = mergeSelected.has(c.id);
@@ -13970,33 +13659,30 @@ function AddStaffModal({ onSave, onClose }) {
 const CASE_FIELD_MAP = [
   { key: "title", label: "Case Title" },
   { key: "caseNum", label: "Case Number" },
-  { key: "defendantName", label: "Defendant Name" },
-  { key: "prosecutor", label: "Prosecutor" },
-  { key: "chargeDescription", label: "Charge Description" },
-  { key: "chargeStatute", label: "Statute" },
-  { key: "chargeClass", label: "Charge Class" },
+  { key: "clientName", label: "Client Name" },
   { key: "caseType", label: "Case Type" },
+  { key: "injuryType", label: "Injury Type" },
+  { key: "stateJurisdiction", label: "State" },
   { key: "county", label: "County" },
   { key: "court", label: "Court" },
-  { key: "courtDivision", label: "Court Division" },
-  { key: "custodyStatus", label: "Custody Status" },
-  { key: "bondAmount", label: "Bond Amount" },
   { key: "judge", label: "Judge" },
-  { key: "type", label: "Case Type" },
   { key: "status", label: "Status" },
   { key: "stage", label: "Stage" },
   { key: "dispositionType", label: "Disposition" },
-  { key: "arrestDate", label: "Arrest Date" },
-  { key: "arraignmentDate", label: "Arraignment Date" },
+  { key: "accidentDate", label: "Accident Date" },
+  { key: "statuteOfLimitationsDate", label: "SOL Date" },
   { key: "nextCourtDate", label: "Next Court Date" },
   { key: "trialDate", label: "Trial Date" },
-  { key: "sentencingDate", label: "Sentencing Date" },
   { key: "dispositionDate", label: "Disposition Date" },
+  { key: "caseValueEstimate", label: "Case Value" },
+  { key: "demandAmount", label: "Demand Amount" },
+  { key: "settlementAmount", label: "Settlement Amount" },
+  { key: "contingencyFeePct", label: "Contingency %" },
   { key: "_assignedAttorneyName", label: "Assigned Attorney Name" },
   { key: "_secondAttorneyName", label: "2nd Attorney Name" },
-  { key: "_trialCoordinatorName", label: "Trial Coordinator Name" },
+  { key: "_caseManagerName", label: "Case Manager Name" },
   { key: "_investigatorName", label: "Investigator Name" },
-  { key: "_socialWorkerName", label: "Social Worker Name" },
+  { key: "_paralegalName", label: "Paralegal Name" },
   { key: "_todayDate", label: "Today's Date" },
 ];
 
@@ -14044,9 +13730,9 @@ function getCaseFieldValue(c, key, parties) {
   if (key === "_todayDate") return new Date().toLocaleDateString();
   if (key === "_assignedAttorneyName") return USERS.find(u => u.id === c.assignedAttorney)?.name || "";
   if (key === "_secondAttorneyName") return USERS.find(u => u.id === c.secondAttorney)?.name || "";
-  if (key === "_trialCoordinatorName") return USERS.find(u => u.id === c.trialCoordinator)?.name || "";
+  if (key === "_caseManagerName") return USERS.find(u => u.id === c.caseManager)?.name || "";
   if (key === "_investigatorName") return USERS.find(u => u.id === c.investigator)?.name || "";
-  if (key === "_socialWorkerName") return USERS.find(u => u.id === c.socialWorker)?.name || "";
+  if (key === "_paralegalName") return USERS.find(u => u.id === c.paralegal)?.name || "";
   if (key.startsWith("_party_") && parties) {
     const m = key.match(/^_party_(.+?)_(\d+)_(.+)$/);
     if (m) {
@@ -14088,7 +13774,7 @@ function getCaseFieldValue(c, key, parties) {
 }
 
 const TEMPLATE_CATEGORIES = ["Motions", "Orders", "Notices", "Subpoenas", "Client Letters", "General"];
-const LETTER_SUB_TYPES = ["Client", "Prosecutor", "Court", "Other"];
+const LETTER_SUB_TYPES = ["Client", "Insurance Company", "Defense Attorney", "Court", "Medical Provider", "Other"];
 const CATEGORY_COLORS = { Pleadings: "#dbeafe", Letters: "#fef3c7", Subpoenas: "#e2e8f0", Reports: "#dbeafe", General: "#f1f5f9" };
 
 function getPartyName(p) {
@@ -14105,30 +13791,28 @@ function getPlaceholderSuggestions(token, caseData, parties, experts) {
   if (/^plaintiffs$/.test(key)) {
     const names = allParties.filter(p => /plaintiff/i.test(p.partyType)).map(getPartyName).filter(Boolean);
     if (names.length) suggestions.push({ label: "All Plaintiffs", value: names.join(",\n") });
-    if (!names.length && caseData.prosecutor) suggestions.push({ label: "Prosecutor", value: caseData.prosecutor });
+    if (!names.length && caseData.clientName) suggestions.push({ label: "Client", value: caseData.clientName });
   } else if (/^defendants$/.test(key)) {
     const names = allParties.filter(p => /defendant/i.test(p.partyType)).map(getPartyName).filter(Boolean);
     if (names.length) suggestions.push({ label: "All Defendants", value: names.join(",\n") });
-    if (!names.length && caseData.defendant) suggestions.push({ label: "Defendant", value: caseData.defendant });
   } else if (/^(defendant|def_name|def$)/.test(key)) {
     allParties.filter(p => /defendant/i.test(p.partyType)).forEach(p => {
       const name = getPartyName(p);
       if (name) suggestions.push({ label: `${p.partyType}: ${name}`, value: name });
     });
-    if (!suggestions.length && caseData.defendant) suggestions.push({ label: "Defendant", value: caseData.defendant });
   } else if (/^(plaintiff|pl_name|pl$)/.test(key)) {
     allParties.filter(p => /plaintiff/i.test(p.partyType)).forEach(p => {
       const name = getPartyName(p);
       if (name) suggestions.push({ label: `${p.partyType}: ${name}`, value: name });
     });
-    if (!suggestions.length && caseData.prosecutor) suggestions.push({ label: "Prosecutor", value: caseData.prosecutor });
+    if (!suggestions.length && caseData.clientName) suggestions.push({ label: "Client", value: caseData.clientName });
   } else if (/^(client|client_name|our_client)/.test(key)) {
     if (ourClient) {
       const d = ourClient.data || {};
       const name = ourClient.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
       if (name) suggestions.push({ label: "Our Client", value: name });
     }
-    if (!suggestions.length && caseData.defendantName) suggestions.push({ label: "Defendant", value: caseData.defendantName });
+    if (!suggestions.length && caseData.clientName) suggestions.push({ label: "Client", value: caseData.clientName });
   } else if (/^(client_address|our_client_address)/.test(key)) {
     if (ourClient) {
       const d = ourClient.data || {};
@@ -14151,31 +13835,30 @@ function getPlaceholderSuggestions(token, caseData, parties, experts) {
     if (lead) suggestions.push({ label: "Assigned Attorney", value: lead.name });
     const second = USERS.find(u => u.id === caseData.secondAttorney);
     if (second) suggestions.push({ label: "2nd Attorney", value: second.name });
-  } else if (/^(opposing_counsel|opp_counsel|prosecutor)/.test(key)) {
-    if (caseData.prosecutor) suggestions.push({ label: "Prosecutor", value: caseData.prosecutor });
+  } else if (/^(opposing_counsel|opp_counsel|defense_counsel)/.test(key)) {
   } else if (/^(case_title|case_style|case_name|title$|style)/.test(key)) {
     if (caseData.title) suggestions.push({ label: "Case Title", value: caseData.title });
-  } else if (/^(defendant_name|defendant$)/.test(key)) {
-    if (caseData.defendantName) suggestions.push({ label: "Defendant", value: caseData.defendantName });
+  } else if (/^(client_name)/.test(key)) {
+    if (caseData.clientName) suggestions.push({ label: "Client", value: caseData.clientName });
   } else if (/^(trial_date)/.test(key)) {
     if (caseData.trialDate) suggestions.push({ label: "Trial Date", value: caseData.trialDate });
-  } else if (/^(arrest_date)/.test(key)) {
-    if (caseData.arrestDate) suggestions.push({ label: "Arrest Date", value: caseData.arrestDate });
+  } else if (/^(accident_date|incident_date)/.test(key)) {
+    if (caseData.accidentDate) suggestions.push({ label: "Accident Date", value: caseData.accidentDate });
   } else if (/^(expert|expert_name)/.test(key)) {
     (experts || []).forEach(ex => {
       const name = ex.data?.name || "";
       if (name) suggestions.push({ label: `Expert: ${name}`, value: name });
     });
     if (!suggestions.length && caseData.expert) suggestions.push({ label: "Expert", value: caseData.expert });
-  } else if (/^(trial_coordinator|paralegal|paralegal_name)/.test(key)) {
-    const para = USERS.find(u => u.id === caseData.trialCoordinator);
-    if (para) suggestions.push({ label: "Trial Coordinator", value: para.name });
+  } else if (/^(case_manager|paralegal|paralegal_name)/.test(key)) {
+    const para = USERS.find(u => u.id === caseData.caseManager);
+    if (para) suggestions.push({ label: "Case Manager", value: para.name });
   } else if (/^(investigator|investigator_name)/.test(key)) {
     const inv = USERS.find(u => u.id === caseData.investigator);
     if (inv) suggestions.push({ label: "Investigator", value: inv.name });
-  } else if (/^(social_worker|sw_name)/.test(key)) {
-    const sw = USERS.find(u => u.id === caseData.socialWorker);
-    if (sw) suggestions.push({ label: "Social Worker", value: sw.name });
+  } else if (/^(paralegal_staff|paralegal_assigned)/.test(key)) {
+    const sw = USERS.find(u => u.id === caseData.paralegal);
+    if (sw) suggestions.push({ label: "Paralegal", value: sw.name });
   } else if (/defendant.*address/.test(key)) {
     allParties.filter(p => /defendant/i.test(p.partyType)).forEach(p => {
       const d = p.data || {};
@@ -14191,7 +13874,7 @@ function getPlaceholderSuggestions(token, caseData, parties, experts) {
       if (addr) suggestions.push({ label: `${name} Address`, value: addr });
     });
   } else if (/^(state$|state_name)/.test(key)) {
-    suggestions.push({ label: "Alabama", value: "Alabama" });
+    if (caseData.stateJurisdiction) suggestions.push({ label: "State", value: caseData.stateJurisdiction });
   } else if (/^(signature$)/.test(key)) {
     const lead = USERS.find(u => u.id === caseData.assignedAttorney);
     if (lead) suggestions.push({ label: `${lead.name}`, value: lead.name });
@@ -14199,17 +13882,11 @@ function getPlaceholderSuggestions(token, caseData, parties, experts) {
     if (ourClient) {
       suggestions.push({ label: ourClient.partyType, value: ourClient.partyType });
     }
-  } else if (/^(defendant_name)/.test(key)) {
-    allParties.filter(p => /defendant/i.test(p.partyType)).forEach(p => {
-      const name = getPartyName(p);
-      if (name) suggestions.push({ label: `${p.partyType}: ${name}`, value: name });
-    });
-    if (!suggestions.length && caseData.defendant) suggestions.push({ label: "Defendant", value: caseData.defendant });
+  } else if (/^(client_name)/.test(key)) {
+    if (caseData.clientName) suggestions.push({ label: "Client", value: caseData.clientName });
   } else if (/^(attorney_code|bar_number|bar_num)/.test(key)) {
   } else if (/^(attorney_firm|firm_name|firm$)/.test(key)) {
-    suggestions.push({ label: "Mobile County Public Defender's Office", value: "Mobile County Public Defender's Office" });
   } else if (/^(attorney_address)/.test(key)) {
-    suggestions.push({ label: "Office Address", value: "205 Government Street, Mobile, AL 36602" });
   } else if (/^(attorney_phone)/.test(key)) {
     const lead = USERS.find(u => u.id === caseData.assignedAttorney);
     if (lead?.phone) suggestions.push({ label: `${lead.name}`, value: lead.phone });
@@ -14240,7 +13917,7 @@ const PLEADING_SIGNATURE_PLACEHOLDERS = [
   { token: "ATTORNEY_NAME", label: "Attorney Name" },
   { token: "ATTORNEY_CODE", label: "Attorney Code (Bar #)" },
   { token: "CLIENT_TYPE", label: "Client Type" },
-  { token: "DEFENDANT_NAME", label: "Defendant Name" },
+  { token: "CLIENT_NAME", label: "Client Name" },
   { token: "ATTORNEY_FIRM", label: "Attorney Firm" },
   { token: "ATTORNEY_ADDRESS", label: "Attorney Address" },
   { token: "ATTORNEY_PHONE", label: "Attorney Phone" },
@@ -14252,41 +13929,38 @@ function buildAllCaseFields(caseData, parties, experts) {
   const add = (cat, label, value) => { if (value) fields.push({ category: cat, label, value: String(value) }); };
   add("Case Info", "Case Title", caseData.title);
   add("Case Info", "Case Number", caseData.caseNum);
-  add("Case Info", "Defendant", caseData.defendantName);
-  add("Case Info", "Prosecutor", caseData.prosecutor);
-  add("Case Info", "Charge Description", caseData.chargeDescription);
-  add("Case Info", "Charge Statute", caseData.chargeStatute);
-  add("Case Info", "Charge Class", caseData.chargeClass);
+  add("Case Info", "Client Name", caseData.clientName);
   add("Case Info", "Case Type", caseData.caseType);
+  add("Case Info", "Injury Type", caseData.injuryType);
+  add("Case Info", "State", caseData.stateJurisdiction);
   add("Case Info", "Court", caseData.court);
-  add("Case Info", "Court Division", caseData.courtDivision);
   add("Case Info", "County", caseData.county);
   add("Case Info", "Judge", caseData.judge);
   add("Case Info", "Status", caseData.status);
   add("Case Info", "Stage", caseData.stage);
-  add("Case Info", "Custody Status", caseData.custodyStatus);
-  add("Case Info", "Bond Amount", caseData.bondAmount);
-  add("Case Info", "State", "Alabama");
+  add("Case Info", "Case Value", caseData.caseValueEstimate);
+  add("Case Info", "Demand Amount", caseData.demandAmount);
+  add("Case Info", "Settlement Amount", caseData.settlementAmount);
+  add("Case Info", "Contingency %", caseData.contingencyFeePct);
   const fmt = d => { try { return new Date(d).toLocaleDateString(); } catch { return ""; } };
-  add("Dates", "Arrest Date", caseData.arrestDate ? fmt(caseData.arrestDate) : "");
-  add("Dates", "Arraignment Date", caseData.arraignmentDate ? fmt(caseData.arraignmentDate) : "");
+  add("Dates", "Accident Date", caseData.accidentDate ? fmt(caseData.accidentDate) : "");
+  add("Dates", "SOL Date", caseData.statuteOfLimitationsDate ? fmt(caseData.statuteOfLimitationsDate) : "");
   add("Dates", "Next Court Date", caseData.nextCourtDate ? fmt(caseData.nextCourtDate) : "");
   add("Dates", "Trial Date", caseData.trialDate ? fmt(caseData.trialDate) : "");
-  add("Dates", "Sentencing Date", caseData.sentencingDate ? fmt(caseData.sentencingDate) : "");
   add("Dates", "Disposition Date", caseData.dispositionDate ? fmt(caseData.dispositionDate) : "");
   add("Dates", "Today's Date", new Date().toLocaleDateString());
   const lead = USERS.find(u => u.id === caseData.assignedAttorney);
   const second = USERS.find(u => u.id === caseData.secondAttorney);
-  const para = USERS.find(u => u.id === caseData.trialCoordinator);
+  const para = USERS.find(u => u.id === caseData.caseManager);
   const inv = USERS.find(u => u.id === caseData.investigator);
-  const sw = USERS.find(u => u.id === caseData.socialWorker);
+  const sw = USERS.find(u => u.id === caseData.paralegal);
   if (lead) { add("Staff", "Assigned Attorney", lead.name); add("Staff", "Assigned Attorney Email", lead.email); add("Staff", "Assigned Attorney Phone", lead.phone); }
   if (second) { add("Staff", "2nd Attorney", second.name); add("Staff", "2nd Attorney Email", second.email); add("Staff", "2nd Attorney Phone", second.phone); }
   if (para) { add("Staff", "Trial Coordinator", para.name); add("Staff", "Trial Coordinator Email", para.email); add("Staff", "Trial Coordinator Phone", para.phone); }
   if (inv) { add("Staff", "Investigator", inv.name); add("Staff", "Investigator Email", inv.email); add("Staff", "Investigator Phone", inv.phone); }
-  if (sw) { add("Staff", "Social Worker", sw.name); add("Staff", "Social Worker Email", sw.email); add("Staff", "Social Worker Phone", sw.phone); }
-  add("Staff", "Office", "Mobile County Public Defender's Office");
-  add("Staff", "Office Address", "205 Government Street, Mobile, AL 36602");
+  if (sw) { add("Staff", "Paralegal", sw.name); add("Staff", "Paralegal Email", sw.email); add("Staff", "Paralegal Phone", sw.phone); }
+  add("Staff", "Office", "Law Firm");
+  add("Staff", "Office Address", "");
   (parties || []).forEach(p => {
     const d = p.data || {};
     const name = p.entityKind === "corporation" ? (d.entityName || "") : [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
@@ -14391,13 +14065,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
           if (/addressee|recipient|to_name/.test(k) && name) v[ph.token] = v[ph.token] || name;
           if (/address|to_address/.test(k) && addr) v[ph.token] = v[ph.token] || addr;
         }
-      } else if (tmpl.subType === "Attorney") {
-        if (caseData.prosecutor) {
-          for (const ph of tmpl.placeholders) {
-            const k = ph.token.toLowerCase();
-            if (/addressee|recipient|to_name|attorney/.test(k)) v[ph.token] = v[ph.token] || caseData.prosecutor;
-          }
-        }
+      } else if (tmpl.subType === "Defense Attorney") {
       }
     }
     setValues(v);
@@ -14722,7 +14390,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
             {filtered.map(t => {
-              const canEdit = t.createdBy === currentUser.id || hasRole(currentUser, "Public Defender") || hasRole(currentUser, "Chief Deputy Public Defender") || hasRole(currentUser, "Deputy Public Defender");
+              const canEdit = t.createdBy === currentUser.id || hasRole(currentUser, "Managing Partner") || hasRole(currentUser, "Senior Partner") || hasRole(currentUser, "Partner");
               return (
               <div key={t.id} style={{ padding: 16, borderRadius: 10, border: "1px solid var(--c-border)", background: "var(--c-bg2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
@@ -15331,7 +14999,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
             {pinnedExpanded && (
               <div ref={pinnedGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16 }}>
                 {pinnedStaff.map((u, idx) => {
-                  const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.trialCoordinator === u.id || c.investigator === u.id || c.socialWorker === u.id);
+                  const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.caseManager === u.id || c.investigator === u.id || c.paralegal === u.id);
                   const isExpanded = isRowExpanded("pinned", idx);
                   return (
                     <div key={u.id} className="card" style={{ padding: "20px 22px", position: "relative", cursor: "pointer", borderLeft: "3px solid #C9A84C" }} onClick={() => toggleRow("pinned", idx)}>
@@ -15378,7 +15046,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
         </div>
         {allStaffExpanded && <div ref={allGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16 }}>
           {filteredStaff.map((u, idx) => {
-            const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.trialCoordinator === u.id || c.investigator === u.id || c.socialWorker === u.id);
+            const mine = allCases.filter(c => c.assignedAttorney === u.id || c.secondAttorney === u.id || c.caseManager === u.id || c.investigator === u.id || c.paralegal === u.id);
             const isConfirming = confirmDeleteId === u.id;
             const isExpanded = isRowExpanded("all", idx);
             return (

@@ -6,7 +6,7 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const OFFICE_ROLES = ["Public Defender","Chief Deputy Public Defender","Deputy Public Defender","Senior Trial Attorney","App Admin"];
+const OFFICE_ROLES = ["Managing Partner","Senior Partner","Partner","App Admin"];
 function canManageOffice(roles) {
   return (roles || []).some(r => OFFICE_ROLES.includes(r));
 }

@@ -25,11 +25,11 @@ const TABS = ["Witnesses","Exhibits","Jury","Motions","Outlines","Jury Instructi
 const AI_AGENTS = [
   { id: "witness-prep", title: "Witness Prep", desc: "Generate cross-examination questions and impeachment points", Icon: Users, color: "text-indigo-600", bg: "bg-indigo-100 dark:bg-indigo-900/30" },
   { id: "jury-selection", title: "Jury Selection", desc: "Analyze juror responses for bias and red flags", Icon: Scale, color: "text-violet-600", bg: "bg-violet-100 dark:bg-violet-900/30" },
-  { id: "objection-coach", title: "Objection Coach", desc: "Get objection suggestions with Alabama Rules of Evidence", Icon: AlertTriangle, color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/30" },
+  { id: "objection-coach", title: "Objection Coach", desc: "Get objection suggestions with applicable rules of evidence", Icon: AlertTriangle, color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/30" },
   { id: "closing-builder", title: "Closing Builder", desc: "Build closing argument from trial evidence", Icon: FileText, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
   { id: "opening-builder", title: "Opening Builder", desc: "Draft a compelling opening statement", Icon: FileText, color: "text-teal-600", bg: "bg-teal-100 dark:bg-teal-900/30" },
-  { id: "jury-instructions-ai", title: "Jury Instructions", desc: "Review charges and suggest Alabama pattern instructions", Icon: ClipboardList, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30" },
-  { id: "case-law", title: "Case Law Search", desc: "Find relevant Alabama case law and rules of evidence", Icon: Search, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30" },
+  { id: "jury-instructions-ai", title: "Jury Instructions", desc: "Review claims and suggest civil pattern jury instructions", Icon: ClipboardList, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30" },
+  { id: "case-law", title: "Case Law Search", desc: "Find relevant case law and rules of evidence", Icon: Search, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30" },
 ];
 
 const INPUT_CLS = "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-900 dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500";
@@ -65,7 +65,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const [showWitnessForm, setShowWitnessForm] = useState(false);
   const [editWitness, setEditWitness] = useState(null);
-  const [wForm, setWForm] = useState({ name: "", type: "prosecution", contact_info: "", expected_testimony: "", impeachment_notes: "", call_order: 1, status: "pending" });
+  const [wForm, setWForm] = useState({ name: "", type: "plaintiff", contact_info: "", expected_testimony: "", impeachment_notes: "", call_order: 1, status: "pending" });
 
   const [showExhibitForm, setShowExhibitForm] = useState(false);
   const [editExhibit, setEditExhibit] = useState(null);
@@ -77,7 +77,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const [showMotionForm, setShowMotionForm] = useState(false);
   const [editMotion, setEditMotion] = useState(null);
-  const [mForm, setMForm] = useState({ title: "", type: "defense", status: "pending", ruling_summary: "", notes: "" });
+  const [mForm, setMForm] = useState({ title: "", type: "plaintiff", status: "pending", ruling_summary: "", notes: "" });
 
   const [showInstructionForm, setShowInstructionForm] = useState(false);
   const [editInstruction, setEditInstruction] = useState(null);
@@ -147,7 +147,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     const all = (cases || []).filter(c =>
       (c.title || "").toLowerCase().includes(q)
       || (c.case_num || "").toLowerCase().includes(q)
-      || (c.defendant_name || "").toLowerCase().includes(q)
+      || (c.client_name || c.defendant_name || "").toLowerCase().includes(q)
     );
     const pinSet = new Set(pinnedCaseIds);
     const pinned = all.filter(c => pinSet.has(c.id));
@@ -242,7 +242,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       }
       setShowWitnessForm(false);
       setEditWitness(null);
-      setWForm({ name: "", type: "prosecution", contact_info: "", expected_testimony: "", impeachment_notes: "", call_order: witnesses.length + 1, status: "pending" });
+      setWForm({ name: "", type: "plaintiff", contact_info: "", expected_testimony: "", impeachment_notes: "", call_order: witnesses.length + 1, status: "pending" });
       await refreshTab("Witnesses");
     } catch (err) { console.error(err); }
   };
@@ -310,7 +310,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       }
       setShowMotionForm(false);
       setEditMotion(null);
-      setMForm({ title: "", type: "defense", status: "pending", ruling_summary: "", notes: "" });
+      setMForm({ title: "", type: "plaintiff", status: "pending", ruling_summary: "", notes: "" });
       await refreshTab("Motions");
     } catch (err) { console.error(err); }
   };
@@ -440,7 +440,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     try {
       const res = await apiTrialAiJuryInstructions({
         sessionId: session.id,
-        charges: chargesStr || "",
+        charges: caseTypeStr || "",
         defenseTheory: "",
       });
       setJiAiResult(res?.result || "No result returned.");
@@ -740,8 +740,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
           instructions.push({ text: currentInstruction.trim(), source: currentSource });
         }
         currentInstruction = trimmed.replace(/^[-*]\s*/, "").replace(/^\d+\.\s*/, "");
-        const apjiMatch = currentInstruction.match(/APJI\s+[\d.]+/i);
-        currentSource = apjiMatch ? apjiMatch[0] : "";
+        const patternMatch = currentInstruction.match(/(?:APJI|PJI|CACI|JI)\s+[\d.]+/i);
+        currentSource = patternMatch ? patternMatch[0] : "";
       } else if (trimmed) {
         currentInstruction += " " + trimmed;
       }
@@ -800,7 +800,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const openEditWitness = (w) => {
     setEditWitness(w);
-    setWForm({ name: w.name || "", type: w.type || "prosecution", contact_info: w.contact_info || "", expected_testimony: w.expected_testimony || "", impeachment_notes: w.impeachment_notes || "", call_order: w.call_order || 1, status: w.status || "pending" });
+    setWForm({ name: w.name || "", type: w.type || "plaintiff", contact_info: w.contact_info || "", expected_testimony: w.expected_testimony || "", impeachment_notes: w.impeachment_notes || "", call_order: w.call_order || 1, status: w.status || "pending" });
     setShowWitnessForm(true);
   };
 
@@ -818,7 +818,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const openEditMotion = (m) => {
     setEditMotion(m);
-    setMForm({ title: m.title || "", type: m.type || "defense", status: m.status || "pending", ruling_summary: m.ruling_summary || "", notes: m.notes || "" });
+    setMForm({ title: m.title || "", type: m.type || "plaintiff", status: m.status || "pending", ruling_summary: m.ruling_summary || "", notes: m.notes || "" });
     setShowMotionForm(true);
   };
 
@@ -835,8 +835,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   };
 
   const c = selectedCase;
-  const charges = c?.charges;
-  const chargesStr = Array.isArray(charges) ? charges.map(ch => ch.description || ch.statute || "").filter(Boolean).join(", ") : (c?.charge_description || "");
+  const caseTypeStr = c?.case_type || c?.injury_type || "";
+  const jurisdictionStr = c?.stateJurisdiction || c?.state_jurisdiction || "";
 
   const dayEntries = logEntries.filter(e => e.trial_day === logDay).sort((a, b) => (b.entry_time || b.created_at || "").localeCompare(a.entry_time || a.created_at || ""));
   const maxDay = logEntries.length > 0 ? Math.max(...logEntries.map(e => e.trial_day || 1)) : 1;
@@ -931,7 +931,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       <Pin size={11} className="text-amber-500 flex-shrink-0" />
                       <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</span>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 ml-[17px]">{fc.case_num} {fc.defendant_name ? `\u2014 ${fc.defendant_name}` : ""}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 ml-[17px]">{fc.case_num} {(fc.client_name || fc.defendant_name) ? `\u2014 ${fc.client_name || fc.defendant_name}` : ""}</div>
                   </div>
                 ))}
                 {pinned.length > 0 && rest.length > 0 && (
@@ -940,7 +940,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                 {rest.map(fc => (
                   <div key={fc.id} onClick={() => selectCase(fc)} className="px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
                     <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{fc.case_num} {fc.defendant_name ? `\u2014 ${fc.defendant_name}` : ""}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{fc.case_num} {(fc.client_name || fc.defendant_name) ? `\u2014 ${fc.client_name || fc.defendant_name}` : ""}</div>
                   </div>
                 ))}
               </div>
@@ -969,8 +969,28 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className={LABEL_CLS}>Charges</span>
-                <p className="text-slate-900 dark:text-slate-100 text-xs">{chargesStr || "\u2014"}</p>
+                <span className={LABEL_CLS}>Client</span>
+                <p className="text-slate-900 dark:text-slate-100">{c.client_name || c.defendant_name || "\u2014"}</p>
+              </div>
+              <div>
+                <span className={LABEL_CLS}>Case Type</span>
+                <p className="text-slate-900 dark:text-slate-100">{caseTypeStr || "\u2014"}</p>
+              </div>
+              <div>
+                <span className={LABEL_CLS}>Accident Date</span>
+                <p className="text-slate-900 dark:text-slate-100">{fmtDate(c.accident_date || c.date_of_incident)}</p>
+              </div>
+              <div>
+                <span className={LABEL_CLS}>Injury Type</span>
+                <p className="text-slate-900 dark:text-slate-100">{c.injury_type || "\u2014"}</p>
+              </div>
+              <div>
+                <span className={LABEL_CLS}>Jurisdiction</span>
+                <p className="text-slate-900 dark:text-slate-100">{jurisdictionStr || "\u2014"}</p>
+              </div>
+              <div>
+                <span className={LABEL_CLS}>SOL Date</span>
+                <p className="text-slate-900 dark:text-slate-100">{fmtDate(c.sol_date || c.statute_of_limitations_date)}</p>
               </div>
               <div>
                 <span className={LABEL_CLS}>Court</span>
@@ -979,22 +999,6 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               <div>
                 <span className={LABEL_CLS}>Judge</span>
                 <p className="text-slate-900 dark:text-slate-100">{c.judge || "\u2014"}</p>
-              </div>
-              <div>
-                <span className={LABEL_CLS}>Next Court Date</span>
-                <p className="text-slate-900 dark:text-slate-100">{fmtDate(c.next_court_date)}</p>
-              </div>
-              <div>
-                <span className={LABEL_CLS}>Client</span>
-                <p className="text-slate-900 dark:text-slate-100">{c.defendant_name || "\u2014"}</p>
-              </div>
-              <div>
-                <span className={LABEL_CLS}>Custody Status</span>
-                <p className="text-slate-900 dark:text-slate-100">{c.custody_status || "\u2014"}</p>
-              </div>
-              <div>
-                <span className={LABEL_CLS}>Bond</span>
-                <p className="text-slate-900 dark:text-slate-100">{c.bond_amount ? `$${Number(c.bond_amount).toLocaleString()}` : "\u2014"}</p>
               </div>
             </div>
           </div>
@@ -1020,13 +1024,13 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Witnesses ({witnesses.length})</h3>
-                  <button onClick={() => { setEditWitness(null); setWForm({ name: "", type: "prosecution", contact_info: "", expected_testimony: "", impeachment_notes: "", call_order: witnesses.length + 1, status: "pending" }); setShowWitnessForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Witness</button>
+                  <button onClick={() => { setEditWitness(null); setWForm({ name: "", type: "plaintiff", contact_info: "", expected_testimony: "", impeachment_notes: "", call_order: witnesses.length + 1, status: "pending" }); setShowWitnessForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Witness</button>
                 </div>
                 {showWitnessForm && (
                   <div className={CARD_CLS + " p-4 space-y-3"}>
                     <div className="grid grid-cols-2 gap-3">
                       <div><label className={LABEL_CLS}>Name</label><input className={INPUT_CLS} value={wForm.name} onChange={e => setWForm({ ...wForm, name: e.target.value })} /></div>
-                      <div><label className={LABEL_CLS}>Type</label><select className={INPUT_CLS} value={wForm.type} onChange={e => setWForm({ ...wForm, type: e.target.value })}><option value="prosecution">Prosecution</option><option value="defense">Defense</option></select></div>
+                      <div><label className={LABEL_CLS}>Type</label><select className={INPUT_CLS} value={wForm.type} onChange={e => setWForm({ ...wForm, type: e.target.value })}><option value="plaintiff">Plaintiff</option><option value="defense">Defense</option></select></div>
                       <div><label className={LABEL_CLS}>Contact Info</label><input className={INPUT_CLS} value={wForm.contact_info} onChange={e => setWForm({ ...wForm, contact_info: e.target.value })} /></div>
                       <div><label className={LABEL_CLS}>Call Order</label><input type="number" className={INPUT_CLS} value={wForm.call_order} onChange={e => setWForm({ ...wForm, call_order: parseInt(e.target.value) || 1 })} /></div>
                       <div><label className={LABEL_CLS}>Status</label><select className={INPUT_CLS} value={wForm.status} onChange={e => setWForm({ ...wForm, status: e.target.value })}><option value="pending">Pending</option><option value="called">Called</option><option value="excused">Excused</option></select></div>
@@ -1048,7 +1052,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{w.name}</span>
-                            <span className={BADGE_CLS + (w.type === "prosecution" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50")}>{w.type}</span>
+                            <span className={BADGE_CLS + (w.type === "plaintiff" ? " bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50" : " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50")}>{w.type}</span>
                             <span className={BADGE_CLS + (w.status === "called" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : w.status === "excused" ? " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{w.status}</span>
                           </div>
                           {w.expected_testimony && <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{w.expected_testimony}</p>}
@@ -1085,13 +1089,15 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                           <div className="mb-2">
                             <select className={INPUT_CLS + " text-xs"} value={witnessDocLabel} onChange={e => setWitnessDocLabel(e.target.value)}>
                               <option value="">No Label</option>
-                              <option value="Police Report">Police Report</option>
-                              <option value="Medical Report">Medical Report</option>
+                              <option value="Accident Report">Accident Report</option>
+                              <option value="Medical Records">Medical Records</option>
+                              <option value="Medical Bills">Medical Bills</option>
                               <option value="Witness Statement">Witness Statement</option>
+                              <option value="Expert Report">Expert Report</option>
+                              <option value="Insurance Records">Insurance Records</option>
+                              <option value="Deposition">Deposition</option>
                               <option value="Audio Recording">Audio Recording</option>
                               <option value="Transcript">Transcript</option>
-                              <option value="Lab Report">Lab Report</option>
-                              <option value="Expert Report">Expert Report</option>
                               <option value="Other">Other</option>
                             </select>
                           </div>
@@ -1217,7 +1223,10 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
             {activeTab === "Jury" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Jury Panel</h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Jury Panel</h3>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{jurisdictionStr ? `(${jurisdictionStr})` : ""} Civil jury — typically 6 or 12 jurors depending on jurisdiction</span>
+                  </div>
                   <button onClick={() => { setEditJuror(null); setJForm({ seat_number: jurors.length + 1, name: "", notes: "", demographics: "", strike_type: "none", is_selected: false }); setShowJurorForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Juror</button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -1271,13 +1280,13 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Motions ({motions.length})</h3>
-                  <button onClick={() => { setEditMotion(null); setMForm({ title: "", type: "defense", status: "pending", ruling_summary: "", notes: "" }); setShowMotionForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Motion</button>
+                  <button onClick={() => { setEditMotion(null); setMForm({ title: "", type: "plaintiff", status: "pending", ruling_summary: "", notes: "" }); setShowMotionForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Motion</button>
                 </div>
                 {showMotionForm && (
                   <div className={CARD_CLS + " p-4 space-y-3"}>
                     <div className="grid grid-cols-2 gap-3">
                       <div><label className={LABEL_CLS}>Title</label><input className={INPUT_CLS} value={mForm.title} onChange={e => setMForm({ ...mForm, title: e.target.value })} /></div>
-                      <div><label className={LABEL_CLS}>Type</label><select className={INPUT_CLS} value={mForm.type} onChange={e => setMForm({ ...mForm, type: e.target.value })}><option value="defense">Defense</option><option value="prosecution">Prosecution</option></select></div>
+                      <div><label className={LABEL_CLS}>Type</label><select className={INPUT_CLS} value={mForm.type} onChange={e => setMForm({ ...mForm, type: e.target.value })}><option value="plaintiff">Plaintiff</option><option value="defense">Defense</option><option value="summary-judgment">Summary Judgment</option><option value="daubert">Daubert / Expert</option><option value="compel-discovery">Compel Discovery</option><option value="in-limine">Motion in Limine</option><option value="directed-verdict">Directed Verdict</option><option value="new-trial">New Trial</option></select></div>
                       <div><label className={LABEL_CLS}>Status</label><select className={INPUT_CLS} value={mForm.status} onChange={e => setMForm({ ...mForm, status: e.target.value })}><option value="pending">Pending</option><option value="granted">Granted</option><option value="denied">Denied</option></select></div>
                     </div>
                     <div><label className={LABEL_CLS}>Ruling Summary</label><textarea className={INPUT_CLS + " h-20"} value={mForm.ruling_summary} onChange={e => setMForm({ ...mForm, ruling_summary: e.target.value })} /></div>
@@ -1294,7 +1303,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{m.title}</span>
-                          <span className={BADGE_CLS + (m.type === "defense" ? " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50" : " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50")}>{m.type}</span>
+                          <span className={BADGE_CLS + (m.type === "plaintiff" ? " bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50" : m.type === "defense" ? " bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50" : " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600")}>{m.type}</span>
                           <span className={BADGE_CLS + (m.status === "granted" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : m.status === "denied" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{m.status}</span>
                         </div>
                         {m.ruling_summary && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{m.ruling_summary}</p>}
@@ -1342,7 +1351,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       )}
                     </div>
                   )}
-                  <textarea className={INPUT_CLS + " h-40"} value={openingText} onChange={e => setOpeningText(e.target.value)} placeholder="Draft your opening statement outline..." />
+                  <textarea className={INPUT_CLS + " h-40"} value={openingText} onChange={e => setOpeningText(e.target.value)} placeholder="Draft your opening statement outline...&#10;&#10;Consider including:&#10;- Introduction of the client and their story&#10;- Description of the accident/incident&#10;- Injuries sustained and impact on daily life&#10;- Defendant's negligence and liability&#10;- Damages sought (medical, lost wages, pain & suffering)" />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -1374,7 +1383,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       )}
                     </div>
                   )}
-                  <textarea className={INPUT_CLS + " h-40"} value={closingText} onChange={e => setClosingText(e.target.value)} placeholder="Draft your closing argument outline..." />
+                  <textarea className={INPUT_CLS + " h-40"} value={closingText} onChange={e => setClosingText(e.target.value)} placeholder="Draft your closing argument outline...&#10;&#10;Consider including:&#10;- Summary of evidence proving negligence&#10;- Review of damages (medical expenses, lost income, pain & suffering)&#10;- Witness testimony highlights&#10;- Burden of proof (preponderance of the evidence)&#10;- Specific damages amount requested" />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -1449,7 +1458,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     <div><label className={LABEL_CLS}>Instruction Text</label><textarea className={INPUT_CLS + " h-24"} value={iForm.instruction_text} onChange={e => setIForm({ ...iForm, instruction_text: e.target.value })} /></div>
                     <div className="grid grid-cols-2 gap-3">
                       <div><label className={LABEL_CLS}>Status</label><select className={INPUT_CLS} value={iForm.status} onChange={e => setIForm({ ...iForm, status: e.target.value })}><option value="requested">Requested</option><option value="given">Given</option><option value="refused">Refused</option></select></div>
-                      <div><label className={LABEL_CLS}>Source</label><input className={INPUT_CLS} value={iForm.source} onChange={e => setIForm({ ...iForm, source: e.target.value })} placeholder="e.g., APJI 1.01" /></div>
+                      <div><label className={LABEL_CLS}>Source</label><input className={INPUT_CLS} value={iForm.source} onChange={e => setIForm({ ...iForm, source: e.target.value })} placeholder="e.g., Pattern Jury Instruction 1.01" /></div>
                     </div>
                     <div><label className={LABEL_CLS}>Objection Notes</label><textarea className={INPUT_CLS + " h-20"} value={iForm.objection_notes} onChange={e => setIForm({ ...iForm, objection_notes: e.target.value })} /></div>
                     <div className="flex gap-2">
@@ -1754,12 +1763,12 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     {activeAgent === "jury-instructions-ai" && (
                       <>
                         <div>
-                          <label className={LABEL_CLS}>Charges</label>
-                          <textarea className={INPUT_CLS + " h-20"} value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="Enter or modify charges..." />
+                          <label className={LABEL_CLS}>Claims / Causes of Action</label>
+                          <textarea className={INPUT_CLS + " h-20"} value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="Enter claims or causes of action (e.g., negligence, premises liability)..." />
                         </div>
                         <div>
-                          <label className={LABEL_CLS}>Defense Theory</label>
-                          <textarea className={INPUT_CLS + " h-20"} value={aiInput2} onChange={e => setAiInput2(e.target.value)} placeholder="Describe your defense theory..." />
+                          <label className={LABEL_CLS}>Theory of Liability</label>
+                          <textarea className={INPUT_CLS + " h-20"} value={aiInput2} onChange={e => setAiInput2(e.target.value)} placeholder="Describe your theory of liability and damages..." />
                         </div>
                       </>
                     )}

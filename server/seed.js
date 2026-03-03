@@ -40,7 +40,6 @@ async function importTableData(client, tableName, rows) {
         val = Buffer.from(val, "base64");
       } else if (val !== null && typeof val === "object" && !Buffer.isBuffer(val) && !(val instanceof Date)) {
         if (Array.isArray(val) && (val.length === 0 || typeof val[0] !== "object")) {
-          // primitive array → pass as-is for PostgreSQL array columns (TEXT[], etc.)
         } else {
           val = JSON.stringify(val);
         }
@@ -99,7 +98,7 @@ async function seed() {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (id) DO UPDATE SET
            name=$2, role=$3, roles=$4, email=$5, initials=$6, phone=$7, cell=$8, avatar=$9, offices=$11`,
-        [u.id, u.name, u.role, [u.role], u.email, u.initials, u.phone || "", u.cell || "", u.avatar || "#4C7AC9", defaultHash, ["Mobile"]]
+        [u.id, u.name, u.role, [u.role], u.email, u.initials, u.phone || "", u.cell || "", u.avatar || "#4C7AC9", defaultHash, ["Main"]]
       );
     }
     console.log(`${USERS.length} users seeded.`);
@@ -108,28 +107,29 @@ async function seed() {
     for (const c of CASES) {
       await client.query(
         `INSERT INTO cases
-          (id, case_num, title, defendant_name, prosecutor, county, court, court_division,
-           case_type, type, status, stage,
-           lead_attorney, second_attorney, trial_coordinator, investigator, social_worker,
-           arrest_date, arraignment_date, next_court_date, trial_date, sentencing_date, disposition_date,
-           judge, death_penalty)
+          (id, case_num, title, client_name, county, court,
+           case_type, type, status, stage, state_jurisdiction,
+           lead_attorney, second_attorney, case_manager, investigator, paralegal,
+           accident_date, next_court_date, trial_date, mediation_date, disposition_date,
+           judge, incident_location, injury_type, incident_description)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
          ON CONFLICT (id) DO UPDATE SET
-           case_num=$2, title=$3, defendant_name=$4, prosecutor=$5, county=$6, court=$7, court_division=$8,
-           case_type=$9, type=$10, status=$11, stage=$12,
-           lead_attorney=$13, second_attorney=$14, trial_coordinator=$15, investigator=$16, social_worker=$17,
-           arrest_date=$18, arraignment_date=$19, next_court_date=$20, trial_date=$21, sentencing_date=$22, disposition_date=$23,
-           judge=$24, death_penalty=$25`,
+           case_num=$2, title=$3, client_name=$4, county=$5, court=$6,
+           case_type=$7, type=$8, status=$9, stage=$10, state_jurisdiction=$11,
+           lead_attorney=$12, second_attorney=$13, case_manager=$14, investigator=$15, paralegal=$16,
+           accident_date=$17, next_court_date=$18, trial_date=$19, mediation_date=$20, disposition_date=$21,
+           judge=$22, incident_location=$23, injury_type=$24, incident_description=$25`,
         [
-          c.id, c.caseNum || "", c.title, c.defendantName || "", c.prosecutor || "",
-          c.county || "", c.court || "", c.courtDivision || "",
-          c.caseType || "Felony", c.type || "Felony", c.status || "Active", c.stage || "Arraignment",
-          orNull(c.assignedAttorney), orNull(c.secondAttorney), orNull(c.trialCoordinator),
-          orNull(c.investigator), orNull(c.socialWorker),
-          orNull(c.arrestDate), orNull(c.arraignmentDate), orNull(c.nextCourtDate),
-          orNull(c.trialDate), orNull(c.sentencingDate), orNull(c.dispositionDate),
+          c.id, c.caseNum || "", c.title, c.clientName || "", 
+          c.county || "", c.court || "",
+          c.caseType || "Auto Accident", c.type || "Auto Accident", c.status || "Active", c.stage || "Intake",
+          c.stateJurisdiction || "",
+          orNull(c.leadAttorney), orNull(c.secondAttorney), orNull(c.caseManager),
+          orNull(c.investigator), orNull(c.paralegal),
+          orNull(c.accidentDate), orNull(c.nextCourtDate),
+          orNull(c.trialDate), orNull(c.mediationDate), orNull(c.dispositionDate),
           c.judge || "",
-          !!c.deathPenalty,
+          c.incidentLocation || "", c.injuryType || "", c.incidentDescription || "",
         ]
       );
     }
@@ -141,53 +141,51 @@ async function seed() {
     }
 
     const CONTACTS = [
-      { name: "Amanda Price", category: "Prosecutor", phone: "(251) 574-8401", email: "aprice@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Andrew Collins", category: "Prosecutor", phone: "(251) 574-8402", email: "acollins@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Brian Lawson", category: "Prosecutor", phone: "(251) 574-8403", email: "blawson@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Catherine Webb", category: "Prosecutor", phone: "(251) 574-8404", email: "cwebb@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Daniel Marsh", category: "Prosecutor", phone: "(251) 574-8405", email: "dmarsh@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "David Harper", category: "Prosecutor", phone: "(251) 574-8406", email: "dharper@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "James Wright", category: "Prosecutor", phone: "(251) 574-8407", email: "jwright@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Jessica Banks", category: "Prosecutor", phone: "(251) 574-8408", email: "jbanks@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Kevin Reynolds", category: "Prosecutor", phone: "(251) 574-8409", email: "kreynolds@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Lisa Carmichael", category: "Prosecutor", phone: "(251) 574-8410", email: "lcarmichael@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Marcus Reed", category: "Prosecutor", phone: "(251) 574-8411", email: "mreed@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Michael Chen", category: "Prosecutor", phone: "(251) 574-8412", email: "mchen@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Michelle Torres", category: "Prosecutor", phone: "(251) 574-8413", email: "mtorres@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Nicole Garrett", category: "Prosecutor", phone: "(251) 574-8414", email: "ngarrett@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Patricia Nolan", category: "Prosecutor", phone: "(251) 574-8415", email: "pnolan@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Rachel Foster", category: "Prosecutor", phone: "(251) 574-8416", email: "rfoster@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Robert Tillman", category: "Prosecutor", phone: "(251) 574-8417", email: "rtillman@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Sarah Johnson", category: "Prosecutor", phone: "(251) 574-8418", email: "sjohnson@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Stephanie Moore", category: "Prosecutor", phone: "(251) 574-8419", email: "smoore@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Thomas Blackwell", category: "Prosecutor", phone: "(251) 574-8420", email: "tblackwell@mobileda.gov", firm: "Mobile County District Attorney's Office", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Ben H. Brooks", category: "Judge", phone: "(251) 574-8701", email: "chambers.brooks@alacourt.gov", address: "205 Government St, Courtroom 7A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Brandy V. Hambright", category: "Judge", phone: "(251) 574-8702", email: "chambers.hambright@alacourt.gov", address: "205 Government St, Courtroom 3B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Charles A. Graddick Jr.", category: "Judge", phone: "(251) 574-8703", email: "chambers.graddick@alacourt.gov", address: "205 Government St, Courtroom 5A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Deborah B. Alley", category: "Judge", phone: "(251) 574-8704", email: "chambers.alley@alacourt.gov", address: "205 Government St, Courtroom 2C, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Gaines McCorquodale", category: "Judge", phone: "(251) 574-8705", email: "chambers.mccorquodale@alacourt.gov", address: "205 Government St, Courtroom 6A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. George M. Callahan", category: "Judge", phone: "(251) 574-8706", email: "chambers.callahan@alacourt.gov", address: "205 Government St, Courtroom 4B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. J. Ryan deGraffenried", category: "Judge", phone: "(251) 574-8707", email: "chambers.degraffenried@alacourt.gov", address: "205 Government St, Courtroom 8A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. James T. Patterson", category: "Judge", phone: "(251) 574-8708", email: "chambers.patterson@alacourt.gov", address: "205 Government St, Courtroom 1A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Jennifer Wright", category: "Judge", phone: "(251) 574-8709", email: "chambers.wright@alacourt.gov", address: "205 Government St, Courtroom 3C, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. John H. Lockett", category: "Judge", phone: "(251) 574-8710", email: "chambers.lockett@alacourt.gov", address: "205 Government St, Courtroom 5B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Joseph H. Johnston", category: "Judge", phone: "(251) 574-8711", email: "chambers.johnston@alacourt.gov", address: "205 Government St, Courtroom 2A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Karlos R. Finley", category: "Judge", phone: "(251) 574-8712", email: "chambers.finley@alacourt.gov", address: "205 Government St, Courtroom 7B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Kristin S. Wade", category: "Judge", phone: "(251) 574-8713", email: "chambers.wade@alacourt.gov", address: "205 Government St, Courtroom 4A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Michael A. Youngpeter", category: "Judge", phone: "(251) 574-8714", email: "chambers.youngpeter@alacourt.gov", address: "205 Government St, Courtroom 6B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Richard W. Vollmer III", category: "Judge", phone: "(251) 574-8715", email: "chambers.vollmer@alacourt.gov", address: "205 Government St, Courtroom 1B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Rick W. Graddick", category: "Judge", phone: "(251) 574-8716", email: "chambers.rgraddick@alacourt.gov", address: "205 Government St, Courtroom 8B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Sarah B. Stewart", category: "Judge", phone: "(251) 574-8717", email: "chambers.stewart@alacourt.gov", address: "205 Government St, Courtroom 3A, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Shawn K. Alves", category: "Judge", phone: "(251) 574-8718", email: "chambers.alves@alacourt.gov", address: "205 Government St, Courtroom 5C, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Sheila O. Anderson", category: "Judge", phone: "(251) 574-8719", email: "chambers.anderson@alacourt.gov", address: "205 Government St, Courtroom 2B, Mobile, AL 36602", county: "Mobile" },
-      { name: "Hon. Wesley M. Pipes", category: "Judge", phone: "(251) 574-8720", email: "chambers.pipes@alacourt.gov", address: "205 Government St, Courtroom 4C, Mobile, AL 36602", county: "Mobile" },
-      { name: "Mobile County Circuit Court", category: "Court", phone: "(251) 574-8400", email: "circuitclerk@mobilecountyal.gov", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Mobile County District Court", category: "Court", phone: "(251) 574-8500", email: "districtclerk@mobilecountyal.gov", address: "205 Government St, Mobile, AL 36602", county: "Mobile" },
-      { name: "Mobile County Juvenile Court", category: "Court", phone: "(251) 574-8600", email: "juvenileclerk@mobilecountyal.gov", address: "1011 Schillinger Rd S, Mobile, AL 36695", county: "Mobile" },
-      { name: "Mobile County Metro Jail", category: "Court", phone: "(251) 574-2351", email: "metrojail@mobileso.com", address: "450 St. Emanuel St, Mobile, AL 36603", county: "Mobile" },
-      { name: "Mobile County Jail — West", category: "Court", phone: "(251) 574-8950", email: "westjail@mobileso.com", address: "840 Schillinger Rd S, Mobile, AL 36695", county: "Mobile" },
-      { name: "Mobile County Community Corrections", category: "Court", phone: "(251) 574-8900", email: "commcorrections@mobilecountyal.gov", address: "151 Government St, Suite 400, Mobile, AL 36602", county: "Mobile" },
-      { name: "Mobile County Strickland Youth Center", category: "Court", phone: "(251) 574-8650", email: "stricklandyouth@mobilecountyal.gov", address: "1011 Schillinger Rd S, Mobile, AL 36695", county: "Mobile" },
+      { name: "State Farm Insurance", category: "Insurance Company", phone: "(800) 782-8332", email: "claims@statefarm.com", company: "State Farm", address: "One State Farm Plaza, Bloomington, IL 61710", county: "" },
+      { name: "Allstate Insurance", category: "Insurance Company", phone: "(800) 255-7828", email: "claims@allstate.com", company: "Allstate", address: "2775 Sanders Rd, Northbrook, IL 60062", county: "" },
+      { name: "GEICO", category: "Insurance Company", phone: "(800) 841-3000", email: "claims@geico.com", company: "GEICO", address: "5260 Western Ave, Chevy Chase, MD 20815", county: "" },
+      { name: "Progressive Insurance", category: "Insurance Company", phone: "(800) 776-4737", email: "claims@progressive.com", company: "Progressive", address: "6300 Wilson Mills Rd, Mayfield Village, OH 44143", county: "" },
+      { name: "Liberty Mutual", category: "Insurance Company", phone: "(800) 290-8711", email: "claims@libertymutual.com", company: "Liberty Mutual", address: "175 Berkeley St, Boston, MA 02116", county: "" },
+      { name: "USAA", category: "Insurance Company", phone: "(800) 531-8722", email: "claims@usaa.com", company: "USAA", address: "9800 Fredericksburg Rd, San Antonio, TX 78288", county: "" },
+      { name: "Nationwide Insurance", category: "Insurance Company", phone: "(877) 669-6877", email: "claims@nationwide.com", company: "Nationwide", address: "One Nationwide Plaza, Columbus, OH 43215", county: "" },
+      { name: "Farmers Insurance", category: "Insurance Company", phone: "(888) 327-6335", email: "claims@farmers.com", company: "Farmers", address: "6301 Owensmouth Ave, Woodland Hills, CA 91367", county: "" },
+      { name: "Travelers Insurance", category: "Insurance Company", phone: "(800) 252-4633", email: "claims@travelers.com", company: "Travelers", address: "485 Lexington Ave, New York, NY 10017", county: "" },
+      { name: "Hartford Insurance", category: "Insurance Company", phone: "(860) 547-5000", email: "claims@thehartford.com", company: "The Hartford", address: "One Hartford Plaza, Hartford, CT 06155", county: "" },
+
+      { name: "Karen Whitfield", category: "Insurance Adjuster", phone: "(555) 201-3001", email: "kwhitfield@statefarm.com", company: "State Farm", address: "", county: "" },
+      { name: "Michael Brooks", category: "Insurance Adjuster", phone: "(555) 201-3002", email: "mbrooks@allstate.com", company: "Allstate", address: "", county: "" },
+      { name: "Deborah Price", category: "Insurance Adjuster", phone: "(555) 201-3003", email: "dprice@geico.com", company: "GEICO", address: "", county: "" },
+      { name: "Jason Caldwell", category: "Insurance Adjuster", phone: "(555) 201-3004", email: "jcaldwell@progressive.com", company: "Progressive", address: "", county: "" },
+      { name: "Susan Martinez", category: "Insurance Adjuster", phone: "(555) 201-3005", email: "smartinez@libertymutual.com", company: "Liberty Mutual", address: "", county: "" },
+
+      { name: "Dr. James Patterson", category: "Medical Provider", phone: "(555) 301-4001", email: "jpatterson@metroortho.com", firm: "Metro Orthopedic Associates", address: "1200 Medical Center Dr, Suite 300", county: "" },
+      { name: "Dr. Emily Chang", category: "Medical Provider", phone: "(555) 301-4002", email: "echang@neurologypartners.com", firm: "Neurology Partners", address: "850 Brain Health Blvd, Suite 200", county: "" },
+      { name: "Dr. Richard Gomez", category: "Medical Provider", phone: "(555) 301-4003", email: "rgomez@painmgmt.com", firm: "Advanced Pain Management", address: "2100 Wellness Way, Suite 150", county: "" },
+      { name: "Dr. Sarah Williams", category: "Medical Provider", phone: "(555) 301-4004", email: "swilliams@spinecenter.com", firm: "Regional Spine Center", address: "3500 Spine Care Ave, Suite 400", county: "" },
+      { name: "Dr. Michael Torres", category: "Medical Provider", phone: "(555) 301-4005", email: "mtorres@sportsmed.com", firm: "Sports Medicine & Rehab", address: "900 Athletic Blvd, Suite 100", county: "" },
+      { name: "Metro Physical Therapy", category: "Treatment Provider", phone: "(555) 301-4010", email: "info@metropt.com", firm: "Metro Physical Therapy", address: "1500 Rehab Center Rd", county: "" },
+      { name: "Lakeside Chiropractic", category: "Treatment Provider", phone: "(555) 301-4011", email: "info@lakesidechiro.com", firm: "Lakeside Chiropractic", address: "700 Wellness Dr", county: "" },
+      { name: "Premier Imaging Center", category: "Medical Provider", phone: "(555) 301-4012", email: "scheduling@premierimaging.com", firm: "Premier Imaging Center", address: "2200 Diagnostic Way", county: "" },
+
+      { name: "Thompson & Associates", category: "Defense Attorney", phone: "(555) 501-5001", email: "info@thompsondefense.com", firm: "Thompson & Associates", address: "500 Corporate Tower, Suite 1200", county: "" },
+      { name: "Baker, Harris & Moore LLP", category: "Defense Attorney", phone: "(555) 501-5002", email: "info@bakerharris.com", firm: "Baker, Harris & Moore LLP", address: "200 Financial Center, Suite 800", county: "" },
+      { name: "Garrett & Sterling", category: "Defense Attorney", phone: "(555) 501-5003", email: "info@garrettsterling.com", firm: "Garrett & Sterling", address: "1100 Commerce Plaza, Suite 600", county: "" },
+      { name: "Richardson Law Group", category: "Defense Attorney", phone: "(555) 501-5004", email: "info@richardsonlaw.com", firm: "Richardson Law Group", address: "350 Justice Ave, Suite 900", county: "" },
+      { name: "Crawford & Daniels PC", category: "Defense Attorney", phone: "(555) 501-5005", email: "info@crawforddaniels.com", firm: "Crawford & Daniels PC", address: "750 Legal Center Dr, Suite 400", county: "" },
+
+      { name: "Hon. Catherine Brooks", category: "Judge", phone: "(555) 601-6001", email: "chambers.brooks@court.gov", address: "100 Courthouse Square, Courtroom 3A", county: "" },
+      { name: "Hon. Richard Yamamoto", category: "Judge", phone: "(555) 601-6002", email: "chambers.yamamoto@court.gov", address: "100 Courthouse Square, Courtroom 5B", county: "" },
+      { name: "Hon. Margaret O'Connor", category: "Judge", phone: "(555) 601-6003", email: "chambers.oconnor@court.gov", address: "100 Courthouse Square, Courtroom 2A", county: "" },
+      { name: "Hon. David Morales", category: "Judge", phone: "(555) 601-6004", email: "chambers.morales@court.gov", address: "100 Courthouse Square, Courtroom 7C", county: "" },
+      { name: "Hon. Patricia Simmons", category: "Judge", phone: "(555) 601-6005", email: "chambers.simmons@court.gov", address: "100 Courthouse Square, Courtroom 4A", county: "" },
+
+      { name: "Medicare Recovery Services", category: "Lienholder", phone: "(800) 999-1118", email: "recovery@medicare.gov", company: "CMS/Medicare", address: "7500 Security Blvd, Baltimore, MD 21244", county: "" },
+      { name: "Medicaid Recovery Unit", category: "Lienholder", phone: "(800) 555-0199", email: "recovery@medicaid.gov", company: "Medicaid", address: "", county: "" },
+      { name: "Blue Cross Blue Shield Subrogation", category: "Lienholder", phone: "(800) 555-0200", email: "subrogation@bcbs.com", company: "Blue Cross Blue Shield", address: "", county: "" },
+
+      { name: "Dr. Robert Kline", category: "Expert", phone: "(555) 701-7001", email: "rkline@forensicengineering.com", firm: "Forensic Engineering Associates", address: "800 Expert Way, Suite 300", county: "" },
+      { name: "Dr. Linda Vasquez", category: "Expert", phone: "(555) 701-7002", email: "lvasquez@lifeplanners.com", firm: "National Life Care Planners", address: "1200 Planning Dr, Suite 200", county: "" },
+      { name: "Dr. Thomas Hartwell", category: "Expert", phone: "(555) 701-7003", email: "thartwell@econexperts.com", firm: "Economic Loss Consultants", address: "600 Analysis Blvd, Suite 100", county: "" },
     ];
 
     console.log(`Seeding ${CONTACTS.length} contacts...`);
@@ -211,7 +209,8 @@ async function seed() {
         "cases",
         "tasks", "deadlines", "case_notes", "case_activity",
         "case_links", "case_correspondence",
-        "case_parties", "case_experts", "case_misc_contacts", "case_insurance",
+        "case_parties", "case_experts", "case_misc_contacts",
+        "case_insurance_policies", "case_medical_treatments", "case_liens", "case_damages", "case_negotiations",
         "contact_notes", "contact_staff", "time_entries",
         "case_documents", "case_filings", "doc_templates", "ai_training",
       ];

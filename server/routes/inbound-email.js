@@ -141,13 +141,13 @@ router.post("/", upload.any(), async (req, res) => {
                 apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
                 baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
               });
-              const classifyPrompt = `You are a court filing classification assistant for a criminal defense public defender's office. Analyze the court filing text and classify it. Return ONLY valid JSON with these fields:
+              const classifyPrompt = `You are a court filing classification assistant for a personal injury law firm. Analyze the court filing text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — proper legal filing name)
-- "filedBy" (one of: "State", "Defendant", "Co-Defendant", "Court", "Other")
+- "filedBy" (one of: "Plaintiff", "Defendant", "Court", "Third Party", "Other")
 - "docType" (string — filing type)
 - "filingDate" (string — YYYY-MM-DD format, or null if not found)
 - "summary" (string — 2-3 sentence summary)
-- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion to Suppress Hearing", "Status Conference", "Sentencing Hearing"). Extract ALL hearing dates, court dates, or scheduled appearances mentioned in the filing. Return empty array [] if none found.)`;
+- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion Hearing", "Status Conference", "Mediation", "Deposition", "Trial Date"). Extract ALL hearing dates, court dates, or scheduled appearances mentioned in the filing. Return empty array [] if none found.)`;
               const textSnippet = extractedText.substring(0, 12000);
               const resp = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
@@ -216,9 +216,9 @@ router.post("/", upload.any(), async (req, res) => {
                 apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
                 baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
               });
-              const docClassifyPrompt = `You are a document classification assistant for a criminal defense public defender's office. Analyze the document text and classify it. Return ONLY valid JSON with these fields:
+              const docClassifyPrompt = `You are a document classification assistant for a personal injury law firm. Analyze the document text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — descriptive document name based on content)
-- "docType" (one of: "Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other")`;
+- "docType" (one of: "Police Report", "Medical Records", "Accident Report", "Witness Statement", "Insurance Correspondence", "Expert Report", "Demand Letter", "Settlement Agreement", "Discovery Material", "Court Order", "Billing Records", "Other")`;
               const textSnippet = extractedText.substring(0, 12000);
               const resp = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
@@ -284,9 +284,9 @@ router.post("/", upload.any(), async (req, res) => {
               apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
               baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
             });
-            const classifyPrompt = `You are a document classification assistant for a criminal defense public defender's office. Analyze the document text and classify it. Return ONLY valid JSON with these fields:
+            const classifyPrompt = `You are a document classification assistant for a personal injury law firm. Analyze the document text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — descriptive document name based on content)
-- "docType" (one of: "Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other")`;
+- "docType" (one of: "Police Report", "Medical Records", "Accident Report", "Witness Statement", "Insurance Correspondence", "Expert Report", "Demand Letter", "Settlement Agreement", "Discovery Material", "Court Order", "Billing Records", "Other")`;
             const textSnippet = extractedText.substring(0, 12000);
             const resp = await openai.chat.completions.create({
               model: "gpt-4o-mini",

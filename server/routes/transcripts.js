@@ -18,7 +18,7 @@ async function verifyCaseAccess(req, caseId) {
   const userRole = req.session.userRole || "";
   if (userRole === "App Admin") return true;
   const { rows } = await pool.query(
-    "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR trial_coordinator = $4 OR investigator = $5 OR social_worker = $6 OR confidential = false OR confidential IS NULL)",
+    "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR case_manager = $4 OR investigator = $5 OR paralegal = $6 OR confidential = false OR confidential IS NULL)",
     [caseId, userId, userId, userId, userId, userId]
   );
   return rows.length > 0;

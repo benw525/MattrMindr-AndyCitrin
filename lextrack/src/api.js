@@ -103,8 +103,12 @@ export const apiDeleteContactCaseLink  = (linkId)          => apiFetch(`/api/con
 export const apiAiSearch = (query) => apiFetch("/api/ai-search", { method: "POST", body: { query } });
 
 // AI Agents
-export const apiChargeAnalysis   = (data) => apiFetch("/api/ai-agents/charge-analysis",   { method: "POST", body: data });
+export const apiLiabilityAnalysis = (data) => apiFetch("/api/ai-agents/liability-analysis", { method: "POST", body: data });
+export const apiChargeAnalysis   = apiLiabilityAnalysis;
 export const apiGetChargeClass   = (data) => apiFetch("/api/ai-agents/charge-class",     { method: "POST", body: data });
+export const apiMedicalRecordSummary = (data) => apiFetch("/api/ai-agents/medical-record-summary", { method: "POST", body: data });
+export const apiCaseValuation    = (data) => apiFetch("/api/ai-agents/case-valuation",    { method: "POST", body: data });
+export const apiDemandLetter     = (data) => apiFetch("/api/ai-agents/demand-letter",     { method: "POST", body: data });
 export const apiDeadlineGenerator = (data) => apiFetch("/api/ai-agents/deadline-generator", { method: "POST", body: data });
 export const apiCaseStrategy     = (data) => apiFetch("/api/ai-agents/case-strategy",     { method: "POST", body: data });
 export const apiDraftDocument    = (data) => apiFetch("/api/ai-agents/draft-document",    { method: "POST", body: data });
@@ -124,6 +128,36 @@ export async function apiUploadTrainingDoc(formData) {
 }
 export const apiUpdateTraining  = (id, data) => apiFetch(`/api/ai-training/${id}`,     { method: "PUT", body: data });
 export const apiDeleteTraining  = (id) => apiFetch(`/api/ai-training/${id}`,           { method: "DELETE" });
+
+// Insurance Policies
+export const apiGetInsurancePolicies = (caseId) => apiFetch(`/api/insurance/${caseId}`);
+export const apiCreateInsurancePolicy = (data) => apiFetch("/api/insurance", { method: "POST", body: data });
+export const apiUpdateInsurancePolicy = (id, data) => apiFetch(`/api/insurance/${id}`, { method: "PUT", body: data });
+export const apiDeleteInsurancePolicy = (id) => apiFetch(`/api/insurance/${id}`, { method: "DELETE" });
+
+// Medical Treatments
+export const apiGetMedicalTreatments = (caseId) => apiFetch(`/api/medical-treatments/${caseId}`);
+export const apiCreateMedicalTreatment = (data) => apiFetch("/api/medical-treatments", { method: "POST", body: data });
+export const apiUpdateMedicalTreatment = (id, data) => apiFetch(`/api/medical-treatments/${id}`, { method: "PUT", body: data });
+export const apiDeleteMedicalTreatment = (id) => apiFetch(`/api/medical-treatments/${id}`, { method: "DELETE" });
+
+// Liens
+export const apiGetLiens = (caseId) => apiFetch(`/api/liens/${caseId}`);
+export const apiCreateLien = (data) => apiFetch("/api/liens", { method: "POST", body: data });
+export const apiUpdateLien = (id, data) => apiFetch(`/api/liens/${id}`, { method: "PUT", body: data });
+export const apiDeleteLien = (id) => apiFetch(`/api/liens/${id}`, { method: "DELETE" });
+
+// Damages
+export const apiGetDamages = (caseId) => apiFetch(`/api/damages/${caseId}`);
+export const apiCreateDamage = (data) => apiFetch("/api/damages", { method: "POST", body: data });
+export const apiUpdateDamage = (id, data) => apiFetch(`/api/damages/${id}`, { method: "PUT", body: data });
+export const apiDeleteDamage = (id) => apiFetch(`/api/damages/${id}`, { method: "DELETE" });
+
+// Negotiations
+export const apiGetNegotiations = (caseId) => apiFetch(`/api/negotiations/${caseId}`);
+export const apiCreateNegotiation = (data) => apiFetch("/api/negotiations", { method: "POST", body: data });
+export const apiUpdateNegotiation = (id, data) => apiFetch(`/api/negotiations/${id}`, { method: "PUT", body: data });
+export const apiDeleteNegotiation = (id) => apiFetch(`/api/negotiations/${id}`, { method: "DELETE" });
 
 // Case Documents
 export const apiGetCaseDocuments = (caseId) => apiFetch(`/api/case-documents/${caseId}`);
@@ -337,11 +371,6 @@ export const apiSuggestSmsNumbers  = (caseId)   => apiFetch(`/api/sms/suggest-nu
 // Support
 export const apiSendSupport = (data) => apiFetch("/api/support", { method: "POST", body: data });
 
-// Probation Violations
-export const apiGetProbationViolations    = (caseId)         => apiFetch(`/api/probation/${caseId}/violations`);
-export const apiCreateProbationViolation  = (caseId, data)   => apiFetch(`/api/probation/${caseId}/violations`, { method: "POST", body: data });
-export const apiUpdateProbationViolation  = (caseId, id, data) => apiFetch(`/api/probation/${caseId}/violations/${id}`, { method: "PUT", body: data });
-export const apiDeleteProbationViolation  = (caseId, id)     => apiFetch(`/api/probation/${caseId}/violations/${id}`, { method: "DELETE" });
 
 // Collaborate
 export const apiGetCollabChannels       = ()            => apiFetch("/api/collaborate/channels");

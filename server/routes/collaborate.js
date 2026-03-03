@@ -37,10 +37,10 @@ router.get("/channels", requireAuth, async (req, res) => {
       };
 
       if (r.type === "case") {
-        const caseRes = await pool.query("SELECT case_num, defendant_name, title FROM cases WHERE id = $1", [r.case_id]);
+        const caseRes = await pool.query("SELECT case_num, client_name, title FROM cases WHERE id = $1", [r.case_id]);
         if (caseRes.rows[0]) {
           ch.caseName = caseRes.rows[0].case_num || caseRes.rows[0].title;
-          ch.defendantName = caseRes.rows[0].defendant_name;
+          ch.clientName = caseRes.rows[0].client_name;
         }
       } else if (r.type === "group") {
         const grpRes = await pool.query("SELECT name, description, avatar, created_by FROM chat_groups WHERE channel_id = $1", [r.id]);
@@ -239,8 +239,8 @@ router.get("/search", requireAuth, async (req, res) => {
         channelType: r.channel_type, channelName: r.channel_name, caseId: r.case_id,
       };
       if (r.channel_type === "case" && r.case_id) {
-        const cRes = await pool.query("SELECT case_num, defendant_name FROM cases WHERE id = $1", [r.case_id]);
-        if (cRes.rows[0]) { item.caseName = cRes.rows[0].case_num; item.defendantName = cRes.rows[0].defendant_name; }
+        const cRes = await pool.query("SELECT case_num, client_name FROM cases WHERE id = $1", [r.case_id]);
+        if (cRes.rows[0]) { item.caseName = cRes.rows[0].case_num; item.clientName = cRes.rows[0].client_name; }
       }
       if (r.channel_type === "group") {
         const gRes = await pool.query("SELECT name FROM chat_groups WHERE channel_id = $1", [r.channel_id]);
@@ -265,7 +265,7 @@ router.get("/search", requireAuth, async (req, res) => {
 router.get("/case-channels", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT cc.id, cc.case_id, c.case_num, c.defendant_name, c.title,
+      SELECT cc.id, cc.case_id, c.case_num, c.client_name, c.title,
         (SELECT COUNT(*) FROM chat_messages cm WHERE cm.channel_id = cc.id) AS message_count
       FROM chat_channels cc
       JOIN cases c ON c.id = cc.case_id
@@ -274,7 +274,7 @@ router.get("/case-channels", requireAuth, async (req, res) => {
     `);
     res.json(rows.map(r => ({
       channelId: r.id, caseId: r.case_id, caseNum: r.case_num,
-      defendantName: r.defendant_name, title: r.title,
+      clientName: r.client_name, title: r.title,
       messageCount: parseInt(r.message_count) || 0,
     })));
   } catch (err) {

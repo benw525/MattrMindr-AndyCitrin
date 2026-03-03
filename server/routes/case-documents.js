@@ -32,7 +32,7 @@ async function verifyCaseAccess(req, caseId) {
   const userRole = req.session.userRole || "";
   if (userRole === "App Admin") return true;
   const { rows } = await pool.query(
-    "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR trial_coordinator = $4 OR investigator = $5 OR social_worker = $6 OR confidential = false OR confidential IS NULL)",
+    "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR case_manager = $4 OR investigator = $5 OR paralegal = $6 OR confidential = false OR confidential IS NULL)",
     [caseId, userId, userId, userId, userId, userId]
   );
   return rows.length > 0;
@@ -116,7 +116,7 @@ router.get("/:id/text", requireAuth, async (req, res) => {
 router.post("/:id/summarize", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT cd.*, c.title as case_title, c.defendant_name FROM case_documents cd JOIN cases c ON cd.case_id = c.id WHERE cd.id = $1",
+      "SELECT cd.*, c.title as case_title, c.client_name FROM case_documents cd JOIN cases c ON cd.case_id = c.id WHERE cd.id = $1",
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
@@ -130,19 +130,19 @@ router.post("/:id/summarize", requireAuth, async (req, res) => {
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
 
-    const systemPrompt = `You are a criminal defense attorney's document analysis assistant. Summarize the uploaded document for a public defender reviewing a case. Focus on information relevant to criminal defense.
+    const systemPrompt = `You are a personal injury attorney's document analysis assistant. Summarize the uploaded document for a PI attorney reviewing a case. Focus on information relevant to the plaintiff's personal injury claim.
 
 Provide a structured summary with these sections:
 ## Key Facts & Timeline
-## People Mentioned (with roles — officers, witnesses, victims, co-defendants)
-## Inconsistencies or Contradictions
-## Defense-Relevant Details (Miranda issues, search/seizure concerns, chain of custody, witness credibility)
+## People Mentioned (with roles — parties, witnesses, medical providers, insurers, experts)
+## Injuries & Medical Findings
+## Liability & Damages Details (fault indicators, comparative negligence, medical causation, treatment gaps)
 ## Bottom Line
 
-Be concise but thorough. Flag anything that could help the defense.`;
+Be concise but thorough. Flag anything that could help the plaintiff's case.`;
 
     const textSnippet = doc.extracted_text.substring(0, 12000);
-    const userPrompt = `Summarize this ${doc.doc_type} for the case "${doc.case_title}" (Defendant: ${doc.defendant_name || "Unknown"}):\n\n${textSnippet}`;
+    const userPrompt = `Summarize this ${doc.doc_type} for the case "${doc.case_title}" (Client: ${doc.client_name || "Unknown"}):\n\n${textSnippet}`;
 
     const resp = await openai.chat.completions.create({
       model: "gpt-4o-mini",

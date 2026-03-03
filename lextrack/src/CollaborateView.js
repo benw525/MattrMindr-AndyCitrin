@@ -289,20 +289,20 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
   );
   const allActiveCases = allCases.filter(c => c.status === "Active");
   const filteredCasesPre = caseFilter.trim()
-    ? allActiveCases.filter(c => (c.case_num || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.defendant_name || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.title || "").toLowerCase().includes(caseFilter.toLowerCase()))
+    ? allActiveCases.filter(c => (c.case_num || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.client_name || c.defendant_name || "").toLowerCase().includes(caseFilter.toLowerCase()) || (c.title || "").toLowerCase().includes(caseFilter.toLowerCase()))
     : casesForTab;
   const filteredCases = [...filteredCasesPre].sort((a, b) => {
     const aPin = pinnedIds.includes(a.id) ? 0 : 1;
     const bPin = pinnedIds.includes(b.id) ? 0 : 1;
     if (aPin !== bPin) return aPin - bPin;
-    return (a.defendant_name || a.title || "").localeCompare(b.defendant_name || b.title || "");
+    return (a.client_name || a.defendant_name || a.title || "").localeCompare(b.client_name || b.defendant_name || b.title || "");
   });
   const groupChannels = channels.filter(c => c.type === "group");
   const privateChannels = channels.filter(c => c.type === "private");
   const activeChannelData = channels.find(c => c.id === activeChannel);
 
   const channelTitle = activeChannelData
-    ? activeChannelData.type === "case" ? `${activeChannelData.caseName || ""} ${activeChannelData.defendantName ? `— ${activeChannelData.defendantName}` : ""}`.trim()
+    ? activeChannelData.type === "case" ? `${activeChannelData.caseName || ""} ${(activeChannelData.clientName || activeChannelData.defendantName) ? `— ${activeChannelData.clientName || activeChannelData.defendantName}` : ""}`.trim()
     : activeChannelData.type === "group" ? (activeChannelData.groupName || activeChannelData.name || "Group")
     : activeChannelData.type === "private" ? (activeChannelData.otherUser?.name || "Private")
     : "Chat"
@@ -381,7 +381,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                           <div style={{ width: 36, height: 36, borderRadius: 8, background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontSize: 14, flexShrink: 0, position: "relative" }}>⚖️{pinnedIds.includes(c.id) && <span style={{ position: "absolute", top: -4, right: -4 }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.case_num || c.title}</div>
-                            <div style={{ fontSize: 11, color: "var(--c-text3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.defendant_name || ""}</div>
+                            <div style={{ fontSize: 11, color: "var(--c-text3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.client_name || c.defendant_name || ""}</div>
                             {ch?.lastMessage && <div style={{ fontSize: 11, color: "var(--c-text3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{ch.lastSenderName}: {ch.lastMessage.substring(0, 40)}</div>}
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>

@@ -218,13 +218,13 @@ router.delete("/phones/:phoneId", requireAuth, async (req, res) => {
 router.get("/:id/case-links", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT cl.id, cl.contact_id, cl.case_id, cl.created_at, c.case_num, c.title, c.status, c.defendant_name
+      `SELECT cl.id, cl.contact_id, cl.case_id, cl.created_at, c.case_num, c.title, c.status, c.client_name
        FROM contact_case_links cl
        JOIN cases c ON c.id = cl.case_id AND c.deleted_at IS NULL
        WHERE cl.contact_id = $1 ORDER BY c.case_num`,
       [req.params.id]
     );
-    return res.json(rows.map(r => ({ id: r.id, contactId: r.contact_id, caseId: r.case_id, caseNum: r.case_num, title: r.title, status: r.status, defendantName: r.defendant_name, createdAt: r.created_at })));
+    return res.json(rows.map(r => ({ id: r.id, contactId: r.contact_id, caseId: r.case_id, caseNum: r.case_num, title: r.title, status: r.status, clientName: r.client_name, createdAt: r.created_at })));
   } catch (err) {
     console.error("Get contact case links error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -241,9 +241,9 @@ router.post("/:id/case-links", requireAuth, async (req, res) => {
     );
     if (!rows.length) return res.json({ ok: true, existing: true });
     const r = rows[0];
-    const { rows: caseRows } = await pool.query("SELECT case_num, title, status, defendant_name FROM cases WHERE id = $1", [caseId]);
+    const { rows: caseRows } = await pool.query("SELECT case_num, title, status, client_name FROM cases WHERE id = $1", [caseId]);
     const c = caseRows[0] || {};
-    return res.json({ id: r.id, contactId: r.contact_id, caseId: r.case_id, caseNum: c.case_num, title: c.title, status: c.status, defendantName: c.defendant_name, createdAt: r.created_at });
+    return res.json({ id: r.id, contactId: r.contact_id, caseId: r.case_id, caseNum: c.case_num, title: c.title, status: c.status, clientName: c.client_name, createdAt: r.created_at });
   } catch (err) {
     console.error("Add contact case link error:", err);
     return res.status(500).json({ error: "Server error" });

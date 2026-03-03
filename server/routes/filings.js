@@ -14,7 +14,7 @@ async function extractPdfText(buffer) {
 
 function verifyCaseAccessQuery(userId, userRole) {
   if (userRole === "App Admin") return null;
-  return { text: "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR trial_coordinator = $4 OR investigator = $5 OR social_worker = $6 OR confidential = false OR confidential IS NULL)", values: (caseId) => [caseId, userId, userId, userId, userId, userId] };
+  return { text: "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR case_manager = $4 OR investigator = $5 OR paralegal = $6 OR confidential = false OR confidential IS NULL)", values: (caseId) => [caseId, userId, userId, userId, userId, userId] };
 }
 
 async function verifyCaseAccess(req, caseId) {
@@ -22,7 +22,7 @@ async function verifyCaseAccess(req, caseId) {
   if (userRole === "App Admin") return true;
   const userId = req.session.userId;
   const { rows } = await pool.query(
-    "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR trial_coordinator = $4 OR investigator = $5 OR social_worker = $6 OR confidential = false OR confidential IS NULL)",
+    "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $3 OR case_manager = $4 OR investigator = $5 OR paralegal = $6 OR confidential = false OR confidential IS NULL)",
     [caseId, userId, userId, userId, userId, userId]
   );
   return rows.length > 0;
@@ -110,7 +110,7 @@ router.get("/:id/download", requireAuth, async (req, res) => {
 
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
-    const attorneyRoles = ["Public Defender", "Chief Deputy Public Defender", "Deputy Public Defender", "Senior Trial Attorney", "Trial Attorney", "App Admin"];
+    const attorneyRoles = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "App Admin"];
     const userRoles = req.session.userRoles || [req.session.userRole];
     if (!userRoles.some(r => attorneyRoles.includes(r))) return res.status(403).json({ error: "Only attorneys may delete filings" });
     const { rows } = await pool.query("SELECT case_id FROM case_filings WHERE id = $1", [req.params.id]);
@@ -157,7 +157,7 @@ router.put("/:id", requireAuth, async (req, res) => {
 router.post("/:id/summarize", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT cf.*, c.title as case_title, c.defendant_name FROM case_filings cf JOIN cases c ON cf.case_id = c.id WHERE cf.id = $1",
+      "SELECT cf.*, c.title as case_title, c.client_name FROM case_filings cf JOIN cases c ON cf.case_id = c.id WHERE cf.id = $1",
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Filing not found" });
@@ -171,19 +171,19 @@ router.post("/:id/summarize", requireAuth, async (req, res) => {
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
 
-    const systemPrompt = `You are a criminal defense attorney's court filing analysis assistant. Summarize the court filing for a public defender reviewing a case. Focus on information relevant to criminal defense.
+    const systemPrompt = `You are a personal injury attorney's court filing analysis assistant. Summarize the court filing for a PI attorney reviewing a case. Focus on information relevant to the plaintiff's personal injury claim.
 
 Provide a structured summary with these sections:
 ## Filing Type & Purpose
 ## Key Arguments or Rulings
 ## Relief Requested or Granted
 ## Deadlines or Requirements Created
-## Defense Impact & Recommended Response
+## Impact on PI Claim & Recommended Response
 
-Be concise but thorough. Flag anything that requires immediate action by the defense.`;
+Be concise but thorough. Flag anything that requires immediate action by the plaintiff's counsel.`;
 
     const textSnippet = filing.extracted_text.substring(0, 12000);
-    const userPrompt = `Summarize this court filing for the case "${filing.case_title}" (Defendant: ${filing.defendant_name || "Unknown"}):\n\nFiled by: ${filing.filed_by || "Unknown"}\nDocument type: ${filing.doc_type || "Unknown"}\n\n${textSnippet}`;
+    const userPrompt = `Summarize this court filing for the case "${filing.case_title}" (Client: ${filing.client_name || "Unknown"}):\n\nFiled by: ${filing.filed_by || "Unknown"}\nDocument type: ${filing.doc_type || "Unknown"}\n\n${textSnippet}`;
 
     const resp = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -204,7 +204,7 @@ Be concise but thorough. Flag anything that requires immediate action by the def
       const dateResp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: `Extract any hearing dates, court dates, or scheduled appearances from this filing summary. Return ONLY valid JSON with a single field:\n- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion to Suppress Hearing", "Status Conference", "Sentencing Hearing"). Return empty array [] if none found.)` },
+          { role: "system", content: `Extract any hearing dates, court dates, or scheduled appearances from this filing summary. Return ONLY valid JSON with a single field:\n- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion Hearing", "Status Conference", "Mediation", "Deposition", "Trial Date"). Return empty array [] if none found.)` },
           { role: "user", content: summary },
         ],
         temperature: 0.1,
