@@ -147,7 +147,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     const all = (cases || []).filter(c =>
       (c.title || "").toLowerCase().includes(q)
       || (c.case_num || "").toLowerCase().includes(q)
-      || (c.client_name || c.defendant_name || "").toLowerCase().includes(q)
+      || (c.client_name || "").toLowerCase().includes(q)
     );
     const pinSet = new Set(pinnedCaseIds);
     const pinned = all.filter(c => pinSet.has(c.id));
@@ -931,7 +931,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       <Pin size={11} className="text-amber-500 flex-shrink-0" />
                       <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</span>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 ml-[17px]">{fc.case_num} {(fc.client_name || fc.defendant_name) ? `\u2014 ${fc.client_name || fc.defendant_name}` : ""}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 ml-[17px]">{fc.case_num} {fc.client_name ? `\u2014 ${fc.client_name}` : ""}</div>
                   </div>
                 ))}
                 {pinned.length > 0 && rest.length > 0 && (
@@ -940,7 +940,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                 {rest.map(fc => (
                   <div key={fc.id} onClick={() => selectCase(fc)} className="px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
                     <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{fc.title || fc.case_num}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{fc.case_num} {(fc.client_name || fc.defendant_name) ? `\u2014 ${fc.client_name || fc.defendant_name}` : ""}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{fc.case_num} {fc.client_name ? `\u2014 ${fc.client_name}` : ""}</div>
                   </div>
                 ))}
               </div>
@@ -970,7 +970,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className={LABEL_CLS}>Client</span>
-                <p className="text-slate-900 dark:text-slate-100">{c.client_name || c.defendant_name || "\u2014"}</p>
+                <p className="text-slate-900 dark:text-slate-100">{c.client_name || "\u2014"}</p>
               </div>
               <div>
                 <span className={LABEL_CLS}>Case Type</span>

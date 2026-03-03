@@ -131,33 +131,33 @@ export const apiDeleteTraining  = (id) => apiFetch(`/api/ai-training/${id}`,    
 
 // Insurance Policies
 export const apiGetInsurancePolicies = (caseId) => apiFetch(`/api/insurance/${caseId}`);
-export const apiCreateInsurancePolicy = (data) => apiFetch("/api/insurance", { method: "POST", body: data });
-export const apiUpdateInsurancePolicy = (id, data) => apiFetch(`/api/insurance/${id}`, { method: "PUT", body: data });
-export const apiDeleteInsurancePolicy = (id) => apiFetch(`/api/insurance/${id}`, { method: "DELETE" });
+export const apiCreateInsurancePolicy = (caseId, data) => apiFetch(`/api/insurance/${caseId}`, { method: "POST", body: data });
+export const apiUpdateInsurancePolicy = (caseId, id, data) => apiFetch(`/api/insurance/${caseId}/${id}`, { method: "PUT", body: data });
+export const apiDeleteInsurancePolicy = (caseId, id) => apiFetch(`/api/insurance/${caseId}/${id}`, { method: "DELETE" });
 
 // Medical Treatments
 export const apiGetMedicalTreatments = (caseId) => apiFetch(`/api/medical-treatments/${caseId}`);
-export const apiCreateMedicalTreatment = (data) => apiFetch("/api/medical-treatments", { method: "POST", body: data });
-export const apiUpdateMedicalTreatment = (id, data) => apiFetch(`/api/medical-treatments/${id}`, { method: "PUT", body: data });
-export const apiDeleteMedicalTreatment = (id) => apiFetch(`/api/medical-treatments/${id}`, { method: "DELETE" });
+export const apiCreateMedicalTreatment = (caseId, data) => apiFetch(`/api/medical-treatments/${caseId}`, { method: "POST", body: data });
+export const apiUpdateMedicalTreatment = (caseId, id, data) => apiFetch(`/api/medical-treatments/${caseId}/${id}`, { method: "PUT", body: data });
+export const apiDeleteMedicalTreatment = (caseId, id) => apiFetch(`/api/medical-treatments/${caseId}/${id}`, { method: "DELETE" });
 
 // Liens
 export const apiGetLiens = (caseId) => apiFetch(`/api/liens/${caseId}`);
-export const apiCreateLien = (data) => apiFetch("/api/liens", { method: "POST", body: data });
-export const apiUpdateLien = (id, data) => apiFetch(`/api/liens/${id}`, { method: "PUT", body: data });
-export const apiDeleteLien = (id) => apiFetch(`/api/liens/${id}`, { method: "DELETE" });
+export const apiCreateLien = (caseId, data) => apiFetch(`/api/liens/${caseId}`, { method: "POST", body: data });
+export const apiUpdateLien = (caseId, id, data) => apiFetch(`/api/liens/${caseId}/${id}`, { method: "PUT", body: data });
+export const apiDeleteLien = (caseId, id) => apiFetch(`/api/liens/${caseId}/${id}`, { method: "DELETE" });
 
 // Damages
 export const apiGetDamages = (caseId) => apiFetch(`/api/damages/${caseId}`);
-export const apiCreateDamage = (data) => apiFetch("/api/damages", { method: "POST", body: data });
-export const apiUpdateDamage = (id, data) => apiFetch(`/api/damages/${id}`, { method: "PUT", body: data });
-export const apiDeleteDamage = (id) => apiFetch(`/api/damages/${id}`, { method: "DELETE" });
+export const apiCreateDamage = (caseId, data) => apiFetch(`/api/damages/${caseId}`, { method: "POST", body: data });
+export const apiUpdateDamage = (caseId, id, data) => apiFetch(`/api/damages/${caseId}/${id}`, { method: "PUT", body: data });
+export const apiDeleteDamage = (caseId, id) => apiFetch(`/api/damages/${caseId}/${id}`, { method: "DELETE" });
 
 // Negotiations
 export const apiGetNegotiations = (caseId) => apiFetch(`/api/negotiations/${caseId}`);
-export const apiCreateNegotiation = (data) => apiFetch("/api/negotiations", { method: "POST", body: data });
-export const apiUpdateNegotiation = (id, data) => apiFetch(`/api/negotiations/${id}`, { method: "PUT", body: data });
-export const apiDeleteNegotiation = (id) => apiFetch(`/api/negotiations/${id}`, { method: "DELETE" });
+export const apiCreateNegotiation = (caseId, data) => apiFetch(`/api/negotiations/${caseId}`, { method: "POST", body: data });
+export const apiUpdateNegotiation = (caseId, id, data) => apiFetch(`/api/negotiations/${caseId}/${id}`, { method: "PUT", body: data });
+export const apiDeleteNegotiation = (caseId, id) => apiFetch(`/api/negotiations/${caseId}/${id}`, { method: "DELETE" });
 
 // Case Documents
 export const apiGetCaseDocuments = (caseId) => apiFetch(`/api/case-documents/${caseId}`);

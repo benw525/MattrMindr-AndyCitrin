@@ -89,6 +89,23 @@ async function seed() {
   try {
     await client.query("BEGIN");
 
+    console.log("Clearing old data...");
+    const childTables = [
+      "case_negotiations", "case_damages", "case_liens", "case_medical_treatments",
+      "case_insurance_policies", "case_activity", "case_notes", "case_documents",
+      "case_filings", "case_correspondence", "case_links", "case_parties",
+      "case_insurance", "case_experts", "case_misc_contacts", "time_entries",
+      "case_probation_violations", "linked_cases", "sms_configs", "sms_scheduled",
+      "sms_messages", "chat_channels", "contact_case_links", "sms_watch_numbers",
+      "case_transcripts", "deadlines", "tasks",
+    ];
+    for (const t of childTables) {
+      try { await client.query(`DELETE FROM ${t}`); } catch (_) {}
+    }
+    await client.query("DELETE FROM contacts WHERE deleted_at IS NULL");
+    await client.query("DELETE FROM cases");
+    console.log("Old data cleared.");
+
     console.log(`Seeding ${USERS.length} users...`);
     const bcrypt = require("bcryptjs");
     const defaultHash = await bcrypt.hash("1234", 10);

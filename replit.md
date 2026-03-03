@@ -109,6 +109,14 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 ### Contact Categories
 Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorney, Judge, Court, Witness, Expert, Lienholder, Family Member, Miscellaneous
 
+### Seed Data
+- **Generator**: `node server/generate-seed-data.js` regenerates `server/seed-data.json`
+- **Seeding**: `node server/seed.js` clears all old data and imports fresh PI data
+- **Content**: 30 PI cases (77% pre-litigation), 34 tasks, 20 deadlines, 15 notes, 18 activity records, 14 insurance policies, 19 medical treatments, 6 liens, 18 damages, 24 negotiations, 39 contacts
+- **Jurisdictions**: AL, GA, TN, TX, FL, MS, CA, NY
+- **Case naming**: Client name format for pre-litigation ("Tamika Washington"), litigation-style only for filed cases
+- **Default password**: `1234` for all seeded users; Admin account: `admin@mitchellpi.com`
+
 ### Default Tasks (auto-created for new cases)
 Initial Client Interview → Send Preservation Letters → Obtain Police Report → Identify Insurance Policies → Check for Conflicts → Order Medical Records
 
