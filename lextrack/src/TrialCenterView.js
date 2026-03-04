@@ -18,6 +18,7 @@ import {
   apiGetTranscripts, apiDownloadTranscriptAudio, apiGetTranscriptDetail,
   apiExtractOutlineFile,
   apiSavePreferences,
+  apiGetJuryAnalysis, apiUpdateJurorStrike, apiDeleteJuryAnalysis,
 } from "./api.js";
 
 const TABS = ["Witnesses","Exhibits","Jury","Motions","Outlines","Jury Instructions","Demonstratives","Quick Docs","Trial Log","AI Agents"];
@@ -74,6 +75,9 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   const [showJurorForm, setShowJurorForm] = useState(false);
   const [editJuror, setEditJuror] = useState(null);
   const [jForm, setJForm] = useState({ seat_number: 1, name: "", notes: "", demographics: "", strike_type: "none", is_selected: false });
+  const [juryAnalysis, setJuryAnalysis] = useState(null);
+  const [juryAnalysisLoading, setJuryAnalysisLoading] = useState(false);
+  const [juryAnalysisCollapsed, setJuryAnalysisCollapsed] = useState({ jurorList: false, strikes: false, suggestedOrder: false, causeStrikes: false });
 
   const [showMotionForm, setShowMotionForm] = useState(false);
   const [editMotion, setEditMotion] = useState(null);
@@ -222,7 +226,10 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     try {
       if (tab === "Witnesses") { const d = await apiGetTrialWitnesses(sid); setWitnesses(d || []); }
       if (tab === "Exhibits") { const d = await apiGetTrialExhibits(sid); setExhibits(d || []); }
-      if (tab === "Jury") { const d = await apiGetTrialJurors(sid); setJurors(d || []); }
+      if (tab === "Jury") {
+        const d = await apiGetTrialJurors(sid); setJurors(d || []);
+        if (selectedCase?.id) { setJuryAnalysisLoading(true); apiGetJuryAnalysis(selectedCase.id).then(data => setJuryAnalysis(data)).catch(() => setJuryAnalysis(null)).finally(() => setJuryAnalysisLoading(false)); }
+      }
       if (tab === "Motions") { const d = await apiGetTrialMotions(sid); setMotions(d || []); }
       if (tab === "Outlines") { const d = await apiGetTrialOutlines(sid); setOutlines(d || []); }
       if (tab === "Jury Instructions") { const d = await apiGetTrialJuryInstructions(sid); setJuryInstructions(d || []); }
@@ -1273,6 +1280,174 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                   ))}
                 </div>
                 {jurors.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No jurors added yet.</p>}
+
+                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Voir Dire Analysis</h3>
+                  </div>
+
+                  {juryAnalysisLoading && <p className="text-sm text-slate-400 text-center py-4">Loading analysis...</p>}
+
+                  {!juryAnalysisLoading && !juryAnalysis && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-4 text-center">
+                      <Scale className="mx-auto mb-2 text-blue-500" size={24} />
+                      <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">No jury panel analysis imported</p>
+                      <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">Jury panel data can be imported from external tools via the JWT API</p>
+                    </div>
+                  )}
+
+                  {!juryAnalysisLoading && juryAnalysis && (() => {
+                    const ja = juryAnalysis;
+                    const jaJurors = ja.jurors || [];
+                    const leanColors = { favorable: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50", neutral: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600", unfavorable: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" };
+                    const riskColors = { low: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50", medium: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50", high: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" };
+                    const struckJurors = jaJurors.filter(j => j.struck);
+                    const activeJurors = jaJurors.filter(j => !j.struck);
+                    const suggestedOrder = [...activeJurors].sort((a, b) => {
+                      const riskOrder = { high: 0, medium: 1, low: 2 };
+                      const leanOrder = { unfavorable: 0, neutral: 1, favorable: 2 };
+                      return (riskOrder[a.risk] || 1) - (riskOrder[b.risk] || 1) || (leanOrder[a.lean] || 1) - (leanOrder[b.lean] || 1);
+                    });
+                    const causeChallenges = ja.cause_challenges || ja.causeChallenges || [];
+
+                    return (
+                      <div className="space-y-4">
+                        <div className={CARD_CLS + " p-3"}>
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              Imported {ja.imported_at ? new Date(ja.imported_at || ja.importedAt).toLocaleDateString() : ""}
+                              {ja.source ? ` from ${ja.source}` : ""}
+                              {" · "}{jaJurors.length} jurors · {struckJurors.length} struck
+                            </div>
+                            <button onClick={async () => {
+                              if (!window.confirm("Delete this jury analysis? This cannot be undone.")) return;
+                              try { await apiDeleteJuryAnalysis(selectedCase.id); setJuryAnalysis(null); } catch (err) { alert("Delete failed: " + err.message); }
+                            }} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 border border-red-200 dark:border-red-800/50 rounded bg-transparent cursor-pointer">Delete Analysis</button>
+                          </div>
+                        </div>
+
+                        <div className={CARD_CLS + " overflow-hidden"}>
+                          <button onClick={() => setJuryAnalysisCollapsed(p => ({ ...p, jurorList: !p.jurorList }))} className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border-none cursor-pointer">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Juror List ({jaJurors.length})</span>
+                            {juryAnalysisCollapsed.jurorList ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronUp size={14} className="text-slate-400" />}
+                          </button>
+                          {!juryAnalysisCollapsed.jurorList && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead><tr className="border-b border-slate-200 dark:border-slate-700">
+                                  <th className="text-left p-2 text-xs font-medium text-slate-500">#</th>
+                                  <th className="text-left p-2 text-xs font-medium text-slate-500">Name</th>
+                                  <th className="text-left p-2 text-xs font-medium text-slate-500">Lean</th>
+                                  <th className="text-left p-2 text-xs font-medium text-slate-500">Risk</th>
+                                  <th className="text-left p-2 text-xs font-medium text-slate-500">Status</th>
+                                  <th className="text-left p-2 text-xs font-medium text-slate-500">Summary</th>
+                                </tr></thead>
+                                <tbody>
+                                  {jaJurors.map((j, idx) => (
+                                    <tr key={idx} className={"border-b border-slate-100 dark:border-slate-700/50" + (j.struck ? " opacity-50" : "")} style={j.struck ? { textDecoration: "line-through", textDecorationColor: "#94a3b8" } : {}}>
+                                      <td className="p-2 text-xs text-slate-500 font-mono">{j.number || idx + 1}</td>
+                                      <td className="p-2 font-medium text-slate-900 dark:text-slate-100">{j.name}</td>
+                                      <td className="p-2"><span className={"text-xs px-1.5 py-0.5 rounded border " + (leanColors[j.lean] || leanColors.neutral)}>{j.lean || "neutral"}</span></td>
+                                      <td className="p-2"><span className={"text-xs px-1.5 py-0.5 rounded border " + (riskColors[j.risk] || riskColors.medium)}>{j.risk || "medium"}</span></td>
+                                      <td className="p-2">{j.struck ? <span className="text-xs text-red-500">Struck ({j.struckBy || "—"})</span> : <span className="text-xs text-emerald-600">Active</span>}</td>
+                                      <td className="p-2 text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate">{j.summary || j.notes || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className={CARD_CLS + " overflow-hidden"}>
+                          <button onClick={() => setJuryAnalysisCollapsed(p => ({ ...p, strikes: !p.strikes }))} className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border-none cursor-pointer">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Strike Tracker</span>
+                            {juryAnalysisCollapsed.strikes ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronUp size={14} className="text-slate-400" />}
+                          </button>
+                          {!juryAnalysisCollapsed.strikes && (
+                            <div className="p-3 space-y-2">
+                              {jaJurors.map((j, idx) => (
+                                <div key={idx} className={"flex items-center gap-3 py-1.5 px-2 rounded " + (j.struck ? "bg-red-50/50 dark:bg-red-900/10" : "")}>
+                                  <span className="text-xs font-mono text-slate-400 w-6">{j.number || idx + 1}</span>
+                                  <span className={"text-sm flex-1 min-w-0 truncate " + (j.struck ? "text-slate-400 line-through" : "text-slate-900 dark:text-slate-100 font-medium")}>{j.name}</span>
+                                  {!j.struck && (
+                                    <>
+                                      <button onClick={async () => { try { await apiUpdateJurorStrike(selectedCase.id, { jurorNumber: j.number || idx + 1, struck: true, struckBy: "Defense" }); const updated = [...jaJurors]; updated[idx] = { ...j, struck: true, struckBy: "Defense" }; setJuryAnalysis({ ...ja, jurors: updated }); } catch (err) { alert(err.message); } }} className="text-xs px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/50 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 cursor-pointer hover:bg-blue-100">Defense Strike</button>
+                                      <button onClick={async () => { try { await apiUpdateJurorStrike(selectedCase.id, { jurorNumber: j.number || idx + 1, struck: true, struckBy: "Plaintiff" }); const updated = [...jaJurors]; updated[idx] = { ...j, struck: true, struckBy: "Plaintiff" }; setJuryAnalysis({ ...ja, jurors: updated }); } catch (err) { alert(err.message); } }} className="text-xs px-2 py-0.5 rounded border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 cursor-pointer hover:bg-red-100">Plaintiff Strike</button>
+                                    </>
+                                  )}
+                                  {j.struck && (
+                                    <button onClick={async () => { try { await apiUpdateJurorStrike(selectedCase.id, { jurorNumber: j.number || idx + 1, struck: false, struckBy: null }); const updated = [...jaJurors]; updated[idx] = { ...j, struck: false, struckBy: null }; setJuryAnalysis({ ...ja, jurors: updated }); } catch (err) { alert(err.message); } }} className="text-xs px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600 text-slate-500 bg-white dark:bg-slate-700 cursor-pointer hover:bg-slate-50">Undo</button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className={CARD_CLS + " overflow-hidden"}>
+                          <button onClick={() => setJuryAnalysisCollapsed(p => ({ ...p, suggestedOrder: !p.suggestedOrder }))} className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border-none cursor-pointer">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Suggested Strike Order</span>
+                            {juryAnalysisCollapsed.suggestedOrder ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronUp size={14} className="text-slate-400" />}
+                          </button>
+                          {!juryAnalysisCollapsed.suggestedOrder && (
+                            <div className="p-3 grid grid-cols-2 lg:grid-cols-3 gap-2">
+                              {suggestedOrder.map((j, idx) => (
+                                <div key={idx} className={"rounded-lg border p-2 " + (j.risk === "high" ? "border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10" : j.risk === "medium" ? "border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10" : "border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/10")}>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
+                                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{j.name}</span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <span className={"text-xs px-1 py-0.5 rounded border " + (leanColors[j.lean] || leanColors.neutral)}>{j.lean}</span>
+                                    <span className={"text-xs px-1 py-0.5 rounded border " + (riskColors[j.risk] || riskColors.medium)}>{j.risk}</span>
+                                  </div>
+                                </div>
+                              ))}
+                              {suggestedOrder.length === 0 && <p className="text-xs text-slate-400 col-span-3 text-center py-2">All jurors have been struck</p>}
+                            </div>
+                          )}
+                        </div>
+
+                        {ja.strike_strategy && (
+                          <div className={CARD_CLS + " p-3"}>
+                            <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Strike Strategy</h4>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{ja.strike_strategy || ja.strikeStrategy}</p>
+                          </div>
+                        )}
+
+                        {causeChallenges.length > 0 && (
+                          <div className={CARD_CLS + " overflow-hidden"}>
+                            <button onClick={() => setJuryAnalysisCollapsed(p => ({ ...p, causeStrikes: !p.causeStrikes }))} className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border-none cursor-pointer">
+                              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Proposed Strikes for Cause ({causeChallenges.length})</span>
+                              {juryAnalysisCollapsed.causeStrikes ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronUp size={14} className="text-slate-400" />}
+                            </button>
+                            {!juryAnalysisCollapsed.causeStrikes && (
+                              <div className="p-3 space-y-2">
+                                {causeChallenges.map((cc, idx) => (
+                                  <div key={idx} className="border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 bg-amber-50/30 dark:bg-amber-900/10">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Juror #{cc.jurorNumber || cc.number}</span>
+                                      {cc.jurorName && <span className="text-sm text-slate-600 dark:text-slate-400">— {cc.jurorName || cc.name}</span>}
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400">{cc.reason || cc.basis || "—"}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {(ja.cause_strategy || ja.causeStrategy) && (
+                          <div className={CARD_CLS + " p-3"}>
+                            <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Cause Challenge Strategy</h4>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{ja.cause_strategy || ja.causeStrategy}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             )}
 

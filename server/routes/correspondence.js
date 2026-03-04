@@ -107,4 +107,22 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
+const ATTORNEY_ROLES = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "App Admin"];
+
+router.post("/batch-delete", requireAuth, async (req, res) => {
+  try {
+    const userRoles = req.session.userRoles || [req.session.userRole];
+    if (!userRoles.some(r => ATTORNEY_ROLES.includes(r))) {
+      return res.status(403).json({ error: "Only attorneys may batch delete correspondence" });
+    }
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
+    const { rowCount } = await pool.query("DELETE FROM case_correspondence WHERE id = ANY($1)", [ids]);
+    return res.json({ ok: true, deleted: rowCount });
+  } catch (err) {
+    console.error("Batch delete correspondence error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

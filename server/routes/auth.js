@@ -4,6 +4,8 @@ const crypto = require("crypto");
 const pool = require("../db");
 const { sendTempPasswordEmail, sendPasswordResetEmail } = require("../email");
 const { requireAuth } = require("../middleware/auth");
+const { authenticator } = require("otplib");
+const QRCode = require("qrcode");
 
 const router = express.Router();
 
@@ -49,11 +51,13 @@ function userPayload(user) {
     avatar: user.avatar,
     mustChangePassword: !!user.must_change_password,
     preferences: user.preferences || {},
+    mfaEnabled: !!user.mfa_enabled,
+    hasProfilePicture: !!(user.profile_picture && user.profile_picture_type),
   };
 }
 
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, rememberMe } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
   }
@@ -90,6 +94,16 @@ router.post("/login", async (req, res) => {
 
     if (!authenticated) {
       return res.status(401).json({ error: "Incorrect password" });
+    }
+
+    if (user.mfa_enabled && user.mfa_secret) {
+      req.session.mfaPendingUserId = user.id;
+      req.session.mfaRememberMe = !!rememberMe;
+      return res.json({ requireMfa: true, email: user.email });
+    }
+
+    if (rememberMe) {
+      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
     }
 
     req.session.userId = user.id;
@@ -274,6 +288,84 @@ router.put("/preferences", requireAuth, async (req, res) => {
     return res.json(merged);
   } catch (err) {
     console.error("Save preferences error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/mfa/setup", requireAuth, async (req, res) => {
+  try {
+    const secret = authenticator.generateSecret();
+    const { rows } = await pool.query("SELECT email FROM users WHERE id = $1", [req.session.userId]);
+    if (!rows.length) return res.status(404).json({ error: "User not found" });
+    const otpauth = authenticator.keyuri(rows[0].email, "MattrMindr", secret);
+    const qrDataUrl = await QRCode.toDataURL(otpauth);
+    await pool.query("UPDATE users SET mfa_secret = $1 WHERE id = $2", [secret, req.session.userId]);
+    return res.json({ secret, qrDataUrl });
+  } catch (err) {
+    console.error("MFA setup error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/mfa/verify-setup", requireAuth, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: "Code is required" });
+    const { rows } = await pool.query("SELECT mfa_secret FROM users WHERE id = $1", [req.session.userId]);
+    if (!rows.length) return res.status(404).json({ error: "User not found" });
+    if (!rows[0].mfa_secret) return res.status(400).json({ error: "MFA not set up" });
+    const valid = authenticator.check(code.toString(), rows[0].mfa_secret);
+    if (!valid) return res.status(400).json({ error: "Invalid code. Try again." });
+    await pool.query("UPDATE users SET mfa_enabled = TRUE WHERE id = $1", [req.session.userId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("MFA verify-setup error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/mfa/verify", async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: "Code is required" });
+    const pendingUserId = req.session.mfaPendingUserId;
+    if (!pendingUserId) return res.status(400).json({ error: "No MFA verification pending" });
+    const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [pendingUserId]);
+    if (!rows.length) return res.status(404).json({ error: "User not found" });
+    const user = rows[0];
+    const valid = authenticator.check(code.toString(), user.mfa_secret);
+    if (!valid) return res.status(401).json({ error: "Invalid verification code" });
+
+    if (req.session.mfaRememberMe) {
+      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
+    }
+
+    delete req.session.mfaPendingUserId;
+    delete req.session.mfaRememberMe;
+    req.session.userId = user.id;
+    req.session.userName = user.name;
+    req.session.userEmail = user.email;
+    req.session.userRole = user.role;
+    req.session.userRoles = user.roles || [user.role];
+    return res.json(userPayload(user));
+  } catch (err) {
+    console.error("MFA verify error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/mfa/disable", requireAuth, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: "Password is required" });
+    const { rows } = await pool.query("SELECT password_hash FROM users WHERE id = $1", [req.session.userId]);
+    if (!rows.length) return res.status(404).json({ error: "User not found" });
+    const valid = await bcrypt.compare(password, rows[0].password_hash);
+    if (!valid) return res.status(401).json({ error: "Incorrect password" });
+    await pool.query("UPDATE users SET mfa_enabled = FALSE, mfa_secret = NULL WHERE id = $1", [req.session.userId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("MFA disable error:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });

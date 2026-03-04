@@ -58,10 +58,11 @@ server/
   middleware/
     auth.js         — Firm user authentication middleware
     clientAuth.js   — Client portal authentication middleware
+    external-auth.js — JWT generation + requireExternalAuth middleware for external API
 
 lextrack/
   src/
-    App.js          — All UI components and business logic (~14,900 lines)
+    App.js          — All UI components and business logic (~15,800 lines)
     portal/
       PortalApp.js  — Client portal UI (login, dashboard, messages, documents)
       portalApi.js  — Portal API fetch wrapper
@@ -142,6 +143,65 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - **Documents**: `case_documents.source` column distinguishes `'firm'` (default) vs `'client'` uploads; firm Documents tab shows "Client Upload" badge
 - **Files**: `server/routes/portal-auth.js`, `server/routes/portal-case.js`, `server/routes/portal-admin.js`, `server/middleware/clientAuth.js`, `lextrack/src/portal/PortalApp.js`, `lextrack/src/portal/portalApi.js`
 - **Firm Login**: "Click here if you are a client" link on firm login screen navigates to `/portal`
+
+### MFA / Two-Factor Authentication
+- TOTP-based MFA using `otplib` and `qrcode` packages
+- Users enable MFA in Settings modal (Security section) → generates QR code → verify with authenticator app
+- Login flow: password verified → if MFA enabled, returns `{ requireMfa: true }` → user enters 6-digit TOTP code → session created
+- Routes: `POST /api/auth/mfa/setup`, `/mfa/verify-setup`, `/mfa/verify`, `/mfa/disable`
+- DB columns: `users.mfa_secret TEXT`, `users.mfa_enabled BOOLEAN`
+
+### Remember Me (30-Day Session)
+- Checkbox on login screen: "Remember me for 30 days"
+- When checked, `req.session.cookie.maxAge = 30 days`; otherwise browser-session cookie
+- Passed as `rememberMe` boolean in login request body
+
+### Profile Pictures
+- Upload JPEG/PNG/WebP/GIF (max 5MB), stored as BYTEA in `users.profile_picture`
+- Routes: `POST/GET/DELETE /api/users/:id/profile-picture`
+- Avatar component renders `<img>` when `hasProfilePicture` is true, falls back to initials
+- Upload/delete UI in Settings modal (click avatar to upload)
+
+### Document & Transcript Folders
+- Tables: `document_folders`, `transcript_folders` (id, case_id, name, sort_order, collapsed)
+- `case_documents.folder_id` and `case_transcripts.folder_id` (ON DELETE SET NULL)
+- Routes: `GET/POST /:caseId/folders`, `PUT/DELETE /folders/:id`, `PUT /:docId/move`, `PUT /reorder-folders`
+- Frontend: Collapsible folder sections, drag-and-drop, double-click rename, create/delete folders, "Unfiled" section
+
+### Batch Delete
+- Attorney+ roles (Managing Partner through App Admin) can multi-select and batch delete
+- Routes: `POST /api/case-documents/batch-delete`, `/api/transcripts/batch-delete`, `/api/correspondence/batch-delete`
+- Frontend: Select mode with checkboxes, Select All/Deselect All, Delete Selected with confirmation
+
+### Unified Document Viewer
+- In-app overlay (z-index 10001) for viewing documents, filings, and correspondence attachments
+- Supports PDF (iframe), images (img), text (iframe), with extracted text side panel for PDFs
+- Functions: `openAppDocViewer(docId, filename, contentType)`, `openAppFilingViewer(filingId, filename)`, `closeAppDocViewer()`
+- Replaces `window.open` calls in Documents and Filings tabs
+
+### Auto-Transcription of Audio Email Attachments
+- `server/routes/inbound-email.js` detects audio MIME types (MP3/WAV/M4A/OGG/WebM/MP4/AAC/FLAC)
+- Creates `case_transcripts` entry with `uploaded_by_name = "Email: {sender}"`
+- Calls `processTranscription()` from transcripts.js for background Whisper transcription
+
+### External API with JWT Auth
+- `server/middleware/external-auth.js`: JWT generation (24h expiry) using `EXTERNAL_JWT_SECRET` or `SESSION_SECRET`
+- `server/routes/external.js`: Login, verify, cases list, case detail, jury analysis import
+- Mounted at `/api/external` with separate CORS config (`EXTERNAL_CORS_ORIGINS` env var)
+- Package: `jsonwebtoken`
+
+### Voir Dire Analysis Import
+- Table: `jury_analyses` (case_id UNIQUE, jurors JSONB, strike_strategy, cause_challenges JSONB, cause_strategy)
+- External API: `POST /api/external/cases/:id/jury-analysis` (JWT auth, upsert)
+- Internal: `GET/PATCH/DELETE /api/trial-center/jury-analysis/:caseId`
+- Trial Center Jury tab: Juror list table, strike tracker (Defense/Plaintiff strike buttons), suggested strike order, cause challenges section
+- Color-coded badges: lean (favorable=emerald, neutral=slate, unfavorable=red), risk (low=emerald, medium=amber, high=red)
+
+### Large File Chunked Upload
+- Files >20MB use chunked upload (20MB chunks) with progress bar
+- Endpoints: `POST /upload/init`, `/upload/chunk`, `/upload/complete` on both case-documents and filings routes
+- API helpers: `apiUploadCaseDocumentChunked(file, caseId, docType, onProgress)`, `apiUploadFilingChunked(file, caseId, filedBy, filingDate, docType, onProgress)`
+- Files ≤20MB continue using standard single-request upload
 
 ### Default Tasks (auto-created for new cases)
 Initial Client Interview → Send Preservation Letters → Obtain Police Report → Identify Insurance Policies → Check for Conflicts → Order Medical Records

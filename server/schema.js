@@ -832,6 +832,52 @@ async function createSchema() {
 
     await client.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'firm'`);
 
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_secret TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture BYTEA`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_type TEXT`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS document_folders (
+        id          SERIAL PRIMARY KEY,
+        case_id     INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        collapsed   BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS transcript_folders (
+        id          SERIAL PRIMARY KEY,
+        case_id     INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        collapsed   BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES document_folders(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES transcript_folders(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS jury_analyses (
+        id            SERIAL PRIMARY KEY,
+        case_id       INTEGER NOT NULL UNIQUE REFERENCES cases(id) ON DELETE CASCADE,
+        jurors        JSONB NOT NULL DEFAULT '[]',
+        strike_strategy TEXT NOT NULL DEFAULT '',
+        cause_challenges JSONB NOT NULL DEFAULT '[]',
+        cause_strategy TEXT NOT NULL DEFAULT '',
+        imported_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        imported_by   INTEGER REFERENCES users(id),
+        source        TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

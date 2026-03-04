@@ -44,6 +44,7 @@ const trialCenterRoutes      = require("./routes/trial-center");
 const portalAuthRoutes       = require("./routes/portal-auth");
 const portalCaseRoutes       = require("./routes/portal-case");
 const portalAdminRoutes      = require("./routes/portal-admin");
+const externalRoutes         = require("./routes/external");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -119,6 +120,12 @@ app.use("/api/trial-center/ai", trialCenterAiRoutes);
 app.use("/api/portal/auth", portalAuthRoutes);
 app.use("/api/portal/case", portalCaseRoutes);
 app.use("/api/portal-admin", portalAdminRoutes);
+
+const externalCorsOrigins = process.env.EXTERNAL_CORS_ORIGINS ? process.env.EXTERNAL_CORS_ORIGINS.split(",") : null;
+app.use("/api/external", cors({
+  origin: externalCorsOrigins || true,
+  credentials: false,
+}), externalRoutes);
 
 app.post("/api/support", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });

@@ -1,10 +1,12 @@
 const express = require("express");
+const multer = require("multer");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
+const ppUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-const USER_FIELDS = "id, name, role, roles, email, initials, phone, cell, ext, avatar, offices, deleted_at";
+const USER_FIELDS = "id, name, role, roles, email, initials, phone, cell, ext, avatar, offices, deleted_at, (profile_picture IS NOT NULL AND profile_picture_type IS NOT NULL) as has_profile_picture";
 
 function normalizeUser(r) {
   return {
@@ -12,6 +14,7 @@ function normalizeUser(r) {
     roles: r.roles && r.roles.length ? r.roles : [r.role],
     offices: r.offices || [],
     deletedAt: r.deleted_at ? r.deleted_at.toISOString() : null,
+    hasProfilePicture: !!r.has_profile_picture,
   };
 }
 
@@ -161,6 +164,64 @@ router.put("/:id/roles", requireAuth, async (req, res) => {
     return res.json(normalizeUser(rows[0]));
   } catch (err) {
     console.error("User roles update error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+router.post("/:id/profile-picture", requireAuth, ppUpload.single("picture"), async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id);
+    if (req.session.userId !== targetId && !isAppAdmin(req)) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+    if (!req.file) return res.status(400).json({ error: "No image file provided" });
+    if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: "Only JPEG, PNG, WebP, and GIF images are supported" });
+    }
+    await pool.query(
+      "UPDATE users SET profile_picture = $1, profile_picture_type = $2 WHERE id = $3",
+      [req.file.buffer, req.file.mimetype, targetId]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Profile picture upload error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/:id/profile-picture", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT profile_picture, profile_picture_type FROM users WHERE id = $1",
+      [req.params.id]
+    );
+    if (!rows.length || !rows[0].profile_picture) {
+      return res.status(404).json({ error: "No profile picture" });
+    }
+    res.setHeader("Content-Type", rows[0].profile_picture_type);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    return res.send(rows[0].profile_picture);
+  } catch (err) {
+    console.error("Profile picture fetch error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/:id/profile-picture", requireAuth, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id);
+    if (req.session.userId !== targetId && !isAppAdmin(req)) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+    await pool.query(
+      "UPDATE users SET profile_picture = NULL, profile_picture_type = NULL WHERE id = $1",
+      [targetId]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Profile picture delete error:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });

@@ -16,7 +16,7 @@ async function apiFetch(path, opts = {}) {
 }
 
 // Auth
-export const apiLogin   = (email, password) => apiFetch("/api/auth/login",  { method: "POST", body: { email, password } });
+export const apiLogin   = (email, password, rememberMe) => apiFetch("/api/auth/login",  { method: "POST", body: { email, password, rememberMe } });
 export const apiLogout  = ()             => apiFetch("/api/auth/logout", { method: "POST" });
 export const apiMe      = ()             => apiFetch("/api/auth/me");
 
@@ -509,3 +509,108 @@ export const apiDeletePortalClient   = (caseId, clientId) => apiFetch(`/api/port
 export const apiGetPortalMessages    = (caseId)        => apiFetch(`/api/portal-admin/${caseId}/messages`);
 export const apiSendPortalMessage    = (caseId, body)  => apiFetch(`/api/portal-admin/${caseId}/messages`, { method: "POST", body: { body } });
 export const apiMarkPortalMsgRead   = (caseId, msgId) => apiFetch(`/api/portal-admin/${caseId}/messages/${msgId}/read`, { method: "PUT" });
+
+// MFA
+export const apiMfaSetup       = ()       => apiFetch("/api/auth/mfa/setup",        { method: "POST" });
+export const apiMfaVerifySetup = (token)   => apiFetch("/api/auth/mfa/verify-setup", { method: "POST", body: { token } });
+export const apiMfaVerify      = (token)   => apiFetch("/api/auth/mfa/verify",       { method: "POST", body: { token } });
+export const apiMfaDisable     = (password) => apiFetch("/api/auth/mfa/disable",     { method: "POST", body: { password } });
+
+// Profile Picture
+export const apiUploadProfilePicture = async (userId, file) => {
+  const fd = new FormData();
+  fd.append("picture", file);
+  const res = await fetch(`/api/users/${userId}/profile-picture`, { method: "POST", credentials: "include", body: fd });
+  if (!res.ok) { let msg = `Upload error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+};
+export const apiDeleteProfilePicture = (userId) => apiFetch(`/api/users/${userId}/profile-picture`, { method: "DELETE" });
+
+// Document Folders
+export const apiGetDocFolders     = (caseId)       => apiFetch(`/api/case-documents/${caseId}/folders`);
+export const apiCreateDocFolder   = (caseId, name)  => apiFetch(`/api/case-documents/${caseId}/folders`, { method: "POST", body: { name } });
+export const apiUpdateDocFolder   = (folderId, data) => apiFetch(`/api/case-documents/folders/${folderId}`, { method: "PUT", body: data });
+export const apiDeleteDocFolder   = (folderId)       => apiFetch(`/api/case-documents/folders/${folderId}`, { method: "DELETE" });
+export const apiMoveDocument      = (docId, folderId) => apiFetch(`/api/case-documents/${docId}/move`, { method: "PUT", body: { folderId } });
+export const apiReorderDocFolders = (caseId, order)   => apiFetch(`/api/case-documents/${caseId}/reorder-folders`, { method: "PUT", body: { order } });
+
+// Transcript Folders
+export const apiGetTranscriptFolders     = (caseId)       => apiFetch(`/api/transcripts/case/${caseId}/folders`);
+export const apiCreateTranscriptFolder   = (caseId, name)  => apiFetch(`/api/transcripts/case/${caseId}/folders`, { method: "POST", body: { name } });
+export const apiUpdateTranscriptFolder   = (folderId, data) => apiFetch(`/api/transcripts/folders/${folderId}`, { method: "PUT", body: data });
+export const apiDeleteTranscriptFolder   = (folderId)       => apiFetch(`/api/transcripts/folders/${folderId}`, { method: "DELETE" });
+export const apiMoveTranscript           = (tId, folderId)  => apiFetch(`/api/transcripts/${tId}/move`, { method: "PUT", body: { folderId } });
+export const apiReorderTranscriptFolders = (caseId, order)  => apiFetch(`/api/transcripts/case/${caseId}/reorder-folders`, { method: "PUT", body: { order } });
+
+// Batch Delete
+export const apiBatchDeleteDocuments      = (ids) => apiFetch("/api/case-documents/batch-delete",  { method: "POST", body: { ids } });
+export const apiBatchDeleteTranscripts    = (ids) => apiFetch("/api/transcripts/batch-delete",     { method: "POST", body: { ids } });
+export const apiBatchDeleteCorrespondence = (ids) => apiFetch("/api/correspondence/batch-delete",  { method: "POST", body: { ids } });
+
+// Chunked Upload for Documents
+const DOC_CHUNK_SIZE = 20 * 1024 * 1024;
+export async function apiUploadCaseDocumentChunked(file, caseId, docType, onProgress) {
+  const totalChunks = Math.ceil(file.size / DOC_CHUNK_SIZE);
+  const initRes = await fetch("/api/case-documents/upload/init", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ caseId, filename: file.name, fileSize: file.size, totalChunks, docType: docType || "" }),
+  });
+  if (!initRes.ok) { let msg = `Init error ${initRes.status}`; try { const j = await initRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  const { uploadId } = await initRes.json();
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * DOC_CHUNK_SIZE;
+    const end = Math.min(start + DOC_CHUNK_SIZE, file.size);
+    const chunk = file.slice(start, end);
+    const fd = new FormData();
+    fd.append("chunk", chunk, `chunk_${i}`);
+    fd.append("uploadId", uploadId);
+    fd.append("chunkIndex", String(i));
+    const chunkRes = await fetch("/api/case-documents/upload/chunk", { method: "POST", credentials: "include", body: fd });
+    if (!chunkRes.ok) { let msg = `Chunk ${i} failed`; try { const j = await chunkRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+    if (onProgress) onProgress(Math.round(((i + 1) / totalChunks) * 100));
+  }
+  const completeRes = await fetch("/api/case-documents/upload/complete", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uploadId }),
+  });
+  if (!completeRes.ok) { let msg = `Complete error`; try { const j = await completeRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return completeRes.json();
+}
+
+// Chunked Upload for Filings
+export async function apiUploadFilingChunked(file, caseId, filedBy, filingDate, docType, onProgress) {
+  const totalChunks = Math.ceil(file.size / DOC_CHUNK_SIZE);
+  const initRes = await fetch("/api/filings/upload/init", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ caseId, filename: file.name, fileSize: file.size, totalChunks, filedBy, filingDate, docType }),
+  });
+  if (!initRes.ok) { let msg = `Init error ${initRes.status}`; try { const j = await initRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  const { uploadId } = await initRes.json();
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * DOC_CHUNK_SIZE;
+    const end = Math.min(start + DOC_CHUNK_SIZE, file.size);
+    const chunk = file.slice(start, end);
+    const fd = new FormData();
+    fd.append("chunk", chunk, `chunk_${i}`);
+    fd.append("uploadId", uploadId);
+    fd.append("chunkIndex", String(i));
+    const chunkRes = await fetch("/api/filings/upload/chunk", { method: "POST", credentials: "include", body: fd });
+    if (!chunkRes.ok) { let msg = `Chunk ${i} failed`; try { const j = await chunkRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+    if (onProgress) onProgress(Math.round(((i + 1) / totalChunks) * 100));
+  }
+  const completeRes = await fetch("/api/filings/upload/complete", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uploadId }),
+  });
+  if (!completeRes.ok) { let msg = `Complete error`; try { const j = await completeRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return completeRes.json();
+}
+
+// Jury Analysis
+export const apiGetJuryAnalysis    = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`);
+export const apiUpdateJurorStrike  = (caseId, data)  => apiFetch(`/api/trial-center/jury-analysis/${caseId}/juror-strike`, { method: "PATCH", body: data });
+export const apiDeleteJuryAnalysis = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`, { method: "DELETE" });

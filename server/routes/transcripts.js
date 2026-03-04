@@ -548,4 +548,116 @@ router.get("/:id/export", requireAuth, async (req, res) => {
   }
 });
 
+const ATTORNEY_ROLES = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "App Admin"];
+
+router.get("/folders/:caseId", requireAuth, async (req, res) => {
+  try {
+    if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
+    const { rows } = await pool.query(
+      "SELECT * FROM transcript_folders WHERE case_id = $1 ORDER BY sort_order, created_at",
+      [req.params.caseId]
+    );
+    return res.json(rows);
+  } catch (err) {
+    console.error("Transcript folders fetch error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/folders", requireAuth, async (req, res) => {
+  try {
+    const { caseId, name } = req.body;
+    if (!caseId || !name) return res.status(400).json({ error: "caseId and name are required" });
+    if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
+    const { rows: maxRows } = await pool.query("SELECT COALESCE(MAX(sort_order), -1) + 1 as next FROM transcript_folders WHERE case_id = $1", [caseId]);
+    const { rows } = await pool.query(
+      "INSERT INTO transcript_folders (case_id, name, sort_order) VALUES ($1, $2, $3) RETURNING *",
+      [caseId, name, maxRows[0].next]
+    );
+    return res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error("Create transcript folder error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/folders/:id", requireAuth, async (req, res) => {
+  try {
+    const { name, collapsed } = req.body;
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name); }
+    if (collapsed !== undefined) { sets.push(`collapsed = $${idx++}`); vals.push(!!collapsed); }
+    if (sets.length === 0) return res.status(400).json({ error: "No fields to update" });
+    vals.push(req.params.id);
+    const { rows } = await pool.query(
+      `UPDATE transcript_folders SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`, vals
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Update transcript folder error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/folders/:id", requireAuth, async (req, res) => {
+  try {
+    await pool.query("UPDATE case_transcripts SET folder_id = NULL WHERE folder_id = $1", [req.params.id]);
+    const { rowCount } = await pool.query("DELETE FROM transcript_folders WHERE id = $1", [req.params.id]);
+    if (rowCount === 0) return res.status(404).json({ error: "Not found" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete transcript folder error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/reorder-folders", requireAuth, async (req, res) => {
+  try {
+    const { folders } = req.body;
+    if (!Array.isArray(folders)) return res.status(400).json({ error: "folders array required" });
+    for (const f of folders) {
+      await pool.query("UPDATE transcript_folders SET sort_order = $1 WHERE id = $2", [f.sortOrder, f.id]);
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Reorder transcript folders error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/move/:id", requireAuth, async (req, res) => {
+  try {
+    const { folderId } = req.body;
+    const { rows } = await pool.query(
+      "UPDATE case_transcripts SET folder_id = $1 WHERE id = $2 RETURNING id, folder_id",
+      [folderId || null, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Move transcript error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/batch-delete", requireAuth, async (req, res) => {
+  try {
+    const userRoles = req.session.userRoles || [req.session.userRole];
+    if (!userRoles.some(r => ATTORNEY_ROLES.includes(r))) {
+      return res.status(403).json({ error: "Only attorneys may batch delete transcripts" });
+    }
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
+    const { rowCount } = await pool.query("DELETE FROM case_transcripts WHERE id = ANY($1)", [ids]);
+    return res.json({ ok: true, deleted: rowCount });
+  } catch (err) {
+    console.error("Batch delete transcripts error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;
+module.exports.processTranscription = processTranscription;

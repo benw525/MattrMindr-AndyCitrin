@@ -253,6 +253,38 @@ router.post("/", upload.any(), async (req, res) => {
       }
     }
 
+    const audioMimeTypes = [
+      "audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav",
+      "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac",
+      "audio/ogg", "audio/webm", "audio/flac", "audio/x-flac",
+      "video/mp4", "video/webm",
+    ];
+    const audioExts = [".mp3", ".wav", ".m4a", ".ogg", ".webm", ".mp4", ".aac", ".flac"];
+    const audioAttachments = attachments.filter(a => {
+      if (audioMimeTypes.includes(a.contentType)) return true;
+      const ext = (a.filename || "").toLowerCase().match(/\.[^.]+$/);
+      return ext && audioExts.includes(ext[0]);
+    });
+    for (const audioAtt of audioAttachments) {
+      try {
+        const fileBuffer = Buffer.from(audioAtt.data, "base64");
+        const { rows: tRows } = await pool.query(
+          `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by_name)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [caseId, audioAtt.filename, audioAtt.contentType, fileBuffer, audioAtt.size, `Email: ${fromEmail}`]
+        );
+        if (tRows.length > 0) {
+          const { processTranscription } = require("./transcripts");
+          processTranscription(tRows[0].id).catch(err => {
+            console.error("Auto-transcription from email failed:", err.message);
+          });
+          console.log(`Audio transcript created from email: ${audioAtt.filename} for case ${caseId} (auto-transcribing)`);
+        }
+      } catch (audioErr) {
+        console.error("Process audio from email error:", audioErr.message);
+      }
+    }
+
     const docTypes = [
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/msword",

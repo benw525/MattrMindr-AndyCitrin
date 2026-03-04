@@ -14,6 +14,11 @@ const ALLOWED_TYPES = [
   "text/plain",
 ];
 
+const { randomUUID } = require("crypto");
+
+const ATTORNEY_ROLES = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "App Admin"];
+const pendingDocChunks = new Map();
+
 const toFrontend = (row) => ({
   id: row.id,
   caseId: row.case_id,
@@ -25,6 +30,8 @@ const toFrontend = (row) => ({
   uploadedByName: row.uploaded_by_name,
   fileSize: row.file_size,
   createdAt: row.created_at,
+  folderId: row.folder_id || null,
+  sortOrder: row.sort_order || 0,
 });
 
 async function verifyCaseAccess(req, caseId) {
@@ -42,7 +49,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, content_type, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at FROM case_documents WHERE case_id = $1 ORDER BY created_at DESC",
+      "SELECT id, case_id, filename, content_type, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order FROM case_documents WHERE case_id = $1 ORDER BY sort_order, created_at DESC",
       [req.params.caseId]
     );
     return res.json(rows.map(toFrontend));
@@ -217,6 +224,184 @@ router.delete("/:id", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Document delete error:", err);
     return res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+router.get("/folders/:caseId", requireAuth, async (req, res) => {
+  try {
+    if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
+    const { rows } = await pool.query(
+      "SELECT * FROM document_folders WHERE case_id = $1 ORDER BY sort_order, created_at",
+      [req.params.caseId]
+    );
+    return res.json(rows);
+  } catch (err) {
+    console.error("Document folders fetch error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/folders", requireAuth, async (req, res) => {
+  try {
+    const { caseId, name } = req.body;
+    if (!caseId || !name) return res.status(400).json({ error: "caseId and name are required" });
+    if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
+    const { rows: maxRows } = await pool.query("SELECT COALESCE(MAX(sort_order), -1) + 1 as next FROM document_folders WHERE case_id = $1", [caseId]);
+    const { rows } = await pool.query(
+      "INSERT INTO document_folders (case_id, name, sort_order) VALUES ($1, $2, $3) RETURNING *",
+      [caseId, name, maxRows[0].next]
+    );
+    return res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error("Create document folder error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/folders/:id", requireAuth, async (req, res) => {
+  try {
+    const { name, collapsed } = req.body;
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name); }
+    if (collapsed !== undefined) { sets.push(`collapsed = $${idx++}`); vals.push(!!collapsed); }
+    if (sets.length === 0) return res.status(400).json({ error: "No fields to update" });
+    vals.push(req.params.id);
+    const { rows } = await pool.query(
+      `UPDATE document_folders SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`, vals
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Update document folder error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/folders/:id", requireAuth, async (req, res) => {
+  try {
+    await pool.query("UPDATE case_documents SET folder_id = NULL WHERE folder_id = $1", [req.params.id]);
+    const { rowCount } = await pool.query("DELETE FROM document_folders WHERE id = $1", [req.params.id]);
+    if (rowCount === 0) return res.status(404).json({ error: "Not found" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete document folder error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/reorder-folders", requireAuth, async (req, res) => {
+  try {
+    const { folders } = req.body;
+    if (!Array.isArray(folders)) return res.status(400).json({ error: "folders array required" });
+    for (const f of folders) {
+      await pool.query("UPDATE document_folders SET sort_order = $1 WHERE id = $2", [f.sortOrder, f.id]);
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Reorder document folders error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/move/:docId", requireAuth, async (req, res) => {
+  try {
+    const { folderId } = req.body;
+    const { rows } = await pool.query(
+      "UPDATE case_documents SET folder_id = $1 WHERE id = $2 RETURNING id, folder_id",
+      [folderId || null, req.params.docId]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Move document error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/batch-delete", requireAuth, async (req, res) => {
+  try {
+    const userRoles = req.session.userRoles || [req.session.userRole];
+    if (!userRoles.some(r => ATTORNEY_ROLES.includes(r))) {
+      return res.status(403).json({ error: "Only attorneys may batch delete documents" });
+    }
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
+    const { rowCount } = await pool.query("DELETE FROM case_documents WHERE id = ANY($1)", [ids]);
+    return res.json({ ok: true, deleted: rowCount });
+  } catch (err) {
+    console.error("Batch delete documents error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/upload/init", requireAuth, express.json(), async (req, res) => {
+  try {
+    const { caseId, filename, contentType, fileSize, totalChunks, docType } = req.body;
+    if (!caseId || !filename || !totalChunks) return res.status(400).json({ error: "Missing required fields" });
+    if (fileSize > 100 * 1024 * 1024) return res.status(400).json({ error: "File too large (max 100MB)" });
+    if (totalChunks > 10) return res.status(400).json({ error: "Too many chunks" });
+    if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
+    const uploadId = randomUUID();
+    pendingDocChunks.set(uploadId, {
+      caseId, filename, contentType, fileSize, totalChunks, docType: docType || "Other",
+      userId: req.session.userId,
+      chunks: new Array(parseInt(totalChunks)).fill(null),
+      received: 0, createdAt: Date.now(),
+    });
+    setTimeout(() => { pendingDocChunks.delete(uploadId); }, 30 * 60 * 1000);
+    res.json({ uploadId, totalChunks });
+  } catch (err) {
+    console.error("Doc chunk init error:", err.message);
+    res.status(500).json({ error: "Failed to initialize upload" });
+  }
+});
+
+router.post("/upload/chunk", requireAuth, upload.single("chunk"), async (req, res) => {
+  try {
+    const { uploadId, chunkIndex } = req.body;
+    if (!uploadId || chunkIndex === undefined || !req.file) {
+      return res.status(400).json({ error: "Missing uploadId, chunkIndex, or chunk data" });
+    }
+    const pending = pendingDocChunks.get(uploadId);
+    if (!pending) return res.status(404).json({ error: "Upload session not found or expired" });
+    if (pending.userId !== req.session.userId) return res.status(403).json({ error: "Access denied" });
+    const idx = parseInt(chunkIndex);
+    if (idx < 0 || idx >= pending.totalChunks) return res.status(400).json({ error: "Invalid chunk index" });
+    if (pending.chunks[idx] === null) pending.received++;
+    pending.chunks[idx] = req.file.buffer;
+    res.json({ received: pending.received, totalChunks: pending.totalChunks });
+  } catch (err) {
+    console.error("Doc chunk upload error:", err.message);
+    res.status(500).json({ error: "Failed to upload chunk" });
+  }
+});
+
+router.post("/upload/complete", requireAuth, express.json(), async (req, res) => {
+  try {
+    const { uploadId } = req.body;
+    if (!uploadId) return res.status(400).json({ error: "Missing uploadId" });
+    const pending = pendingDocChunks.get(uploadId);
+    if (!pending) return res.status(404).json({ error: "Upload session not found or expired" });
+    if (pending.userId !== req.session.userId) return res.status(403).json({ error: "Access denied" });
+    const missing = pending.chunks.findIndex(c => c === null);
+    if (missing !== -1) return res.status(400).json({ error: `Missing chunk ${missing}` });
+    const fullBuffer = Buffer.concat(pending.chunks);
+    pendingDocChunks.delete(uploadId);
+    let extractedText = "";
+    try { extractedText = await extractText(fullBuffer, pending.contentType, pending.filename); } catch (e) { console.error("Chunk text extraction error:", e); }
+    const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [pending.userId]);
+    const uploaderName = userRows.length ? userRows[0].name : "";
+    const { rows } = await pool.query(
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order`,
+      [pending.caseId, pending.filename, pending.contentType, fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length]
+    );
+    res.json(toFrontend(rows[0]));
+  } catch (err) {
+    console.error("Doc chunk complete error:", err.message);
+    res.status(500).json({ error: "Failed to complete upload" });
   }
 });
 

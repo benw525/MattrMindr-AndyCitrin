@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "rea
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -46,6 +46,13 @@ import {
   apiSendSupport,
   apiGetCollabUnreadCount,
   apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript,
+  apiMfaSetup, apiMfaVerifySetup, apiMfaVerify, apiMfaDisable,
+  apiUploadProfilePicture, apiDeleteProfilePicture,
+  apiGetDocFolders, apiCreateDocFolder, apiUpdateDocFolder, apiDeleteDocFolder, apiMoveDocument, apiReorderDocFolders,
+  apiGetTranscriptFolders, apiCreateTranscriptFolder, apiUpdateTranscriptFolder, apiDeleteTranscriptFolder, apiMoveTranscript, apiReorderTranscriptFolders,
+  apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence,
+  apiUploadCaseDocumentChunked, apiUploadFilingChunked,
+  apiGetDocumentText, apiDownloadFiling,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 import TrialCenterView from "./TrialCenterView.js";
@@ -220,9 +227,13 @@ const Badge = ({ label }) => {
 
 const getUserById = (id) => USERS.find(u => u.id === id);
 
-const Avatar = ({ userId, size = 28 }) => {
+const Avatar = ({ userId, size = 28, hasProfilePicture }) => {
   const u = getUserById(userId);
   if (!u) return null;
+  const showPic = hasProfilePicture !== undefined ? hasProfilePicture : u.hasProfilePicture;
+  if (showPic) {
+    return <img src={`/api/users/${userId}/profile-picture?t=${Date.now()}`} alt={u.name} title={`${u.name} (${u.role})`} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling && (e.target.nextSibling.style.display = "flex"); }} />;
+  }
   return <div title={`${u.name} (${u.role})`} style={{ width: size, height: size, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.32, fontWeight: 700, color: "#fff", fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>{u.initials}</div>;
 };
 
@@ -2032,7 +2043,7 @@ function FirmApp() {
         <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
       )}
       {showSettings && (
-        <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} hideAdvocateAI={hideAdvocateAI} onToggleHideAdvocate={(val) => { setHideAdvocateAI(val); apiSavePreferences({ hideAdvocateAI: val }).catch(() => {}); if (val) setShowAdvocateGlobal(false); }} />
+        <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} hideAdvocateAI={hideAdvocateAI} onToggleHideAdvocate={(val) => { setHideAdvocateAI(val); apiSavePreferences({ hideAdvocateAI: val }).catch(() => {}); if (val) setShowAdvocateGlobal(false); }} onUpdateUser={setCurrentUser} />
       )}
       {showHelpCenter && (
         <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} />
@@ -2356,6 +2367,9 @@ function LoginScreen({ onLogin }) {
   const [newPw,    setNewPw]    = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [msg,      setMsg]      = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaToken, setMfaToken] = useState("");
 
   const doLogin = async () => {
     if (!email.trim()) { setErr("Enter your email address."); return; }
@@ -2363,13 +2377,29 @@ function LoginScreen({ onLogin }) {
     setBusy(true);
     setErr("");
     try {
-      const user = await apiLogin(email.trim(), password);
-      onLogin(user);
+      const result = await apiLogin(email.trim(), password, rememberMe);
+      if (result.requireMfa) {
+        setMfaRequired(true);
+        setMfaToken("");
+      } else {
+        onLogin(result);
+      }
     } catch (e) {
       setErr(e.message || "Login failed.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const doMfaVerify = async () => {
+    if (!mfaToken || mfaToken.length !== 6) { setErr("Enter the 6-digit code from your authenticator app."); return; }
+    setBusy(true); setErr("");
+    try {
+      const user = await apiMfaVerify(mfaToken);
+      onLogin(user);
+    } catch (e) {
+      setErr(e.message || "Invalid code. Please try again.");
+    } finally { setBusy(false); }
   };
 
   const doForgot = async () => {
@@ -2416,14 +2446,18 @@ function LoginScreen({ onLogin }) {
           <div className="text-[10px] text-slate-400 uppercase tracking-widest text-center">Case Management System</div>
         </div>
 
-        {view === "login" && (<>
+        {view === "login" && !mfaRequired && (<>
           <div className="mb-5">
             <label className={labelClass}>Email</label>
             <input type="email" placeholder="your.email@firm.com" value={email} onChange={e => { setEmail(e.target.value); setErr(""); setMsg(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} className={inputClass} />
           </div>
-          <div className="mb-6">
+          <div className="mb-4">
             <label className={labelClass}>Password</label>
             <input type="password" placeholder="Enter your password" value={password} onChange={e => { setPassword(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} className={inputClass} />
+          </div>
+          <div className="flex items-center gap-2 mb-6">
+            <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500" />
+            <label htmlFor="rememberMe" className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">Remember me for 30 days</label>
           </div>
           {err && <div className="text-red-500 text-sm mb-3">{err}</div>}
           {msg && <div className="text-slate-700 dark:text-slate-300 text-sm mb-3">{msg}</div>}
@@ -2434,6 +2468,23 @@ function LoginScreen({ onLogin }) {
           <div className="mt-6 pt-4 border-t border-slate-200">
             <a href="/portal" className="block w-full text-center text-sm text-slate-500 hover:text-slate-700 transition-colors">Click here if you are a client</a>
           </div>
+        </>)}
+
+        {view === "login" && mfaRequired && (<>
+          <div className="text-center mb-6">
+            <Shield size={32} className="mx-auto mb-3 text-amber-500" />
+            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Two-Factor Authentication</div>
+            <div className="text-xs text-slate-500">Enter the 6-digit code from your authenticator app</div>
+          </div>
+          <div className="mb-6">
+            <label className={labelClass}>Verification Code</label>
+            <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={mfaToken} onChange={e => { setMfaToken(e.target.value.replace(/\D/g, "").slice(0, 6)); setErr(""); }} onKeyDown={e => e.key === "Enter" && doMfaVerify()} className={inputClass} style={{ textAlign: "center", letterSpacing: "0.5em", fontSize: 20 }} autoFocus />
+          </div>
+          {err && <div className="text-red-500 text-sm mb-3">{err}</div>}
+          <button className={btnClass + " mb-4"} onClick={doMfaVerify} disabled={busy}>
+            {busy ? "Verifying…" : "Verify Code"}
+          </button>
+          <button type="button" className={linkClass + " block w-full text-center"} onClick={() => { setMfaRequired(false); setMfaToken(""); setErr(""); setPassword(""); }}>Back to login</button>
         </>)}
 
         {view === "forgot" && (<>
@@ -2548,18 +2599,96 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
 }
 
 // ─── Settings Modal ──────────────────────────────────────────────────────────
-function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, onSignOut, onClose, hideAdvocateAI, onToggleHideAdvocate }) {
+function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, onSignOut, onClose, hideAdvocateAI, onToggleHideAdvocate, onUpdateUser }) {
+  const [mfaStep, setMfaStep] = useState(null);
+  const [mfaQr, setMfaQr] = useState("");
+  const [mfaSecret, setMfaSecret] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaErr, setMfaErr] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [disablePw, setDisablePw] = useState("");
+  const [picBusy, setPicBusy] = useState(false);
+  const picRef = useRef(null);
+  const [picKey, setPicKey] = useState(0);
+
+  const startMfaSetup = async () => {
+    setMfaBusy(true); setMfaErr("");
+    try {
+      const { qrCode, secret } = await apiMfaSetup();
+      setMfaQr(qrCode); setMfaSecret(secret); setMfaStep("setup"); setMfaCode("");
+    } catch (e) { setMfaErr(e.message); }
+    setMfaBusy(false);
+  };
+
+  const confirmMfaSetup = async () => {
+    if (!mfaCode || mfaCode.length !== 6) { setMfaErr("Enter the 6-digit code."); return; }
+    setMfaBusy(true); setMfaErr("");
+    try {
+      await apiMfaVerifySetup(mfaCode);
+      if (onUpdateUser) onUpdateUser({ ...currentUser, mfaEnabled: true });
+      setMfaStep(null); setMfaQr(""); setMfaSecret("");
+    } catch (e) { setMfaErr(e.message); }
+    setMfaBusy(false);
+  };
+
+  const disableMfa = async () => {
+    if (!disablePw) { setMfaErr("Enter your password."); return; }
+    setMfaBusy(true); setMfaErr("");
+    try {
+      await apiMfaDisable(disablePw);
+      if (onUpdateUser) onUpdateUser({ ...currentUser, mfaEnabled: false });
+      setMfaStep(null); setDisablePw("");
+    } catch (e) { setMfaErr(e.message); }
+    setMfaBusy(false);
+  };
+
+  const handlePicUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPicBusy(true);
+    try {
+      await apiUploadProfilePicture(currentUser.id, file);
+      if (onUpdateUser) onUpdateUser({ ...currentUser, hasProfilePicture: true });
+      setPicKey(k => k + 1);
+    } catch (err) { alert("Upload failed: " + err.message); }
+    setPicBusy(false);
+    if (picRef.current) picRef.current.value = "";
+  };
+
+  const handlePicDelete = async () => {
+    setPicBusy(true);
+    try {
+      await apiDeleteProfilePicture(currentUser.id);
+      if (onUpdateUser) onUpdateUser({ ...currentUser, hasProfilePicture: false });
+      setPicKey(k => k + 1);
+    } catch (err) { alert("Delete failed: " + err.message); }
+    setPicBusy(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[1100]" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-8 relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-transparent border-none cursor-pointer text-lg"><X size={18} /></button>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-5">Settings</h2>
         <div className="flex items-center gap-3 mb-5 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-          <Avatar userId={currentUser.id} size={40} />
+          <div className="relative group cursor-pointer" onClick={() => picRef.current?.click()}>
+            {currentUser.hasProfilePicture ? (
+              <img key={picKey} src={`/api/users/${currentUser.id}/profile-picture?t=${Date.now()}`} alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
+            ) : (
+              <Avatar userId={currentUser.id} size={48} />
+            )}
+            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera size={16} className="text-white" />
+            </div>
+            <input ref={picRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handlePicUpload} />
+          </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{currentUser.name}</div>
             <div className="text-[11px] text-slate-500 truncate">{currentUser.email}</div>
-            <div className="text-[10px] text-slate-400 mt-0.5">{(currentUser.roles && currentUser.roles.length > 1) ? currentUser.roles.join(" · ") : currentUser.role}</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {(currentUser.roles && currentUser.roles.length > 1) ? currentUser.roles.join(" · ") : currentUser.role}
+              {currentUser.hasProfilePicture && <span className="ml-2 text-red-400 hover:text-red-600 cursor-pointer" onClick={e => { e.stopPropagation(); handlePicDelete(); }}>Remove photo</span>}
+            </div>
           </div>
         </div>
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Appearance</div>
@@ -2580,7 +2709,46 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
           <Toggle on={hideAdvocateAI} onChange={() => onToggleHideAdvocate(!hideAdvocateAI)} />
         </div>
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Security</div>
-        <button className="!w-full !py-2.5 !text-sm !font-medium !text-slate-700 dark:!text-slate-300 !bg-transparent !border !border-slate-200 dark:!border-slate-700 !rounded-lg hover:!bg-slate-50 dark:hover:!bg-slate-700 !transition-colors !cursor-pointer !mb-4" onClick={onChangePassword}>Change Password</button>
+        <button className="!w-full !py-2.5 !text-sm !font-medium !text-slate-700 dark:!text-slate-300 !bg-transparent !border !border-slate-200 dark:!border-slate-700 !rounded-lg hover:!bg-slate-50 dark:hover:!bg-slate-700 !transition-colors !cursor-pointer !mb-3" onClick={onChangePassword}>Change Password</button>
+
+        {!mfaStep && !currentUser.mfaEnabled && (
+          <button className="!w-full !py-2.5 !text-sm !font-medium !text-emerald-700 dark:!text-emerald-400 !bg-transparent !border !border-emerald-200 dark:!border-emerald-900/50 !rounded-lg hover:!bg-emerald-50 dark:hover:!bg-emerald-900/20 !transition-colors !cursor-pointer !mb-4 flex items-center justify-center gap-2" onClick={startMfaSetup} disabled={mfaBusy}>
+            <Shield size={14} /> {mfaBusy ? "Setting up..." : "Enable Two-Factor Authentication"}
+          </button>
+        )}
+        {!mfaStep && currentUser.mfaEnabled && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between py-2 px-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800 mb-2">
+              <span className="text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2"><Shield size={14} /> 2FA Enabled</span>
+              <button className="text-xs text-red-500 hover:text-red-700 bg-transparent border-none cursor-pointer" onClick={() => { setMfaStep("disable"); setMfaErr(""); setDisablePw(""); }}>Disable</button>
+            </div>
+          </div>
+        )}
+        {mfaStep === "setup" && (
+          <div className="mb-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Scan this QR code with your authenticator app</div>
+            {mfaQr && <div className="flex justify-center mb-3"><img src={mfaQr} alt="QR Code" style={{ width: 180, height: 180 }} /></div>}
+            <div className="text-[10px] text-slate-400 text-center mb-3 break-all">Manual key: {mfaSecret}</div>
+            <input type="text" inputMode="numeric" maxLength={6} placeholder="Enter 6-digit code" value={mfaCode} onChange={e => { setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setMfaErr(""); }} onKeyDown={e => e.key === "Enter" && confirmMfaSetup()} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center tracking-widest mb-2" />
+            {mfaErr && <div className="text-red-500 text-xs mb-2">{mfaErr}</div>}
+            <div className="flex gap-2">
+              <button className="flex-1 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg border-none cursor-pointer hover:bg-emerald-700" onClick={confirmMfaSetup} disabled={mfaBusy}>{mfaBusy ? "Verifying..." : "Verify & Enable"}</button>
+              <button className="py-2 px-4 text-sm text-slate-500 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer" onClick={() => setMfaStep(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {mfaStep === "disable" && (
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+            <div className="text-sm font-semibold text-red-700 dark:text-red-400 mb-3">Enter your password to disable 2FA</div>
+            <input type="password" placeholder="Current password" value={disablePw} onChange={e => { setDisablePw(e.target.value); setMfaErr(""); }} onKeyDown={e => e.key === "Enter" && disableMfa()} className="w-full px-3 py-2 text-sm border border-red-300 dark:border-red-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+            {mfaErr && <div className="text-red-500 text-xs mb-2">{mfaErr}</div>}
+            <div className="flex gap-2">
+              <button className="flex-1 py-2 text-sm font-medium bg-red-600 text-white rounded-lg border-none cursor-pointer hover:bg-red-700" onClick={disableMfa} disabled={mfaBusy}>{mfaBusy ? "Disabling..." : "Disable 2FA"}</button>
+              <button className="py-2 px-4 text-sm text-slate-500 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer" onClick={() => setMfaStep(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Session</div>
         <button className="!w-full !py-2.5 !text-sm !font-medium !text-red-600 dark:!text-red-400 !bg-transparent !border !border-red-200 dark:!border-red-900/50 !rounded-lg hover:!bg-red-50 dark:hover:!bg-red-900/20 !transition-colors !cursor-pointer" onClick={onSignOut}>Sign Out</button>
       </div>
@@ -5065,6 +5233,42 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [editingFilingData, setEditingFilingData] = useState({});
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingDocData, setEditingDocData] = useState({});
+  const [docFolders, setDocFolders] = useState([]);
+  const [transcriptFolders, setTranscriptFolders] = useState([]);
+  const [docSelectMode, setDocSelectMode] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState(new Set());
+  const [transcriptSelectMode, setTranscriptSelectMode] = useState(false);
+  const [selectedTranscriptIds, setSelectedTranscriptIds] = useState(new Set());
+  const [corrSelectMode, setCorrSelectMode] = useState(false);
+  const [selectedCorrIds, setSelectedCorrIds] = useState(new Set());
+  const [docUploadProgress, setDocUploadProgress] = useState(null);
+  const [filingUploadProgress, setFilingUploadProgress] = useState(null);
+  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null });
+  const isAttorneyPlus = isAttorney(currentUser) || hasRole(currentUser, "App Admin");
+
+  const openAppDocViewer = async (docId, filename, contentType) => {
+    try {
+      const blob = await apiDownloadDocument(docId);
+      const url = URL.createObjectURL(blob);
+      let extractedText = null;
+      try { const tRes = await apiGetDocumentText(docId); extractedText = tRes.text || tRes.extractedText || null; } catch {}
+      setAppDocViewer({ open: true, url, type: contentType || "application/pdf", name: filename, extractedText });
+    } catch (err) { alert("Failed to open document: " + err.message); }
+  };
+
+  const openAppFilingViewer = async (filingId, filename) => {
+    try {
+      const blob = await apiDownloadFiling(filingId);
+      const url = URL.createObjectURL(blob);
+      setAppDocViewer({ open: true, url, type: "application/pdf", name: filename, extractedText: null });
+    } catch (err) { alert("Failed to open filing: " + err.message); }
+  };
+
+  const closeAppDocViewer = () => {
+    if (appDocViewer.url) URL.revokeObjectURL(appDocViewer.url);
+    setAppDocViewer({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null });
+  };
+
   const [linkedCases, setLinkedCases] = useState([]);
   const [linkedCasesLoading, setLinkedCasesLoading] = useState(false);
   const [showLinkForm, setShowLinkForm] = useState(false);
@@ -5170,8 +5374,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
     setDocsLoading(true);
     apiGetCaseDocuments(c.id).then(setCaseDocuments).catch(() => {}).finally(() => setDocsLoading(false));
+    apiGetDocFolders(c.id).then(setDocFolders).catch(() => setDocFolders([]));
     setTranscriptsLoading(true);
     apiGetTranscripts(c.id).then(setTranscripts).catch(() => {}).finally(() => setTranscriptsLoading(false));
+    apiGetTranscriptFolders(c.id).then(setTranscriptFolders).catch(() => setTranscriptFolders([]));
+    setDocSelectMode(false); setSelectedDocIds(new Set());
+    setTranscriptSelectMode(false); setSelectedTranscriptIds(new Set());
+    setCorrSelectMode(false); setSelectedCorrIds(new Set());
     setFilingsLoading(true);
     apiGetFilings(c.id).then(setFilings).catch(() => {}).finally(() => setFilingsLoading(false));
     apiGetActivity(c.id).then(fresh => onRefreshActivity(c.id, fresh)).catch(() => {});
@@ -7215,21 +7424,30 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fileInput = e.target.querySelector('input[type="file"]');
-                if (!fileInput.files[0]) return;
-                const formData = new FormData();
-                formData.append("file", fileInput.files[0]);
-                formData.append("caseId", c.id);
-                formData.append("docType", docUploadType);
+                const file = fileInput.files[0];
+                if (!file) return;
                 try {
-                  const saved = await apiUploadCaseDocument(formData);
+                  let saved;
+                  if (file.size > 20 * 1024 * 1024) {
+                    setDocUploadProgress(0);
+                    saved = await apiUploadCaseDocumentChunked(file, c.id, docUploadType, (pct) => setDocUploadProgress(pct));
+                    setDocUploadProgress(null);
+                  } else {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("caseId", c.id);
+                    formData.append("docType", docUploadType);
+                    saved = await apiUploadCaseDocument(formData);
+                  }
                   setCaseDocuments(prev => [saved, ...prev]);
                   fileInput.value = "";
                   log("Document Uploaded", `${saved.filename} (${saved.docType})`);
-                } catch (err) { alert("Upload failed: " + err.message); }
+                } catch (err) { setDocUploadProgress(null); alert("Upload failed: " + err.message); }
               }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>File (PDF, DOCX, DOC, TXT)</label>
                   <input type="file" accept=".pdf,.docx,.doc,.txt" style={{ fontSize: 12, width: "100%" }} />
+                  {docUploadProgress !== null && <div style={{ marginTop: 4, fontSize: 11, color: "#6366f1" }}>Uploading: {docUploadProgress}%</div>}
                 </div>
                 <div style={{ minWidth: 160 }}>
                   <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Document Type</label>
@@ -7237,7 +7455,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
-                <button type="submit" className="btn btn-gold btn-sm">Upload</button>
+                <button type="submit" className="btn btn-gold btn-sm" disabled={docUploadProgress !== null}>{docUploadProgress !== null ? `${docUploadProgress}%` : "Upload"}</button>
               </form>
             </div>
 
@@ -7246,91 +7464,128 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>
                   Documents {caseDocuments.length > 0 && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginLeft: 6 }}>({docFilterType === "All" ? caseDocuments.length : caseDocuments.filter(d => d.docType === docFilterType).length}{docFilterType !== "All" ? ` of ${caseDocuments.length}` : ""})</span>}
                 </div>
-                {caseDocuments.length > 0 && (
-                  <select value={docFilterType} onChange={e => setDocFilterType(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}>
-                    <option value="All">All Types</option>
-                    {[...new Set(caseDocuments.map(d => d.docType))].sort().map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                )}
-              </div>
-              {docsLoading && <div style={{ fontSize: 12, color: "#64748b", padding: "12px 0" }}>Loading...</div>}
-              {!docsLoading && caseDocuments.length === 0 && <div className="empty" style={{ fontSize: 12 }}>No documents uploaded yet</div>}
-              {caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType).map(doc => {
-                const isDocEditing = editingDocId === doc.id;
-                return (
-                <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {isDocEditing ? (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                          <input value={editingDocData.filename || ""} onChange={e => setEditingDocData(d => ({ ...d, filename: e.target.value }))} style={{ fontSize: 13, fontWeight: 500, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6", flex: 1, minWidth: 120 }} />
-                          <select value={editingDocData.docType || "Other"} onChange={e => setEditingDocData(d => ({ ...d, docType: e.target.value }))} style={{ fontSize: 11, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
-                            {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
-                          </select>
-                          <button onClick={async () => {
-                            try {
-                              const updated = await apiUpdateCaseDocument(doc.id, editingDocData);
-                              setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, filename: updated.filename, docType: updated.docType } : d));
-                              log("Document edited", editingDocData.filename);
-                              setEditingDocId(null);
-                            } catch (err) { alert("Save failed: " + err.message); }
-                          }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
-                          <button onClick={() => setEditingDocId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.filename}</div>
-                          <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
-                            {doc.source === "client" && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600, marginRight: 6 }}>Client Upload</span>}
-                            <span style={{ cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.docType}</span> · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    {!isDocEditing && (
-                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                      <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors bg-transparent cursor-pointer" onClick={async () => {
-                        try {
-                          const blob = await apiDownloadDocument(doc.id);
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url);
-                        } catch (err) { alert("Download failed: " + err.message); }
-                      }}>Download</button>
-                      <button className="border border-yellow-300 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors bg-transparent cursor-pointer" disabled={docSummarizing === doc.id} onClick={async () => {
-                        setDocSummarizing(doc.id);
-                        try {
-                          const { summary } = await apiSummarizeDocument(doc.id);
-                          setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, summary } : d));
-                          setExpandedDocId(doc.id);
-                        } catch (err) { alert("Summarize failed: " + err.message); }
-                        setDocSummarizing(null);
-                      }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : <><Sparkles size={10} className="inline mr-0.5" /> Summarize</>)}</button>
-                      <button className="border border-red-300 dark:border-red-800/50 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors bg-transparent cursor-pointer" onClick={async () => {
-                        if (!window.confirm(`Delete ${doc.filename}?`)) return;
-                        try {
-                          await apiDeleteCaseDocument(doc.id);
-                          setCaseDocuments(prev => prev.filter(d => d.id !== doc.id));
-                          log("Document Deleted", doc.filename);
-                        } catch (err) { alert("Delete failed: " + err.message); }
-                      }}>Delete</button>
-                    </div>
-                    )}
-                  </div>
-                  {doc.summary && (
-                    <div style={{ marginTop: 8 }}>
-                      <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 text-sm font-medium bg-transparent border-none cursor-pointer p-0">
-                        {expandedDocId === doc.id ? "▾ Hide Summary" : "▸ View Summary"}
-                      </button>
-                      {expandedDocId === doc.id && (
-                        <AiPanel title="Document Summary" result={doc.summary}
-                          actions={<button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => navigator.clipboard.writeText(doc.summary)}>Copy</button>}
-                        />
-                      )}
-                    </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {caseDocuments.length > 0 && (
+                    <select value={docFilterType} onChange={e => setDocFilterType(e.target.value)} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}>
+                      <option value="All">All Types</option>
+                      {[...new Set(caseDocuments.map(d => d.docType))].sort().map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  )}
+                  <button onClick={async () => { const name = prompt("Folder name:"); if (name) { try { const f = await apiCreateDocFolder(c.id, name); setDocFolders(prev => [...prev, f]); } catch (err) { alert(err.message); } } }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}><FolderPlus size={12} /> Folder</button>
+                  {isAttorneyPlus && caseDocuments.length > 0 && (
+                    <button onClick={() => { setDocSelectMode(!docSelectMode); setSelectedDocIds(new Set()); }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: docSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: docSelectMode ? "#fef2f2" : "var(--c-bg)", color: docSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{docSelectMode ? "Cancel" : "Select"}</button>
                   )}
                 </div>
+              </div>
+              {docSelectMode && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
+                  <button onClick={() => { const filtered = caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType); setSelectedDocIds(new Set(filtered.map(d => d.id))); }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Select All</button>
+                  <button onClick={() => setSelectedDocIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
+                  {selectedDocIds.size > 0 && (
+                    <button onClick={async () => {
+                      if (!window.confirm(`Delete ${selectedDocIds.size} selected document(s)?`)) return;
+                      try {
+                        await apiBatchDeleteDocuments([...selectedDocIds]);
+                        setCaseDocuments(prev => prev.filter(d => !selectedDocIds.has(d.id)));
+                        log("Batch Deleted", `${selectedDocIds.size} documents`);
+                        setSelectedDocIds(new Set()); setDocSelectMode(false);
+                      } catch (err) { alert("Batch delete failed: " + err.message); }
+                    }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Delete Selected ({selectedDocIds.size})</button>
+                  )}
+                </div>
+              )}
+              {docsLoading && <div style={{ fontSize: 12, color: "#64748b", padding: "12px 0" }}>Loading...</div>}
+              {!docsLoading && caseDocuments.length === 0 && <div className="empty" style={{ fontSize: 12 }}>No documents uploaded yet</div>}
+              {(() => {
+                const renderDocRow = (doc) => {
+                  const isDocEditing = editingDocId === doc.id;
+                  return (
+                    <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0" }} draggable={!docSelectMode} onDragStart={e => e.dataTransfer.setData("docId", String(doc.id))}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        {docSelectMode && <input type="checkbox" checked={selectedDocIds.has(doc.id)} onChange={e => { const next = new Set(selectedDocIds); if (e.target.checked) next.add(doc.id); else next.delete(doc.id); setSelectedDocIds(next); }} style={{ width: 16, height: 16, flexShrink: 0 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {isDocEditing ? (
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                              <input value={editingDocData.filename || ""} onChange={e => setEditingDocData(d => ({ ...d, filename: e.target.value }))} style={{ fontSize: 13, fontWeight: 500, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6", flex: 1, minWidth: 120 }} />
+                              <select value={editingDocData.docType || "Other"} onChange={e => setEditingDocData(d => ({ ...d, docType: e.target.value }))} style={{ fontSize: 11, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
+                                {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
+                              </select>
+                              <button onClick={async () => { try { const updated = await apiUpdateCaseDocument(doc.id, editingDocData); setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, filename: updated.filename, docType: updated.docType } : d)); log("Document edited", editingDocData.filename); setEditingDocId(null); } catch (err) { alert("Save failed: " + err.message); } }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
+                              <button onClick={() => setEditingDocId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.filename}</div>
+                              <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
+                                {doc.source === "client" && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600, marginRight: 6 }}>Client Upload</span>}
+                                <span style={{ cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.docType}</span> · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        {!isDocEditing && !docSelectMode && (
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            <button className="border border-blue-300 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors bg-transparent cursor-pointer" onClick={() => openAppDocViewer(doc.id, doc.filename, doc.contentType)}>
+                              <Eye size={12} className="inline mr-1" />View
+                            </button>
+                            <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors bg-transparent cursor-pointer" onClick={async () => { try { const blob = await apiDownloadDocument(doc.id); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url); } catch (err) { alert("Download failed: " + err.message); } }}>Download</button>
+                            <button className="border border-yellow-300 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors bg-transparent cursor-pointer" disabled={docSummarizing === doc.id} onClick={async () => { setDocSummarizing(doc.id); try { const { summary } = await apiSummarizeDocument(doc.id); setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, summary } : d)); setExpandedDocId(doc.id); } catch (err) { alert("Summarize failed: " + err.message); } setDocSummarizing(null); }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : <><Sparkles size={10} className="inline mr-0.5" /> Summarize</>)}</button>
+                            <button className="border border-red-300 dark:border-red-800/50 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors bg-transparent cursor-pointer" onClick={async () => { if (!window.confirm(`Delete ${doc.filename}?`)) return; try { await apiDeleteCaseDocument(doc.id); setCaseDocuments(prev => prev.filter(d => d.id !== doc.id)); log("Document Deleted", doc.filename); } catch (err) { alert("Delete failed: " + err.message); } }}>Delete</button>
+                          </div>
+                        )}
+                      </div>
+                      {doc.summary && (
+                        <div style={{ marginTop: 8 }}>
+                          <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 text-sm font-medium bg-transparent border-none cursor-pointer p-0">
+                            {expandedDocId === doc.id ? "▾ Hide Summary" : "▸ View Summary"}
+                          </button>
+                          {expandedDocId === doc.id && (
+                            <AiPanel title="Document Summary" result={doc.summary}
+                              actions={<button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => navigator.clipboard.writeText(doc.summary)}>Copy</button>}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                };
+                return (<>
+              {docFolders.length > 0 && docFolders.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(folder => {
+                const folderDocs = caseDocuments.filter(d => d.folderId === folder.id && (docFilterType === "All" || d.docType === docFilterType));
+                return (
+                  <div key={`folder-${folder.id}`} style={{ marginBottom: 8, border: "1px solid var(--c-border2)", borderRadius: 6, overflow: "hidden" }}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
+                    onDragLeave={e => { e.currentTarget.style.background = ""; }}
+                    onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), folder.id); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: folder.id } : d)); } catch (err) { alert(err.message); } } }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }} onClick={() => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, collapsed: !f.collapsed } : f))}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <FolderOpen size={14} style={{ color: "#6366f1" }} />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>{folder.name}</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8" }}>({folderDocs.length})</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <button onClick={e => { e.stopPropagation(); const name = prompt("Rename folder:", folder.name); if (name && name !== folder.name) { apiUpdateDocFolder(folder.id, { name }).then(u => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, name: u.name } : f))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Pencil size={11} /></button>
+                        <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete folder "${folder.name}"? Documents will become unfiled.`)) { apiDeleteDocFolder(folder.id).then(() => { setDocFolders(prev => prev.filter(f => f.id !== folder.id)); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
+                        <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
+                      </div>
+                    </div>
+                    {!folder.collapsed && folderDocs.length === 0 && <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8" }}>Drop documents here</div>}
+                    {!folder.collapsed && folderDocs.length > 0 && <div style={{ padding: "0 4px 4px" }}>{folderDocs.map(doc => renderDocRow(doc))}</div>}
+                  </div>
                 );
               })}
+              {docFolders.length > 0 && caseDocuments.filter(d => !d.folderId && (docFilterType === "All" || d.docType === docFilterType)).length > 0 && (
+                <div style={{ marginTop: 8 }}
+                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
+                  onDragLeave={e => { e.currentTarget.style.background = ""; }}
+                  onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), null); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: null } : d)); } catch (err) { alert(err.message); } } }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", padding: "6px 0", borderBottom: "1px solid var(--c-border2)" }}>Unfiled</div>
+                  {caseDocuments.filter(d => !d.folderId && (docFilterType === "All" || d.docType === docFilterType)).map(doc => renderDocRow(doc))}
+                </div>
+              )}
+              {docFolders.length === 0 && caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType).map(doc => renderDocRow(doc))}
+                </>);
+              })()}
             </div>
             </>)}
 
@@ -7371,9 +7626,34 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
 
             <div className="case-overlay-section">
-              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>
-                Transcripts {transcripts.length > 0 && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginLeft: 6 }}>({transcripts.length})</span>}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>
+                  Transcripts {transcripts.length > 0 && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400, marginLeft: 6 }}>({transcripts.length})</span>}
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button onClick={async () => { const name = prompt("Folder name:"); if (name) { try { const f = await apiCreateTranscriptFolder(c.id, name); setTranscriptFolders(prev => [...prev, f]); } catch (err) { alert(err.message); } } }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}><FolderPlus size={12} /> Folder</button>
+                  {isAttorneyPlus && transcripts.length > 0 && (
+                    <button onClick={() => { setTranscriptSelectMode(!transcriptSelectMode); setSelectedTranscriptIds(new Set()); }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: transcriptSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: transcriptSelectMode ? "#fef2f2" : "var(--c-bg)", color: transcriptSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{transcriptSelectMode ? "Cancel" : "Select"}</button>
+                  )}
+                </div>
               </div>
+              {transcriptSelectMode && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
+                  <button onClick={() => setSelectedTranscriptIds(new Set(transcripts.map(t => t.id)))} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Select All</button>
+                  <button onClick={() => setSelectedTranscriptIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
+                  {selectedTranscriptIds.size > 0 && (
+                    <button onClick={async () => {
+                      if (!window.confirm(`Delete ${selectedTranscriptIds.size} selected transcript(s)?`)) return;
+                      try {
+                        await apiBatchDeleteTranscripts([...selectedTranscriptIds]);
+                        setTranscripts(prev => prev.filter(t => !selectedTranscriptIds.has(t.id)));
+                        log("Batch Deleted", `${selectedTranscriptIds.size} transcripts`);
+                        setSelectedTranscriptIds(new Set()); setTranscriptSelectMode(false);
+                      } catch (err) { alert("Batch delete failed: " + err.message); }
+                    }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Delete Selected ({selectedTranscriptIds.size})</button>
+                  )}
+                </div>
+              )}
               {transcriptsLoading ? <p style={{ fontSize: 12, color: "#94a3b8" }}>Loading...</p> :
                transcripts.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>No transcripts yet. Upload an audio file above.</p> :
                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -7381,6 +7661,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div key={t.id} style={{ border: "1px solid var(--c-border2)", borderRadius: 8, overflow: "hidden" }}>
                     <div
                       onClick={() => {
+                        if (transcriptSelectMode) { const next = new Set(selectedTranscriptIds); if (next.has(t.id)) next.delete(t.id); else next.add(t.id); setSelectedTranscriptIds(next); return; }
                         if (expandedTranscriptId === t.id) {
                           setExpandedTranscriptId(null);
                           setTranscriptDetail(null);
@@ -7401,6 +7682,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       style={{ padding: "12px 16px", cursor: t.status === "completed" ? "pointer" : "default", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: expandedTranscriptId === t.id ? "var(--c-bg2)" : "transparent" }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        {transcriptSelectMode && <input type="checkbox" checked={selectedTranscriptIds.has(t.id)} readOnly style={{ width: 16, height: 16, flexShrink: 0 }} />}
                         <FileAudio size={16} style={{ color: "#6366f1", flexShrink: 0 }} />
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.filename}</div>
@@ -7669,7 +7951,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
               {corrSubTab === "emails" && (
                 <>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                     <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>
                       Email: <span style={{ fontFamily: "monospace", color: "var(--c-text)", cursor: "pointer" }} onClick={() => {
                         navigator.clipboard.writeText(`case-${c.id}@mcpd.mattrmindr.com`);
@@ -7677,11 +7959,33 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         setTimeout(() => setCorrCopied(false), 2000);
                       }}>{corrCopied ? "Copied!" : `case-${c.id}@mcpd.mattrmindr.com`}</span>
                     </span>
-                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
-                      setCorrLoading(true);
-                      apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
-                    }}>Refresh</button>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {isAttorneyPlus && correspondence.length > 0 && (
+                        <button onClick={() => { setCorrSelectMode(!corrSelectMode); setSelectedCorrIds(new Set()); }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 5, border: corrSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: corrSelectMode ? "#fef2f2" : "var(--c-bg)", color: corrSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{corrSelectMode ? "Cancel" : "Select"}</button>
+                      )}
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                        setCorrLoading(true);
+                        apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
+                      }}>Refresh</button>
+                    </div>
                   </div>
+                  {corrSelectMode && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
+                      <button onClick={() => setSelectedCorrIds(new Set(correspondence.map(e => e.id)))} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Select All</button>
+                      <button onClick={() => setSelectedCorrIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
+                      {selectedCorrIds.size > 0 && (
+                        <button onClick={async () => {
+                          if (!window.confirm(`Delete ${selectedCorrIds.size} selected email(s)?`)) return;
+                          try {
+                            await apiBatchDeleteCorrespondence([...selectedCorrIds]);
+                            setCorrespondence(prev => prev.filter(e => !selectedCorrIds.has(e.id)));
+                            log("Batch Deleted", `${selectedCorrIds.size} emails`);
+                            setSelectedCorrIds(new Set()); setCorrSelectMode(false);
+                          } catch (err) { alert("Batch delete failed: " + err.message); }
+                        }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Delete Selected ({selectedCorrIds.size})</button>
+                      )}
+                    </div>
+                  )}
                   {corrLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading correspondence...</div>}
                   {!corrLoading && correspondence.length === 0 && (
                     <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
@@ -7693,7 +7997,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     const dateStr = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : "";
                     return (
                       <div key={email.id} style={{ borderBottom: "1px solid var(--c-border2)", padding: "10px 0" }}>
-                        <div style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }} onClick={() => setExpandedEmail(isExpanded ? null : email.id)}>
+                        <div style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }} onClick={() => { if (corrSelectMode) { const next = new Set(selectedCorrIds); if (next.has(email.id)) next.delete(email.id); else next.add(email.id); setSelectedCorrIds(next); return; } setExpandedEmail(isExpanded ? null : email.id); }}>
+                          {corrSelectMode && <input type="checkbox" checked={selectedCorrIds.has(email.id)} readOnly style={{ width: 16, height: 16, flexShrink: 0, marginTop: 8 }} />}
                           <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#f59e0b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
                             {(email.fromName || email.fromEmail || "?")[0].toUpperCase()}
                           </div>
@@ -8504,16 +8809,24 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
               <div style={{ flex: 1, minWidth: 160 }}>
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Upload Filing (PDF only)</label>
-                <input type="file" accept=".pdf,application/pdf" id="filing-upload-input" style={{ fontSize: 12, width: "100%" }} onChange={async (e) => {
+                {filingUploadProgress !== null && <div style={{ fontSize: 11, color: "#6366f1", marginBottom: 4 }}>Uploading: {filingUploadProgress}%</div>}
+                <input type="file" accept=".pdf,application/pdf" id="filing-upload-input" style={{ fontSize: 12, width: "100%" }} disabled={filingUploadProgress !== null} onChange={async (e) => {
                   const file = e.target.files[0]; if (!file) return;
-                  const formData = new FormData();
-                  formData.append("file", file);
-                  formData.append("caseId", c.id);
-                  if (filingUploadFiledBy) formData.append("filedBy", filingUploadFiledBy);
-                  if (filingUploadDate) formData.append("filingDate", filingUploadDate);
-                  if (filingUploadDocType) formData.append("docType", filingUploadDocType);
                   try {
-                    const saved = await apiUploadFiling(formData);
+                    let saved;
+                    if (file.size > 20 * 1024 * 1024) {
+                      setFilingUploadProgress(0);
+                      saved = await apiUploadFilingChunked(file, c.id, filingUploadFiledBy, filingUploadDate, filingUploadDocType, (pct) => setFilingUploadProgress(pct));
+                      setFilingUploadProgress(null);
+                    } else {
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      formData.append("caseId", c.id);
+                      if (filingUploadFiledBy) formData.append("filedBy", filingUploadFiledBy);
+                      if (filingUploadDate) formData.append("filingDate", filingUploadDate);
+                      if (filingUploadDocType) formData.append("docType", filingUploadDocType);
+                      saved = await apiUploadFiling(formData);
+                    }
                     setFilings(prev => [saved, ...prev]);
                     log("Filing uploaded", `${file.name}`);
                     e.target.value = "";
@@ -8524,7 +8837,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       log("Filing auto-classified", `${classification.suggestedName || file.name} → ${classification.filedBy || "Unknown"}`);
                     } catch (classErr) { console.error("Auto-classify error:", classErr); }
                     setFilingClassifying(null);
-                  } catch (err) { alert("Upload failed: " + err.message); setFilingClassifying(null); }
+                  } catch (err) { setFilingUploadProgress(null); alert("Upload failed: " + err.message); setFilingClassifying(null); }
                 }} />
               </div>
               <div>
@@ -8615,7 +8928,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <span style={{ fontSize: 10, color: "#64748b" }}>{f.uploadedByName ? `by ${f.uploadedByName}` : ""}{f.sourceEmailFrom ? `from ${f.sourceEmailFrom}` : ""}</span>
                         <span style={{ fontSize: 10, color: "#64748b" }}>{new Date(f.createdAt).toLocaleDateString()}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                          <button onClick={async () => { try { const res = await fetch(`/api/filings/${f.id}/download?inline=true`, { credentials: "include" }); if (!res.ok) throw new Error("View failed"); const blob = await res.blob(); const pdfBlob = new Blob([blob], { type: "application/pdf" }); const url = URL.createObjectURL(pdfBlob); window.open(url, "_blank"); } catch (err) { alert("View failed: " + err.message); } }} className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 bg-transparent border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">View</button>
+                          <button onClick={() => openAppFilingViewer(f.id, f.filename)} className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 bg-transparent border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">View</button>
                           <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingClassifying === f.id ? "Classifying..." : <><Sparkles size={9} className="inline mr-0.5" /> Classify</>}</button>
                           <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? <><Sparkles size={9} className="inline mr-0.5" /> Re-summarize</> : <><Sparkles size={9} className="inline mr-0.5" /> Summarize</>)}</button>
                           {canRemove && <button onClick={async () => { if (!window.confirm("Delete this filing?")) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-transparent border border-red-200 dark:border-red-900/50 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">Delete</button>}
@@ -9103,6 +9416,43 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         })()}
 
       </div>
+
+      {appDocViewer.open && (
+        <div onClick={closeAppDocViewer} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 10001, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--c-bg)", borderRadius: 10, width: "92vw", maxWidth: 1100, height: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 18px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{appDocViewer.name}</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <a href={appDocViewer.url} download={appDocViewer.name} style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, background: "#f59e0b", color: "#fff", borderRadius: 4, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Download</a>
+                <button onClick={closeAppDocViewer} style={{ background: "transparent", border: "none", fontSize: 20, color: "#64748b", cursor: "pointer", padding: "2px 6px", lineHeight: 1 }}>✕</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+              <div style={{ flex: appDocViewer.extractedText ? "0 0 60%" : "1 1 100%", overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#1F2428" }}>
+                {appDocViewer.type?.startsWith("image/") ? (
+                  <img src={appDocViewer.url} alt={appDocViewer.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                ) : appDocViewer.type === "application/pdf" ? (
+                  <iframe src={appDocViewer.url} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none" }} />
+                ) : appDocViewer.type?.startsWith("text/") ? (
+                  <iframe src={appDocViewer.url} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none", background: "#fff" }} />
+                ) : (
+                  <div style={{ color: "#64748b", fontSize: 14, textAlign: "center", padding: 40 }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
+                    <div>Preview not available for this file type.</div>
+                    <div style={{ marginTop: 8 }}><a href={appDocViewer.url} download={appDocViewer.name} style={{ color: "#6366f1", textDecoration: "underline", fontSize: 14 }}>Download to view</a></div>
+                  </div>
+                )}
+              </div>
+              {appDocViewer.extractedText && (
+                <div style={{ flex: "0 0 40%", borderLeft: "1px solid var(--c-border)", overflow: "auto", padding: 16, background: "var(--c-bg)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Extracted Text</div>
+                  <pre style={{ fontSize: 12, color: "var(--c-text)", whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.6, margin: 0 }}>{appDocViewer.extractedText}</pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

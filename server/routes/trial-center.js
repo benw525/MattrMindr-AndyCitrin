@@ -487,6 +487,53 @@ router.post("/witness-prep/export", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/jury-analysis/:caseId", requireAuth, async (req, res) => {
+  try {
+    const caseRow = await verifyCaseAccess(req.params.caseId, req);
+    if (!caseRow) return res.status(404).json({ error: "Case not found or access denied" });
+    const { rows } = await pool.query("SELECT * FROM jury_analyses WHERE case_id = $1", [req.params.caseId]);
+    if (!rows.length) return res.json(null);
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Get jury analysis error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.patch("/jury-analysis/:caseId/juror-strike", requireAuth, async (req, res) => {
+  try {
+    const caseRow = await verifyCaseAccess(req.params.caseId, req);
+    if (!caseRow) return res.status(404).json({ error: "Case not found or access denied" });
+    const { jurorNumber, struck, struckBy } = req.body;
+    if (jurorNumber === undefined) return res.status(400).json({ error: "jurorNumber is required" });
+    const { rows } = await pool.query("SELECT jurors FROM jury_analyses WHERE case_id = $1", [req.params.caseId]);
+    if (!rows.length) return res.status(404).json({ error: "No jury analysis found" });
+    const jurors = rows[0].jurors || [];
+    const juror = jurors.find(j => j.number === jurorNumber || j.jurorNumber === jurorNumber);
+    if (!juror) return res.status(404).json({ error: "Juror not found" });
+    juror.struck = !!struck;
+    juror.struckBy = struck ? (struckBy || "") : null;
+    await pool.query("UPDATE jury_analyses SET jurors = $1 WHERE case_id = $2", [JSON.stringify(jurors), req.params.caseId]);
+    return res.json({ ok: true, jurors });
+  } catch (err) {
+    console.error("Update juror strike error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/jury-analysis/:caseId", requireAuth, async (req, res) => {
+  try {
+    const caseRow = await verifyCaseAccess(req.params.caseId, req);
+    if (!caseRow) return res.status(404).json({ error: "Case not found or access denied" });
+    const { rowCount } = await pool.query("DELETE FROM jury_analyses WHERE case_id = $1", [req.params.caseId]);
+    if (rowCount === 0) return res.status(404).json({ error: "No jury analysis found" });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete jury analysis error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 function escapeXml(str) {
   return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
