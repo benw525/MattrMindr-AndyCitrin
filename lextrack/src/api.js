@@ -542,6 +542,9 @@ export const apiDeleteTranscriptFolder   = (folderId)       => apiFetch(`/api/tr
 export const apiMoveTranscript           = (tId, folderId)  => apiFetch(`/api/transcripts/${tId}/move`, { method: "PUT", body: { folderId } });
 export const apiReorderTranscriptFolders = (caseId, order)  => apiFetch(`/api/transcripts/case/${caseId}/reorder-folders`, { method: "PUT", body: { order } });
 
+// Unread Client Communication
+export const apiGetUnreadClientComm       = ()    => apiFetch("/api/portal-admin/unread-summary");
+
 // Batch Delete
 export const apiBatchDeleteDocuments      = (ids) => apiFetch("/api/case-documents/batch-delete",  { method: "POST", body: { ids } });
 export const apiBatchDeleteTranscripts    = (ids) => apiFetch("/api/transcripts/batch-delete",     { method: "POST", body: { ids } });

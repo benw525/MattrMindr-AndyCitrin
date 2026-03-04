@@ -173,10 +173,13 @@ Be concise but thorough. Flag anything that could help the plaintiff's case.`;
 
 router.get("/:id/download", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id FROM case_documents WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id, source FROM case_documents WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     const doc = rows[0];
     if (!(await verifyCaseAccess(req, doc.case_id))) return res.status(403).json({ error: "Access denied" });
+    if (doc.source === "client") {
+      pool.query("UPDATE case_documents SET firm_viewed_at = NOW() WHERE id = $1 AND firm_viewed_at IS NULL", [req.params.id]).catch(() => {});
+    }
     res.setHeader("Content-Type", doc.content_type);
     res.setHeader("Content-Disposition", `attachment; filename="${doc.filename}"`);
     return res.send(doc.file_data);

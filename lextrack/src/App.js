@@ -53,6 +53,7 @@ import {
   apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence,
   apiUploadCaseDocumentChunked, apiUploadFilingChunked,
   apiGetDocumentText, apiDownloadFiling,
+  apiGetUnreadClientComm,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 import TrialCenterView from "./TrialCenterView.js";
@@ -973,6 +974,7 @@ function FirmApp() {
   const [caseLinks,    setCaseLinks]    = useState({});
   const [caseActivity, setCaseActivity] = useState({});
   const [allCorrespondence, setAllCorrespondence] = useState([]);
+  const [unreadClientComm, setUnreadClientComm] = useState([]);
   const [deletedCases, setDeletedCases] = useState(null);
   const [allUsers,     setAllUsers]     = useState(USERS);
   const [pinnedCaseIds, setPinnedCaseIds] = useState([]);
@@ -1192,6 +1194,25 @@ function FirmApp() {
         const pinned = allCases.filter(c => pinnedCaseIds.includes(c.id));
         lines.push(`Pinned cases: ${pinned.map(c => `${c.case_num || ""} ${c.client_name || c.title}`).join("; ")}`);
       }
+      if (unreadClientComm.length > 0) {
+        lines.push(`\nUnread client communication: ${unreadClientComm.length} case(s) with unread items`);
+        unreadClientComm.forEach(item => {
+          const parts = [];
+          if (item.messageCount > 0) parts.push(`${item.messageCount} unread message(s)`);
+          if (item.documentCount > 0) parts.push(`${item.documentCount} unviewed document upload(s)`);
+          lines.push(`  Case "${item.caseTitle}" (${item.clientName}): ${parts.join(", ")}`);
+          if (item.messages && item.messages.length > 0) {
+            item.messages.slice(0, 3).forEach(m => {
+              lines.push(`    Message from ${m.senderName} (${new Date(m.createdAt).toLocaleString()}): "${(m.body || "").substring(0, 100)}"`);
+            });
+          }
+          if (item.documents && item.documents.length > 0) {
+            item.documents.slice(0, 3).forEach(d => {
+              lines.push(`    Document uploaded: "${d.filename}" (${new Date(d.createdAt).toLocaleString()})`);
+            });
+          }
+        });
+      }
     } else if (v === "cases") {
       lines.push(`Screen: Cases`);
       lines.push(`Total cases: ${allCases.length}`);
@@ -1361,7 +1382,7 @@ function FirmApp() {
     }
 
     return lines.join("\n").substring(0, 4000);
-  }, [view, allCases, tasks, allDeadlines, allUsers, currentUser, pinnedCaseIds, selectedCase, allCorrespondence, caseNotes, contextContactsCache, contextTemplatesCache, contextTimeManualCache, advocateFromHelpCenter]);
+  }, [view, allCases, tasks, allDeadlines, allUsers, currentUser, pinnedCaseIds, selectedCase, allCorrespondence, caseNotes, contextContactsCache, contextTemplatesCache, contextTimeManualCache, advocateFromHelpCenter, unreadClientComm]);
 
   const openAdvocateFromCase = useCallback((caseId) => {
     if (advocateCaseId !== caseId) {
@@ -1515,6 +1536,7 @@ function FirmApp() {
       apiGetAllCorrespondence(),
       apiGetPinnedCases(),
     ];
+    apiGetUnreadClientComm().then(d => setUnreadClientComm(d || [])).catch(() => {});
     if (isAdmin) fetches.push(apiGetDeletedUsers());
     Promise.all(fetches)
       .then(([cases, fetchedTasks, deadlines, users, corr, pinned, deletedUsersResult]) => {
@@ -3361,6 +3383,7 @@ const DASHBOARD_WIDGETS = [
   { id: "ai-triage", label: "AI Case Triage", size: "full", icon: "sparkles" },
   { id: "quick-notes", label: "Quick Notes", size: "half", icon: "📝" },
   { id: "pinned-contacts", label: "Pinned Contacts", size: "half", icon: "👤" },
+  { id: "client-comm", label: "Unread Client Communication", size: "half", icon: "💬" },
 ];
 const DEFAULT_LAYOUT = ["stat-active", "stat-deadlines", "stat-tasks", "stat-trials", "deadlines", "trials", "tasks"];
 const getDashboardLayout = (prefs) => { try { return prefs?.dashboardLayout || DEFAULT_LAYOUT; } catch { return DEFAULT_LAYOUT; } };
@@ -3448,6 +3471,44 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
           <button onClick={reset} className="btn" style={{ fontSize: 12 }}>Reset to Default</button>
           <button onClick={onClose} className="btn btn-gold" style={{ fontSize: 12 }}>Done</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function UnreadClientCommWidget({ allCases, onSelectCase }) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    apiGetUnreadClientComm().then(d => setData(d || [])).catch(() => setData([])).finally(() => setLoading(false));
+  }, []);
+  return (
+    <div className="card">
+      <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontWeight: 600, fontSize: 14, color: "var(--c-text-h)" }}>Unread Client Communication</span>
+        <button onClick={() => { setLoading(true); apiGetUnreadClientComm().then(d => setData(d || [])).catch(() => setData([])).finally(() => setLoading(false)); }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer" }}>Refresh</button>
+      </div>
+      <div style={{ padding: "0 16px 16px" }}>
+        {loading && <div style={{ fontSize: 12, color: "#64748b", padding: "12px 0" }}>Loading...</div>}
+        {!loading && data.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", padding: "12px 0", textAlign: "center" }}>No unread client communication</div>}
+        {!loading && data.map(item => {
+          const c = allCases.find(cs => cs.id === item.caseId);
+          return (
+            <div key={item.caseId} onClick={() => c && onSelectCase(c, "correspondence")} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--c-border2)", cursor: c ? "pointer" : "default" }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                {(item.clientName || "?")[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.clientName || item.caseTitle}</div>
+                <div style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.caseTitle}</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                {item.messageCount > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, padding: "2px 6px", borderRadius: 10, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600 }}>💬 {item.messageCount}</span>}
+                {item.documentCount > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, padding: "2px 6px", borderRadius: 10, background: "#fef3c7", color: "#92400e", fontWeight: 600 }}>📄 {item.documentCount}</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -4271,6 +4332,8 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
         );
       case "quick-notes":
         return <QuickNotesWidget key={widgetId} currentUser={currentUser} allCases={allCases} onSelectCase={onSelectCase} pinnedCaseIds={pinnedCaseIds} />;
+      case "client-comm":
+        return <UnreadClientCommWidget key={widgetId} allCases={allCases} onSelectCase={onSelectCase} />;
       default:
         return null;
     }

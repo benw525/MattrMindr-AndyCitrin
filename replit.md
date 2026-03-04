@@ -203,6 +203,13 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - API helpers: `apiUploadCaseDocumentChunked(file, caseId, docType, onProgress)`, `apiUploadFilingChunked(file, caseId, filedBy, filingDate, docType, onProgress)`
 - Files ≤20MB continue using standard single-request upload
 
+### Unread Client Communication Widget
+- Dashboard widget showing unread messages and document uploads from the client portal
+- Backend endpoint: `GET /api/portal-admin/unread-summary` — groups unread client messages (`read_at IS NULL`) and unviewed client documents (`firm_viewed_at IS NULL`) by case
+- Widget shows case name with client name, clickable to open case's correspondence tab, with message/document counters
+- DB column: `case_documents.firm_viewed_at TIMESTAMPTZ` for tracking when firm views client-uploaded docs
+- Advocate AI has full context of unread client communication when on the dashboard (message previews, document names, per-case counts)
+
 ### Default Tasks (auto-created for new cases)
 Initial Client Interview → Send Preservation Letters → Obtain Police Report → Identify Insurance Policies → Check for Conflicts → Order Medical Records
 

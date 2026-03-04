@@ -831,6 +831,7 @@ async function createSchema() {
     `);
 
     await client.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'firm'`);
+    await client.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS firm_viewed_at TIMESTAMPTZ`);
 
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_secret TEXT`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE`);

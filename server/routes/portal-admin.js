@@ -192,4 +192,43 @@ router.put("/:caseId/messages/:msgId/read", async (req, res) => {
   }
 });
 
+router.get("/unread-summary", async (req, res) => {
+  try {
+    const msgRows = await pool.query(
+      `SELECT cm.id, cm.case_id, cm.sender_name, cm.body, cm.created_at,
+              c.title AS case_title, c.client_name
+       FROM client_messages cm
+       JOIN cases c ON c.id = cm.case_id
+       WHERE cm.sender_type = 'client' AND cm.read_at IS NULL
+       ORDER BY cm.created_at DESC`
+    );
+    const docRows = await pool.query(
+      `SELECT cd.id, cd.case_id, cd.filename, cd.created_at,
+              c.title AS case_title, c.client_name
+       FROM case_documents cd
+       JOIN cases c ON c.id = cd.case_id
+       WHERE cd.source = 'client' AND cd.firm_viewed_at IS NULL
+       ORDER BY cd.created_at DESC`
+    );
+    const grouped = {};
+    for (const m of msgRows.rows) {
+      if (!grouped[m.case_id]) grouped[m.case_id] = { caseId: m.case_id, caseTitle: m.case_title, clientName: m.client_name, messages: [], documents: [] };
+      grouped[m.case_id].messages.push({ id: m.id, body: m.body, senderName: m.sender_name, createdAt: m.created_at });
+    }
+    for (const d of docRows.rows) {
+      if (!grouped[d.case_id]) grouped[d.case_id] = { caseId: d.case_id, caseTitle: d.case_title, clientName: d.client_name, messages: [], documents: [] };
+      grouped[d.case_id].documents.push({ id: d.id, filename: d.filename, createdAt: d.created_at });
+    }
+    const result = Object.values(grouped).map(g => ({
+      ...g,
+      messageCount: g.messages.length,
+      documentCount: g.documents.length,
+    }));
+    res.json(result);
+  } catch (err) {
+    console.error("Unread summary error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

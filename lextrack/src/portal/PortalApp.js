@@ -272,7 +272,7 @@ function DashboardPage() {
               </div>
             ))}
             <div style={{ marginTop: 16, padding: "14px 16px", background: "#fef3c7", borderRadius: 8, fontSize: 13, color: "#92400e", lineHeight: 1.5 }}>
-              <strong>Important:</strong> Do not post about your case on social media. Do not give recorded statements to insurance companies without consulting your attorney. Keep all medical appointments and follow your doctor's instructions.
+              <strong>Important:</strong> Do not post about your case on social media. Do not give recorded statements to insurance companies without consulting your attorney. Keep all medical appointments and follow your doctor's instructions. If your contact information changes or you have any concerns, contact us immediately.
             </div>
           </div>
         )}
