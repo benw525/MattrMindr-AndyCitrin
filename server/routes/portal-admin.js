@@ -194,21 +194,32 @@ router.put("/:caseId/messages/:msgId/read", async (req, res) => {
 
 router.get("/unread-summary", async (req, res) => {
   try {
+    const userId = req.session.userId;
+    const userRoles = req.session.userRoles || [req.session.userRole];
+    const isAdmin = userRoles.includes("App Admin");
+
+    const staffFilter = isAdmin
+      ? ""
+      : " AND (c.lead_attorney = $1 OR c.second_attorney = $1 OR c.case_manager = $1 OR c.investigator = $1 OR c.paralegal = $1 OR c.custom_team::jsonb @> $2::jsonb)";
+    const params = isAdmin ? [] : [userId, JSON.stringify([{ userId }])];
+
     const msgRows = await pool.query(
       `SELECT cm.id, cm.case_id, cm.sender_name, cm.body, cm.created_at,
               c.title AS case_title, c.client_name
        FROM client_messages cm
        JOIN cases c ON c.id = cm.case_id
-       WHERE cm.sender_type = 'client' AND cm.read_at IS NULL
-       ORDER BY cm.created_at DESC`
+       WHERE cm.sender_type = 'client' AND cm.read_at IS NULL${staffFilter}
+       ORDER BY cm.created_at DESC`,
+      params
     );
     const docRows = await pool.query(
       `SELECT cd.id, cd.case_id, cd.filename, cd.created_at,
               c.title AS case_title, c.client_name
        FROM case_documents cd
        JOIN cases c ON c.id = cd.case_id
-       WHERE cd.source = 'client' AND cd.firm_viewed_at IS NULL
-       ORDER BY cd.created_at DESC`
+       WHERE cd.source = 'client' AND cd.firm_viewed_at IS NULL${staffFilter}
+       ORDER BY cd.created_at DESC`,
+      params
     );
     const grouped = {};
     for (const m of msgRows.rows) {

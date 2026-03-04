@@ -205,7 +205,7 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 
 ### Unread Client Communication Widget
 - Dashboard widget showing unread messages and document uploads from the client portal
-- Backend endpoint: `GET /api/portal-admin/unread-summary` — groups unread client messages (`read_at IS NULL`) and unviewed client documents (`firm_viewed_at IS NULL`) by case
+- Backend endpoint: `GET /api/portal-admin/unread-summary` — groups unread client messages (`read_at IS NULL`) and unviewed client documents (`firm_viewed_at IS NULL`) by case, filtered to only cases assigned to the logged-in staff member (lead_attorney, second_attorney, case_manager, investigator, paralegal, or custom_team); App Admins see all cases
 - Widget shows case name with client name, clickable to open case's correspondence tab, with message/document counters
 - DB column: `case_documents.firm_viewed_at TIMESTAMPTZ` for tracking when firm views client-uploaded docs
 - Advocate AI has full context of unread client communication when on the dashboard (message previews, document names, per-case counts)
