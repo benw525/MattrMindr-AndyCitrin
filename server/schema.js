@@ -148,6 +148,22 @@ async function createSchema() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS case_expenses (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        category        TEXT    NOT NULL DEFAULT 'Other',
+        description     TEXT    NOT NULL DEFAULT '',
+        amount          NUMERIC(12,2),
+        date            DATE,
+        vendor          TEXT    NOT NULL DEFAULT '',
+        status          TEXT    NOT NULL DEFAULT 'Pending',
+        notes           TEXT    NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        deleted_at      TIMESTAMPTZ
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS case_negotiations (
         id              SERIAL PRIMARY KEY,
         case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
@@ -864,6 +880,7 @@ async function createSchema() {
     await client.query(`ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
     await client.query(`ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES transcript_folders(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS jury_analyses (
@@ -888,6 +905,55 @@ async function createSchema() {
     for (const tbl of softDeleteTables) {
       await client.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
     }
+
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS in_litigation BOOLEAN NOT NULL DEFAULT FALSE`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS demand_response_due DATE`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_dob DATE`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_ssn TEXT NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_address TEXT NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_phones JSONB NOT NULL DEFAULT '[]'`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_emergency_contact TEXT NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_email TEXT NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_bankruptcy BOOLEAN NOT NULL DEFAULT FALSE`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS medical_records (
+        id              SERIAL PRIMARY KEY,
+        treatment_id    INTEGER NOT NULL REFERENCES case_medical_treatments(id) ON DELETE CASCADE,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        provider_name   TEXT    NOT NULL DEFAULT '',
+        date_of_service DATE,
+        description     TEXT    NOT NULL DEFAULT '',
+        source_pages    TEXT    NOT NULL DEFAULT '',
+        summary         TEXT    NOT NULL DEFAULT '',
+        file_data       BYTEA,
+        file_size       INTEGER NOT NULL DEFAULT 0,
+        filename        TEXT    NOT NULL DEFAULT '',
+        mime_type       TEXT    NOT NULL DEFAULT '',
+        uploaded_by     INTEGER REFERENCES users(id),
+        uploaded_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        deleted_at      TIMESTAMPTZ
+      );
+    `);
+
+    await client.query(`UPDATE cases SET stage = 'Suit Filed' WHERE stage = 'Litigation Filed'`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS case_voicemails (
+        id              SERIAL PRIMARY KEY,
+        case_id         INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+        caller_name     TEXT    NOT NULL DEFAULT '',
+        caller_number   TEXT    NOT NULL DEFAULT '',
+        duration        INTEGER,
+        transcript_text TEXT    NOT NULL DEFAULT '',
+        audio_data      BYTEA,
+        audio_mime      TEXT    NOT NULL DEFAULT '',
+        notes           TEXT    NOT NULL DEFAULT '',
+        received_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        deleted_at      TIMESTAMPTZ
+      );
+    `);
 
     await client.query("COMMIT");
     console.log("Schema created successfully.");

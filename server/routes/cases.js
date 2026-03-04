@@ -1,8 +1,11 @@
 const express = require("express");
+const multer = require("multer");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { extractText } = require("../utils/extract-text");
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS pinned_cases JSONB NOT NULL DEFAULT '[]'`).catch(() => {});
 
@@ -54,6 +57,15 @@ const toFrontend = (row) => ({
   _customDates: Array.isArray(row.custom_dates) ? row.custom_dates : [],
   _hiddenFields: Array.isArray(row.hidden_fields) ? row.hidden_fields : [],
   confidential: !!row.confidential,
+  inLitigation: !!row.in_litigation,
+  demandResponseDue: row.demand_response_due ? row.demand_response_due.toISOString().split("T")[0] : "",
+  clientDob: row.client_dob ? row.client_dob.toISOString().split("T")[0] : "",
+  clientSsn: row.client_ssn || "",
+  clientAddress: row.client_address || "",
+  clientPhones: Array.isArray(row.client_phones) ? row.client_phones : [],
+  clientEmergencyContact: row.client_emergency_contact || "",
+  clientEmail: row.client_email || "",
+  clientBankruptcy: !!row.client_bankruptcy,
   _customTeam: Array.isArray(row.custom_team) ? row.custom_team : [],
   deletedAt: row.deleted_at ? row.deleted_at.toISOString() : null,
 });
@@ -177,8 +189,10 @@ router.post("/", requireAuth, async (req, res) => {
          lead_attorney, second_attorney, case_manager, investigator, paralegal,
          next_court_date, trial_date, mediation_date, disposition_date,
          judge, referring_attorney, referral_source,
-         custom_fields, custom_dates, hidden_fields, offices, confidential, custom_team)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47)
+         custom_fields, custom_dates, hidden_fields, offices, confidential, custom_team,
+         in_litigation, demand_response_due,
+         client_dob, client_ssn, client_address, client_phones, client_emergency_contact, client_email, client_bankruptcy)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56)
        RETURNING *`,
       [
         d.caseNum || "", d.title, d.clientName || "", d.county || "", d.court || "",
@@ -196,9 +210,28 @@ router.post("/", requireAuth, async (req, res) => {
         JSON.stringify(d._customFields || []), JSON.stringify(d._customDates || []),
         JSON.stringify(d._hiddenFields || []), d.offices || [],
         !!d.confidential, JSON.stringify(d._customTeam || []),
+        !!d.inLitigation, orNull(d.demandResponseDue),
+        orNull(d.clientDob), d.clientSsn || "", d.clientAddress || "",
+        JSON.stringify(d.clientPhones || []), d.clientEmergencyContact || "", d.clientEmail || "",
+        !!d.clientBankruptcy,
       ]
     );
-    return res.status(201).json(toFrontend(rows[0]));
+    const newCase = rows[0];
+    const thirtyDaysOut = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const callTasks = [
+      { case_id: newCase.id, title: "Call Client - Attorney Check-in", assigned: newCase.lead_attorney || null, assigned_role: "Attorney", due: thirtyDaysOut, priority: "Medium", status: "Not Started", recurring: true, recurring_days: 30, is_generated: true, notes: "Recurring 30-day attorney check-in call with client" },
+      { case_id: newCase.id, title: "Call Client - Case Manager Check-in", assigned: newCase.case_manager || null, assigned_role: "Case Manager", due: thirtyDaysOut, priority: "Medium", status: "Not Started", recurring: true, recurring_days: 30, is_generated: true, notes: "Recurring 30-day case manager check-in call with client" },
+    ];
+    for (const t of callTasks) {
+      try {
+        await pool.query(
+          `INSERT INTO tasks (case_id, title, assigned, assigned_role, due, priority, status, recurring, recurring_days, is_generated, notes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [t.case_id, t.title, t.assigned, t.assigned_role, t.due, t.priority, t.status, t.recurring, t.recurring_days, t.is_generated, t.notes]
+        );
+      } catch (e) { console.error("Auto-task creation error:", e.message); }
+    }
+    return res.status(201).json(toFrontend(newCase));
   } catch (err) {
     console.error("Case create error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -225,8 +258,11 @@ router.put("/:id", requireAuth, async (req, res) => {
         lead_attorney=$30, second_attorney=$31, case_manager=$32, investigator=$33, paralegal=$34,
         next_court_date=$35, trial_date=$36, mediation_date=$37, disposition_date=$38,
         judge=$39, referring_attorney=$40, referral_source=$41,
-        custom_fields=$42, custom_dates=$43, hidden_fields=$44, offices=$45, confidential=$46, custom_team=$47
-       WHERE id=$48 AND deleted_at IS NULL RETURNING *`,
+        custom_fields=$42, custom_dates=$43, hidden_fields=$44, offices=$45, confidential=$46, custom_team=$47,
+        in_litigation=$48, demand_response_due=$49,
+        client_dob=$50, client_ssn=$51, client_address=$52, client_phones=$53,
+        client_emergency_contact=$54, client_email=$55, client_bankruptcy=$56
+       WHERE id=$57 AND deleted_at IS NULL RETURNING *`,
       [
         d.caseNum || "", d.title, d.clientName || "", d.county || "", d.court || "",
         d.caseType || "Auto Accident", d.type || "Auto Accident", d.status || "Active", d.stage || "Intake", d.stateJurisdiction || "",
@@ -243,10 +279,33 @@ router.put("/:id", requireAuth, async (req, res) => {
         JSON.stringify(d._customFields || []), JSON.stringify(d._customDates || []),
         JSON.stringify(d._hiddenFields || []), d.offices || [],
         !!d.confidential, JSON.stringify(d._customTeam || []),
+        !!d.inLitigation, orNull(d.demandResponseDue),
+        orNull(d.clientDob), d.clientSsn || "", d.clientAddress || "",
+        JSON.stringify(d.clientPhones || []), d.clientEmergencyContact || "", d.clientEmail || "",
+        !!d.clientBankruptcy,
         req.params.id,
       ]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+    const oldLit = !!existing.rows[0].in_litigation;
+    const newLit = !!rows[0].in_litigation;
+    if (oldLit !== newLit) {
+      try {
+        if (newLit) {
+          await pool.query(
+            `UPDATE tasks SET assigned_role = 'Paralegal', assigned = (SELECT paralegal FROM cases WHERE id = $1)
+             WHERE case_id = $1 AND title = 'Call Client - Case Manager Check-in' AND status != 'Complete' AND deleted_at IS NULL`,
+            [req.params.id]
+          );
+        } else {
+          await pool.query(
+            `UPDATE tasks SET assigned_role = 'Case Manager', assigned = (SELECT case_manager FROM cases WHERE id = $1)
+             WHERE case_id = $1 AND title = 'Call Client - Case Manager Check-in' AND status != 'Complete' AND deleted_at IS NULL`,
+            [req.params.id]
+          );
+        }
+      } catch (e) { console.error("Litigation task reassign error:", e.message); }
+    }
     return res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Case update error:", err);
@@ -281,6 +340,67 @@ router.post("/:id/restore", requireAuth, requireManagement, async (req, res) => 
     return res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Case restore error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/parse-intake", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const text = await extractText(req.file.buffer, req.file.mimetype, req.file.originalname);
+    if (!text || text.trim().length === 0) {
+      return res.status(422).json({ error: "Could not extract text from the uploaded file" });
+    }
+
+    const OpenAI = require("openai");
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const resp = await openai.chat.completions.create({
+      model: "gpt-4o",
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content: `You are a legal intake form parser for a personal injury law firm. Extract structured case information from the provided text. Return a JSON object with the following fields (use empty string if not found):
+- clientName: full name of the client/injured party
+- accidentDate: date of accident/incident (YYYY-MM-DD format)
+- injuryType: type of injury (e.g., "Soft Tissue", "Fracture", "TBI")
+- injuryDescription: description of injuries
+- stateJurisdiction: state where the case is filed or incident occurred
+- address: client's address
+- phone: client's phone number
+- dob: client's date of birth (YYYY-MM-DD format)
+- ssn: client's SSN if present
+- incidentLocation: location of the incident
+- incidentDescription: description of the incident
+- county: county of incident or filing
+- policeReportNumber: police report number if available
+- caseType: type of case (e.g., "Auto Accident", "Slip and Fall", "Medical Malpractice")
+- referralSource: how the client was referred
+- email: client's email address
+Return ONLY valid JSON, no markdown or extra text.`
+        },
+        {
+          role: "user",
+          content: text.substring(0, 15000)
+        }
+      ],
+    });
+
+    let parsed = {};
+    try {
+      let content = resp.choices[0].message.content.trim();
+      content = content.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+      parsed = JSON.parse(content);
+    } catch (parseErr) {
+      console.error("Failed to parse OpenAI response:", parseErr.message);
+      return res.status(422).json({ error: "Failed to parse intake form fields" });
+    }
+
+    return res.json(parsed);
+  } catch (err) {
+    console.error("Parse intake error:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });

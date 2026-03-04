@@ -47,6 +47,8 @@ server/
     liens.js        — CRUD /api/liens
     damages.js      — CRUD /api/damages
     negotiations.js — CRUD /api/negotiations
+    expenses.js     — CRUD /api/expenses
+    voicemails.js   — CRUD /api/voicemails
     ai-agents.js    — All AI agent endpoints
     trial-center.js — Trial Center CRUD
     trial-center-ai.js — Trial Center AI agents (civil PI context)
@@ -76,18 +78,23 @@ lextrack/
 
 ### Case Management
 - **Case Types**: Auto Accident, Truck Accident, Motorcycle Accident, Slip & Fall, Medical Malpractice, Product Liability, Wrongful Death, Workers' Compensation, Dog Bite, Premises Liability, Nursing Home Abuse, Other
-- **Case Stages**: Intake, Investigation, Treatment, Pre-Litigation Demand, Negotiation, Litigation Filed, Discovery, Mediation, Trial Preparation, Trial, Settlement/Verdict, Closed
+- **Case Stages**: Intake, Investigation, Treatment, Pre-Litigation Demand, Negotiation, Suit Filed, Discovery, Mediation, Trial Preparation, Trial, Settlement/Verdict, Closed
 - **Case Statuses**: Active, Pre-Litigation, In Litigation, Settled, Closed, Referred Out
-- **PI-Specific Fields**: Client name, accident date, incident description/location, injury type/description, state jurisdiction (all 50 US states + DC), statute of limitations date, case value estimate, settlement amount/date, demand amount/date, contingency fee %, case expenses, liability assessment, comparative fault %, police report number, weather conditions, property damage amount
+- **PI-Specific Fields**: Client name, accident date, incident description/location, injury type/description, state jurisdiction (all 50 US states + DC), statute of limitations date, case value estimate, settlement amount/date, demand amount/date, demand response due, contingency fee %, case expenses, liability assessment, comparative fault %, police report number, weather conditions, property damage amount
+- **Client Detail Fields**: DOB, SSN, address, phone numbers (JSONB array with label+number), email, emergency contact, bankruptcy checkbox
+- **Litigation Checkbox**: Header checkbox for marking cases as in litigation; auto-reassigns CM call tasks to Paralegal when toggled on
 - **SOL Warning**: Red badge when ≤60 days, amber badge when ≤180 days — shown in case detail and case list rows
 - **Staff Roles**: Managing Partner, Senior Partner, Partner, Associate Attorney, Of Counsel, Paralegal, Legal Assistant, Case Manager, Medical Records Coordinator, Intake Specialist, Office Administrator, IT Specialist, Investigator, App Admin
 
 ### PI-Specific Tables & Tabs
-- **Insurance Policies** (`case_insurance_policies`): Policy type (Liability/UM/UIM/MedPay/PIP/Homeowner/Commercial/Umbrella), carrier, policy number, limits, adjuster details, claim number
-- **Medical Treatments** (`case_medical_treatments`): Provider name/type (ER/Hospital/Orthopedic/Chiropractor/PT/etc.), visit dates, billing totals, treatment status
-- **Liens** (`case_liens`): Lien type (Medical/Medicare/Medicaid/ERISA/etc.), lienholder, amount, negotiated amount, status
+- **Insurance Policies** (`case_insurance_policies`): Policy type (Liability/UM/UIM/MedPay/PIP/Homeowner/Commercial/Umbrella), carrier, policy number, limits, adjuster details, claim number — displayed under the Details tab
+- **Medical Treatments** (`case_medical_treatments`): Provider name/type (ER/Hospital/Orthopedic/Chiropractor/PT/etc.), visit dates, billing totals, treatment status — collapsible cards with medical record upload
+- **Medical Records** (`medical_records`): Per-treatment uploaded records with AI-parsed visit entries (provider, date, pages, summary) from PDF uploads
+- **Liens** (`case_liens`): Lien type (Medical/Medicare/Medicaid/ERISA/etc.), lienholder, amount, negotiated amount, status — displayed under the Damages tab
 - **Damages** (`case_damages`): Category (Medical Bills/Lost Wages/Future Medical/Pain & Suffering/etc.), documentation status
+- **Expenses** (`case_expenses`): Category (Filing Fees/Expert Fees/Court Reporter/Medical Records/etc.), amount, date, vendor, status — standalone Expenses tab
 - **Negotiations** (`case_negotiations`): Date, direction (Demand/Offer/Counter-Demand/Counter-Offer), amount, from party
+- **Voicemails** (`case_voicemails`): Caller name/number, duration, transcript, notes, audio — sub-tab under Correspondence
 
 ### AI Agents (server/routes/ai-agents.js)
 All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-aware using case's `stateJurisdiction`:
@@ -228,6 +235,36 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 
 ### Default Tasks (auto-created for new cases)
 Initial Client Interview → Send Preservation Letters → Obtain Police Report → Identify Insurance Policies → Check for Conflicts → Order Medical Records
+
+### Recurring Call Tasks
+- On case creation, auto-creates two recurring 30-day tasks: "Call Client - Attorney Check-in" (assigned to lead attorney) and "Call Client - Case Manager Check-in" (assigned to case manager)
+- When litigation checkbox toggled on, CM call task reassigned to Paralegal; toggled off, reassigned back to Case Manager
+
+### Overview Layout
+- 3-column layout: Case Details | Client Details | Key Dates
+- Key Dates: Trial/Court/Mediation dates only visible when stage is Suit Filed or later
+- Demand Date shows "Demand Sent" label when populated
+
+### Tab Organization
+- Insurance Policies section is inside the Details tab (below Experts)
+- Liens section is inside the Damages tab (below Damages list)
+- Expenses has its own standalone tab
+- Voicemails is a sub-tab under Correspondence
+
+### PDF Intake OCR
+- "Upload Intake Form" button in New Case modal
+- Endpoint `POST /api/cases/parse-intake` uses OCR + OpenAI to extract case fields from PDF intake forms
+
+### Medical Record Upload & AI Parsing
+- Upload PDFs per medical treatment → OCR → OpenAI parses into individual visit records
+- Each record: provider, date of service, source pages, AI summary
+
+### Client Provided Documents
+- Documents tab splits into "Client Provided" and "Firm Documents" sections based on document source
+
+### Seed Scripts
+- `server/seed-tasks-deadlines.js` — Seeds recurring call tasks and default PI tasks for all existing cases
+- `server/seed-communications.js` — Seeds realistic fake client correspondence for all existing cases
 
 ### Deadline Calculator
 Civil procedure & PI deadlines: SOL calculations (Personal Injury, Med Mal, Wrongful Death, Product Liability), Discovery Response, Summary Judgment Response, Expert Disclosure, Mediation, Motion in Limine, Notice of Appeal, Daubert/Expert Challenge, IME Scheduling

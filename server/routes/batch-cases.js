@@ -29,7 +29,7 @@ const ROLE_FIELD_LABELS = {
 };
 
 const VALID_STATUSES = ["Active", "Pre-Litigation", "In Litigation", "Settled", "Closed", "Referred Out"];
-const VALID_STAGES = ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"];
+const VALID_STAGES = ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"];
 
 function requireBatchRole(req, res, next) {
   const userRoles = req.session.userRoles || [req.session.userRole];

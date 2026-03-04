@@ -22,6 +22,7 @@ import {
   apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
   apiGetFilings, apiUploadFiling, apiDeleteFiling, apiSummarizeFiling, apiUpdateFiling, apiClassifyFiling,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
+  apiGetVoicemails, apiCreateVoicemail, apiUpdateVoicemail, apiDeleteVoicemail,
   apiGetParties, apiCreateParty, apiUpdateParty, apiDeleteParty,
   apiConflictCheck,
   apiGetExperts, apiCreateExpert, apiUpdateExpert, apiDeleteExpert,
@@ -34,8 +35,10 @@ import {
   apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
   apiGetInsurancePolicies, apiCreateInsurancePolicy, apiUpdateInsurancePolicy, apiDeleteInsurancePolicy,
   apiGetMedicalTreatments, apiCreateMedicalTreatment, apiUpdateMedicalTreatment, apiDeleteMedicalTreatment,
+  apiUploadMedicalRecord, apiGetMedicalRecords, apiDeleteMedicalRecord, apiUpdateMedicalRecord,
   apiGetLiens, apiCreateLien, apiUpdateLien, apiDeleteLien,
   apiGetDamages, apiCreateDamage, apiUpdateDamage, apiDeleteDamage,
+  apiGetExpenses, apiCreateExpense, apiUpdateExpense, apiDeleteExpense,
   apiGetNegotiations, apiCreateNegotiation, apiUpdateNegotiation, apiDeleteNegotiation,
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
   apiGetPortalSettings, apiUpdatePortalSettings, apiGetPortalClients, apiCreatePortalClient, apiDeletePortalClient,
@@ -55,6 +58,7 @@ import {
   apiGetDocumentText, apiDownloadFiling,
   apiGetUnreadClientComm,
   apiGetDeletedData, apiRestoreDeletedItem,
+  apiParseIntake,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 import TrialCenterView from "./TrialCenterView.js";
@@ -3239,7 +3243,40 @@ function NewCaseModal({ onSave, onClose }) {
   const [autoTasks, setAutoTasks] = useState(true);
   const [conflicts, setConflicts] = useState(null);
   const [conflictChecking, setConflictChecking] = useState(false);
+  const [intakeLoading, setIntakeLoading] = useState(false);
+  const [intakeError, setIntakeError] = useState("");
+  const [intakeSuccess, setIntakeSuccess] = useState(false);
+  const intakeFileRef = useRef(null);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleIntakeUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIntakeLoading(true);
+    setIntakeError("");
+    setIntakeSuccess(false);
+    try {
+      const parsed = await apiParseIntake(file);
+      setForm(p => ({
+        ...p,
+        clientName: parsed.clientName || p.clientName,
+        title: parsed.clientName ? `${parsed.clientName} v. TBD` : p.title,
+        accidentDate: parsed.accidentDate || p.accidentDate,
+        injuryType: parsed.injuryType || p.injuryType,
+        stateJurisdiction: parsed.stateJurisdiction || p.stateJurisdiction,
+        county: parsed.county || p.county,
+        caseType: parsed.caseType || p.caseType,
+        court: parsed.court || p.court,
+      }));
+      setIntakeSuccess(true);
+      if (parsed.clientName) checkConflicts(parsed.clientName);
+    } catch (err) {
+      setIntakeError(err.message || "Failed to parse intake form");
+    } finally {
+      setIntakeLoading(false);
+      if (intakeFileRef.current) intakeFileRef.current.value = "";
+    }
+  };
   const checkConflicts = async (name) => {
     if (!name || name.trim().length < 2) { setConflicts(null); return; }
     setConflictChecking(true);
@@ -3258,10 +3295,34 @@ function NewCaseModal({ onSave, onClose }) {
         <div className="modal-sub">
           Enter the case details below.
         </div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          <Badge label="Case" />
-          <Badge label="Active" />
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Badge label="Case" />
+            <Badge label="Active" />
+          </div>
+          <div>
+            <input type="file" accept=".pdf,application/pdf" ref={intakeFileRef} style={{ display: "none" }} onChange={handleIntakeUpload} />
+            <button
+              className="btn btn-gold"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
+              disabled={intakeLoading}
+              onClick={() => intakeFileRef.current?.click()}
+            >
+              {intakeLoading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {intakeLoading ? "Processing…" : "Upload Intake Form (PDF)"}
+            </button>
+          </div>
         </div>
+        {intakeError && (
+          <div style={{ padding: "8px 12px", background: "#FEE2E2", border: "1px solid #FCA5A5", borderRadius: 6, marginBottom: 10, fontSize: 12, color: "#DC2626" }}>
+            {intakeError}
+          </div>
+        )}
+        {intakeSuccess && (
+          <div style={{ padding: "8px 12px", background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 6, marginBottom: 10, fontSize: 12, color: "#059669" }}>
+            ✓ Intake form parsed successfully. Review the auto-filled fields below before submitting.
+          </div>
+        )}
 
         <div className="form-row">
           <div className="form-group"><label>Case Number</label><input value={form.caseNum} onChange={e => set("caseNum", e.target.value)} placeholder="e.g. PI-2025-001234" /></div>
@@ -5088,7 +5149,7 @@ const CORE_FIELDS = [
   { key: "stateJurisdiction",label: "State",                type: "select", section: "details", options: ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"] },
   { key: "judge",            label: "Judge",                type: "text",   section: "details" },
   { key: "status",           label: "Status",               type: "select", section: "details", options: ["Active", "Pre-Litigation", "In Litigation", "Settled", "Closed", "Referred Out"] },
-  { key: "stage",            label: "Stage",                type: "select", section: "details", options: ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"] },
+  { key: "stage",            label: "Stage",                type: "select", section: "details", options: ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"] },
   { key: "accidentDate",     label: "Accident Date",        type: "date",   section: "info" },
   { key: "incidentLocation", label: "Incident Location",    type: "text",   section: "info" },
   { key: "injuryType",       label: "Injury Type",          type: "text",   section: "info" },
@@ -5106,8 +5167,8 @@ const CORE_FIELDS = [
   { key: "nextCourtDate",    label: "Next Court Date",      type: "date",   section: "dates" },
   { key: "trialDate",        label: "Trial Date",           type: "date",   section: "dates" },
   { key: "mediationDate",    label: "Mediation Date",       type: "date",   section: "dates" },
-  { key: "dispositionDate",  label: "Disposition Date",     type: "date",   section: "dates" },
   { key: "demandDate",       label: "Demand Date",          type: "date",   section: "dates" },
+  { key: "demandResponseDue",label: "Demand Response Due",  type: "date",   section: "dates" },
   { key: "settlementDate",   label: "Settlement Date",      type: "date",   section: "dates" },
   { key: "assignedAttorney", label: "Lead Attorney",        type: "user",   section: "team" },
   { key: "secondAttorney",   label: "2nd Attorney",         type: "user",   section: "team" },
@@ -5228,6 +5289,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [corrCopied, setCorrCopied] = useState(false);
   const [corrSubTab, setCorrSubTab] = useState("emails");
+  const [voicemails, setVoicemails] = useState([]);
+  const [voicemailsLoading, setVoicemailsLoading] = useState(false);
+  const [showAddVoicemail, setShowAddVoicemail] = useState(false);
+  const [vmCallerName, setVmCallerName] = useState("");
+  const [vmCallerNumber, setVmCallerNumber] = useState("");
+  const [vmDuration, setVmDuration] = useState("");
+  const [vmTranscript, setVmTranscript] = useState("");
+  const [vmNotes, setVmNotes] = useState("");
+  const [vmReceivedAt, setVmReceivedAt] = useState("");
+  const [editingVmId, setEditingVmId] = useState(null);
   const [smsConfigs, setSmsConfigs] = useState([]);
   const [smsMessages, setSmsMessages] = useState([]);
   const [smsScheduled, setSmsScheduled] = useState([]);
@@ -5292,8 +5363,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const miscContactPendingData = useRef({});
   const [insurancePolicies, setInsurancePolicies] = useState([]);
   const [medicalTreatments, setMedicalTreatments] = useState([]);
+  const [medicalRecords, setMedicalRecords] = useState({});
+  const [collapsedProviders, setCollapsedProviders] = useState({});
+  const [medicalRecordsLoading, setMedicalRecordsLoading] = useState({});
+  const [medicalUploadingFor, setMedicalUploadingFor] = useState(null);
+  const [medicalSortBy, setMedicalSortBy] = useState("providerName");
+  const [medicalFilterType, setMedicalFilterType] = useState("All");
+  const medRecFileRef = useRef(null);
   const [liens, setLiens] = useState([]);
   const [damages, setDamages] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [negotiations, setNegotiations] = useState([]);
   const [piDataLoading, setPiDataLoading] = useState(false);
   const [showTeamPopup, setShowTeamPopup] = useState(false);
@@ -5328,6 +5407,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [editingFilingData, setEditingFilingData] = useState({});
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingDocData, setEditingDocData] = useState({});
+  const [editingTranscriptId, setEditingTranscriptId] = useState(null);
+  const [editingTranscriptData, setEditingTranscriptData] = useState({});
   const [docFolders, setDocFolders] = useState([]);
   const [transcriptFolders, setTranscriptFolders] = useState([]);
   const [docSelectMode, setDocSelectMode] = useState(false);
@@ -5467,6 +5548,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   useEffect(() => {
     setCorrLoading(true);
     apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
+    setVoicemailsLoading(true);
+    apiGetVoicemails(c.id).then(setVoicemails).catch(() => {}).finally(() => setVoicemailsLoading(false));
     setDocsLoading(true);
     apiGetCaseDocuments(c.id).then(setCaseDocuments).catch(() => {}).finally(() => setDocsLoading(false));
     apiGetDocFolders(c.id).then(setDocFolders).catch(() => setDocFolders([]));
@@ -5497,8 +5580,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       apiGetLiens(c.id).catch(() => []),
       apiGetDamages(c.id).catch(() => []),
       apiGetNegotiations(c.id).catch(() => []),
-    ]).then(([ins, med, li, dam, neg]) => {
-      setInsurancePolicies(ins); setMedicalTreatments(med); setLiens(li); setDamages(dam); setNegotiations(neg);
+      apiGetExpenses(c.id).catch(() => []),
+    ]).then(([ins, med, li, dam, neg, exp]) => {
+      setInsurancePolicies(ins); setMedicalTreatments(med); setLiens(li); setDamages(dam); setNegotiations(neg); setExpenses(exp || []);
+      setMedicalRecords({}); setCollapsedProviders({}); setMedicalRecordsLoading({});
+      if (med && med.length > 0) {
+        const recMap = {};
+        Promise.all(med.map(t => apiGetMedicalRecords(c.id, t.id).then(r => { recMap[t.id] = r; }).catch(() => { recMap[t.id] = []; }))).then(() => setMedicalRecords(recMap));
+      }
     }).finally(() => setPiDataLoading(false));
     apiGetSmsWatch(c.id).then(setSmsWatchNumbers).catch(() => {});
     apiGetUnmatchedSms().then(setSmsUnmatched).catch(() => {});
@@ -5952,49 +6041,42 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 {["Active", "Closed", "Pending", "Disposed", "Transferred"].map(o => <option key={o}>{o}</option>)}
               </select>
               <select
-                value={draft.stage || "Arraignment"}
+                value={draft.stage || "Intake"}
                 onChange={e => setAndLog("stage", e.target.value)}
                 style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
               >
-                {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(o => <option key={o}>{o}</option>)}
+                {["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"].map(o => <option key={o}>{o}</option>)}
               </select>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.confidential ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Confidential cases are excluded from AI Search">
                 <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
                 {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
               </label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.inLitigation ? "#2563eb" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Mark case as in litigation">
+                <input type="checkbox" checked={!!draft.inLitigation} onChange={e => setAndLog("inLitigation", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
+                {draft.inLitigation ? "IN LITIGATION" : "Litigation"}
+              </label>
             </div>
-            <div className="md:hidden" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: showMobileHeader ? 6 : 0 }}>
-              <button onClick={() => setShowMobileHeader(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", display: "flex", alignItems: "center" }}>
-                <ChevronDown size={14} className={`text-slate-400 transition-transform ${showMobileHeader ? "rotate-180" : ""}`} />
-              </button>
+            <div className="md:hidden" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 0, flexWrap: "wrap" }}>
               <Badge label="Case" />
               {draft.caseNum && <span style={{ fontSize: 11, color: "var(--c-text3)", fontFamily: "monospace" }}>{draft.caseNum}</span>}
-              <span style={{ fontSize: 10, color: "#64748b", padding: "1px 6px", background: "var(--c-bg2)", borderRadius: 4, border: "1px solid var(--c-border)" }}>{draft.status || "Active"}</span>
+              <select
+                value={draft.status || "Active"}
+                onChange={e => setAndLog("status", e.target.value)}
+                style={{ fontSize: 10, padding: "1px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                {["Active", "Closed", "Pending", "Disposed", "Transferred"].map(o => <option key={o}>{o}</option>)}
+              </select>
+              <select
+                value={draft.stage || "Intake"}
+                onChange={e => setAndLog("stage", e.target.value)}
+                style={{ fontSize: 10, padding: "1px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                {["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"].map(o => <option key={o}>{o}</option>)}
+              </select>
               {draft.confidential && <span style={{ fontSize: 9, color: "#dc2626", fontWeight: 700 }}>CONF</span>}
+              {draft.inLitigation && <span style={{ fontSize: 9, color: "#2563eb", fontWeight: 700 }}>LIT</span>}
               {editMode && <span style={{ fontSize: 9, fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 3, padding: "1px 5px" }}>EDIT</span>}
             </div>
-            {showMobileHeader && (
-              <div className="md:hidden" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-                <select
-                  value={draft.status || "Active"}
-                  onChange={e => setAndLog("status", e.target.value)}
-                  style={{ fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
-                >
-                  {["Active", "Closed", "Pending", "Disposed", "Transferred"].map(o => <option key={o}>{o}</option>)}
-                </select>
-                <select
-                  value={draft.stage || "Arraignment"}
-                  onChange={e => setAndLog("stage", e.target.value)}
-                  style={{ fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
-                >
-                  {["Arraignment", "Preliminary Hearing", "Grand Jury/Indictment", "Pre-Trial Motions", "Plea Negotiations", "Trial", "Sentencing", "Post-Conviction", "Appeal"].map(o => <option key={o}>{o}</option>)}
-                </select>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: draft.confidential ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none" }}>
-                  <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
-                  {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
-                </label>
-              </div>
-            )}
             <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
               {draft.title || "Untitled"}
             </div>
@@ -6051,13 +6133,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className={`case-overlay-tab ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}>Overview</div>
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
           <div className={`case-overlay-tab ${activeTab === "medical" ? "active" : ""}`} onClick={() => setActiveTab("medical")}>Medical</div>
-          <div className={`case-overlay-tab ${activeTab === "insurance" ? "active" : ""}`} onClick={() => setActiveTab("insurance")}>Insurance</div>
           <div className={`case-overlay-tab ${activeTab === "damages" ? "active" : ""}`} onClick={() => setActiveTab("damages")}>Damages</div>
-          <div className={`case-overlay-tab ${activeTab === "liens" ? "active" : ""}`} onClick={() => setActiveTab("liens")}>Liens</div>
+          <div className={`case-overlay-tab ${activeTab === "expenses" ? "active" : ""}`} onClick={() => setActiveTab("expenses")}>Expenses</div>
           <div className={`case-overlay-tab ${activeTab === "negotiations" ? "active" : ""}`} onClick={() => setActiveTab("negotiations")}>Negotiations</div>
           <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Documents</div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
-            Correspondence {(correspondence.length + smsMessages.length) > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length + smsMessages.length})</span>}
+            Correspondence {(correspondence.length + smsMessages.length + voicemails.length) > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length + smsMessages.length + voicemails.length})</span>}
           </div>
           <div className={`case-overlay-tab ${activeTab === "filings" ? "active" : ""}`} onClick={() => setActiveTab("filings")}>
             Filings {filings.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({filings.length})</span>}
@@ -6116,8 +6197,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
             )}
 
-            {/* Two-column: Details + Key Dates */}
-            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px", marginBottom: 32 }}>
+            {/* Three-column: Case Details | Client Details | Key Dates */}
+            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 32px", marginBottom: 32 }}>
 
               <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
                 <div className="case-overlay-section-title">Case Details</div>
@@ -6182,32 +6263,102 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
               <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
+                <div className="case-overlay-section-title">Client Details</div>
+                <div className="edit-field">
+                  <div className="edit-field-key">Date of Birth</div>
+                  <div className="edit-field-val">
+                    <input type="date" value={draft.clientDob || ""} onChange={e => set("clientDob", e.target.value)} onBlur={() => handleBlur("clientDob")} style={{ width: "100%", fontSize: 13 }} />
+                  </div>
+                </div>
+                <div className="edit-field">
+                  <div className="edit-field-key">SSN</div>
+                  <div className="edit-field-val">
+                    <input type="text" value={draft.clientSsn || ""} onChange={e => set("clientSsn", e.target.value)} onBlur={() => handleBlur("clientSsn")} placeholder="XXX-XX-XXXX" style={{ width: "100%", fontSize: 13, fontFamily: "monospace" }} />
+                  </div>
+                </div>
+                <div className="edit-field">
+                  <div className="edit-field-key">Address</div>
+                  <div className="edit-field-val">
+                    <input type="text" value={draft.clientAddress || ""} onChange={e => set("clientAddress", e.target.value)} onBlur={() => handleBlur("clientAddress")} placeholder="Street, City, State ZIP" style={{ width: "100%", fontSize: 13 }} />
+                  </div>
+                </div>
+                <div className="edit-field">
+                  <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Phone Numbers</span>
+                    <button onClick={() => { const phones = [...(draft.clientPhones || []), { label: "Cell", number: "" }]; set("clientPhones", phones); setAndLog("clientPhones", phones); }} style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", fontSize: 11, padding: 0 }}>+ Add</button>
+                  </div>
+                  <div className="edit-field-val" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {(draft.clientPhones || []).map((ph, idx) => (
+                      <div key={idx} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <select value={ph.label || "Cell"} onChange={e => { const phones = [...(draft.clientPhones || [])]; phones[idx] = { ...phones[idx], label: e.target.value }; set("clientPhones", phones); setAndLog("clientPhones", phones); }} style={{ fontSize: 11, padding: "2px 4px", width: 60 }}>
+                          {["Cell", "Home", "Work", "Fax", "Other"].map(l => <option key={l}>{l}</option>)}
+                        </select>
+                        <input type="text" value={ph.number || ""} onChange={e => { const phones = [...(draft.clientPhones || [])]; phones[idx] = { ...phones[idx], number: e.target.value }; set("clientPhones", phones); }} onBlur={() => handleBlur("clientPhones")} placeholder="(555) 555-5555" style={{ flex: 1, fontSize: 13 }} />
+                        <button onClick={() => { const phones = (draft.clientPhones || []).filter((_, i) => i !== idx); set("clientPhones", phones); setAndLog("clientPhones", phones); }} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, padding: "0 2px" }}>✕</button>
+                      </div>
+                    ))}
+                    {(!draft.clientPhones || draft.clientPhones.length === 0) && <span style={{ fontSize: 12, color: "#94a3b8" }}>No phone numbers</span>}
+                  </div>
+                </div>
+                <div className="edit-field">
+                  <div className="edit-field-key">Email</div>
+                  <div className="edit-field-val">
+                    <input type="email" value={draft.clientEmail || ""} onChange={e => set("clientEmail", e.target.value)} onBlur={() => handleBlur("clientEmail")} placeholder="client@email.com" style={{ width: "100%", fontSize: 13 }} />
+                  </div>
+                </div>
+                <div className="edit-field">
+                  <div className="edit-field-key">Emergency Contact</div>
+                  <div className="edit-field-val">
+                    <input type="text" value={draft.clientEmergencyContact || ""} onChange={e => set("clientEmergencyContact", e.target.value)} onBlur={() => handleBlur("clientEmergencyContact")} placeholder="Name — Phone" style={{ width: "100%", fontSize: 13 }} />
+                  </div>
+                </div>
+                <div className="edit-field">
+                  <div className="edit-field-key">Bankruptcy</div>
+                  <div className="edit-field-val">
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                      <input type="checkbox" checked={!!draft.clientBankruptcy} onChange={e => setAndLog("clientBankruptcy", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
+                      {draft.clientBankruptcy ? "Yes" : "No"}
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="case-overlay-section" style={{ display: "flex", flexDirection: "column" }}>
                 <div className="case-overlay-section-title">Key Dates</div>
-                {dateFields.filter(f => !hiddenFields.includes(f.key)).map(f => {
-                  const days = draft[f.key] ? daysUntil(draft[f.key]) : null;
-                  return (
-                    <div key={f.key} className="edit-field">
-                      <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span>{f.label}</span>
-                        {editMode && canRemove && (
-                          <button onClick={() => setHiddenFields(p => [...p, f.key])} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
-                        )}
+                {(() => {
+                  const LITIGATION_STAGES = ["Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict"];
+                  const isLitigationStage = LITIGATION_STAGES.includes(draft.stage);
+                  const LITIGATION_DATE_KEYS = ["trialDate", "nextCourtDate", "mediationDate"];
+                  return dateFields.filter(f => !hiddenFields.includes(f.key)).filter(f => {
+                    if (LITIGATION_DATE_KEYS.includes(f.key) && !isLitigationStage) return false;
+                    return true;
+                  }).map(f => {
+                    const days = draft[f.key] ? daysUntil(draft[f.key]) : null;
+                    const displayLabel = f.key === "demandDate" && draft.demandDate ? "Demand Sent" : f.label;
+                    return (
+                      <div key={f.key} className="edit-field">
+                        <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span>{displayLabel}</span>
+                          {editMode && canRemove && (
+                            <button onClick={() => setHiddenFields(p => [...p, f.key])} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
+                          )}
+                        </div>
+                        <div className="edit-field-val" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {editMode ? (
+                            <input type="date" value={draft[f.key] || ""} onChange={e => set(f.key, e.target.value)} onBlur={() => handleBlur(f.key)} style={{ flex: 1 }} />
+                          ) : (
+                            <span style={{ fontSize: 13, color: "var(--c-text)", padding: "3px 0" }}>{draft[f.key] ? fmt(draft[f.key]) : "—"}</span>
+                          )}
+                          {draft[f.key] && days !== null && (
+                            <span style={{ fontSize: 11, color: urgencyColor(days), whiteSpace: "nowrap", fontWeight: 600 }}>
+                              {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? "Today" : `${days}d`}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="edit-field-val" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {editMode ? (
-                          <input type="date" value={draft[f.key] || ""} onChange={e => set(f.key, e.target.value)} onBlur={() => handleBlur(f.key)} style={{ flex: 1 }} />
-                        ) : (
-                          <span style={{ fontSize: 13, color: "var(--c-text)", padding: "3px 0" }}>{draft[f.key] ? fmt(draft[f.key]) : "—"}</span>
-                        )}
-                        {draft[f.key] && days !== null && (
-                          <span style={{ fontSize: 11, color: urgencyColor(days), whiteSpace: "nowrap", fontWeight: 600 }}>
-                            {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? "Today" : `${days}d`}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
                 {customDates.map(d => (
                   <div key={d.id} className="edit-field">
                     <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -7227,74 +7378,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             </div>
 
-          </div>
-        )}
+            <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
-
-        {/* ── Medical Treatment Tab ── */}
-        {activeTab === "medical" && (
-          <div className="case-overlay-body">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Medical Treatment ({medicalTreatments.length})</div>
-              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
-                try {
-                  const saved = await apiCreateMedicalTreatment(c.id, { providerName: "", providerType: "Other", firstVisitDate: "", lastVisitDate: "", stillTreating: false, totalBilled: "", totalPaid: "", description: "", notes: "" });
-                  setMedicalTreatments(p => [...p, saved]);
-                } catch (err) { alert("Failed: " + err.message); }
-              }}>+ Add Provider</button>
-            </div>
-            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
-            {!piDataLoading && medicalTreatments.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No medical treatments recorded yet.</div>}
-            {(() => {
-              const totalBilled = medicalTreatments.reduce((s, t) => s + (Number(t.totalBilled || t.total_billed) || 0), 0);
-              const totalPaid = medicalTreatments.reduce((s, t) => s + (Number(t.totalPaid || t.total_paid) || 0), 0);
-              return medicalTreatments.length > 0 && (
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Billed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalBilled.toLocaleString()}</span></div>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#0f766e" }}>${totalPaid.toLocaleString()}</span></div>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Providers:</span> <span style={{ fontSize: 14, fontWeight: 700 }}>{medicalTreatments.length}</span></div>
-                </div>
-              );
-            })()}
-            {medicalTreatments.map(t => (
-              <div key={t.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", flex: 1 }}>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Provider Name</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={t.providerName || t.provider_name || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { providerName: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Type</label>
-                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={t.providerType || t.provider_type || "Other"} onChange={e => apiUpdateMedicalTreatment(c.id, t.id, { providerType: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})}>
-                        {["ER", "Hospital", "Orthopedic", "Chiropractor", "PT", "Neurologist", "Pain Mgmt", "PCP", "Surgeon", "Dentist", "Psychologist", "Other"].map(o => <option key={o}>{o}</option>)}
-                      </select></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>First Visit</label>
-                      <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={t.firstVisitDate || t.first_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { firstVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Last Visit</label>
-                      <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={t.lastVisitDate || t.last_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { lastVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Billed</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={t.totalBilled || t.total_billed || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { totalBilled: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Paid</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={t.totalPaid || t.total_paid || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { totalPaid: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: "pointer", gridColumn: "1 / -1" }}>
-                      <input type="checkbox" defaultChecked={!!(t.stillTreating || t.still_treating)} onChange={e => apiUpdateMedicalTreatment(c.id, t.id, { stillTreating: e.target.checked }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /> Still Treating
-                    </label>
-                  </div>
-                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteMedicalTreatment(c.id, t.id).then(() => setMedicalTreatments(p => p.filter(x => x.id !== t.id))).catch(e => alert(e.message)); }}>✕</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Insurance Tab ── */}
-        {activeTab === "insurance" && (
-          <div className="case-overlay-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Insurance Policies ({insurancePolicies.length})</div>
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
@@ -7345,10 +7430,170 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
               </div>
             ))}
+
           </div>
         )}
 
-        {/* ── Damages Tab ── */}
+
+        {/* ── Medical Treatment Tab ── */}
+        {activeTab === "medical" && (
+          <div className="case-overlay-body">
+            <input type="file" ref={medRecFileRef} accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" style={{ display: "none" }} onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !medicalUploadingFor) return;
+              const tid = medicalUploadingFor;
+              setMedicalUploadingFor(null);
+              setMedicalRecordsLoading(p => ({ ...p, [tid]: true }));
+              try {
+                const recs = await apiUploadMedicalRecord(c.id, tid, file);
+                setMedicalRecords(p => ({ ...p, [tid]: [...(p[tid] || []), ...(Array.isArray(recs) ? recs : [recs])] }));
+              } catch (err) { alert("Upload failed: " + err.message); }
+              setMedicalRecordsLoading(p => ({ ...p, [tid]: false }));
+              e.target.value = "";
+            }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Medical Treatment ({medicalTreatments.length})</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <select style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                  value={medicalFilterType} onChange={e => setMedicalFilterType(e.target.value)}>
+                  <option value="All">All Types</option>
+                  {["ER", "Hospital", "Orthopedic", "Chiropractor", "PT", "Neurologist", "Pain Mgmt", "PCP", "Surgeon", "Dentist", "Psychologist", "Other"].map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <select style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                  value={medicalSortBy} onChange={e => setMedicalSortBy(e.target.value)}>
+                  <option value="providerName">Sort: Name</option>
+                  <option value="providerType">Sort: Type</option>
+                  <option value="firstVisitDate">Sort: First Visit</option>
+                  <option value="totalBilled">Sort: Billed</option>
+                </select>
+                <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
+                  try {
+                    const saved = await apiCreateMedicalTreatment(c.id, { providerName: "", providerType: "Other", firstVisitDate: "", lastVisitDate: "", stillTreating: false, totalBilled: "", totalPaid: "", description: "", notes: "" });
+                    setMedicalTreatments(p => [...p, saved]);
+                  } catch (err) { alert("Failed: " + err.message); }
+                }}>+ Add Provider</button>
+              </div>
+            </div>
+            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
+            {!piDataLoading && medicalTreatments.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No medical treatments recorded yet.</div>}
+            {(() => {
+              const totalBilled = medicalTreatments.reduce((s, t) => s + (Number(t.totalBilled || t.total_billed) || 0), 0);
+              const totalPaid = medicalTreatments.reduce((s, t) => s + (Number(t.totalPaid || t.total_paid) || 0), 0);
+              return medicalTreatments.length > 0 && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Billed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalBilled.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#0f766e" }}>${totalPaid.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Providers:</span> <span style={{ fontSize: 14, fontWeight: 700 }}>{medicalTreatments.length}</span></div>
+                </div>
+              );
+            })()}
+            {[...medicalTreatments]
+              .filter(t => medicalFilterType === "All" || (t.providerType || t.provider_type || "Other") === medicalFilterType)
+              .sort((a, b) => {
+                if (medicalSortBy === "providerName") return (a.providerName || a.provider_name || "").localeCompare(b.providerName || b.provider_name || "");
+                if (medicalSortBy === "providerType") return (a.providerType || a.provider_type || "").localeCompare(b.providerType || b.provider_type || "");
+                if (medicalSortBy === "firstVisitDate") return (a.firstVisitDate || a.first_visit_date || "").localeCompare(b.firstVisitDate || b.first_visit_date || "");
+                if (medicalSortBy === "totalBilled") return (Number(b.totalBilled || b.total_billed) || 0) - (Number(a.totalBilled || a.total_billed) || 0);
+                return 0;
+              })
+              .map(t => {
+              const isCollapsed = collapsedProviders[t.id];
+              const provName = t.providerName || t.provider_name || "(No Name)";
+              const provType = t.providerType || t.provider_type || "Other";
+              const firstDate = t.firstVisitDate || t.first_visit_date || "";
+              const lastDate = t.lastVisitDate || t.last_visit_date || "";
+              const recs = medicalRecords[t.id] || [];
+              const recsLoading = medicalRecordsLoading[t.id];
+              return (
+              <div key={t.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }}
+                  onClick={() => {
+                    setCollapsedProviders(p => ({ ...p, [t.id]: !p[t.id] }));
+                    if (!medicalRecords[t.id] && !medicalRecordsLoading[t.id]) {
+                      setMedicalRecordsLoading(p => ({ ...p, [t.id]: true }));
+                      apiGetMedicalRecords(c.id, t.id).then(r => {
+                        setMedicalRecords(p => ({ ...p, [t.id]: r }));
+                        setMedicalRecordsLoading(p => ({ ...p, [t.id]: false }));
+                      }).catch(() => setMedicalRecordsLoading(p => ({ ...p, [t.id]: false })));
+                    }
+                  }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                    {isCollapsed ? <ChevronRight size={16} style={{ color: "var(--c-text3)", flexShrink: 0 }} /> : <ChevronDown size={16} style={{ color: "var(--c-text3)", flexShrink: 0 }} />}
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{provName}</span>
+                    <Badge label={provType} />
+                    {firstDate && <span style={{ fontSize: 11, color: "var(--c-text3)" }}>{fmt(firstDate)}{lastDate ? ` — ${fmt(lastDate)}` : ""}</span>}
+                    {!!(t.stillTreating || t.still_treating) && <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 600 }}>● Active</span>}
+                  </div>
+                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
+                    onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteMedicalTreatment(c.id, t.id).then(() => setMedicalTreatments(p => p.filter(x => x.id !== t.id))).catch(err => alert(err.message)); }}>✕</button>
+                </div>
+                {!isCollapsed && (
+                  <div style={{ padding: "12px 14px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Provider Name</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={t.providerName || t.provider_name || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { providerName: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Type</label>
+                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                          defaultValue={t.providerType || t.provider_type || "Other"} onChange={e => apiUpdateMedicalTreatment(c.id, t.id, { providerType: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})}>
+                          {["ER", "Hospital", "Orthopedic", "Chiropractor", "PT", "Neurologist", "Pain Mgmt", "PCP", "Surgeon", "Dentist", "Psychologist", "Other"].map(o => <option key={o}>{o}</option>)}
+                        </select></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>First Visit</label>
+                        <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={t.firstVisitDate || t.first_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { firstVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Last Visit</label>
+                        <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={t.lastVisitDate || t.last_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { lastVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Billed</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={t.totalBilled || t.total_billed || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { totalBilled: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Paid</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={t.totalPaid || t.total_paid || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { totalPaid: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: "pointer", gridColumn: "1 / -1" }}>
+                        <input type="checkbox" defaultChecked={!!(t.stillTreating || t.still_treating)} onChange={e => apiUpdateMedicalTreatment(c.id, t.id, { stillTreating: e.target.checked }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /> Still Treating
+                      </label>
+                    </div>
+                    <div style={{ marginTop: 16, borderTop: "1px solid var(--c-border)", paddingTop: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Medical Records ({recs.length})</span>
+                        <button className="btn btn-sm btn-outline" style={{ fontSize: 11, padding: "2px 10px", display: "flex", alignItems: "center", gap: 4 }}
+                          disabled={!!recsLoading}
+                          onClick={() => { setMedicalUploadingFor(t.id); setTimeout(() => medRecFileRef.current?.click(), 50); }}>
+                          <Upload size={12} /> Upload Records
+                        </button>
+                      </div>
+                      {recsLoading && <div style={{ fontSize: 12, color: "#64748b" }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block", verticalAlign: "middle", marginRight: 4 }} />Loading records...</div>}
+                      {!recsLoading && recs.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No records uploaded yet.</div>}
+                      {recs.map(rec => (
+                        <div key={rec.id} style={{ border: "1px solid var(--c-border2)", borderRadius: 6, padding: "8px 10px", marginBottom: 6, background: "var(--c-bg)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+                                {rec.providerName && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{rec.providerName}</span>}
+                                {rec.dateOfService && <span style={{ fontSize: 11, color: "var(--c-text3)" }}>{fmt(rec.dateOfService)}</span>}
+                                {rec.sourcePages && <span style={{ fontSize: 10, color: "#64748b", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4 }}>pp. {rec.sourcePages}</span>}
+                              </div>
+                              {rec.description && <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 2 }}>{rec.description}</div>}
+                              {rec.summary && <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{rec.summary.length > 200 ? rec.summary.substring(0, 200) + "..." : rec.summary}</div>}
+                            </div>
+                            <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, marginLeft: 8, flexShrink: 0 }}
+                              onClick={async () => { if (!await confirmDelete()) return; try { await apiDeleteMedicalRecord(c.id, t.id, rec.id); setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).filter(r => r.id !== rec.id) })); } catch (err) { alert(err.message); } }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Damages Tab (includes Liens) ── */}
         {activeTab === "damages" && (
           <div className="case-overlay-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -7398,12 +7643,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
               </div>
             ))}
-          </div>
-        )}
 
-        {/* ── Liens Tab ── */}
-        {activeTab === "liens" && (
-          <div className="case-overlay-body">
+            <div style={{ borderTop: "1px solid var(--c-border)", margin: "24px 0 24px" }} />
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Liens ({liens.length})</div>
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
@@ -7413,7 +7655,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 } catch (err) { alert("Failed: " + err.message); }
               }}>+ Add Lien</button>
             </div>
-            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
             {(() => {
               const totalOwed = liens.reduce((s, l) => s + (Number(l.amount) || 0), 0);
               const totalNeg = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || 0), 0);
@@ -7425,7 +7666,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
               );
             })()}
-            {!piDataLoading && liens.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No liens recorded yet.</div>}
+            {liens.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No liens recorded yet.</div>}
             {liens.map(l => (
               <div key={l.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -7452,6 +7693,62 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Expenses Tab ── */}
+        {activeTab === "expenses" && (
+          <div className="case-overlay-body">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Case Expenses ({(expenses || []).length})</div>
+              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
+                try {
+                  const saved = await apiCreateExpense(c.id, { category: "Filing Fees", description: "", amount: "", date: new Date().toISOString().slice(0, 10), vendor: "", status: "Pending", notes: "" });
+                  setExpenses(p => [...(p || []), saved]);
+                } catch (err) { alert("Failed: " + err.message); }
+              }}>+ Add Expense</button>
+            </div>
+            {(() => {
+              const total = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              return (expenses || []).length > 0 && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Expenses:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${total.toLocaleString()}</span></div>
+                </div>
+              );
+            })()}
+            {(expenses || []).length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No expenses recorded yet.</div>}
+            {(expenses || []).map(exp => (
+              <div key={exp.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={exp.category || "Other"} onChange={e => apiUpdateExpense(c.id, exp.id, { category: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})}>
+                        {["Filing Fees", "Expert Fees", "Court Reporter", "Medical Records", "Process Server", "Travel", "Postage", "Copies", "Investigation", "Deposition", "Other"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={exp.amount || ""} onBlur={e => apiUpdateExpense(c.id, exp.id, { amount: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date</label>
+                      <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={exp.date || ""} onChange={e => apiUpdateExpense(c.id, exp.id, { date: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Vendor</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={exp.vendor || ""} onBlur={e => apiUpdateExpense(c.id, exp.id, { vendor: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
+                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                        defaultValue={exp.status || "Pending"} onChange={e => apiUpdateExpense(c.id, exp.id, { status: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})}>
+                        {["Pending", "Paid", "Reimbursed", "Waived"].map(o => <option key={o}>{o}</option>)}
+                      </select></div>
+                    <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
+                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={exp.description || ""} onBlur={e => apiUpdateExpense(c.id, exp.id, { description: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
+                  </div>
+                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
+                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteExpense(c.id, exp.id).then(() => setExpenses(p => p.filter(x => x.id !== exp.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
               </div>
             ))}
@@ -7645,41 +7942,60 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </div>
                   );
                 };
-                return (<>
-              {docFolders.length > 0 && docFolders.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(folder => {
-                const folderDocs = caseDocuments.filter(d => d.folderId === folder.id && (docFilterType === "All" || d.docType === docFilterType));
-                return (
-                  <div key={`folder-${folder.id}`} style={{ marginBottom: 8, border: "1px solid var(--c-border2)", borderRadius: 6, overflow: "hidden" }}
-                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
-                    onDragLeave={e => { e.currentTarget.style.background = ""; }}
-                    onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), folder.id); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: folder.id } : d)); } catch (err) { alert(err.message); } } }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }} onClick={() => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, collapsed: !f.collapsed } : f))}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <FolderOpen size={14} style={{ color: "#6366f1" }} />
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>{folder.name}</span>
-                        <span style={{ fontSize: 10, color: "#94a3b8" }}>({folderDocs.length})</span>
+                const filteredDocs = caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType);
+                const clientDocs = filteredDocs.filter(d => d.source === "client");
+                const firmDocs = filteredDocs.filter(d => d.source !== "client");
+                const renderDocSection = (docs, sectionLabel, sectionStyle) => {
+                  if (docs.length === 0) return null;
+                  const sectionFolderDocs = docs.filter(d => d.folderId);
+                  const sectionUnfiled = docs.filter(d => !d.folderId);
+                  return (
+                    <div style={{ marginBottom: 16, ...sectionStyle }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: sectionLabel === "Client Provided Documents" ? "#1d4ed8" : "#1e293b", padding: "8px 12px", marginBottom: 8, borderRadius: 6, background: sectionLabel === "Client Provided Documents" ? "#dbeafe" : "#f1f5f9", border: sectionLabel === "Client Provided Documents" ? "1px solid #93c5fd" : "1px solid #e2e8f0" }}>
+                        {sectionLabel} <span style={{ fontSize: 11, fontWeight: 400, color: sectionLabel === "Client Provided Documents" ? "#3b82f6" : "#64748b" }}>({docs.length})</span>
                       </div>
-                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        <button onClick={e => { e.stopPropagation(); const name = prompt("Rename folder:", folder.name); if (name && name !== folder.name) { apiUpdateDocFolder(folder.id, { name }).then(u => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, name: u.name } : f))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Pencil size={11} /></button>
-                        <button onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDocFolder(folder.id).then(() => { setDocFolders(prev => prev.filter(f => f.id !== folder.id)); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
-                        <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
-                      </div>
+                      {docFolders.length > 0 && docFolders.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(folder => {
+                        const folderItems = docs.filter(d => d.folderId === folder.id);
+                        if (folderItems.length === 0) return null;
+                        return (
+                          <div key={`folder-${folder.id}-${sectionLabel}`} style={{ marginBottom: 8, border: "1px solid var(--c-border2)", borderRadius: 6, overflow: "hidden" }}
+                            onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
+                            onDragLeave={e => { e.currentTarget.style.background = ""; }}
+                            onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), folder.id); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: folder.id } : d)); } catch (err) { alert(err.message); } } }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }} onClick={() => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, collapsed: !f.collapsed } : f))}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <FolderOpen size={14} style={{ color: "#6366f1" }} />
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>{folder.name}</span>
+                                <span style={{ fontSize: 10, color: "#94a3b8" }}>({folderItems.length})</span>
+                              </div>
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                <button onClick={e => { e.stopPropagation(); const name = prompt("Rename folder:", folder.name); if (name && name !== folder.name) { apiUpdateDocFolder(folder.id, { name }).then(u => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, name: u.name } : f))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Pencil size={11} /></button>
+                                <button onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDocFolder(folder.id).then(() => { setDocFolders(prev => prev.filter(f => f.id !== folder.id)); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
+                                <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
+                              </div>
+                            </div>
+                            {!folder.collapsed && folderItems.length === 0 && <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8" }}>Drop documents here</div>}
+                            {!folder.collapsed && folderItems.length > 0 && <div style={{ padding: "0 4px 4px" }}>{folderItems.map(doc => renderDocRow(doc))}</div>}
+                          </div>
+                        );
+                      })}
+                      {docFolders.length > 0 && sectionUnfiled.length > 0 && (
+                        <div style={{ marginTop: 8 }}
+                          onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
+                          onDragLeave={e => { e.currentTarget.style.background = ""; }}
+                          onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), null); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: null } : d)); } catch (err) { alert(err.message); } } }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", padding: "6px 0", borderBottom: "1px solid var(--c-border2)" }}>Unfiled</div>
+                          {sectionUnfiled.map(doc => renderDocRow(doc))}
+                        </div>
+                      )}
+                      {docFolders.length === 0 && sectionUnfiled.map(doc => renderDocRow(doc))}
                     </div>
-                    {!folder.collapsed && folderDocs.length === 0 && <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8" }}>Drop documents here</div>}
-                    {!folder.collapsed && folderDocs.length > 0 && <div style={{ padding: "0 4px 4px" }}>{folderDocs.map(doc => renderDocRow(doc))}</div>}
-                  </div>
-                );
-              })}
-              {docFolders.length > 0 && caseDocuments.filter(d => !d.folderId && (docFilterType === "All" || d.docType === docFilterType)).length > 0 && (
-                <div style={{ marginTop: 8 }}
-                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
-                  onDragLeave={e => { e.currentTarget.style.background = ""; }}
-                  onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), null); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: null } : d)); } catch (err) { alert(err.message); } } }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", padding: "6px 0", borderBottom: "1px solid var(--c-border2)" }}>Unfiled</div>
-                  {caseDocuments.filter(d => !d.folderId && (docFilterType === "All" || d.docType === docFilterType)).map(doc => renderDocRow(doc))}
-                </div>
-              )}
-              {docFolders.length === 0 && caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType).map(doc => renderDocRow(doc))}
+                  );
+                };
+                return (<>
+                  {renderDocSection(clientDocs, "Client Provided Documents", {})}
+                  {renderDocSection(firmDocs, "Firm Documents", {})}
+                  {clientDocs.length === 0 && firmDocs.length === 0 && null}
                 </>);
               })()}
             </div>
@@ -7780,15 +8096,29 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
                         {transcriptSelectMode && <input type="checkbox" checked={selectedTranscriptIds.has(t.id)} readOnly style={{ width: 16, height: 16, flexShrink: 0 }} />}
                         <FileAudio size={16} style={{ color: "#6366f1", flexShrink: 0 }} />
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.filename}</div>
-                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                            {t.durationSeconds ? `${Math.floor(t.durationSeconds / 60)}m ${Math.round(t.durationSeconds % 60)}s` : ""}
-                            {t.durationSeconds && t.segmentCount ? " · " : ""}
-                            {t.segmentCount ? `${t.segmentCount} segments` : ""}
-                            {(t.durationSeconds || t.segmentCount) ? " · " : ""}
-                            {new Date(t.createdAt).toLocaleDateString()}
-                          </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          {editingTranscriptId === t.id ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={e => e.stopPropagation()}>
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                                <input value={editingTranscriptData.filename || ""} onChange={e => setEditingTranscriptData(d => ({ ...d, filename: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (async () => { try { const updated = await apiUpdateTranscript(t.id, { filename: editingTranscriptData.filename, description: editingTranscriptData.description }); setTranscripts(prev => prev.map(x => x.id === t.id ? { ...x, filename: updated.filename, description: updated.description } : x)); setEditingTranscriptId(null); } catch (err) { alert("Save failed: " + err.message); } })(); } if (e.key === "Escape") setEditingTranscriptId(null); }} style={{ fontSize: 13, fontWeight: 600, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6", flex: 1, minWidth: 120 }} autoFocus />
+                                <button onClick={async () => { try { const updated = await apiUpdateTranscript(t.id, { filename: editingTranscriptData.filename, description: editingTranscriptData.description }); setTranscripts(prev => prev.map(x => x.id === t.id ? { ...x, filename: updated.filename, description: updated.description } : x)); setEditingTranscriptId(null); } catch (err) { alert("Save failed: " + err.message); } }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
+                                <button onClick={() => setEditingTranscriptId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
+                              </div>
+                              <input value={editingTranscriptData.description || ""} onChange={e => setEditingTranscriptData(d => ({ ...d, description: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (async () => { try { const updated = await apiUpdateTranscript(t.id, { filename: editingTranscriptData.filename, description: editingTranscriptData.description }); setTranscripts(prev => prev.map(x => x.id === t.id ? { ...x, filename: updated.filename, description: updated.description } : x)); setEditingTranscriptId(null); } catch (err) { alert("Save failed: " + err.message); } })(); } if (e.key === "Escape") setEditingTranscriptId(null); }} placeholder="Add description..." style={{ fontSize: 11, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6", width: "100%", color: "#475569" }} />
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={e => { e.stopPropagation(); setEditingTranscriptId(t.id); setEditingTranscriptData({ filename: t.filename, description: t.description || "" }); }} title="Click to edit name">{t.filename}</div>
+                              {t.description ? <div style={{ fontSize: 11, color: "#475569", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={e => { e.stopPropagation(); setEditingTranscriptId(t.id); setEditingTranscriptData({ filename: t.filename, description: t.description || "" }); }} title="Click to edit description">{t.description}</div> : <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1, cursor: "pointer", fontStyle: "italic" }} onClick={e => { e.stopPropagation(); setEditingTranscriptId(t.id); setEditingTranscriptData({ filename: t.filename, description: "" }); }} title="Click to add description">Add description...</div>}
+                              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                                {t.durationSeconds ? `${Math.floor(t.durationSeconds / 60)}m ${Math.round(t.durationSeconds % 60)}s` : ""}
+                                {t.durationSeconds && t.segmentCount ? " · " : ""}
+                                {t.segmentCount ? `${t.segmentCount} segments` : ""}
+                                {(t.durationSeconds || t.segmentCount) ? " · " : ""}
+                                {new Date(t.createdAt).toLocaleDateString()}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -8038,6 +8368,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </button>
                 <button onClick={() => setCorrSubTab("texts")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "texts" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
                   Texts {smsMessages.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({smsMessages.length})</span>}
+                </button>
+                <button onClick={() => setCorrSubTab("voicemails")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "voicemails" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
+                  Voicemails {voicemails.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({voicemails.length})</span>}
                 </button>
                 <div style={{ flex: 1 }} />
                 <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 bg-transparent cursor-pointer mb-1" onClick={() => {
@@ -8853,6 +9186,135 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     }}>Add Recipient</button>
                   </div>
                 </div>
+              )}
+
+              {corrSubTab === "voicemails" && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>
+                      {voicemails.length} voicemail{voicemails.length !== 1 ? "s" : ""}
+                    </span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                        setShowAddVoicemail(true); setEditingVmId(null);
+                        setVmCallerName(""); setVmCallerNumber(""); setVmDuration(""); setVmTranscript(""); setVmNotes(""); setVmReceivedAt("");
+                      }}>Add Voicemail</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                        setVoicemailsLoading(true);
+                        apiGetVoicemails(c.id).then(setVoicemails).catch(() => {}).finally(() => setVoicemailsLoading(false));
+                      }}>Refresh</button>
+                    </div>
+                  </div>
+
+                  {showAddVoicemail && (
+                    <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>{editingVmId ? "Edit Voicemail" : "Add Voicemail"}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                        <div>
+                          <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Caller Name</label>
+                          <input value={vmCallerName} onChange={e => setVmCallerName(e.target.value)} placeholder="Caller name" style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Caller Number</label>
+                          <input value={vmCallerNumber} onChange={e => setVmCallerNumber(e.target.value)} placeholder="Phone number" style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Duration (seconds)</label>
+                          <input type="number" value={vmDuration} onChange={e => setVmDuration(e.target.value)} placeholder="Duration in seconds" style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Received At</label>
+                          <input type="datetime-local" value={vmReceivedAt} onChange={e => setVmReceivedAt(e.target.value)} style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }} />
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Transcript</label>
+                        <textarea value={vmTranscript} onChange={e => setVmTranscript(e.target.value)} placeholder="Voicemail transcript text..." rows={3} style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Notes</label>
+                        <textarea value={vmNotes} onChange={e => setVmNotes(e.target.value)} placeholder="Internal notes..." rows={2} style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 14px" }} onClick={async () => {
+                          try {
+                            const data = { callerName: vmCallerName, callerNumber: vmCallerNumber, duration: vmDuration ? parseInt(vmDuration) : null, transcriptText: vmTranscript, notes: vmNotes, receivedAt: vmReceivedAt ? new Date(vmReceivedAt).toISOString() : null };
+                            if (editingVmId) {
+                              const updated = await apiUpdateVoicemail(editingVmId, data);
+                              setVoicemails(p => p.map(v => v.id === editingVmId ? updated : v));
+                              log("Voicemail Updated", `Updated voicemail from ${vmCallerName || "Unknown"}`);
+                            } else {
+                              const created = await apiCreateVoicemail(c.id, data);
+                              setVoicemails(p => [created, ...p]);
+                              log("Voicemail Added", `Added voicemail from ${vmCallerName || "Unknown"}`);
+                            }
+                            setShowAddVoicemail(false); setEditingVmId(null);
+                          } catch (err) { alert("Failed to save voicemail: " + err.message); }
+                        }}>{editingVmId ? "Save Changes" : "Add Voicemail"}</button>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 12, padding: "4px 14px" }} onClick={() => { setShowAddVoicemail(false); setEditingVmId(null); }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {voicemailsLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading voicemails...</div>}
+                  {!voicemailsLoading && voicemails.length === 0 && !showAddVoicemail && (
+                    <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
+                      No voicemails recorded yet. Click "Add Voicemail" to log a voicemail message.
+                    </div>
+                  )}
+                  {!voicemailsLoading && voicemails.map(vm => {
+                    const dateStr = vm.receivedAt ? new Date(vm.receivedAt).toLocaleString() : "";
+                    const durationStr = vm.duration ? `${Math.floor(vm.duration / 60)}:${String(vm.duration % 60).padStart(2, "0")}` : "";
+                    return (
+                      <div key={vm.id} style={{ borderBottom: "1px solid var(--c-border2)", padding: "12px 0" }}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#7c3aed", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                            {(vm.callerName || vm.callerNumber || "?")[0].toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{vm.callerName || "Unknown Caller"}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>{dateStr}</div>
+                            </div>
+                            {vm.callerNumber && <div style={{ fontSize: 12, color: "#64748b" }}>{vm.callerNumber}</div>}
+                            {durationStr && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Duration: {durationStr}</div>}
+                            {vm.transcriptText && (
+                              <div style={{ fontSize: 12, color: "var(--c-text)", marginTop: 6, background: "var(--c-bg2)", borderRadius: 6, padding: "8px 10px", border: "1px solid var(--c-border)", whiteSpace: "pre-wrap" }}>
+                                {vm.transcriptText}
+                              </div>
+                            )}
+                            {vm.notes && (
+                              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontStyle: "italic" }}>Notes: {vm.notes}</div>
+                            )}
+                            {vm.hasAudio && (
+                              <div style={{ marginTop: 6 }}>
+                                <audio controls preload="none" style={{ height: 32, width: "100%" }}>
+                                  <source src={`/api/voicemails/${vm.id}/audio`} type={vm.audioMime || "audio/mpeg"} />
+                                </audio>
+                              </div>
+                            )}
+                            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                                setEditingVmId(vm.id); setShowAddVoicemail(true);
+                                setVmCallerName(vm.callerName || ""); setVmCallerNumber(vm.callerNumber || "");
+                                setVmDuration(vm.duration ? String(vm.duration) : ""); setVmTranscript(vm.transcriptText || "");
+                                setVmNotes(vm.notes || ""); setVmReceivedAt(vm.receivedAt ? new Date(vm.receivedAt).toISOString().slice(0, 16) : "");
+                              }}>Edit</button>
+                              <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
+                                if (!await confirmDelete()) return;
+                                try {
+                                  await apiDeleteVoicemail(vm.id);
+                                  setVoicemails(p => p.filter(v => v.id !== vm.id));
+                                  log("Voicemail Deleted", `Deleted voicemail from ${vm.callerName || "Unknown"}`);
+                                } catch (err) { alert("Failed to delete: " + err.message); }
+                              }}>Delete</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </div>
           </div>
@@ -11881,7 +12343,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
           </div>
         </div>
       </div>
-      <div className="content" style={{ maxWidth: 900 }}>
+      <div className="content" style={{}}>
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
           <button onClick={() => setAiCenterTab("agents")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] ${aiCenterTab === "agents" ? "border-b-indigo-600 dark:border-b-indigo-400 text-indigo-600 dark:text-indigo-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>AI Agents</button>
           <button onClick={() => setAiCenterTab("trainer")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${aiCenterTab === "trainer" ? "border-b-indigo-600 dark:border-b-indigo-400 text-indigo-600 dark:text-indigo-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><Brain size={16} /> Advocate AI Trainer</button>
@@ -11924,7 +12386,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                       value={caseSearch}
                       onChange={e => { setCaseSearch(e.target.value); setCaseDropOpen(true); }}
                       onFocus={() => setCaseDropOpen(true)}
-                      placeholder="Type defendant name to search..."
+                      placeholder="Type client name to search..."
                       style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
                     />
                     {caseDropOpen && (() => {
@@ -12017,9 +12479,9 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
               const ROLE_FIELDS = [
                 { id: "assignedAttorney", label: "Assigned Attorney" },
                 { id: "secondAttorney", label: "Second Attorney" },
-                { id: "caseManager", label: "Trial Coordinator" },
+                { id: "caseManager", label: "Case Manager" },
                 { id: "investigator", label: "Investigator" },
-                { id: "paralegal", label: "Social Worker" },
+                { id: "paralegal", label: "Paralegal" },
               ];
               const STATUSES = ["Active", "Pre-Litigation", "In Litigation", "Settled", "Closed", "Referred Out"];
               const STAGES = ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Litigation Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"];
@@ -12180,7 +12642,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                     <div style={{ marginBottom: 16 }}>
                       <label style={labelStyle}>Select Cases ({batchSelectedCases.length} selected)</label>
                       <div style={{ position: "relative" }}>
-                        <input type="text" value={batchCaseSearch} onChange={e => setBatchCaseSearch(e.target.value)} placeholder="Search cases by defendant, title, or case number..." style={{ ...selectStyle, marginBottom: 4 }} />
+                        <input type="text" value={batchCaseSearch} onChange={e => setBatchCaseSearch(e.target.value)} placeholder="Search cases by client, title, or case number..." style={{ ...selectStyle, marginBottom: 4 }} />
                         {bq && batchFilteredCases.length > 0 && (
                           <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: "0 0 6px 6px", maxHeight: 200, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
                             {batchFilteredCases.slice(0, 20).map(c => {
@@ -12232,7 +12694,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                               <thead>
                                 <tr style={{ background: "var(--c-bg)", position: "sticky", top: 0 }}>
                                   <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}>Case</th>
-                                  <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}>Defendant</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}>Client</th>
                                   <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text2)", borderBottom: "1px solid var(--c-border)" }}>Current</th>
                                 </tr>
                               </thead>

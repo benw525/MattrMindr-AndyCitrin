@@ -141,6 +141,18 @@ export const apiCreateMedicalTreatment = (caseId, data) => apiFetch(`/api/medica
 export const apiUpdateMedicalTreatment = (caseId, id, data) => apiFetch(`/api/medical-treatments/${caseId}/${id}`, { method: "PUT", body: data });
 export const apiDeleteMedicalTreatment = (caseId, id) => apiFetch(`/api/medical-treatments/${caseId}/${id}`, { method: "DELETE" });
 
+// Medical Records
+export const apiGetMedicalRecords = (caseId, treatmentId) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}`);
+export async function apiUploadMedicalRecord(caseId, treatmentId, file) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/upload`, { method: "POST", credentials: "include", body: form });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
+export const apiUpdateMedicalRecord = (caseId, treatmentId, id, data) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/${id}`, { method: "PUT", body: data });
+export const apiDeleteMedicalRecord = (caseId, treatmentId, id) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/${id}`, { method: "DELETE" });
+
 // Liens
 export const apiGetLiens = (caseId) => apiFetch(`/api/liens/${caseId}`);
 export const apiCreateLien = (caseId, data) => apiFetch(`/api/liens/${caseId}`, { method: "POST", body: data });
@@ -152,6 +164,12 @@ export const apiGetDamages = (caseId) => apiFetch(`/api/damages/${caseId}`);
 export const apiCreateDamage = (caseId, data) => apiFetch(`/api/damages/${caseId}`, { method: "POST", body: data });
 export const apiUpdateDamage = (caseId, id, data) => apiFetch(`/api/damages/${caseId}/${id}`, { method: "PUT", body: data });
 export const apiDeleteDamage = (caseId, id) => apiFetch(`/api/damages/${caseId}/${id}`, { method: "DELETE" });
+
+// Expenses
+export const apiGetExpenses = (caseId) => apiFetch(`/api/expenses/${caseId}`);
+export const apiCreateExpense = (caseId, data) => apiFetch(`/api/expenses/${caseId}`, { method: "POST", body: data });
+export const apiUpdateExpense = (caseId, id, data) => apiFetch(`/api/expenses/${caseId}/${id}`, { method: "PUT", body: data });
+export const apiDeleteExpense = (caseId, id) => apiFetch(`/api/expenses/${caseId}/${id}`, { method: "DELETE" });
 
 // Negotiations
 export const apiGetNegotiations = (caseId) => apiFetch(`/api/negotiations/${caseId}`);
@@ -255,6 +273,12 @@ export const apiCreateContactStaff = (data)      => apiFetch("/api/contact-staff
 export const apiUpdateContactStaff = (id, data)  => apiFetch(`/api/contact-staff/${id}`, { method: "PUT",    body: data });
 export const apiDeleteContactStaff = (id)        => apiFetch(`/api/contact-staff/${id}`, { method: "DELETE" });
 
+// Voicemails
+export const apiGetVoicemails = (caseId) => apiFetch(`/api/voicemails/${caseId}`);
+export const apiCreateVoicemail = (caseId, data) => apiFetch(`/api/voicemails/${caseId}`, { method: "POST", body: data });
+export const apiUpdateVoicemail = (id, data) => apiFetch(`/api/voicemails/${id}`, { method: "PUT", body: data });
+export const apiDeleteVoicemail = (id) => apiFetch(`/api/voicemails/${id}`, { method: "DELETE" });
+
 // Correspondence
 export const apiGetCorrespondence    = (caseId) => apiFetch(`/api/correspondence/${caseId}`);
 export const apiDeleteCorrespondence = (id)     => apiFetch(`/api/correspondence/${id}`, { method: "DELETE" });
@@ -315,6 +339,15 @@ export const apiGetParties    = (caseId) => apiFetch(`/api/parties/${caseId}`);
 export const apiCreateParty   = (data)   => apiFetch("/api/parties",       { method: "POST",   body: data });
 export const apiUpdateParty   = (id, data) => apiFetch(`/api/parties/${id}`, { method: "PUT",    body: data });
 export const apiDeleteParty   = (id)     => apiFetch(`/api/parties/${id}`, { method: "DELETE" });
+
+// Intake PDF Parsing
+export async function apiParseIntake(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/cases/parse-intake", { method: "POST", credentials: "include", body: form });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
 
 // Conflict Check
 export const apiConflictCheck  = (name)   => apiFetch(`/api/cases/conflict-check?name=${encodeURIComponent(name)}`);

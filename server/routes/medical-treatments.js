@@ -1,8 +1,19 @@
 const express = require("express");
 const pool = require("../db");
+const multer = require("multer");
+const OpenAI = require("openai");
 const { requireAuth } = require("../middleware/auth");
+const { extractText } = require("../utils/extract-text");
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+let openai;
+try {
+  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
+} catch (e) {
+  openai = null;
+}
 
 const toFrontend = (r) => ({
   id: r.id,
@@ -85,6 +96,168 @@ router.delete("/:caseId/:id", requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error("Medical treatment delete error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+const recordToFrontend = (r) => ({
+  id: r.id,
+  treatmentId: r.treatment_id,
+  caseId: r.case_id,
+  providerName: r.provider_name,
+  dateOfService: r.date_of_service ? r.date_of_service.toISOString().split("T")[0] : "",
+  description: r.description,
+  sourcePages: r.source_pages,
+  summary: r.summary,
+  fileSize: r.file_size,
+  filename: r.filename,
+  mimeType: r.mime_type,
+  uploadedBy: r.uploaded_by,
+  uploadedAt: r.uploaded_at,
+});
+
+router.get("/:caseId/records/:treatmentId", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM medical_records WHERE treatment_id = $1 AND case_id = $2 AND deleted_at IS NULL ORDER BY date_of_service ASC NULLS LAST, uploaded_at",
+      [req.params.treatmentId, req.params.caseId]
+    );
+    res.json(rows.map(recordToFrontend));
+  } catch (err) {
+    console.error("Medical records fetch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/:caseId/records/:treatmentId/upload", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const { caseId, treatmentId } = req.params;
+    const buffer = req.file.buffer;
+    const filename = req.file.originalname;
+    const mimeType = req.file.mimetype;
+
+    const text = await extractText(buffer, mimeType, filename);
+
+    if (!text || text.trim().length < 10) {
+      return res.status(400).json({ error: "Could not extract text from document" });
+    }
+
+    let visits = [];
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a medical record parser. Given extracted text from a medical document, parse it into individual visit entries. Return a JSON array of objects, each with:
+- provider_name: the healthcare provider or facility name
+- date_of_service: date in YYYY-MM-DD format (or null if unknown)
+- description: brief description of the visit/treatment
+- source_pages: which pages this visit appears on (e.g., "1-2" or "3")
+- summary: a concise clinical summary of the visit
+
+Return ONLY valid JSON array, no other text.`
+          },
+          {
+            role: "user",
+            content: `Parse this medical document into individual visit records:\n\n${text.substring(0, 15000)}`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 4000,
+      });
+
+      const content = completion.choices[0].message.content.trim();
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        visits = JSON.parse(jsonMatch[0]);
+      }
+    } catch (aiErr) {
+      console.error("OpenAI medical record parse error:", aiErr.message);
+      visits = [{
+        provider_name: "",
+        date_of_service: null,
+        description: "Uploaded medical record",
+        source_pages: "",
+        summary: text.substring(0, 500),
+      }];
+    }
+
+    if (!visits.length) {
+      visits = [{
+        provider_name: "",
+        date_of_service: null,
+        description: "Uploaded medical record",
+        source_pages: "",
+        summary: text.substring(0, 500),
+      }];
+    }
+
+    const inserted = [];
+    for (const visit of visits) {
+      const dateVal = visit.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(visit.date_of_service) ? visit.date_of_service : null;
+      const { rows } = await pool.query(
+        `INSERT INTO medical_records
+          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_data, file_size, filename, mime_type, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [
+          treatmentId, caseId,
+          visit.provider_name || "",
+          dateVal,
+          visit.description || "",
+          visit.source_pages || "",
+          visit.summary || "",
+          buffer,
+          buffer.length,
+          filename,
+          mimeType,
+          req.user?.id || null
+        ]
+      );
+      inserted.push(recordToFrontend(rows[0]));
+    }
+
+    res.status(201).json(inserted);
+  } catch (err) {
+    console.error("Medical record upload error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/:caseId/records/:treatmentId/:id", requireAuth, async (req, res) => {
+  const d = req.body;
+  const orNull = (v) => (v && String(v).trim()) ? v : null;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE medical_records SET
+        provider_name=$1, date_of_service=$2, description=$3, source_pages=$4, summary=$5
+       WHERE id=$6 AND treatment_id=$7 AND case_id=$8 AND deleted_at IS NULL RETURNING *`,
+      [
+        d.providerName || "", orNull(d.dateOfService),
+        d.description || "", d.sourcePages || "", d.summary || "",
+        req.params.id, req.params.treatmentId, req.params.caseId
+      ]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    res.json(recordToFrontend(rows[0]));
+  } catch (err) {
+    console.error("Medical record update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/:caseId/records/:treatmentId/:id", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "UPDATE medical_records SET deleted_at = NOW() WHERE id = $1 AND treatment_id = $2 AND case_id = $3 AND deleted_at IS NULL RETURNING id",
+      [req.params.id, req.params.treatmentId, req.params.caseId]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Medical record delete error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

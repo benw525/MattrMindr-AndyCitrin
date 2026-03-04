@@ -52,6 +52,7 @@ const toFrontend = (row) => ({
   id: row.id,
   caseId: row.case_id,
   filename: row.filename,
+  description: row.description || '',
   contentType: row.content_type,
   fileSize: row.file_size,
   transcript: row.transcript || [],
@@ -375,7 +376,7 @@ router.get("/case/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      `SELECT id, case_id, filename, content_type, file_size, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at,
+      `SELECT id, case_id, filename, description, content_type, file_size, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at,
        jsonb_array_length(transcript) as segment_count
        FROM case_transcripts WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
       [req.params.caseId]
@@ -396,7 +397,7 @@ router.get("/:id/detail", requireAuth, async (req, res) => {
     if (access === null) return res.status(404).json({ error: "Transcript not found" });
     if (access === false) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, content_type, file_size, transcript, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at FROM case_transcripts WHERE id = $1",
+      "SELECT id, case_id, filename, description, content_type, file_size, transcript, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at FROM case_transcripts WHERE id = $1",
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
@@ -412,13 +413,30 @@ router.put("/:id", requireAuth, async (req, res) => {
     const access = await verifyTranscriptAccess(req, req.params.id);
     if (access === null) return res.status(404).json({ error: "Transcript not found" });
     if (access === false) return res.status(403).json({ error: "Access denied" });
-    const { transcript } = req.body;
-    if (!transcript || !Array.isArray(transcript)) {
-      return res.status(400).json({ error: "transcript array is required" });
+    const { transcript, filename, description } = req.body;
+    const setClauses = [];
+    const values = [];
+    let idx = 1;
+    if (transcript && Array.isArray(transcript)) {
+      setClauses.push(`transcript = $${idx++}`);
+      values.push(JSON.stringify(transcript));
     }
+    if (filename !== undefined) {
+      setClauses.push(`filename = $${idx++}`);
+      values.push(filename);
+    }
+    if (description !== undefined) {
+      setClauses.push(`description = $${idx++}`);
+      values.push(description);
+    }
+    if (setClauses.length === 0) {
+      return res.status(400).json({ error: "No valid fields to update" });
+    }
+    setClauses.push("updated_at = NOW()");
+    values.push(req.params.id);
     const { rows } = await pool.query(
-      "UPDATE case_transcripts SET transcript = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
-      [JSON.stringify(transcript), req.params.id]
+      `UPDATE case_transcripts SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
+      values
     );
     if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
     res.json(toFrontend(rows[0]));
