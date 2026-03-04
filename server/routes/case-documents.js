@@ -49,7 +49,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, content_type, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order FROM case_documents WHERE case_id = $1 ORDER BY sort_order, created_at DESC",
+      "SELECT id, case_id, filename, content_type, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order FROM case_documents WHERE case_id = $1 AND deleted_at IS NULL ORDER BY sort_order, created_at DESC",
       [req.params.caseId]
     );
     return res.json(rows.map(toFrontend));
@@ -222,7 +222,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     const { rows } = await pool.query("SELECT case_id FROM case_documents WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
-    await pool.query("DELETE FROM case_documents WHERE id = $1", [req.params.id]);
+    await pool.query("UPDATE case_documents SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL", [req.params.id]);
     return res.json({ ok: true });
   } catch (err) {
     console.error("Document delete error:", err);
@@ -331,7 +331,7 @@ router.post("/batch-delete", requireAuth, async (req, res) => {
     }
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
-    const { rowCount } = await pool.query("DELETE FROM case_documents WHERE id = ANY($1)", [ids]);
+    const { rowCount } = await pool.query("UPDATE case_documents SET deleted_at = NOW() WHERE id = ANY($1) AND deleted_at IS NULL", [ids]);
     return res.json({ ok: true, deleted: rowCount });
   } catch (err) {
     console.error("Batch delete documents error:", err);

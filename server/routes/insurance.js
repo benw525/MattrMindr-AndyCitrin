@@ -7,7 +7,7 @@ const router = express.Router();
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM case_insurance_policies WHERE case_id = $1 ORDER BY created_at",
+      "SELECT * FROM case_insurance_policies WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at",
       [req.params.caseId]
     );
     res.json(rows.map(r => ({
@@ -73,7 +73,7 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
 router.delete("/:caseId/:id", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "DELETE FROM case_insurance_policies WHERE id = $1 AND case_id = $2 RETURNING id",
+      "UPDATE case_insurance_policies SET deleted_at = NOW() WHERE id = $1 AND case_id = $2 AND deleted_at IS NULL RETURNING id",
       [req.params.id, req.params.caseId]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });

@@ -16,7 +16,7 @@ const toFrontend = (row) => ({
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM case_parties WHERE case_id = $1 ORDER BY created_at ASC",
+      "SELECT * FROM case_parties WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC",
       [req.params.caseId]
     );
     return res.json(rows.map(toFrontend));
@@ -61,7 +61,7 @@ router.put("/:id", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "DELETE FROM case_parties WHERE id = $1 RETURNING id",
+      "UPDATE case_parties SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id",
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Party not found" });

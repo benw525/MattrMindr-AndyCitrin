@@ -617,3 +617,8 @@ export async function apiUploadFilingChunked(file, caseId, filedBy, filingDate, 
 export const apiGetJuryAnalysis    = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`);
 export const apiUpdateJurorStrike  = (caseId, data)  => apiFetch(`/api/trial-center/jury-analysis/${caseId}/juror-strike`, { method: "PATCH", body: data });
 export const apiDeleteJuryAnalysis = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`, { method: "DELETE" });
+
+
+// Deleted Data
+export const apiGetDeletedData     = ()             => apiFetch("/api/deleted-data");
+export const apiRestoreDeletedItem = (type, id)     => apiFetch("/api/deleted-data/restore", { method: "POST", body: { type, id } });

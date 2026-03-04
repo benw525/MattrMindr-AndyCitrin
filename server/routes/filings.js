@@ -52,7 +52,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at FROM case_filings WHERE case_id = $1 ORDER BY created_at DESC",
+      "SELECT id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at FROM case_filings WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
       [req.params.caseId]
     );
     return res.json(rows.map(toFrontend));
@@ -118,7 +118,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     const { rows } = await pool.query("SELECT case_id FROM case_filings WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
-    await pool.query("DELETE FROM case_filings WHERE id = $1", [req.params.id]);
+    await pool.query("UPDATE case_filings SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL", [req.params.id]);
     return res.json({ ok: true });
   } catch (err) {
     console.error("Filing delete error:", err);

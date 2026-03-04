@@ -18,7 +18,7 @@ const toFrontend = (r) => ({
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM case_negotiations WHERE case_id = $1 ORDER BY date ASC NULLS LAST, created_at",
+      "SELECT * FROM case_negotiations WHERE case_id = $1 AND deleted_at IS NULL ORDER BY date ASC NULLS LAST, created_at",
       [req.params.caseId]
     );
     res.json(rows.map(toFrontend));
@@ -66,7 +66,7 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
 router.delete("/:caseId/:id", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "DELETE FROM case_negotiations WHERE id = $1 AND case_id = $2 RETURNING id",
+      "UPDATE case_negotiations SET deleted_at = NOW() WHERE id = $1 AND case_id = $2 AND deleted_at IS NULL RETURNING id",
       [req.params.id, req.params.caseId]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });

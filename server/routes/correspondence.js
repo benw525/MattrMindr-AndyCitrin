@@ -39,7 +39,7 @@ const toFrontend = (row) => {
 router.get("/all/summary", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, case_id, from_email, from_name, subject, received_at FROM case_correspondence ORDER BY received_at DESC"
+      "SELECT id, case_id, from_email, from_name, subject, received_at FROM case_correspondence WHERE deleted_at IS NULL ORDER BY received_at DESC"
     );
     return res.json(rows.map(r => ({
       id: r.id,
@@ -81,7 +81,7 @@ router.get("/attachment/:id/:index", requireAuth, async (req, res) => {
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, received_at FROM case_correspondence WHERE case_id = $1 ORDER BY received_at DESC",
+      "SELECT id, case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, received_at FROM case_correspondence WHERE case_id = $1 AND deleted_at IS NULL ORDER BY received_at DESC",
       [req.params.caseId]
     );
     const result = rows.map(toFrontend);
@@ -96,7 +96,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "DELETE FROM case_correspondence WHERE id = $1 RETURNING id",
+      "UPDATE case_correspondence SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id",
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
@@ -117,7 +117,7 @@ router.post("/batch-delete", requireAuth, async (req, res) => {
     }
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
-    const { rowCount } = await pool.query("DELETE FROM case_correspondence WHERE id = ANY($1)", [ids]);
+    const { rowCount } = await pool.query("UPDATE case_correspondence SET deleted_at = NOW() WHERE id = ANY($1) AND deleted_at IS NULL", [ids]);
     return res.json({ ok: true, deleted: rowCount });
   } catch (err) {
     console.error("Batch delete correspondence error:", err);

@@ -265,15 +265,15 @@ function DashboardPage() {
         </div>
         {showFaq && (
           <div style={{ marginTop: 16 }}>
+            <div style={{ marginBottom: 16, padding: "14px 16px", background: "#fef3c7", borderRadius: 8, fontSize: 13, color: "#92400e", lineHeight: 1.5 }}>
+              <strong>Important:</strong> Do not post about your case on social media. Do not give recorded statements to insurance companies without consulting your attorney. Keep all medical appointments and follow your doctor's instructions. If your contact information changes or you have any concerns, contact us immediately.
+            </div>
             {PI_PROCESS_INFO.map((item, i) => (
               <div key={i} style={{ padding: "12px 0", borderBottom: i < PI_PROCESS_INFO.length - 1 ? "1px solid #f1f5f9" : "none" }}>
                 <div style={{ fontWeight: 600, fontSize: 14, color: "#1e293b", marginBottom: 4 }}>{item.stage}</div>
                 <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>{item.desc}</div>
               </div>
             ))}
-            <div style={{ marginTop: 16, padding: "14px 16px", background: "#fef3c7", borderRadius: 8, fontSize: 13, color: "#92400e", lineHeight: 1.5 }}>
-              <strong>Important:</strong> Do not post about your case on social media. Do not give recorded statements to insurance companies without consulting your attorney. Keep all medical appointments and follow your doctor's instructions. If your contact information changes or you have any concerns, contact us immediately.
-            </div>
           </div>
         )}
       </div>

@@ -210,6 +210,22 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - DB column: `case_documents.firm_viewed_at TIMESTAMPTZ` for tracking when firm views client-uploaded docs
 - Advocate AI has full context of unread client communication when on the dashboard (message previews, document names, per-case counts)
 
+### Soft-Delete System
+- All entities now use soft-delete: setting `deleted_at` timestamp instead of permanent deletion
+- Tables with `deleted_at`: cases, contacts, users, case_documents, case_transcripts, case_filings, case_correspondence, deadlines, case_notes, time_entries, case_insurance_policies, case_medical_treatments, case_liens, case_damages, case_negotiations, case_parties, case_experts, case_misc_contacts
+- All listing queries filter with `AND deleted_at IS NULL` to hide soft-deleted records
+- Delete confirmation popup: "Are you sure you want to delete this data? An App Admin can restore the data within 30 days."
+- Auto-purge: daily interval permanently removes records where `deleted_at < NOW() - 30 days`
+
+### Deleted Data View (App Admin Only)
+- Navigation item "Deleted Data" visible only to App Admin users
+- Route: `server/routes/deleted-data.js`
+- Endpoints: `GET /api/deleted-data` (list all soft-deleted records grouped by type), `POST /api/deleted-data/restore` (restore by type+id), `POST /api/deleted-data/purge` (permanently remove expired)
+- Frontend: `DeletedDataView` component shows grouped items with name, case reference, deletion date, days remaining until permanent removal, and restore button
+
+### Voir Dire Cause Strikes
+- Each cause challenge card now displays both the Reason (`cc.reason || cc.basis`) and the Argument (`cc.argument`) as separate labeled fields
+
 ### Default Tasks (auto-created for new cases)
 Initial Client Interview → Send Preservation Letters → Obtain Police Report → Identify Insurance Policies → Check for Conflicts → Order Medical Records
 

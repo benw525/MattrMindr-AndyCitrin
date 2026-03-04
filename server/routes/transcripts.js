@@ -377,7 +377,7 @@ router.get("/case/:caseId", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, case_id, filename, content_type, file_size, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at,
        jsonb_array_length(transcript) as segment_count
-       FROM case_transcripts WHERE case_id = $1 ORDER BY created_at DESC`,
+       FROM case_transcripts WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
       [req.params.caseId]
     );
     res.json(rows.map(r => ({
@@ -433,7 +433,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     const access = await verifyTranscriptAccess(req, req.params.id);
     if (access === null) return res.status(404).json({ error: "Transcript not found" });
     if (access === false) return res.status(403).json({ error: "Access denied" });
-    const { rowCount } = await pool.query("DELETE FROM case_transcripts WHERE id = $1", [req.params.id]);
+    const { rowCount } = await pool.query("UPDATE case_transcripts SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL", [req.params.id]);
     if (rowCount === 0) return res.status(404).json({ error: "Transcript not found" });
     res.json({ ok: true });
   } catch (err) {
@@ -651,7 +651,7 @@ router.post("/batch-delete", requireAuth, async (req, res) => {
     }
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
-    const { rowCount } = await pool.query("DELETE FROM case_transcripts WHERE id = ANY($1)", [ids]);
+    const { rowCount } = await pool.query("UPDATE case_transcripts SET deleted_at = NOW() WHERE id = ANY($1) AND deleted_at IS NULL", [ids]);
     return res.json({ ok: true, deleted: rowCount });
   } catch (err) {
     console.error("Batch delete transcripts error:", err);

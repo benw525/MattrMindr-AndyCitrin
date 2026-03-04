@@ -54,6 +54,7 @@ import {
   apiUploadCaseDocumentChunked, apiUploadFilingChunked,
   apiGetDocumentText, apiDownloadFiling,
   apiGetUnreadClientComm,
+  apiGetDeletedData, apiRestoreDeletedItem,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 import TrialCenterView from "./TrialCenterView.js";
@@ -983,6 +984,17 @@ function FirmApp() {
   const [calcResult, setCalcResult] = useState(null);
   const [followUpPrompt,   setFollowUpPrompt]   = useState(null);
   const [pendingTimePrompt, setPendingTimePrompt] = useState(null);
+
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const deleteResolveRef = useRef(null);
+  const confirmDelete = useCallback(() => {
+    return new Promise((resolve) => {
+      deleteResolveRef.current = resolve;
+      setDeleteConfirm(true);
+    });
+  }, []);
+  const handleDeleteConfirmYes = useCallback(() => { setDeleteConfirm(null); if (deleteResolveRef.current) deleteResolveRef.current(true); deleteResolveRef.current = null; }, []);
+  const handleDeleteConfirmNo = useCallback(() => { setDeleteConfirm(null); if (deleteResolveRef.current) deleteResolveRef.current(false); deleteResolveRef.current = null; }, []);
 
   const [showAdvocateGlobal, setShowAdvocateGlobal] = useState(false);
   const [advocateMessages, setAdvocateMessages] = useState([]);
@@ -2040,6 +2052,7 @@ function FirmApp() {
             { id: "collaborate", icon: MessageSquare, label: "Collaborate", badge: collabUnread > 0 ? collabUnread : null },
             { id: "contacts", icon: Users, label: "Contacts" },
             { id: "staff", icon: UserCog, label: "Staff" },
+            ...(isAppAdmin(currentUser) ? [{ id: "deleted", icon: Trash2, label: "Deleted Data" }] : []),
           ].map(item => {
             const Icon = item.icon;
             const isActive = view === item.id;
@@ -2071,18 +2084,19 @@ function FirmApp() {
         <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} />
       )}
       <div className="main">
-        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} />}
+        {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
-        {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
+        {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} />}
-        {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
+        {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} confirmDelete={confirmDelete} />}
         {view === "trialcenter" && <TrialCenterView currentUser={currentUser} users={allUsers} cases={allCases} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} />}
-        {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} onMenuToggle={() => setSidebarOpen(true)} />}
+        {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
+        {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
+        {view === "deleted" && isAppAdmin(currentUser) && <DeletedDataView onMenuToggle={() => setSidebarOpen(true)} />}
       </div>
       <FollowUpPromptModal
         key={followUpPrompt ? `${followUpPrompt.target.id}-${followUpPrompt.completedDate}` : "none"}
@@ -2094,6 +2108,23 @@ function FirmApp() {
         pending={pendingTimePrompt}
         onSubmit={(taskId, timeLogged, completedBy, timeLogUser) => finishCompleteTask(taskId, timeLogged, completedBy, timeLogUser)}
       />
+      {deleteConfirm && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.5)" }} onClick={handleDeleteConfirmNo}>
+          <div style={{ background: "var(--c-surface, #fff)", borderRadius: 12, padding: "28px 32px", maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Trash2 size={20} style={{ color: "#dc2626" }} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: 16, color: "var(--c-text-h, #1e293b)" }}>Confirm Deletion</h3>
+            </div>
+            <p style={{ fontSize: 14, color: "var(--c-text2, #64748b)", lineHeight: 1.6, margin: "0 0 24px 0" }}>Are you sure you want to delete this data? An App Admin can restore the data within 30 days.</p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={handleDeleteConfirmNo} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid var(--c-border, #e2e8f0)", background: "var(--c-surface, #fff)", color: "var(--c-text-h, #1e293b)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+              <button onClick={handleDeleteConfirmYes} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
       {!showAdvocateGlobal && !hideAdvocateAI && (
         <button
           ref={fabRef}
@@ -3793,7 +3824,7 @@ function StaffSearchField({ value, onChange, placeholder, userList, showRole }) 
   );
 }
 
-function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds }) {
+function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds, confirmDelete }) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -4022,7 +4053,7 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds }
                   {note.timeLogged && <span style={{ fontSize: 11, color: "var(--c-brand)", fontWeight: 600 }}>{note.timeLogged}h</span>}
                   <div style={{ flex: 1 }} />
                   <button onClick={() => startEdit(note)} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Edit note">✎</button>
-                  <button onClick={() => { if (window.confirm("Delete this note?")) handleDelete(note.id); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Delete note">✕</button>
+                  <button onClick={async () => { if (!await confirmDelete()) return; handleDelete(note.id); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Delete note">✕</button>
                 </div>
               </div>
             )}
@@ -4033,7 +4064,7 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds }
   );
 }
 
-function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, onMenuToggle, pinnedCaseIds, onNavigate, pinnedContacts, onSelectContact }) {
+function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAddRecord, onCompleteTask, onUpdateTask, onMenuToggle, pinnedCaseIds, onNavigate, pinnedContacts, onSelectContact, confirmDelete }) {
   const [showModal, setShowModal] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null);
@@ -4331,7 +4362,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
           </div>
         );
       case "quick-notes":
-        return <QuickNotesWidget key={widgetId} currentUser={currentUser} allCases={allCases} onSelectCase={onSelectCase} pinnedCaseIds={pinnedCaseIds} />;
+        return <QuickNotesWidget key={widgetId} currentUser={currentUser} allCases={allCases} onSelectCase={onSelectCase} pinnedCaseIds={pinnedCaseIds} confirmDelete={confirmDelete} />;
       case "client-comm":
         return <UnreadClientCommWidget key={widgetId} allCases={allCases} onSelectCase={onSelectCase} />;
       default:
@@ -4566,7 +4597,7 @@ function BatchStaffPicker({ staffList, value, onChange, inputValue, onInputChang
   );
 }
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin, onOpenAdvocate, onOpenTrialCenter }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin, onOpenAdvocate, onOpenTrialCenter, confirmDelete }) {
   const setSelectedCase = useCallback((c) => { if (clearPendingTab) clearPendingTab(); rawSetSelectedCase(c); }, [clearPendingTab, rawSetSelectedCase]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
@@ -5040,6 +5071,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           onSelectCase={(target) => { setSelectedCase(target); }}
           onOpenAdvocate={onOpenAdvocate}
           onOpenTrialCenter={onOpenTrialCenter}
+          confirmDelete={confirmDelete}
         />
       )}
     </>
@@ -5157,7 +5189,7 @@ const KEY_DATE_FIELDS = ["accidentDate", "statuteOfLimitationsDate", "nextCourtD
 const KEY_DATE_TYPES = { accidentDate: "Other", statuteOfLimitationsDate: "SOL", nextCourtDate: "Hearing", trialDate: "Hearing", mediationDate: "Mediation", dispositionDate: "Other", demandDate: "Filing", settlementDate: "Other" };
 
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate, onOpenTrialCenter }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate, onOpenTrialCenter, confirmDelete }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -6508,7 +6540,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
               <div className="case-overlay-section">
-                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={handleAddNote} onDeleteNote={handleDeleteNote} onUpdateNote={handleUpdateNote} caseRecord={c} />
+                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={handleAddNote} onDeleteNote={handleDeleteNote} onUpdateNote={handleUpdateNote} caseRecord={c} confirmDelete={confirmDelete} />
               </div>
             </div>
 
@@ -6519,6 +6551,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 links={links}
                 currentUser={currentUser}
                 onAddLink={handleAddLink}
+                confirmDelete={confirmDelete}
                 onDeleteLink={handleDeleteLink}
               />
             </div>
@@ -6808,7 +6841,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
                         <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 10, display: "flex", justifyContent: "flex-end" }}>
                           <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
-                            if (!window.confirm(`Remove ${displayName} (${exp.expertType}) from this case?`)) return;
+                            if (!await confirmDelete()) return;
                             try {
                               await apiDeleteExpert(exp.id);
                               setExperts(p => p.filter(x => x.id !== exp.id));
@@ -6955,7 +6988,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           </div>
                           <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 10, display: "flex", justifyContent: "flex-end" }}>
                             <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
-                              if (!window.confirm(`Remove co-defendant ${displayName} from this case?`)) return;
+                              if (!await confirmDelete()) return;
                               try {
                                 await apiDeleteParty(party.id);
                                 setParties(p => p.filter(x => x.id !== party.id));
@@ -7176,7 +7209,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
                         <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 10, display: "flex", justifyContent: "flex-end" }}>
                           <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
-                            if (!window.confirm(`Remove ${displayName} (${mc.contactType}) from this case?`)) return;
+                            if (!await confirmDelete()) return;
                             try {
                               await apiDeleteMiscContact(mc.id);
                               setMiscContacts(p => p.filter(x => x.id !== mc.id));
@@ -7252,7 +7285,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </label>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={() => { if (window.confirm("Remove this treatment record?")) apiDeleteMedicalTreatment(c.id, t.id).then(() => setMedicalTreatments(p => p.filter(x => x.id !== t.id))).catch(e => alert(e.message)); }}>✕</button>
+                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteMedicalTreatment(c.id, t.id).then(() => setMedicalTreatments(p => p.filter(x => x.id !== t.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
               </div>
             ))}
@@ -7308,7 +7341,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         defaultValue={p.insuredName || p.insured_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { insuredName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={() => { if (window.confirm("Remove this policy?")) apiDeleteInsurancePolicy(c.id, p.id).then(() => setInsurancePolicies(prev => prev.filter(x => x.id !== p.id))).catch(e => alert(e.message)); }}>✕</button>
+                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteInsurancePolicy(c.id, p.id).then(() => setInsurancePolicies(prev => prev.filter(x => x.id !== p.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
               </div>
             ))}
@@ -7361,7 +7394,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         defaultValue={d.description || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { description: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={() => { if (window.confirm("Remove this damage entry?")) apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e => alert(e.message)); }}>✕</button>
+                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
               </div>
             ))}
@@ -7418,7 +7451,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       </select></div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={() => { if (window.confirm("Remove this lien?")) apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>
+                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
               </div>
             ))}
@@ -7461,7 +7494,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { fromParty: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
                     </div>
                     <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                      onClick={() => { if (window.confirm("Remove this entry?")) apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(p => p.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
+                      onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(p => p.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
                   </div>
                 </div>
               );
@@ -7546,7 +7579,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <button onClick={() => setSelectedDocIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
                   {selectedDocIds.size > 0 && (
                     <button onClick={async () => {
-                      if (!window.confirm(`Delete ${selectedDocIds.size} selected document(s)?`)) return;
+                      if (!await confirmDelete()) return;
                       try {
                         await apiBatchDeleteDocuments([...selectedDocIds]);
                         setCaseDocuments(prev => prev.filter(d => !selectedDocIds.has(d.id)));
@@ -7593,7 +7626,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             </button>
                             <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors bg-transparent cursor-pointer" onClick={async () => { try { const blob = await apiDownloadDocument(doc.id); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url); } catch (err) { alert("Download failed: " + err.message); } }}>Download</button>
                             <button className="border border-yellow-300 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors bg-transparent cursor-pointer" disabled={docSummarizing === doc.id} onClick={async () => { setDocSummarizing(doc.id); try { const { summary } = await apiSummarizeDocument(doc.id); setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, summary } : d)); setExpandedDocId(doc.id); } catch (err) { alert("Summarize failed: " + err.message); } setDocSummarizing(null); }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : <><Sparkles size={10} className="inline mr-0.5" /> Summarize</>)}</button>
-                            <button className="border border-red-300 dark:border-red-800/50 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors bg-transparent cursor-pointer" onClick={async () => { if (!window.confirm(`Delete ${doc.filename}?`)) return; try { await apiDeleteCaseDocument(doc.id); setCaseDocuments(prev => prev.filter(d => d.id !== doc.id)); log("Document Deleted", doc.filename); } catch (err) { alert("Delete failed: " + err.message); } }}>Delete</button>
+                            <button className="border border-red-300 dark:border-red-800/50 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors bg-transparent cursor-pointer" onClick={async () => { if (!await confirmDelete()) return; try { await apiDeleteCaseDocument(doc.id); setCaseDocuments(prev => prev.filter(d => d.id !== doc.id)); log("Document Deleted", doc.filename); } catch (err) { alert("Delete failed: " + err.message); } }}>Delete</button>
                           </div>
                         )}
                       </div>
@@ -7628,7 +7661,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       </div>
                       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                         <button onClick={e => { e.stopPropagation(); const name = prompt("Rename folder:", folder.name); if (name && name !== folder.name) { apiUpdateDocFolder(folder.id, { name }).then(u => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, name: u.name } : f))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Pencil size={11} /></button>
-                        <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete folder "${folder.name}"? Documents will become unfiled.`)) { apiDeleteDocFolder(folder.id).then(() => { setDocFolders(prev => prev.filter(f => f.id !== folder.id)); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
+                        <button onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDocFolder(folder.id).then(() => { setDocFolders(prev => prev.filter(f => f.id !== folder.id)); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
                         <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
                       </div>
                     </div>
@@ -7706,7 +7739,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <button onClick={() => setSelectedTranscriptIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
                   {selectedTranscriptIds.size > 0 && (
                     <button onClick={async () => {
-                      if (!window.confirm(`Delete ${selectedTranscriptIds.size} selected transcript(s)?`)) return;
+                      if (!await confirmDelete()) return;
                       try {
                         await apiBatchDeleteTranscripts([...selectedTranscriptIds]);
                         setTranscripts(prev => prev.filter(t => !selectedTranscriptIds.has(t.id)));
@@ -7770,7 +7803,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         {t.status === "error" && (
                           <span style={{ fontSize: 11, color: "#dc2626", background: "#fee2e2", padding: "2px 10px", borderRadius: 12, fontWeight: 600 }} title={t.errorMessage || ""}>Error</span>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Delete this transcript?")) { apiDeleteTranscript(t.id).then(() => setTranscripts(prev => prev.filter(x => x.id !== t.id))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#94a3b8" }} title="Delete">
+                        <button onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteTranscript(t.id).then(() => setTranscripts(prev => prev.filter(x => x.id !== t.id))).catch(err => alert(err.message)); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#94a3b8" }} title="Delete">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -8038,7 +8071,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <button onClick={() => setSelectedCorrIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
                       {selectedCorrIds.size > 0 && (
                         <button onClick={async () => {
-                          if (!window.confirm(`Delete ${selectedCorrIds.size} selected email(s)?`)) return;
+                          if (!await confirmDelete()) return;
                           try {
                             await apiBatchDeleteCorrespondence([...selectedCorrIds]);
                             setCorrespondence(prev => prev.filter(e => !selectedCorrIds.has(e.id)));
@@ -8120,7 +8153,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             </div>
                             <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
                               <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
-                                if (!window.confirm("Delete this email from correspondence?")) return;
+                                if (!await confirmDelete()) return;
                                 try {
                                   await apiDeleteCorrespondence(email.id);
                                   setCorrespondence(p => p.filter(e => e.id !== email.id));
@@ -8538,7 +8571,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             {cfg.enabled ? "On" : "Off"}
                           </button>
                           <button onClick={async () => {
-                            if (!window.confirm(`Remove ${cfg.contactName || "this recipient"} from auto-text?`)) return;
+                            if (!await confirmDelete()) return;
                             try {
                               await apiDeleteSmsConfig(cfg.id);
                               setSmsConfigs(p => p.filter(x => x.id !== cfg.id));
@@ -8994,7 +9027,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           <button onClick={() => openAppFilingViewer(f.id, f.filename)} className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 bg-transparent border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">View</button>
                           <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingClassifying === f.id ? "Classifying..." : <><Sparkles size={9} className="inline mr-0.5" /> Classify</>}</button>
                           <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? <><Sparkles size={9} className="inline mr-0.5" /> Re-summarize</> : <><Sparkles size={9} className="inline mr-0.5" /> Summarize</>)}</button>
-                          {canRemove && <button onClick={async () => { if (!window.confirm("Delete this filing?")) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-transparent border border-red-200 dark:border-red-900/50 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">Delete</button>}
+                          {canRemove && <button onClick={async () => { if (!await confirmDelete()) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-transparent border border-red-200 dark:border-red-900/50 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">Delete</button>}
                         </div>
                       </div>
                       {f.originalFilename && f.originalFilename !== f.filename && (
@@ -9196,7 +9229,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             }}>Go to Case</button>
                           )}
                           <button className="btn btn-sm btn-outline" style={{ color: "#e05252", borderColor: "#e0525233" }} onClick={async () => {
-                              if (!window.confirm("Remove this linked case?")) return;
+                              if (!await confirmDelete()) return;
                               try {
                                 await apiDeleteLinkedCase(lc.id);
                                 setLinkedCases(p => p.filter(x => x.id !== lc.id));
@@ -9312,7 +9345,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       </div>
                       {cl.is_active !== false && (
                         <button className="btn btn-sm btn-outline" style={{ color: "#e05252", borderColor: "#fca5a533", fontSize: 11 }} onClick={async () => {
-                          if (!window.confirm(`Deactivate portal access for ${cl.name}?`)) return;
+                          if (!await confirmDelete()) return;
                           try {
                             await apiDeletePortalClient(c.id, cl.id);
                             setPortalClients(p => p.map(x => x.id === cl.id ? { ...x, is_active: false } : x));
@@ -9525,7 +9558,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 // path and it's saved as a clickable link that opens via the file:// protocol.
 const LINK_CATEGORIES = ["General", "Motions", "Discovery", "Police Reports", "Photographs", "Expert Reports", "Court Orders", "Plea Agreements", "Sentencing", "Other"];
 
-function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) {
+function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink, confirmDelete }) {
   const [showForm, setShowForm] = useState(false);
   const [newPath, setNewPath] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -9644,7 +9677,7 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink }) 
                 <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Added by {link.addedBy} · {new Date(link.addedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
               </div>
               <button
-                onClick={() => window.confirm(`Remove link to "${link.label}"?`) && onDeleteLink(link.id)}
+                onClick={async () => { if (!await confirmDelete()) return; onDeleteLink(link.id); }}
                 style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: "4px 6px", fontSize: 14, flexShrink: 0, lineHeight: 1 }}
                 title="Remove link"
                 onMouseEnter={e => e.currentTarget.style.color = "#e05252"}
@@ -9674,7 +9707,7 @@ const NOTE_TYPES = [
 const noteTypeStyle = (label) => NOTE_TYPES.find(t => t.label === label) || NOTE_TYPES[0];
 
 // ─── CaseNotes Component ──────────────────────────────────────────────────────
-function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpdateNote, caseRecord }) {
+function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpdateNote, caseRecord, confirmDelete }) {
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [form, setForm] = useState({ type: "General", body: "", time: "" });
@@ -9930,7 +9963,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
                       <button
                         className="btn btn-outline btn-sm"
                         style={{ fontSize: 11, color: "#e05252", borderColor: "#fca5a5" }}
-                        onClick={e => { e.stopPropagation(); if (window.confirm("Delete this note?")) { onDeleteNote(note.id); setExpandedId(null); } }}
+                        onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; onDeleteNote(note.id); setExpandedId(null); }}
                       >
                         🗑 Delete
                       </button>
@@ -11383,7 +11416,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
   }
 }
 
-function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle, onOpenAdvocate, onOpenTrialCenter }) {
+function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle, onOpenAdvocate, onOpenTrialCenter, confirmDelete }) {
   const [activeReport, setActiveReport] = useState(null);
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
@@ -11612,6 +11645,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             onSelectCase={(target) => { setSelectedCase(target); }}
             onOpenAdvocate={onOpenAdvocate}
             onOpenTrialCenter={onOpenTrialCenter}
+            confirmDelete={confirmDelete}
           />
         );
       })()}
@@ -11623,7 +11657,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
 const TRAINING_CATEGORIES = ["General", "Local Rules", "Office Policy", "Settlement Strategy", "Medical Terminology", "Insurance Practices", "Procedures"];
 const OFFICE_ROLES = ["Managing Partner","Senior Partner","Partner","Associate Attorney","App Admin"];
 
-function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
+function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, confirmDelete }) {
   const [selectedCaseId, setSelectedCaseId] = useState("");
   const [activeAgent, setActiveAgent] = useState(null);
   const [aiState, setAiState] = useState({ loading: false, result: null, error: null });
@@ -11818,7 +11852,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds }) {
   };
 
   const handleDeleteTraining = async (id) => {
-    if (!window.confirm("Delete this training entry?")) return;
+    if (!await confirmDelete()) return;
     try {
       await apiDeleteTraining(id);
       setTrainingEntries(p => p.filter(e => e.id !== id));
@@ -13188,7 +13222,7 @@ function NewContactModal({ onSave, onClose }) {
 const ATTORNEY_STAFF_TYPES = ["Paralegal", "Case Manager", "Legal Assistant", "Administrative Assistant", "Other"];
 const COURT_STAFF_TYPES = ["Judicial Assistant", "Clerk", "Court Reporter", "Bailiff", "Other"];
 
-function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, onUpdate, onDelete, onAddNote, onDeleteNote, onSelectCase }) {
+function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, onUpdate, onDelete, onAddNote, onDeleteNote, onSelectCase, confirmDelete }) {
   const [draft, setDraft] = useState({ ...contact });
   const [saving, setSaving] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -13351,7 +13385,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   };
 
   const removeStaffMember = async (id) => {
-    if (!window.confirm("Remove this staff member?")) return;
+    if (!await confirmDelete()) return;
     try {
       await apiDeleteContactStaff(id);
       setStaff(prev => prev.filter(s => s.id !== id));
@@ -13814,7 +13848,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
   );
 }
 
-function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
+function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirmDelete }) {
   const [contacts, setContacts] = useState(null);
   const [deletedContacts, setDeletedContacts] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -14200,6 +14234,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle }) {
           onAddNote={handleAddNote}
           onDeleteNote={handleDeleteNote}
           onSelectCase={onOpenCase}
+          confirmDelete={confirmDelete}
         />
       )}
       {showNew && <NewContactModal onSave={handleCreateContact} onClose={() => setShowNew(false)} />}
@@ -14988,7 +15023,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
   );
 }
 
-function DocumentsView({ currentUser, allCases, onMenuToggle }) {
+function DocumentsView({ currentUser, allCases, onMenuToggle, confirmDelete }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [wizard, setWizard] = useState(null);
@@ -15107,7 +15142,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle }) {
                   )}
                   {canEdit && (
                     <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
-                      if (!window.confirm(`Delete template "${t.name}"?`)) return;
+                      if (!await confirmDelete()) return;
                       try { await apiDeleteTemplate(t.id); setTemplates(p => p.filter(x => x.id !== t.id)); } catch (err) { alert(err.message); }
                     }}>Delete</button>
                   )}
@@ -15526,7 +15561,118 @@ function DocumentsView({ currentUser, allCases, onMenuToggle }) {
   );
 }
 
-function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUsers, onMenuToggle }) {
+
+function DeletedDataView({ onMenuToggle }) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState(null);
+  const [filter, setFilter] = useState("");
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await apiGetDeletedData();
+      setData(result || []);
+    } catch (err) {
+      console.error("Failed to load deleted data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleRestore = async (type, id) => {
+    setRestoring(`${type}-${id}`);
+    try {
+      await apiRestoreDeletedItem(type, id);
+      loadData();
+    } catch (err) {
+      alert("Restore failed: " + err.message);
+    } finally {
+      setRestoring(null);
+    }
+  };
+
+  const totalItems = data.reduce((sum, g) => sum + g.items.length, 0);
+  const filtered = filter ? data.map(g => ({ ...g, items: g.items.filter(i => (i.name || "").toLowerCase().includes(filter.toLowerCase()) || (i.caseTitle || "").toLowerCase().includes(filter.toLowerCase())) })).filter(g => g.items.length > 0) : data;
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button className="md:hidden mr-1" onClick={onMenuToggle}><Menu size={20} /></button>
+          <Trash2 size={22} className="text-red-500" />
+          <div>
+            <h1 className="text-xl font-bold" style={{ color: "var(--c-text-h)" }}>Deleted Data</h1>
+            <p className="text-xs" style={{ color: "var(--c-text2)" }}>Soft-deleted records are automatically purged after 30 days</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-medium px-3 py-1 rounded-full" style={{ background: "var(--c-bg2)", color: "var(--c-text2)" }}>{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
+          <button onClick={loadData} className="px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer" style={{ borderColor: "var(--c-border)", background: "var(--c-surface)", color: "var(--c-text-h)" }}>
+            <RotateCcw size={12} className="inline mr-1" />Refresh
+          </button>
+        </div>
+      </div>
+
+      {totalItems > 3 && (
+        <div className="mb-4">
+          <input type="text" placeholder="Filter deleted items..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full max-w-sm px-3 py-2 text-sm rounded-lg border" style={{ borderColor: "var(--c-border)", background: "var(--c-surface)", color: "var(--c-text-h)" }} />
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20" style={{ color: "var(--c-text2)" }}>
+          <Loader2 size={20} className="animate-spin mr-2" /> Loading deleted data...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-20" style={{ color: "var(--c-text2)" }}>
+          <Trash2 size={40} className="mx-auto mb-3 opacity-30" />
+          <p className="text-lg font-medium" style={{ color: "var(--c-text-h)" }}>{filter ? "No matching deleted items" : "No deleted data"}</p>
+          <p className="text-sm mt-1">{filter ? "Try a different search term" : "Items you delete will appear here for 30 days before being permanently removed"}</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {filtered.map(group => (
+            <div key={group.type} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--c-border)", background: "var(--c-surface)" }}>
+              <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--c-border)", background: "var(--c-bg2)" }}>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-h)" }}>{group.label}</h3>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "var(--c-border)", color: "var(--c-text2)" }}>{group.items.length}</span>
+              </div>
+              <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
+                {group.items.map(item => (
+                  <div key={item.id} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate" style={{ color: "var(--c-text-h)" }}>{item.name}</div>
+                      <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "var(--c-text2)" }}>
+                        {item.caseTitle && <span>Case: {item.caseTitle}</span>}
+                        <span>Deleted: {new Date(item.deletedAt).toLocaleDateString()}</span>
+                        <span className={`font-medium ${item.daysRemaining <= 7 ? "text-red-500" : item.daysRemaining <= 14 ? "text-amber-500" : ""}`}>
+                          {item.daysRemaining} day{item.daysRemaining !== 1 ? "s" : ""} remaining
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRestore(group.type, item.id)}
+                      disabled={restoring === `${group.type}-${item.id}`}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
+                      style={{ borderColor: "#a7f3d0", color: "#059669", background: "transparent" }}
+                    >
+                      {restoring === `${group.type}-${item.id}` ? <Loader2 size={12} className="animate-spin" /> : <><RotateCcw size={12} className="inline mr-1" />Restore</>}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUsers, onMenuToggle, confirmDelete }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingUser, setEditingUser] = useState(null);

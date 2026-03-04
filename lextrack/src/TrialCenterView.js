@@ -1430,7 +1430,18 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                                       <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Juror #{cc.jurorNumber || cc.number}</span>
                                       {cc.jurorName && <span className="text-sm text-slate-600 dark:text-slate-400">— {cc.jurorName || cc.name}</span>}
                                     </div>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400">{cc.reason || cc.basis || "—"}</p>
+                                    <div className="space-y-1">
+                                      <div>
+                                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Reason: </span>
+                                        <span className="text-xs text-slate-600 dark:text-slate-400">{cc.reason || cc.basis || "—"}</span>
+                                      </div>
+                                      {cc.argument && (
+                                        <div>
+                                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Argument: </span>
+                                          <span className="text-xs text-slate-600 dark:text-slate-400">{cc.argument}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>

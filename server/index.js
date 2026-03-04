@@ -45,6 +45,7 @@ const portalAuthRoutes       = require("./routes/portal-auth");
 const portalCaseRoutes       = require("./routes/portal-case");
 const portalAdminRoutes      = require("./routes/portal-admin");
 const externalRoutes         = require("./routes/external");
+const deletedDataRoutes      = require("./routes/deleted-data");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -120,6 +121,7 @@ app.use("/api/trial-center/ai", trialCenterAiRoutes);
 app.use("/api/portal/auth", portalAuthRoutes);
 app.use("/api/portal/case", portalCaseRoutes);
 app.use("/api/portal-admin", portalAdminRoutes);
+app.use("/api/deleted-data", deletedDataRoutes);
 
 const externalCorsOrigins = process.env.EXTERNAL_CORS_ORIGINS ? process.env.EXTERNAL_CORS_ORIGINS.split(",") : null;
 app.use("/api/external", cors({
@@ -200,4 +202,9 @@ app.listen(listenPort, "0.0.0.0", async () => {
     processScheduledMessages().catch(err => console.error("SMS scheduler tick error:", err));
   }, smsInterval);
   console.log(`SMS scheduler started (interval: ${smsInterval / 1000}s)`);
+
+  deletedDataRoutes.autoPurgeExpired();
+  setInterval(() => {
+    deletedDataRoutes.autoPurgeExpired();
+  }, 24 * 60 * 60 * 1000);
 });

@@ -879,6 +879,16 @@ async function createSchema() {
       );
     `);
 
+    const softDeleteTables = [
+      'case_documents', 'case_transcripts', 'case_filings', 'case_correspondence',
+      'deadlines', 'case_notes', 'time_entries',
+      'case_insurance_policies', 'case_medical_treatments', 'case_liens',
+      'case_damages', 'case_negotiations', 'case_parties', 'case_experts', 'case_misc_contacts'
+    ];
+    for (const tbl of softDeleteTables) {
+      await client.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+    }
+
     await client.query("COMMIT");
     console.log("Schema created successfully.");
   } catch (err) {

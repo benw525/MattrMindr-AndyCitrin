@@ -20,7 +20,7 @@ const toFrontend = (row) => ({
 router.get("/quick", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM case_notes WHERE case_id IS NULL AND author_id = $1 ORDER BY created_at DESC",
+      "SELECT * FROM case_notes WHERE case_id IS NULL AND author_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
       [req.session.userId]
     );
     return res.json(rows.map(toFrontend));
@@ -33,7 +33,7 @@ router.get("/quick", requireAuth, async (req, res) => {
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM case_notes WHERE case_id = $1 ORDER BY created_at DESC",
+      "SELECT * FROM case_notes WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
       [req.params.caseId]
     );
     return res.json(rows.map(toFrontend));
@@ -85,7 +85,7 @@ router.put("/:id", requireAuth, async (req, res) => {
 
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
-    await pool.query("DELETE FROM case_notes WHERE id = $1", [req.params.id]);
+    await pool.query("UPDATE case_notes SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL", [req.params.id]);
     return res.json({ ok: true });
   } catch (err) {
     console.error("Note delete error:", err);

@@ -26,7 +26,8 @@ router.get("/", requireAuth, async (req, res) => {
     if (userId) { conditions.push(`user_id = $${idx++}`); vals.push(Number(userId)); }
     if (from) { conditions.push(`date >= $${idx++}`); vals.push(from); }
     if (to) { conditions.push(`date <= $${idx++}::date + interval '1 day'`); vals.push(to); }
-    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+    conditions.push("deleted_at IS NULL");
+    const where = "WHERE " + conditions.join(" AND ");
     const { rows } = await pool.query(
       `SELECT * FROM time_entries ${where} ORDER BY date DESC`, vals
     );
@@ -94,7 +95,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     const { rows } = await pool.query("SELECT * FROM time_entries WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     if (rows[0].user_id !== req.session.userId) return res.status(403).json({ error: "Permission denied" });
-    await pool.query("DELETE FROM time_entries WHERE id = $1", [req.params.id]);
+    await pool.query("UPDATE time_entries SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL", [req.params.id]);
     return res.json({ ok: true });
   } catch (err) {
     console.error("Time entry delete error:", err);

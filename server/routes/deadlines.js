@@ -19,16 +19,16 @@ router.get("/", requireAuth, async (req, res) => {
     const roles = req.session.userRoles || [req.session.userRole];
     const isAdmin = roles.includes("App Admin");
     if (isAdmin) {
-      const { rows } = await pool.query("SELECT * FROM deadlines ORDER BY date");
+      const { rows } = await pool.query("SELECT * FROM deadlines WHERE deleted_at IS NULL ORDER BY date");
       return res.json(rows.map(toFrontend));
     }
     const uid = req.session.userId;
     const { rows } = await pool.query(
       `SELECT d.* FROM deadlines d
        JOIN cases c ON d.case_id = c.id
-       WHERE c.lead_attorney = $1 OR c.second_attorney = $1
+       WHERE d.deleted_at IS NULL AND (c.lead_attorney = $1 OR c.second_attorney = $1
           OR c.case_manager = $1 OR c.investigator = $1
-          OR c.paralegal = $1
+          OR c.paralegal = $1)
        ORDER BY d.date`,
       [uid]
     );
@@ -107,7 +107,7 @@ router.put("/:id", requireAuth, async (req, res) => {
 
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("DELETE FROM deadlines WHERE id = $1 RETURNING *", [req.params.id]);
+    const { rows } = await pool.query("UPDATE deadlines SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING *", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     const { cancelForEvent } = require("../sms-scheduler");
     cancelForEvent(rows[0].case_id, rows[0].title, rows[0].date).catch(err => console.error("SMS cancel error:", err));
