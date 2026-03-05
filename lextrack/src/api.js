@@ -152,6 +152,7 @@ export async function apiUploadMedicalRecord(caseId, treatmentId, file) {
 }
 export const apiUpdateMedicalRecord = (caseId, treatmentId, id, data) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/${id}`, { method: "PUT", body: data });
 export const apiDeleteMedicalRecord = (caseId, treatmentId, id) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/${id}`, { method: "DELETE" });
+export const apiMedicalRecordFromDocument = (caseId, treatmentId, documentId) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/from-document`, { method: "POST", body: { documentId } });
 
 // Liens
 export const apiGetLiens = (caseId) => apiFetch(`/api/liens/${caseId}`);

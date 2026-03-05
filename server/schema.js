@@ -936,6 +936,8 @@ async function createSchema() {
       );
     `);
 
+    await client.query(`ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS source_document_id INTEGER REFERENCES case_documents(id) ON DELETE SET NULL`);
+
     await client.query(`UPDATE cases SET stage = 'Suit Filed' WHERE stage = 'Litigation Filed'`);
 
     await client.query(`

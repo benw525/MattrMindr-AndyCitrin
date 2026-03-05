@@ -35,7 +35,7 @@ import {
   apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
   apiGetInsurancePolicies, apiCreateInsurancePolicy, apiUpdateInsurancePolicy, apiDeleteInsurancePolicy,
   apiGetMedicalTreatments, apiCreateMedicalTreatment, apiUpdateMedicalTreatment, apiDeleteMedicalTreatment,
-  apiUploadMedicalRecord, apiGetMedicalRecords, apiDeleteMedicalRecord, apiUpdateMedicalRecord,
+  apiUploadMedicalRecord, apiGetMedicalRecords, apiDeleteMedicalRecord, apiUpdateMedicalRecord, apiMedicalRecordFromDocument,
   apiGetLiens, apiCreateLien, apiUpdateLien, apiDeleteLien,
   apiGetDamages, apiCreateDamage, apiUpdateDamage, apiDeleteDamage,
   apiGetExpenses, apiCreateExpense, apiUpdateExpense, apiDeleteExpense,
@@ -5367,6 +5367,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [collapsedProviders, setCollapsedProviders] = useState({});
   const [medicalRecordsLoading, setMedicalRecordsLoading] = useState({});
   const [medicalUploadingFor, setMedicalUploadingFor] = useState(null);
+  const [docPickerForTreatment, setDocPickerForTreatment] = useState(null);
+  const [docPickerLoading, setDocPickerLoading] = useState(null);
   const [medicalSortBy, setMedicalSortBy] = useState("providerName");
   const [medicalFilterType, setMedicalFilterType] = useState("All");
   const medRecFileRef = useRef(null);
@@ -7557,12 +7559,72 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div style={{ marginTop: 16, borderTop: "1px solid var(--c-border)", paddingTop: 12 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Medical Records ({recs.length})</span>
-                        <button className="btn btn-sm btn-outline" style={{ fontSize: 11, padding: "2px 10px", display: "flex", alignItems: "center", gap: 4 }}
-                          disabled={!!recsLoading}
-                          onClick={() => { setMedicalUploadingFor(t.id); setTimeout(() => medRecFileRef.current?.click(), 50); }}>
-                          <Upload size={12} /> Upload Records
-                        </button>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <button className="btn btn-sm btn-outline" style={{ fontSize: 11, padding: "2px 10px", display: "flex", alignItems: "center", gap: 4 }}
+                            disabled={!!recsLoading}
+                            onClick={() => { setMedicalUploadingFor(t.id); setTimeout(() => medRecFileRef.current?.click(), 50); }}>
+                            <Upload size={12} /> Upload Records
+                          </button>
+                          <button className="btn btn-sm btn-outline" style={{ fontSize: 11, padding: "2px 10px", display: "flex", alignItems: "center", gap: 4 }}
+                            disabled={!!recsLoading || docPickerLoading === t.id}
+                            onClick={() => setDocPickerForTreatment(docPickerForTreatment === t.id ? null : t.id)}>
+                            <FileText size={12} /> Select from Documents
+                          </button>
+                        </div>
                       </div>
+                      {docPickerForTreatment === t.id && (() => {
+                        const medicalKeywords = /medical|health|hospital|clinic|doctor|physician|treatment|diagnosis|radiology|imaging|lab|pathology|surgical|operative|discharge|ER|emergency|orthopedic|chiro|therapy|nursing|pharmacy|prescription/i;
+                        const sortedDocs = [...caseDocuments].sort((a, b) => {
+                          const aFolder = docFolders.find(f => f.id === (a.folderId || a.folder_id));
+                          const bFolder = docFolders.find(f => f.id === (b.folderId || b.folder_id));
+                          const aFolderMatch = aFolder && medicalKeywords.test(aFolder.name) ? 1 : 0;
+                          const bFolderMatch = bFolder && medicalKeywords.test(bFolder.name) ? 1 : 0;
+                          const aDocMatch = medicalKeywords.test(a.filename || "") || medicalKeywords.test(a.description || "") || medicalKeywords.test(a.docType || "") ? 1 : 0;
+                          const bDocMatch = medicalKeywords.test(b.filename || "") || medicalKeywords.test(b.description || "") || medicalKeywords.test(b.docType || "") ? 1 : 0;
+                          const aScore = aFolderMatch + aDocMatch;
+                          const bScore = bFolderMatch + bDocMatch;
+                          if (bScore !== aScore) return bScore - aScore;
+                          return (a.filename || "").localeCompare(b.filename || "");
+                        });
+                        return (
+                          <div style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 8, background: "var(--c-bg)", maxHeight: 240, overflowY: "auto" }}>
+                            <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--c-bg)", zIndex: 1 }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Select a document to import as medical record</span>
+                              <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)", fontSize: 14 }} onClick={() => setDocPickerForTreatment(null)}>✕</button>
+                            </div>
+                            {sortedDocs.length === 0 && <div style={{ padding: "12px 10px", fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No documents in this case.</div>}
+                            {sortedDocs.map(doc => {
+                              const folder = docFolders.find(f => f.id === (doc.folderId || doc.folder_id));
+                              const isMedical = medicalKeywords.test(doc.filename || "") || medicalKeywords.test(doc.description || "") || medicalKeywords.test(doc.docType || "") || (folder && medicalKeywords.test(folder.name));
+                              return (
+                                <div key={doc.id} style={{ padding: "6px 10px", borderBottom: "1px solid var(--c-border2)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: docPickerLoading === t.id ? "wait" : "pointer", opacity: docPickerLoading === t.id ? 0.5 : 1, background: isMedical ? "#f0fdf4" : "transparent", pointerEvents: docPickerLoading === t.id ? "none" : "auto" }}
+                                  onClick={async () => {
+                                    if (docPickerLoading) return;
+                                    setDocPickerLoading(t.id);
+                                    try {
+                                      const recs = await apiMedicalRecordFromDocument(c.id, t.id, doc.id);
+                                      setMedicalRecords(p => ({ ...p, [t.id]: [...(p[t.id] || []), ...(Array.isArray(recs) ? recs : [recs])] }));
+                                      setDocPickerForTreatment(null);
+                                    } catch (err) { alert("Failed to import: " + err.message); }
+                                    setDocPickerLoading(null);
+                                  }}>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {isMedical && <span style={{ color: "#16a34a", marginRight: 4 }}>●</span>}
+                                      {doc.filename}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: "var(--c-text3)" }}>
+                                      {folder && <span style={{ marginRight: 8 }}>📁 {folder.name}</span>}
+                                      {doc.docType && <span>{doc.docType}</span>}
+                                    </div>
+                                  </div>
+                                  {docPickerLoading === t.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite", color: "#64748b", flexShrink: 0 }} /> : <ChevronRight size={14} style={{ color: "var(--c-text3)", flexShrink: 0 }} />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                       {recsLoading && <div style={{ fontSize: 12, color: "#64748b" }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block", verticalAlign: "middle", marginRight: 4 }} />Loading records...</div>}
                       {!recsLoading && recs.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No records uploaded yet.</div>}
                       {recs.map(rec => (
