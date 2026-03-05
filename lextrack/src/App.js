@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "rea
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -48,17 +48,20 @@ import {
   apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms,
   apiSendSupport,
   apiGetCollabUnreadCount,
-  apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript,
+  apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript, apiSuggestTranscriptName, apiGetTranscriptHistory, apiSaveTranscriptHistory, apiRevertTranscript,
   apiMfaSetup, apiMfaVerifySetup, apiMfaVerify, apiMfaDisable,
   apiUploadProfilePicture, apiDeleteProfilePicture,
   apiGetDocFolders, apiCreateDocFolder, apiUpdateDocFolder, apiDeleteDocFolder, apiMoveDocument, apiReorderDocFolders,
   apiGetTranscriptFolders, apiCreateTranscriptFolder, apiUpdateTranscriptFolder, apiDeleteTranscriptFolder, apiMoveTranscript, apiReorderTranscriptFolders,
-  apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence,
+  apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence, apiBatchDeleteSmsMessages,
   apiUploadCaseDocumentChunked, apiUploadFilingChunked,
   apiGetDocumentText, apiDownloadFiling,
   apiGetUnreadClientComm,
-  apiGetDeletedData, apiRestoreDeletedItem,
+  apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
+  apiGetDocHtml, apiSaveDocContent, apiGetXlsxData, apiSaveXlsxData, apiGetPptxSlides, apiSavePptxSlides, apiSaveAnnotations, apiGetAnnotations,
+  apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
+  apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 import TrialCenterView from "./TrialCenterView.js";
@@ -253,6 +256,74 @@ const SortTh = ({ col, label, sortCol, sortDir, onSort, style, className }) => (
     </span>
   </th>
 );
+
+const DragDropZone = ({ onFileSelect, accept, multiple, children, style: extraStyle }) => {
+  const dragCounter = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current++;
+    if (dragCounter.current === 1) setDragActive(true);
+  }, []);
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) { dragCounter.current = 0; setDragActive(false); }
+  }, []);
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+  }, []);
+  const handleDrop = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current = 0;
+    setDragActive(false);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    if (accept) {
+      const exts = accept.split(",").map(a => a.trim().toLowerCase());
+      const filtered = Array.from(files).filter(f => {
+        const name = f.name.toLowerCase();
+        const type = f.type.toLowerCase();
+        return exts.some(ext => ext.startsWith(".") ? name.endsWith(ext) : type.match(ext.replace("*", ".*")));
+      });
+      if (filtered.length === 0) return;
+      onFileSelect(multiple ? filtered : [filtered[0]]);
+    } else {
+      onFileSelect(multiple ? Array.from(files) : [files[0]]);
+    }
+  }, [onFileSelect, accept, multiple]);
+  return (
+    <div
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      style={{
+        border: dragActive ? "2px dashed #6366f1" : "2px dashed #e2e8f0",
+        borderRadius: 10,
+        padding: 16,
+        background: dragActive ? "rgba(99,102,241,0.05)" : "transparent",
+        transition: "all 0.2s ease",
+        position: "relative",
+        ...extraStyle,
+      }}
+    >
+      {children}
+      {dragActive && (
+        <div style={{
+          position: "absolute", inset: 0, borderRadius: 10,
+          background: "rgba(99,102,241,0.08)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          pointerEvents: "none", zIndex: 10,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6366f1", background: "rgba(255,255,255,0.9)", padding: "6px 16px", borderRadius: 8 }}>
+            Drop files here
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const US_STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia"];
 
@@ -3201,26 +3272,27 @@ function Toggle({ on, onChange, color = "#f59e0b" }) {
 // ─── Reusable AI Panel Component ────────────────────────────────────────────
 function AiPanel({ title, result, loading, error, onRun, onClose, actions, children }) {
   return (
-    <div className="!bg-slate-50 dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 !rounded-lg !p-4 !mt-2.5 !text-sm">
-      <div className="flex justify-between items-center" style={{ marginBottom: loading || result || error || children ? 10 : 0 }}>
-        <div className="font-semibold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
-          <Sparkles size={14} className="text-amber-500" /> {title}
+    <div className="!bg-amber-50/50 dark:!bg-amber-900/10 !border !border-amber-200 dark:!border-amber-800/50 !rounded-xl !p-5 !mt-3 !text-sm" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      <div className="flex justify-between items-center" style={{ marginBottom: loading || result || error || children ? 12 : 0 }}>
+        <div className="font-semibold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><Sparkles size={13} className="text-amber-600 dark:text-amber-400" /></div>
+          {title}
         </div>
-        <div className="flex gap-1.5 items-center">
-          {result && onRun && <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={onRun}>↻ Retry</button>}
+        <div className="flex gap-2 items-center">
+          {result && onRun && <button className="border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 bg-white dark:bg-amber-900/20 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md cursor-pointer transition-colors" style={{ fontSize: 11, padding: "3px 10px", fontWeight: 500 }} onClick={onRun}>↻ Retry</button>}
           {actions}
-          {onClose && <button className="bg-transparent border-none cursor-pointer text-sm text-slate-500 dark:text-slate-400 p-0" onClick={onClose}>✕</button>}
+          {onClose && <button className="bg-transparent border-none cursor-pointer text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-0 transition-colors" onClick={onClose}>✕</button>}
         </div>
       </div>
       {loading && (
         <div className="flex items-center gap-2.5 py-4 text-slate-500 dark:text-slate-400">
-          <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-600 border-t-amber-500 rounded-full" style={{ animation: "spin 0.8s linear infinite" }} />
-          <span className="text-xs">AI is analyzing...</span>
+          <div className="w-4 h-4 border-2 border-amber-200 dark:border-amber-800 border-t-amber-500 rounded-full" style={{ animation: "spin 0.8s linear infinite" }} />
+          <span className="text-xs font-medium">AI is analyzing...</span>
         </div>
       )}
-      {error && <div className="text-red-600 dark:text-red-400 text-xs py-2">{error}</div>}
+      {error && <div className="text-red-600 dark:text-red-400 text-xs py-2 px-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg">{error}</div>}
       {result && (
-        <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-[400px] overflow-y-auto py-1">
+        <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-[400px] overflow-y-auto py-2 px-1">
           {result.split("\n").map((line, i) => {
             if (line.startsWith("## ")) return <div key={i} className="font-bold text-sm mt-3 mb-1 text-slate-900 dark:text-slate-100">{line.replace(/^## /, "")}</div>;
             if (line.startsWith("### ")) return <div key={i} className="font-semibold text-sm mt-2.5 mb-0.5 text-slate-900 dark:text-slate-100">{line.replace(/^### /, "")}</div>;
@@ -4880,7 +4952,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
               onChange={e => setAiQuery(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") runAiSearch(); }}
             />
-            <button className="!px-6 !py-2 !text-sm !font-medium !text-white !bg-slate-500 dark:!bg-slate-600 hover:!bg-slate-600 dark:hover:!bg-slate-500 !rounded-r-md !rounded-l-none !transition-colors !cursor-pointer !border !border-l-0 !border-slate-500 dark:!border-slate-600 !h-10 !whitespace-nowrap" onClick={runAiSearch} disabled={aiLoading || !aiQuery.trim()}>
+            <button className="!px-6 !py-2 !text-sm !font-semibold !text-slate-900 !bg-amber-400 hover:!bg-amber-500 !rounded-r-md !rounded-l-none !transition-colors !cursor-pointer !border !border-l-0 !border-amber-400 hover:!border-amber-500 !h-10 !whitespace-nowrap" onClick={runAiSearch} disabled={aiLoading || !aiQuery.trim()}>
               {aiLoading ? "Searching…" : "AI Search"}
             </button>
           </div>
@@ -5302,6 +5374,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsConfigs, setSmsConfigs] = useState([]);
   const [smsMessages, setSmsMessages] = useState([]);
   const [smsScheduled, setSmsScheduled] = useState([]);
+  const [smsSelectMode, setSmsSelectMode] = useState(false);
+  const [selectedSmsIds, setSelectedSmsIds] = useState(new Set());
   const [showAutoText, setShowAutoText] = useState(false);
   const [smsAddingRecipient, setSmsAddingRecipient] = useState(false);
   const [smsNewName, setSmsNewName] = useState("");
@@ -5411,6 +5485,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [editingDocData, setEditingDocData] = useState({});
   const [editingTranscriptId, setEditingTranscriptId] = useState(null);
   const [editingTranscriptData, setEditingTranscriptData] = useState({});
+  const [suggestingTranscriptNameId, setSuggestingTranscriptNameId] = useState(null);
+  const [transcriptHistory, setTranscriptHistory] = useState([]);
+  const [transcriptHistoryLoading, setTranscriptHistoryLoading] = useState(false);
+  const [showTranscriptHistory, setShowTranscriptHistory] = useState(false);
+  const [revertingHistoryId, setRevertingHistoryId] = useState(null);
   const [docFolders, setDocFolders] = useState([]);
   const [transcriptFolders, setTranscriptFolders] = useState([]);
   const [docSelectMode, setDocSelectMode] = useState(false);
@@ -5421,30 +5500,71 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [selectedCorrIds, setSelectedCorrIds] = useState(new Set());
   const [docUploadProgress, setDocUploadProgress] = useState(null);
   const [filingUploadProgress, setFilingUploadProgress] = useState(null);
-  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null });
+  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
+  const [backgroundUploads, setBackgroundUploads] = useState([]);
+  const bgUploadIdRef = useRef(0);
+  const startBackgroundUpload = useCallback((filename) => {
+    const id = ++bgUploadIdRef.current;
+    setBackgroundUploads(prev => [...prev, { id, filename, progress: 0, status: "uploading", error: null, startedAt: Date.now() }]);
+    const updateProgress = (pct) => setBackgroundUploads(prev => prev.map(u => u.id === id ? { ...u, progress: pct } : u));
+    const markDone = () => {
+      setBackgroundUploads(prev => prev.map(u => u.id === id ? { ...u, status: "done", progress: 100 } : u));
+      setTimeout(() => setBackgroundUploads(prev => prev.filter(u => u.id !== id)), 8000);
+    };
+    const markError = (err) => {
+      setBackgroundUploads(prev => prev.map(u => u.id === id ? { ...u, status: "error", error: err } : u));
+      setTimeout(() => setBackgroundUploads(prev => prev.filter(u => u.id !== id)), 15000);
+    };
+    return { id, updateProgress, markDone, markError };
+  }, []);
+  const removeBackgroundUpload = useCallback((id) => {
+    setBackgroundUploads(prev => prev.filter(u => u.id !== id));
+  }, []);
   const isAttorneyPlus = isAttorney(currentUser) || hasRole(currentUser, "App Admin");
 
   const openAppDocViewer = async (docId, filename, contentType) => {
     try {
-      const blob = await apiDownloadDocument(docId);
-      const url = URL.createObjectURL(blob);
-      let extractedText = null;
+      const ct = contentType || "application/pdf";
+      const ext = (filename || "").split(".").pop().toLowerCase();
+      const isDocx = ct === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || ext === "docx";
+      const isXlsx = ct === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || ext === "xlsx" || ext === "xls";
+      const isPptx = ct === "application/vnd.openxmlformats-officedocument.presentationml.presentation" || ext === "pptx" || ext === "ppt";
+      let docxHtml = null, xlsxData = null, pptxSlides = null, url = null, extractedText = null, annotations = [];
+      if (isDocx) {
+        try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch { docxHtml = "<p>Could not convert document.</p>"; }
+      } else if (isXlsx) {
+        try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch { xlsxData = []; }
+      } else if (isPptx) {
+        try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch { pptxSlides = []; }
+      } else {
+        const blob = await apiDownloadDocument(docId);
+        url = URL.createObjectURL(blob);
+      }
       try { const tRes = await apiGetDocumentText(docId); extractedText = tRes.text || tRes.extractedText || null; } catch {}
-      setAppDocViewer({ open: true, url, type: contentType || "application/pdf", name: filename, extractedText });
+      try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
+      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText, docId, docxHtml, xlsxData, pptxSlides, annotations, editMode: false });
     } catch (err) { alert("Failed to open document: " + err.message); }
   };
 
   const openAppFilingViewer = async (filingId, filename) => {
     try {
+      const ext = (filename || "").split(".").pop().toLowerCase();
       const blob = await apiDownloadFiling(filingId);
+      const ct = blob.type || (ext === "pdf" ? "application/pdf" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "xlsx" || ext === "xls" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ext === "pptx" || ext === "ppt" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext === "jpg" ? "jpeg" : ext}` : "application/octet-stream");
       const url = URL.createObjectURL(blob);
-      setAppDocViewer({ open: true, url, type: "application/pdf", name: filename, extractedText: null });
+      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
     } catch (err) { alert("Failed to open filing: " + err.message); }
   };
 
   const closeAppDocViewer = () => {
     if (appDocViewer.url) URL.revokeObjectURL(appDocViewer.url);
-    setAppDocViewer({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null });
+    setAppDocViewer({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
+  };
+
+  const openBlobInViewer = (blob, filename, contentType) => {
+    const ct = contentType || "application/octet-stream";
+    const url = URL.createObjectURL(blob);
+    setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
   };
 
   const [linkedCases, setLinkedCases] = useState([]);
@@ -5512,6 +5632,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [editingSegmentIdx, setEditingSegmentIdx] = useState(null);
   const [selectedSegments, setSelectedSegments] = useState(new Set());
   const [mergeUndoStack, setMergeUndoStack] = useState([]);
+  const [transcriptReadingView, setTranscriptReadingView] = useState(false);
   const autoSaveTimerRef = useRef(null);
   const autoSaveStatusTimerRef = useRef(null);
   const transcriptPollRef = useRef(null);
@@ -5533,10 +5654,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       if (transcriptSaving) return;
       setAutoSaveStatus("saving");
       try {
+        const prevState = transcriptDetail.transcript;
         await apiUpdateTranscript(savedId, { transcript: savedEdits });
         setTranscriptDetail(prev => prev && prev.id === savedId ? { ...prev, transcript: savedEdits } : prev);
         setAutoSaveStatus("saved");
         autoSaveStatusTimerRef.current = setTimeout(() => setAutoSaveStatus(null), 2000);
+        apiSaveTranscriptHistory(savedId, { changeType: "edit", changeDescription: "Auto-saved changes", previousState: prevState }).catch(() => {});
       } catch {
         setAutoSaveStatus(null);
       }
@@ -7876,17 +7999,25 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             {docsSubTab === "documents" && (<>
             <div className="case-overlay-section">
               <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>Upload Document</div>
+              <DragDropZone accept=".pdf,.docx,.doc,.txt" onFileSelect={(files) => {
+                const fileInput = document.getElementById("doc-upload-file-input");
+                if (fileInput && files[0]) {
+                  const dt = new DataTransfer();
+                  dt.items.add(files[0]);
+                  fileInput.files = dt.files;
+                }
+              }}>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fileInput = e.target.querySelector('input[type="file"]');
                 const file = fileInput.files[0];
                 if (!file) return;
+                const bg = startBackgroundUpload(file.name);
+                fileInput.value = "";
                 try {
                   let saved;
                   if (file.size > 20 * 1024 * 1024) {
-                    setDocUploadProgress(0);
-                    saved = await apiUploadCaseDocumentChunked(file, c.id, docUploadType, (pct) => setDocUploadProgress(pct));
-                    setDocUploadProgress(null);
+                    saved = await apiUploadCaseDocumentChunked(file, c.id, docUploadType, (pct) => bg.updateProgress(pct));
                   } else {
                     const formData = new FormData();
                     formData.append("file", file);
@@ -7895,13 +8026,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     saved = await apiUploadCaseDocument(formData);
                   }
                   setCaseDocuments(prev => [saved, ...prev]);
-                  fileInput.value = "";
                   log("Document Uploaded", `${saved.filename} (${saved.docType})`);
-                } catch (err) { setDocUploadProgress(null); alert("Upload failed: " + err.message); }
+                  bg.markDone();
+                } catch (err) { bg.markError(err.message); }
               }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
-                  <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>File (PDF, DOCX, DOC, TXT)</label>
-                  <input type="file" accept=".pdf,.docx,.doc,.txt" style={{ fontSize: 12, width: "100%" }} />
+                  <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>File (PDF, DOCX, DOC, TXT) — or drag & drop</label>
+                  <input id="doc-upload-file-input" type="file" accept=".pdf,.docx,.doc,.txt" style={{ fontSize: 12, width: "100%" }} />
                   {docUploadProgress !== null && <div style={{ marginTop: 4, fontSize: 11, color: "#6366f1" }}>Uploading: {docUploadProgress}%</div>}
                 </div>
                 <div style={{ minWidth: 160 }}>
@@ -7912,6 +8043,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
                 <button type="submit" className="btn btn-gold btn-sm" disabled={docUploadProgress !== null}>{docUploadProgress !== null ? `${docUploadProgress}%` : "Upload"}</button>
               </form>
+              </DragDropZone>
             </div>
 
             <div className="case-overlay-section">
@@ -7970,7 +8102,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             </div>
                           ) : (
                             <>
-                              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.filename}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: "#2563eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationColor: "transparent", transition: "text-decoration-color 0.15s" }} onClick={() => openAppDocViewer(doc.id, doc.filename, doc.contentType)} onMouseEnter={e => e.currentTarget.style.textDecorationColor = "#2563eb"} onMouseLeave={e => e.currentTarget.style.textDecorationColor = "transparent"} title="Click to view">{doc.filename}</div>
+                                <button onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3)", display: "inline-flex", flexShrink: 0 }} title="Edit name/type"><Pencil size={11} /></button>
+                              </div>
                               <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
                                 {doc.source === "client" && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600, marginRight: 6 }}>Client Upload</span>}
                                 <span style={{ cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.docType}</span> · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
@@ -8065,18 +8200,27 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             {docsSubTab === "transcripts" && (<>
             <div className="case-overlay-section">
-              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>Upload Audio</div>
+              <div className="case-overlay-section-title" style={{ marginBottom: 12 }}>Upload Audio / Video</div>
+              <DragDropZone accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,.mov,.avi,audio/*,video/*" onFileSelect={(files) => {
+                const fileInput = document.getElementById("transcript-upload-file-input");
+                if (fileInput && files[0]) {
+                  const dt = new DataTransfer();
+                  dt.items.add(files[0]);
+                  fileInput.files = dt.files;
+                }
+              }}>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fileInput = e.target.querySelector('input[type="file"]');
                 const file = fileInput.files[0];
                 if (!file) return;
+                const bg = startBackgroundUpload(file.name);
+                fileInput.value = "";
                 setTranscriptUploading(true);
-                setUploadProgress(null);
                 try {
                   let saved;
                   if (file.size > 20 * 1024 * 1024) {
-                    saved = await apiUploadTranscriptChunked(file, c.id, (pct) => setUploadProgress(pct));
+                    saved = await apiUploadTranscriptChunked(file, c.id, (pct) => bg.updateProgress(pct));
                   } else {
                     const formData = new FormData();
                     formData.append("audio", file);
@@ -8084,19 +8228,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     saved = await apiUploadTranscript(formData);
                   }
                   setTranscripts(prev => [saved, ...prev]);
-                  fileInput.value = "";
-                } catch (err) { alert("Upload failed: " + err.message); }
+                  bg.markDone();
+                } catch (err) { bg.markError(err.message); }
                 setTranscriptUploading(false);
-                setUploadProgress(null);
               }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
-                  <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Audio File (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4)</label>
-                  <input type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,audio/*" style={{ fontSize: 12, width: "100%" }} />
+                  <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Audio/Video File (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4, MOV, AVI) — or drag & drop</label>
+                  <input id="transcript-upload-file-input" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,.mov,.avi,audio/*,video/*" style={{ fontSize: 12, width: "100%" }} />
                 </div>
                 <button type="submit" className="btn btn-sm" disabled={transcriptUploading} style={{ background: "#1e293b", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                  {transcriptUploading ? <><Loader2 size={12} className="animate-spin" /> {uploadProgress !== null ? `Uploading ${uploadProgress}%` : "Uploading..."}</> : <><Upload size={12} /> Upload & Transcribe</>}
+                  {transcriptUploading ? <><Loader2 size={12} className="animate-spin" /> Uploading...</> : <><Upload size={12} /> Upload & Transcribe</>}
                 </button>
               </form>
+              </DragDropZone>
             </div>
 
             <div className="case-overlay-section">
@@ -8142,6 +8286,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           setTranscriptEdits(null);
                           setSelectedSegments(new Set());
                           setMergeUndoStack([]);
+                          setShowTranscriptHistory(false);
+                          setTranscriptHistory([]);
+                          setTranscriptReadingView(false);
                         } else if (t.status === "completed") {
                           setExpandedTranscriptId(t.id);
                           setSelectedSegments(new Set());
@@ -8157,12 +8304,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
                         {transcriptSelectMode && <input type="checkbox" checked={selectedTranscriptIds.has(t.id)} readOnly style={{ width: 16, height: 16, flexShrink: 0 }} />}
-                        <FileAudio size={16} style={{ color: "#6366f1", flexShrink: 0 }} />
+                        {t.isVideo ? <Video size={16} style={{ color: "#8b5cf6", flexShrink: 0 }} /> : <FileAudio size={16} style={{ color: "#6366f1", flexShrink: 0 }} />}
                         <div style={{ minWidth: 0, flex: 1 }}>
                           {editingTranscriptId === t.id ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={e => e.stopPropagation()}>
                               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                                 <input value={editingTranscriptData.filename || ""} onChange={e => setEditingTranscriptData(d => ({ ...d, filename: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (async () => { try { const updated = await apiUpdateTranscript(t.id, { filename: editingTranscriptData.filename, description: editingTranscriptData.description }); setTranscripts(prev => prev.map(x => x.id === t.id ? { ...x, filename: updated.filename, description: updated.description } : x)); setEditingTranscriptId(null); } catch (err) { alert("Save failed: " + err.message); } })(); } if (e.key === "Escape") setEditingTranscriptId(null); }} style={{ fontSize: 13, fontWeight: 600, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6", flex: 1, minWidth: 120 }} autoFocus />
+                                <button disabled={suggestingTranscriptNameId === t.id} onClick={async (e) => { e.stopPropagation(); setSuggestingTranscriptNameId(t.id); try { const { suggestedName } = await apiSuggestTranscriptName(t.id); setEditingTranscriptData(d => ({ ...d, filename: suggestedName })); } catch (err) { alert("Suggest failed: " + err.message); } setSuggestingTranscriptNameId(null); }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #a78bfa", background: "#ede9fe", color: "#5b21b6", cursor: suggestingTranscriptNameId === t.id ? "wait" : "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3, opacity: suggestingTranscriptNameId === t.id ? 0.6 : 1 }} title="AI suggest filename">{suggestingTranscriptNameId === t.id ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={10} />} Suggest</button>
                                 <button onClick={async () => { try { const updated = await apiUpdateTranscript(t.id, { filename: editingTranscriptData.filename, description: editingTranscriptData.description }); setTranscripts(prev => prev.map(x => x.id === t.id ? { ...x, filename: updated.filename, description: updated.description } : x)); setEditingTranscriptId(null); } catch (err) { alert("Save failed: " + err.message); } }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
                                 <button onClick={() => setEditingTranscriptId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
                               </div>
@@ -8279,8 +8427,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
                                       setTranscriptSaving(true);
                                       try {
+                                        const prevState = transcriptDetail.transcript;
                                         await apiUpdateTranscript(t.id, { transcript: transcriptEdits });
                                         setTranscriptDetail(prev => ({ ...prev, transcript: transcriptEdits }));
+                                        apiSaveTranscriptHistory(t.id, { changeType: "manual_save", changeDescription: "Manual save", previousState: prevState }).catch(() => {});
                                       } catch (err) { alert("Save failed: " + err.message); }
                                       setTranscriptSaving(false);
                                     }}
@@ -8289,13 +8439,125 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     {transcriptSaving ? <Loader2 size={11} className="animate-spin" /> : null}
                                     Save Changes
                                   </button>
+                                  <button
+                                    onClick={async () => {
+                                      setShowTranscriptHistory(!showTranscriptHistory);
+                                      if (!showTranscriptHistory) {
+                                        setTranscriptHistoryLoading(true);
+                                        apiGetTranscriptHistory(t.id).then(setTranscriptHistory).catch(() => setTranscriptHistory([])).finally(() => setTranscriptHistoryLoading(false));
+                                      }
+                                    }}
+                                    className="btn btn-outline btn-sm"
+                                    style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, background: showTranscriptHistory ? "#ede9fe" : undefined, borderColor: showTranscriptHistory ? "#a78bfa" : undefined, color: showTranscriptHistory ? "#5b21b6" : undefined }}
+                                  >
+                                    <RotateCcw size={11} /> History
+                                  </button>
                                   {autoSaveStatus && (
                                     <span style={{ fontSize: 10, color: autoSaveStatus === "saved" ? "#10b981" : "#94a3b8", display: "flex", alignItems: "center", gap: 3 }}>
                                       {autoSaveStatus === "saving" ? <><Loader2 size={10} className="animate-spin" /> Saving...</> : <><Check size={10} /> Saved</>}
                                     </span>
                                   )}
+                                  <button
+                                    onClick={() => setTranscriptReadingView(!transcriptReadingView)}
+                                    className="btn btn-sm"
+                                    style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, background: transcriptReadingView ? "#6366f1" : "transparent", color: transcriptReadingView ? "#fff" : "#475569", border: transcriptReadingView ? "1px solid #6366f1" : "1px solid #e2e8f0" }}
+                                  >
+                                    <Eye size={11} /> Reading View
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const speakerColorsMap = {};
+                                      speakers.forEach((sp, i) => { speakerColorsMap[sp] = speakerColors[i % speakerColors.length]; });
+                                      const presentWindow = window.open("", "_blank", "width=1200,height=800");
+                                      if (!presentWindow) { alert("Pop-up blocked. Please allow pop-ups for this site."); return; }
+                                      const title = t.filename || "Transcript";
+                                      presentWindow.document.write(`<!DOCTYPE html><html><head><title>${title} — Present Mode</title><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; padding: 40px; }
+.header { text-align: center; margin-bottom: 32px; border-bottom: 1px solid #334155; padding-bottom: 24px; }
+.title { font-size: 24px; font-weight: 700; color: #f8fafc; margin-bottom: 8px; }
+.meta { font-size: 14px; color: #94a3b8; }
+.legend { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cbd5e1; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.segments { max-width: 900px; margin: 0 auto; }
+.segment { display: flex; gap: 16px; padding: 12px 16px; border-radius: 8px; margin-bottom: 4px; align-items: flex-start; }
+.segment:nth-child(even) { background: rgba(30, 41, 59, 0.5); }
+.timestamp { flex-shrink: 0; width: 60px; font-size: 13px; color: #64748b; font-family: monospace; padding-top: 3px; }
+.speaker { flex-shrink: 0; width: 140px; font-size: 14px; font-weight: 600; padding-top: 2px; }
+.text { flex: 1; font-size: 18px; line-height: 1.7; color: #e2e8f0; }
+</style></head><body>
+<div class="header"><div class="title">${title}</div><div class="meta">${transcriptEdits.length} segments${transcriptDetail.durationSeconds ? ' · ' + Math.floor(transcriptDetail.durationSeconds / 60) + 'm ' + Math.round(transcriptDetail.durationSeconds % 60) + 's' : ''}</div></div>
+<div class="legend">${speakers.map(sp => `<div class="legend-item"><div class="legend-dot" style="background:${speakerColorsMap[sp]}"></div>${sp}</div>`).join("")}</div>
+<div class="segments">${transcriptEdits.map(seg => `<div class="segment"><div class="timestamp">${fmtTime(seg.startTime)}</div><div class="speaker" style="color:${speakerColorsMap[seg.speaker] || '#94a3b8'}">${seg.speaker}</div><div class="text">${seg.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div></div>`).join("")}</div>
+</body></html>`);
+                                      presentWindow.document.close();
+                                    }}
+                                    className="btn btn-sm"
+                                    style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, background: "#0f172a", color: "#f8fafc", border: "1px solid #334155" }}
+                                  >
+                                    <Scale size={11} /> Present
+                                  </button>
                                 </div>
                               </div>
+
+                              {showTranscriptHistory && (
+                                <div style={{ marginBottom: 12, border: "1px solid #e9d5ff", borderRadius: 8, background: "#faf5ff", overflow: "hidden" }}>
+                                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #e9d5ff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: "#5b21b6" }}>Version History</span>
+                                    <button onClick={() => setShowTranscriptHistory(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 16, lineHeight: 1 }}>&times;</button>
+                                  </div>
+                                  <div style={{ maxHeight: 200, overflowY: "auto", padding: 8 }}>
+                                    {transcriptHistoryLoading ? <p style={{ fontSize: 11, color: "#94a3b8", padding: 8 }}>Loading history...</p> :
+                                     transcriptHistory.length === 0 ? <p style={{ fontSize: 11, color: "#94a3b8", padding: 8 }}>No version history yet.</p> :
+                                     transcriptHistory.map(h => {
+                                       const typeColors = { edit: { bg: "#dbeafe", color: "#1d4ed8", label: "Edit" }, manual_save: { bg: "#dcfce7", color: "#15803d", label: "Save" }, revert: { bg: "#fef3c7", color: "#92400e", label: "Revert" }, merge: { bg: "#e0e7ff", color: "#4338ca", label: "Merge" } };
+                                       const tc = typeColors[h.changeType] || { bg: "#f1f5f9", color: "#64748b", label: h.changeType };
+                                       return (
+                                         <div key={h.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", borderRadius: 6, marginBottom: 4, background: "#fff", border: "1px solid #f1f5f9" }}>
+                                           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                                             <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 4, background: tc.bg, color: tc.color, whiteSpace: "nowrap" }}>{tc.label}</span>
+                                             <span style={{ fontSize: 11, color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.changeDescription || h.changeType}</span>
+                                             <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>by {h.changedBy}</span>
+                                             <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{new Date(h.createdAt).toLocaleString()}</span>
+                                           </div>
+                                           <button
+                                             disabled={revertingHistoryId === h.id}
+                                             onClick={async () => {
+                                               if (!window.confirm("Revert to this version? Current changes will be saved as a history entry.")) return;
+                                               setRevertingHistoryId(h.id);
+                                               try {
+                                                 const reverted = await apiRevertTranscript(t.id, h.id);
+                                                 setTranscriptDetail(reverted);
+                                                 setTranscriptEdits(JSON.parse(JSON.stringify(reverted.transcript)));
+                                                 const freshHistory = await apiGetTranscriptHistory(t.id);
+                                                 setTranscriptHistory(freshHistory);
+                                               } catch (err) { alert("Revert failed: " + err.message); }
+                                               setRevertingHistoryId(null);
+                                             }}
+                                             style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #f59e0b", background: "#fffbeb", color: "#92400e", cursor: revertingHistoryId === h.id ? "wait" : "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3, flexShrink: 0, opacity: revertingHistoryId === h.id ? 0.6 : 1 }}
+                                           >
+                                             {revertingHistoryId === h.id ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} /> : <RotateCcw size={10} />} Revert
+                                           </button>
+                                         </div>
+                                       );
+                                     })
+                                    }
+                                  </div>
+                                </div>
+                              )}
+
+                              {transcriptDetail.isVideo && (
+                                <div style={{ marginBottom: 16, borderRadius: 8, overflow: "hidden", border: "1px solid var(--c-border2)", background: "#000" }}>
+                                  <video
+                                    controls
+                                    style={{ width: "100%", maxHeight: 400, display: "block" }}
+                                    src={`/api/transcripts/${t.id}/video`}
+                                  >
+                                    Your browser does not support the video tag.
+                                  </video>
+                                </div>
+                              )}
 
                               {selectedSegments.size >= 2 && (
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", marginBottom: 8, background: "#6366f118", border: "1px solid #6366f130", borderRadius: 6 }}>
@@ -8344,6 +8606,34 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 </div>
                               )}
 
+                              {transcriptReadingView ? (
+                                <div>
+                                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 12 }}>
+                                    <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", lineHeight: "22px" }}>Speakers:</span>
+                                    {speakers.map((sp, i) => (
+                                      <div key={sp} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: speakerColors[i % speakerColors.length], flexShrink: 0 }} />
+                                        <span style={{ fontSize: 12, color: "#1e293b", fontWeight: 500 }}>{sp}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 500, overflowY: "auto" }}>
+                                    {transcriptEdits.map((seg, idx) => (
+                                      <div key={idx} style={{ display: "flex", gap: 14, padding: "10px 14px", borderRadius: 6, background: idx % 2 === 0 ? "#f8fafc" : "transparent", alignItems: "flex-start", borderLeft: `3px solid ${getSpeakerColor(seg.speaker)}` }}>
+                                        <div style={{ flexShrink: 0, width: 52, fontSize: 11, color: "#94a3b8", fontFamily: "monospace", paddingTop: 3 }}>
+                                          {fmtTime(seg.startTime)}
+                                        </div>
+                                        <div style={{ flexShrink: 0, width: 120 }}>
+                                          <span style={{ fontSize: 12, fontWeight: 600, color: getSpeakerColor(seg.speaker) }}>{seg.speaker}</span>
+                                        </div>
+                                        <div style={{ flex: 1, fontSize: 13, lineHeight: 1.6, color: "#1e293b" }}>
+                                          {seg.text}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
                               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 500, overflowY: "auto" }}>
                                 {transcriptEdits.map((seg, idx) => (
                                   <div key={idx} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 6, background: selectedSegments.has(idx) ? "#6366f110" : (idx % 2 === 0 ? "var(--c-bg2)" : "transparent"), alignItems: "flex-start", border: selectedSegments.has(idx) ? "1px solid #6366f130" : "1px solid transparent" }}>
@@ -8406,6 +8696,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                   </div>
                                 ))}
                               </div>
+                              )}
                             </div>
                           );
                         })() : <p style={{ fontSize: 12, color: "#94a3b8" }}>No transcript data.</p>}
@@ -8426,13 +8717,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div className="case-overlay-section">
               <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 12, borderBottom: "1px solid var(--c-border2)" }}>
                 <button onClick={() => setCorrSubTab("emails")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "emails" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
-                  Emails {correspondence.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({correspondence.length})</span>}
+                  Emails {correspondence.filter(e => !e.isVoicemail).length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({correspondence.filter(e => !e.isVoicemail).length})</span>}
                 </button>
                 <button onClick={() => setCorrSubTab("texts")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "texts" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
                   Texts {smsMessages.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({smsMessages.length})</span>}
                 </button>
                 <button onClick={() => setCorrSubTab("voicemails")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "voicemails" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
-                  Voicemails {voicemails.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({voicemails.length})</span>}
+                  Voicemails {(voicemails.length + correspondence.filter(e => e.isVoicemail).length) > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({voicemails.length + correspondence.filter(e => e.isVoicemail).length})</span>}
                 </button>
                 <div style={{ flex: 1 }} />
                 <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 bg-transparent cursor-pointer mb-1" onClick={() => {
@@ -8451,7 +8742,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       }}>{corrCopied ? "Copied!" : `case-${c.id}@mcpd.mattrmindr.com`}</span>
                     </span>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {isAttorneyPlus && correspondence.length > 0 && (
+                      {isAttorneyPlus && correspondence.filter(e => !e.isVoicemail).length > 0 && (
                         <button onClick={() => { setCorrSelectMode(!corrSelectMode); setSelectedCorrIds(new Set()); }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 5, border: corrSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: corrSelectMode ? "#fef2f2" : "var(--c-bg)", color: corrSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{corrSelectMode ? "Cancel" : "Select"}</button>
                       )}
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
@@ -8462,7 +8753,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                   {corrSelectMode && (
                     <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
-                      <button onClick={() => setSelectedCorrIds(new Set(correspondence.map(e => e.id)))} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Select All</button>
+                      <button onClick={() => setSelectedCorrIds(new Set(correspondence.filter(e => !e.isVoicemail).map(e => e.id)))} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Select All</button>
                       <button onClick={() => setSelectedCorrIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
                       {selectedCorrIds.size > 0 && (
                         <button onClick={async () => {
@@ -8527,12 +8818,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                             if (!res.ok) throw new Error("Failed to load attachment");
                                             const blob = await res.blob();
                                             const typedBlob = new Blob([blob], { type: att.contentType || "application/octet-stream" });
-                                            const blobUrl = URL.createObjectURL(typedBlob);
-                                            if (isPdf) { window.open(blobUrl, "_blank"); }
-                                            else if (isImage) { setAttachmentPreview({ url: blobUrl, filename: att.filename, contentType: att.contentType, blobUrl }); }
-                                            else { const a = document.createElement("a"); a.href = blobUrl; a.download = att.filename; a.click(); URL.revokeObjectURL(blobUrl); }
+                                            openBlobInViewer(typedBlob, att.filename, att.contentType);
                                           } catch (err) { alert("Failed to load attachment: " + err.message); }
-                                        }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 14px", background: "var(--c-bg2)", borderRadius: 6, border: "1px solid var(--c-border)", cursor: "pointer", minWidth: 90, textAlign: "center" }} title={isPreviewable ? "Click to preview" : "Click to download"}>
+                                        }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 14px", background: "var(--c-bg2)", borderRadius: 6, border: "1px solid var(--c-border)", cursor: "pointer", minWidth: 90, textAlign: "center" }} title="Click to view">
                                           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", textTransform: "uppercase" }}>{icon}</span>
                                           <span style={{ fontSize: 11, color: "var(--c-text)", fontWeight: 600, wordBreak: "break-all", maxWidth: 120 }}>{att.filename}</span>
                                           <span style={{ fontSize: 10, color: "#64748b" }}>{(att.size / 1024).toFixed(0)} KB</span>
@@ -8571,7 +8859,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <span style={{ fontSize: 11, color: "#64748b" }}>
                       {smsConfigs.length > 0 ? `${smsConfigs.filter(sc => sc.enabled).length} active auto-text recipient${smsConfigs.filter(sc => sc.enabled).length !== 1 ? "s" : ""}` : "No auto-text configured"}
                     </span>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {isAttorneyPlus && smsMessages.length > 0 && (
+                        <button onClick={() => { setSmsSelectMode(!smsSelectMode); setSelectedSmsIds(new Set()); }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 5, border: smsSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: smsSelectMode ? "#fef2f2" : "var(--c-bg)", color: smsSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{smsSelectMode ? "Cancel" : "Select"}</button>
+                      )}
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", position: "relative" }} onClick={() => {
                         apiGetUnmatchedSms().then(msgs => { setSmsUnmatched(msgs); setSmsUnmatchedOpen(true); }).catch(() => {});
                       }}>
@@ -8630,6 +8921,24 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     )}
                   </div>
 
+                  {smsSelectMode && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
+                      <button onClick={() => setSelectedSmsIds(new Set(smsMessages.map(m => m.id)))} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Select All</button>
+                      <button onClick={() => setSelectedSmsIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
+                      {selectedSmsIds.size > 0 && (
+                        <button onClick={async () => {
+                          if (!await confirmDelete()) return;
+                          try {
+                            await apiBatchDeleteSmsMessages([...selectedSmsIds]);
+                            setSmsMessages(prev => prev.filter(m => !selectedSmsIds.has(m.id)));
+                            log("Batch Deleted", `${selectedSmsIds.size} text messages`);
+                            setSelectedSmsIds(new Set()); setSmsSelectMode(false);
+                          } catch (err) { alert("Batch delete failed: " + err.message); }
+                        }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Delete Selected ({selectedSmsIds.size})</button>
+                      )}
+                    </div>
+                  )}
+
                   {smsMessages.length === 0 && (
                     <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
                       No text messages yet. Configure Auto Text settings to send automated reminders, or click "Send Text" to send a one-off message.
@@ -8642,14 +8951,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         const isOut = msg.direction === "outbound";
                         const time = msg.sentAt ? new Date(msg.sentAt).toLocaleString() : "";
                         return (
-                          <div key={msg.id} style={{ display: "flex", justifyContent: isOut ? "flex-end" : "flex-start" }}>
+                          <div key={msg.id} style={{ display: "flex", justifyContent: isOut ? "flex-end" : "flex-start", alignItems: "flex-start", gap: 6 }} onClick={() => { if (smsSelectMode) { const next = new Set(selectedSmsIds); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); setSelectedSmsIds(next); } }}>
+                            {smsSelectMode && <input type="checkbox" checked={selectedSmsIds.has(msg.id)} readOnly style={{ width: 16, height: 16, flexShrink: 0, marginTop: 8, cursor: "pointer" }} />}
                             <div style={{
-                              maxWidth: "75%", padding: "8px 12px", borderRadius: 12,
+                              maxWidth: smsSelectMode ? "70%" : "75%", padding: "8px 12px", borderRadius: 12,
                               background: isOut ? "#1e3a5f" : "var(--c-bg2)",
                               color: isOut ? "#fff" : "var(--c-text)",
                               border: isOut ? "none" : "1px solid var(--c-border)",
                               borderBottomRightRadius: isOut ? 4 : 12,
                               borderBottomLeftRadius: isOut ? 12 : 4,
+                              cursor: smsSelectMode ? "pointer" : "default",
                             }}>
                               <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{msg.body}</div>
                               <div style={{ fontSize: 10, color: isOut ? "rgba(255,255,255,0.6)" : "#64748b", marginTop: 4, display: "flex", justifyContent: "space-between", gap: 8 }}>
@@ -9254,7 +9565,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontSize: 11, color: "#64748b" }}>
-                      {voicemails.length} voicemail{voicemails.length !== 1 ? "s" : ""}
+                      {voicemails.length + correspondence.filter(e => e.isVoicemail).length} voicemail{(voicemails.length + correspondence.filter(e => e.isVoicemail).length) !== 1 ? "s" : ""}
                     </span>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
@@ -9264,9 +9575,93 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                         setVoicemailsLoading(true);
                         apiGetVoicemails(c.id).then(setVoicemails).catch(() => {}).finally(() => setVoicemailsLoading(false));
+                        setCorrLoading(true);
+                        apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
                       }}>Refresh</button>
                     </div>
                   </div>
+
+                  {correspondence.filter(e => e.isVoicemail).length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      {correspondence.filter(e => e.isVoicemail).map(email => {
+                        const isExpanded = expandedEmail === email.id;
+                        const dateStr = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : "";
+                        const audioAttachments = (email.attachments || []).filter(a => a.contentType && a.contentType.startsWith("audio/"));
+                        return (
+                          <div key={`vm-email-${email.id}`} style={{ borderBottom: "1px solid var(--c-border2)", padding: "12px 0" }}>
+                            <div style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }} onClick={() => setExpandedEmail(isExpanded ? null : email.id)}>
+                              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#7c3aed", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                                {(email.fromName || email.fromEmail || "?")[0].toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{email.fromName || email.fromEmail}</div>
+                                  <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>{dateStr}</div>
+                                </div>
+                                <div style={{ fontSize: 13, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</div>
+                                {!isExpanded && <div style={{ fontSize: 12, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{(email.bodyText || "").substring(0, 120)}</div>}
+                                {audioAttachments.length > 0 && !isExpanded && <div style={{ fontSize: 11, color: "#7c3aed", marginTop: 2 }}>🎵 Audio attachment</div>}
+                              </div>
+                            </div>
+                            {isExpanded && (
+                              <div style={{ marginTop: 10, marginLeft: 42 }}>
+                                <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>
+                                  <div>From: {email.fromName} &lt;{email.fromEmail}&gt;</div>
+                                  {email.toEmails && <div>To: {email.toEmails}</div>}
+                                </div>
+                                {email.bodyText && (
+                                  <div style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", background: "var(--c-bg2)", borderRadius: 6, padding: 12, marginTop: 8, maxHeight: 200, overflow: "auto", border: "1px solid var(--c-border)" }}>
+                                    {email.bodyText}
+                                  </div>
+                                )}
+                                {email.attachments.length > 0 && (
+                                  <div style={{ marginTop: 8 }}>
+                                    {email.attachments.map((att, idx) => {
+                                      const isAudio = att.contentType && att.contentType.startsWith("audio/");
+                                      return (
+                                        <div key={idx} style={{ marginBottom: 6 }}>
+                                          {isAudio ? (
+                                            <div>
+                                              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", marginBottom: 4 }}>{att.filename}</div>
+                                              <audio controls preload="none" style={{ height: 32, width: "100%" }}>
+                                                <source src={`/api/correspondence/attachment/${email.id}/${idx}?inline=true`} type={att.contentType} />
+                                              </audio>
+                                            </div>
+                                          ) : (
+                                            <button onClick={async () => {
+                                              try {
+                                                const res = await fetch(`/api/correspondence/attachment/${email.id}/${idx}?inline=true`, { credentials: "include" });
+                                                if (!res.ok) throw new Error("Failed to load attachment");
+                                                const blob = await res.blob();
+                                                const typedBlob = new Blob([blob], { type: att.contentType || "application/octet-stream" });
+                                                openBlobInViewer(typedBlob, att.filename, att.contentType);
+                                              } catch (err) { alert("Failed to load attachment: " + err.message); }
+                                            }} style={{ fontSize: 11, padding: "4px 10px", background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 4, cursor: "pointer", color: "var(--c-text)" }}>
+                                              📎 {att.filename} ({(att.size / 1024).toFixed(0)} KB)
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                <div style={{ marginTop: 8 }}>
+                                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
+                                    if (!await confirmDelete()) return;
+                                    try {
+                                      await apiDeleteCorrespondence(email.id);
+                                      setCorrespondence(p => p.filter(e => e.id !== email.id));
+                                      setExpandedEmail(null);
+                                    } catch (err) { console.error(err); }
+                                  }}>Delete</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {showAddVoicemail && (
                     <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16, marginBottom: 16 }}>
@@ -9319,9 +9714,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   )}
 
                   {voicemailsLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading voicemails...</div>}
-                  {!voicemailsLoading && voicemails.length === 0 && !showAddVoicemail && (
+                  {!voicemailsLoading && voicemails.length === 0 && correspondence.filter(e => e.isVoicemail).length === 0 && !showAddVoicemail && (
                     <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
-                      No voicemails recorded yet. Click "Add Voicemail" to log a voicemail message.
+                      No voicemails recorded yet. Voicemail emails (with "Voice Message" in subject) appear here automatically, or click "Add Voicemail" to log one manually.
                     </div>
                   )}
                   {!voicemailsLoading && voicemails.map(vm => {
@@ -9426,18 +9821,27 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         {/* ── Filings Tab ── */}
         {activeTab === "filings" && (
           <div className="case-overlay-body">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
+            <DragDropZone accept=".pdf,application/pdf" onFileSelect={(files) => {
+              const fileInput = document.getElementById("filing-upload-input");
+              if (fileInput && files[0]) {
+                const dt = new DataTransfer();
+                dt.items.add(files[0]);
+                fileInput.files = dt.files;
+                fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+              }
+            }} style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Upload Filing (PDF only)</label>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Upload Filing (PDF only) — or drag & drop</label>
                 {filingUploadProgress !== null && <div style={{ fontSize: 11, color: "#6366f1", marginBottom: 4 }}>Uploading: {filingUploadProgress}%</div>}
                 <input type="file" accept=".pdf,application/pdf" id="filing-upload-input" style={{ fontSize: 12, width: "100%" }} disabled={filingUploadProgress !== null} onChange={async (e) => {
                   const file = e.target.files[0]; if (!file) return;
+                  const bg = startBackgroundUpload(file.name);
+                  e.target.value = "";
                   try {
                     let saved;
                     if (file.size > 20 * 1024 * 1024) {
-                      setFilingUploadProgress(0);
-                      saved = await apiUploadFilingChunked(file, c.id, filingUploadFiledBy, filingUploadDate, filingUploadDocType, (pct) => setFilingUploadProgress(pct));
-                      setFilingUploadProgress(null);
+                      saved = await apiUploadFilingChunked(file, c.id, filingUploadFiledBy, filingUploadDate, filingUploadDocType, (pct) => bg.updateProgress(pct));
                     } else {
                       const formData = new FormData();
                       formData.append("file", file);
@@ -9449,7 +9853,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     }
                     setFilings(prev => [saved, ...prev]);
                     log("Filing uploaded", `${file.name}`);
-                    e.target.value = "";
+                    bg.markDone();
                     setFilingClassifying(saved.id);
                     try {
                       const { classification } = await apiClassifyFiling(saved.id);
@@ -9457,7 +9861,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       log("Filing auto-classified", `${classification.suggestedName || file.name} → ${classification.filedBy || "Unknown"}`);
                     } catch (classErr) { console.error("Auto-classify error:", classErr); }
                     setFilingClassifying(null);
-                  } catch (err) { setFilingUploadProgress(null); alert("Upload failed: " + err.message); setFilingClassifying(null); }
+                  } catch (err) { bg.markError(err.message); setFilingClassifying(null); }
                 }} />
               </div>
               <div>
@@ -9476,6 +9880,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <input type="text" placeholder="e.g., Motion to Suppress" value={filingUploadDocType} onChange={e => setFilingUploadDocType(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB", width: 160 }} />
               </div>
             </div>
+            </DragDropZone>
 
             {filingClassifying && (
               <div style={{ background: "#FEF9C3", border: "1px solid #FCD34D", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 12, display: "flex", alignItems: "center", gap: 8 }}>
@@ -9508,7 +9913,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         {isEditing ? (
                           <input value={editingFilingData.filename || ""} onChange={e => setEditingFilingData(d => ({ ...d, filename: e.target.value }))} style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 150, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6" }} />
                         ) : (
-                          <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 150, cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.filename}</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 150 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#2563eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "underline", textDecorationColor: "transparent", transition: "text-decoration-color 0.15s" }} onClick={() => openAppFilingViewer(f.id, f.filename)} onMouseEnter={e => e.currentTarget.style.textDecorationColor = "#2563eb"} onMouseLeave={e => e.currentTarget.style.textDecorationColor = "transparent"} title="Click to view">{f.filename}</span>
+                            <button onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3)", display: "inline-flex", flexShrink: 0 }} title="Edit filing"><Pencil size={11} /></button>
+                          </span>
                         )}
                         {isEditing ? (
                           <select value={editingFilingData.filedBy || ""} onChange={e => setEditingFilingData(d => ({ ...d, filedBy: e.target.value }))} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
@@ -10037,29 +10445,120 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
       </div>
 
+      {backgroundUploads.length > 0 && (
+        <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 99999, display: "flex", flexDirection: "column", gap: 8, maxWidth: 320 }}>
+          {backgroundUploads.map(u => (
+            <div key={u.id} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", boxShadow: "0 4px 20px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column", gap: 6, minWidth: 260 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                  {u.status === "uploading" && <Loader2 size={14} style={{ color: "#6366f1", animation: "spin 1s linear infinite", flexShrink: 0 }} />}
+                  {u.status === "done" && <Check size={14} style={{ color: "#059669", flexShrink: 0 }} />}
+                  {u.status === "error" && <AlertCircle size={14} style={{ color: "#dc2626", flexShrink: 0 }} />}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.filename}</span>
+                </div>
+                <button onClick={() => removeBackgroundUpload(u.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", fontSize: 14, lineHeight: 1 }}>✕</button>
+              </div>
+              {u.status === "uploading" && (
+                <div style={{ width: "100%", height: 4, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ width: `${u.progress}%`, height: "100%", background: "#6366f1", borderRadius: 2, transition: "width 0.3s ease" }} />
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: u.status === "error" ? "#dc2626" : u.status === "done" ? "#059669" : "#64748b" }}>
+                {u.status === "uploading" && `Uploading... ${u.progress}%`}
+                {u.status === "done" && "Upload complete"}
+                {u.status === "error" && (u.error || "Upload failed")}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {appDocViewer.open && (
         <div onClick={closeAppDocViewer} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 10001, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "var(--c-bg)", borderRadius: 10, width: "92vw", maxWidth: 1100, height: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 18px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{appDocViewer.name}</div>
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--c-bg)", borderRadius: 10, width: "94vw", maxWidth: 1200, height: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 18px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", display: "flex", alignItems: "center", gap: 8 }}>
+                {appDocViewer.name}
+                {appDocViewer.docxHtml !== null && (
+                  <button onClick={() => setAppDocViewer(prev => ({ ...prev, editMode: !prev.editMode }))} style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, background: appDocViewer.editMode ? "#6366f1" : "transparent", color: appDocViewer.editMode ? "#fff" : "#6366f1", border: "1px solid #6366f1", borderRadius: 4, cursor: "pointer" }}>{appDocViewer.editMode ? "Editing" : "Edit"}</button>
+                )}
+              </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <a href={appDocViewer.url} download={appDocViewer.name} style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, background: "#f59e0b", color: "#fff", borderRadius: 4, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Download</a>
+                {appDocViewer.editMode && appDocViewer.docxHtml !== null && appDocViewer.docId && (
+                  <button onClick={async () => { try { await apiSaveDocContent(appDocViewer.docId, appDocViewer.docxHtml); alert("Saved!"); } catch { alert("Save failed"); } }} style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, background: "#10b981", color: "#fff", borderRadius: 4, border: "none", cursor: "pointer" }}>Save</button>
+                )}
+                {appDocViewer.url && <a href={appDocViewer.url} download={appDocViewer.name} style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, background: "#f59e0b", color: "#fff", borderRadius: 4, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Download</a>}
                 <button onClick={closeAppDocViewer} style={{ background: "transparent", border: "none", fontSize: 20, color: "#64748b", cursor: "pointer", padding: "2px 6px", lineHeight: 1 }}>✕</button>
               </div>
             </div>
+            {appDocViewer.editMode && appDocViewer.docxHtml !== null && (
+              <div style={{ display: "flex", gap: 4, padding: "6px 18px", borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-s)", flexWrap: "wrap" }}>
+                {[["Bold", "bold"], ["Italic", "italic"], ["Underline", "underline"], ["H1", "formatBlock", "H1"], ["H2", "formatBlock", "H2"], ["H3", "formatBlock", "H3"], ["• List", "insertUnorderedList"], ["1. List", "insertOrderedList"]].map(([label, cmd, val]) => (
+                  <button key={label} onClick={() => document.execCommand(cmd, false, val || null)} style={{ padding: "3px 8px", fontSize: 11, background: "transparent", border: "1px solid var(--c-border)", borderRadius: 3, cursor: "pointer", color: "var(--c-text)" }}>{label}</button>
+                ))}
+              </div>
+            )}
             <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-              <div style={{ flex: appDocViewer.extractedText ? "0 0 60%" : "1 1 100%", overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#1F2428" }}>
-                {appDocViewer.type?.startsWith("image/") ? (
-                  <img src={appDocViewer.url} alt={appDocViewer.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+              <div style={{ flex: appDocViewer.extractedText ? "0 0 60%" : "1 1 100%", overflow: "auto", background: "#1F2428" }}>
+                {appDocViewer.docxHtml !== null ? (
+                  appDocViewer.editMode ? (
+                    <div contentEditable suppressContentEditableWarning style={{ padding: 32, background: "#fff", color: "#1e293b", minHeight: "100%", fontSize: 14, lineHeight: 1.7, outline: "none", fontFamily: "Georgia, serif" }} dangerouslySetInnerHTML={{ __html: appDocViewer.docxHtml }} onInput={e => setAppDocViewer(prev => ({ ...prev, docxHtml: e.currentTarget.innerHTML }))} />
+                  ) : (
+                    <div style={{ padding: 32, background: "#fff", color: "#1e293b", minHeight: "100%", fontSize: 14, lineHeight: 1.7, fontFamily: "Georgia, serif" }} dangerouslySetInnerHTML={{ __html: appDocViewer.docxHtml }} />
+                  )
+                ) : appDocViewer.xlsxData !== null ? (
+                  <div style={{ padding: 16, background: "#fff", color: "#1e293b", overflow: "auto", height: "100%" }}>
+                    {(appDocViewer.xlsxData || []).map((sheet, si) => (
+                      <div key={si} style={{ marginBottom: 20 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 8, padding: "4px 0", borderBottom: "2px solid #6366f1" }}>{sheet.name}</div>
+                        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+                          <tbody>
+                            {(sheet.rows || []).map((row, ri) => (
+                              <tr key={ri} style={{ background: ri === 0 ? "#f1f5f9" : ri % 2 === 0 ? "#fafafa" : "#fff" }}>
+                                {(row || []).map((cell, ci) => (
+                                  <td key={ci} style={{ border: "1px solid #e2e8f0", padding: "4px 8px", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", fontWeight: ri === 0 ? 600 : 400 }}>{cell != null ? String(cell) : ""}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                ) : appDocViewer.pptxSlides !== null ? (
+                  <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
+                    {(appDocViewer.pptxSlides || []).map((slide, si) => (
+                      <div key={si} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 800, minHeight: 200, padding: 24, position: "relative", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                        <div style={{ position: "absolute", top: 8, right: 12, fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>Slide {si + 1}</div>
+                        {(slide.texts || []).map((t, ti) => (
+                          <div key={ti} style={{ fontSize: t.fontSize || 14, fontWeight: t.bold ? 700 : 400, fontStyle: t.italic ? "italic" : "normal", color: t.color || "#1e293b", marginBottom: 8 }}>{t.text}</div>
+                        ))}
+                        {(!slide.texts || slide.texts.length === 0) && <div style={{ color: "#94a3b8", fontStyle: "italic" }}>Empty slide</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : appDocViewer.type?.startsWith("image/") ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                    <img src={appDocViewer.url} alt={appDocViewer.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                  </div>
                 ) : appDocViewer.type === "application/pdf" ? (
                   <iframe src={appDocViewer.url} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none" }} />
                 ) : appDocViewer.type?.startsWith("text/") ? (
                   <iframe src={appDocViewer.url} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none", background: "#fff" }} />
+                ) : appDocViewer.type?.startsWith("audio/") ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 12 }}>
+                    <div style={{ fontSize: 48 }}>🔊</div>
+                    <audio controls src={appDocViewer.url} style={{ width: "80%", maxWidth: 500 }} />
+                  </div>
+                ) : appDocViewer.type?.startsWith("video/") ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                    <video controls src={appDocViewer.url} style={{ maxWidth: "100%", maxHeight: "100%" }} />
+                  </div>
                 ) : (
-                  <div style={{ color: "#64748b", fontSize: 14, textAlign: "center", padding: 40 }}>
+                  <div style={{ color: "#64748b", fontSize: 14, textAlign: "center", padding: 40, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
                     <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
                     <div>Preview not available for this file type.</div>
-                    <div style={{ marginTop: 8 }}><a href={appDocViewer.url} download={appDocViewer.name} style={{ color: "#6366f1", textDecoration: "underline", fontSize: 14 }}>Download to view</a></div>
+                    {appDocViewer.url && <div style={{ marginTop: 8 }}><a href={appDocViewer.url} download={appDocViewer.name} style={{ color: "#6366f1", textDecoration: "underline", fontSize: 14 }}>Download to view</a></div>}
                   </div>
                 )}
               </div>
@@ -11630,6 +12129,465 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
   );
 }
 
+// ─── Custom Report Builder ────────────────────────────────────────────────────
+const REPORT_SOURCES = ["cases", "tasks", "deadlines", "contacts", "correspondence", "filings", "documents", "transcripts", "time_entries", "medical_treatments", "expenses", "negotiations"];
+const FILTER_OPS = ["equals", "not_equals", "contains", "starts_with", "greater_than", "less_than", "is_empty", "is_not_empty", "date_before", "date_after", "date_between"];
+
+function CustomReportBuilder({ currentUser }) {
+  const [reports, setReports] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ name: "", source: "cases", columns: "", filters: [], sort_by: "", sort_dir: "ASC", is_public: true });
+  const [result, setResult] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loaded) {
+      apiGetCustomReports().then(r => { setReports(r); setLoaded(true); }).catch(() => setLoaded(true));
+    }
+  }, [loaded]);
+
+  const resetForm = () => { setForm({ name: "", source: "cases", columns: "", filters: [], sort_by: "", sort_dir: "ASC", is_public: true }); setEditingId(null); setShowForm(false); setResult(null); };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const config = { source: form.source, columns: form.columns.split(",").map(c => c.trim()).filter(Boolean), filters: form.filters, sort_by: form.sort_by, sort_dir: form.sort_dir };
+      if (editingId) {
+        const updated = await apiUpdateCustomReport(editingId, { name: form.name, config, is_public: form.is_public });
+        setReports(prev => prev.map(r => r.id === editingId ? updated : r));
+      } else {
+        const created = await apiCreateCustomReport({ name: form.name, config, is_public: form.is_public });
+        setReports(prev => [...prev, created]);
+      }
+      resetForm();
+    } catch (err) { alert("Save failed: " + err.message); }
+    setSaving(false);
+  };
+
+  const handleRun = async () => {
+    setRunning(true);
+    try {
+      const config = { source: form.source, columns: form.columns.split(",").map(c => c.trim()).filter(Boolean), filters: form.filters, sort_by: form.sort_by, sort_dir: form.sort_dir };
+      const r = await apiRunCustomReport(config);
+      setResult(r);
+    } catch (err) { alert("Run failed: " + err.message); }
+    setRunning(false);
+  };
+
+  const handleAiAssist = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    try {
+      const r = await apiCustomReportAiAssist(aiPrompt);
+      if (r.config) {
+        setForm(prev => ({
+          ...prev,
+          name: r.config.name || prev.name,
+          source: r.config.source || prev.source,
+          columns: (r.config.columns || []).join(", "),
+          filters: r.config.filters || [],
+          sort_by: r.config.sort_by || "",
+          sort_dir: r.config.sort_dir || "ASC",
+        }));
+        setShowForm(true);
+      }
+      setAiPrompt("");
+    } catch (err) { alert("AI assist failed: " + err.message); }
+    setAiLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this report?")) return;
+    try { await apiDeleteCustomReport(id); setReports(prev => prev.filter(r => r.id !== id)); } catch (err) { alert("Delete failed: " + err.message); }
+  };
+
+  const addFilter = () => setForm(prev => ({ ...prev, filters: [...prev.filters, { field: "", operator: "equals", value: "" }] }));
+  const updateFilter = (idx, key, val) => setForm(prev => ({ ...prev, filters: prev.filters.map((f, i) => i === idx ? { ...f, [key]: val } : f) }));
+  const removeFilter = (idx) => setForm(prev => ({ ...prev, filters: prev.filters.filter((_, i) => i !== idx) }));
+
+  const exportCsv = () => {
+    if (!result) return;
+    const cols = result.columns || [];
+    const rows = result.rows || [];
+    const lines = [cols.join(","), ...rows.map(r => cols.map(c => `"${(String(r[c] || "")).replace(/"/g, '""')}"`).join(","))];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${form.name || "report"}.csv`; a.click();
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-end" }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>AI Report Builder</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} placeholder="Describe the report you want, e.g. 'Show all open cases with their deadlines sorted by SOL date'" style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 8, background: "var(--c-bg)", color: "var(--c-text)" }} onKeyDown={e => e.key === "Enter" && handleAiAssist()} />
+            <button onClick={handleAiAssist} disabled={aiLoading} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, opacity: aiLoading ? 0.6 : 1 }}>{aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Build with AI</button>
+          </div>
+        </div>
+        <button onClick={() => { resetForm(); setShowForm(true); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, background: "#10b981", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>+ New Report</button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: "var(--c-bg-s)", border: "1px solid var(--c-border)", borderRadius: 10, padding: 20, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Report Name</label>
+              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Data Source</label>
+              <select value={form.source} onChange={e => setForm(p => ({ ...p, source: e.target.value }))} style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                {REPORT_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Columns (comma-separated, leave blank for all)</label>
+            <input value={form.columns} onChange={e => setForm(p => ({ ...p, columns: e.target.value }))} placeholder="e.g. title, status, client_name, created_at" style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Filters</label>
+              <button onClick={addFilter} style={{ fontSize: 11, fontWeight: 600, color: "#6366f1", background: "none", border: "none", cursor: "pointer" }}>+ Add Filter</button>
+            </div>
+            {form.filters.map((f, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                <input value={f.field} onChange={e => updateFilter(i, "field", e.target.value)} placeholder="Field name" style={{ flex: 1, padding: "6px 8px", fontSize: 12, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }} />
+                <select value={f.operator} onChange={e => updateFilter(i, "operator", e.target.value)} style={{ padding: "6px 8px", fontSize: 12, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                  {FILTER_OPS.map(op => <option key={op} value={op}>{op.replace(/_/g, " ")}</option>)}
+                </select>
+                <input value={f.value} onChange={e => updateFilter(i, "value", e.target.value)} placeholder="Value" style={{ flex: 1, padding: "6px 8px", fontSize: 12, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }} />
+                <button onClick={() => removeFilter(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, padding: "0 4px" }}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Sort By</label>
+              <input value={form.sort_by} onChange={e => setForm(p => ({ ...p, sort_by: e.target.value }))} placeholder="Column name" style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Direction</label>
+              <select value={form.sort_dir} onChange={e => setForm(p => ({ ...p, sort_dir: e.target.value }))} style={{ padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                <option value="ASC">Ascending</option>
+                <option value="DESC">Descending</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <label style={{ fontSize: 12, color: "var(--c-text2)", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" checked={form.is_public} onChange={e => setForm(p => ({ ...p, is_public: e.target.checked }))} /> Public
+              </label>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleRun} disabled={running} style={{ padding: "8px 20px", fontSize: 12, fontWeight: 600, background: "#6366f1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", opacity: running ? 0.6 : 1 }}>{running ? "Running..." : "Run Report"}</button>
+            <button onClick={handleSave} disabled={saving || !form.name.trim()} style={{ padding: "8px 20px", fontSize: 12, fontWeight: 600, background: "#10b981", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", opacity: saving || !form.name.trim() ? 0.6 : 1 }}>{editingId ? "Update" : "Save"} Report</button>
+            <button onClick={resetForm} style={{ padding: "8px 20px", fontSize: 12, fontWeight: 600, background: "transparent", color: "var(--c-text2)", border: "1px solid var(--c-border)", borderRadius: 6, cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{result.count || 0} results</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={exportCsv} style={{ padding: "5px 14px", fontSize: 11, fontWeight: 600, background: "#f59e0b", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Export CSV</button>
+              <button onClick={() => window.print()} style={{ padding: "5px 14px", fontSize: 11, fontWeight: 600, background: "transparent", color: "var(--c-text2)", border: "1px solid var(--c-border)", borderRadius: 4, cursor: "pointer" }}>Print</button>
+            </div>
+          </div>
+          <div style={{ overflow: "auto", maxHeight: 500 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr>{(result.columns || []).map(c => <th key={c} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "var(--c-text-h)", borderBottom: "2px solid var(--c-border)", background: "var(--c-bg-s)", whiteSpace: "nowrap" }}>{c}</th>)}</tr>
+              </thead>
+              <tbody>
+                {(result.rows || []).map((row, ri) => (
+                  <tr key={ri} style={{ background: ri % 2 === 0 ? "var(--c-bg)" : "var(--c-bg-s)" }}>
+                    {(result.columns || []).map(c => <td key={c} style={{ padding: "6px 10px", borderBottom: "1px solid var(--c-border)", color: "var(--c-text)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row[c] != null ? String(row[c]) : ""}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {reports.length > 0 && !showForm && (
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>Saved Reports</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+            {reports.map(r => (
+              <div key={r.id} style={{ background: "var(--c-bg-s)", border: "1px solid var(--c-border)", borderRadius: 10, padding: 16, cursor: "pointer" }} onClick={() => { setForm({ name: r.name, source: r.config?.source || "cases", columns: (r.config?.columns || []).join(", "), filters: r.config?.filters || [], sort_by: r.config?.sort_by || "", sort_dir: r.config?.sort_dir || "ASC", is_public: r.isPublic }); setEditingId(r.id); setShowForm(true); setResult(null); }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 4 }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--c-text2)" }}>Source: {(r.config?.source || "").replace(/_/g, " ")} &middot; {r.isPublic ? "Public" : "Private"}</div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(r.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "2px 6px" }}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Custom AI Agents Builder ─────────────────────────────────────────────────
+const MODEL_OPTIONS = [
+  { group: "OpenAI", models: [{ id: "gpt-4o", name: "GPT-4o" }, { id: "gpt-4o-mini", name: "GPT-4o Mini" }] },
+  { group: "Anthropic", models: [{ id: "claude-3.5-sonnet", name: "Claude 3.5 Sonnet" }] },
+  { group: "Google", models: [{ id: "gemini-2.0-flash", name: "Gemini 2.0 Flash" }] },
+];
+const CONTEXT_SOURCES = ["notes", "filings", "documents", "medical_records"];
+
+function CustomAgentsTab({ currentUser, allCases, pinnedCaseIds }) {
+  const [agents, setAgents] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ name: "", description: "", system_prompt: "", model: "gpt-4o", context_sources: [], temperature: 0.7, max_tokens: 4000, is_public: true });
+  const [saving, setSaving] = useState(false);
+  const [activeAgent, setActiveAgent] = useState(null);
+  const [runCaseId, setRunCaseId] = useState("");
+  const [runPrompt, setRunPrompt] = useState("");
+  const [runResult, setRunResult] = useState(null);
+  const [runLoading, setRunLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [mode, setMode] = useState("run");
+
+  useEffect(() => {
+    if (!loaded) {
+      apiGetCustomAgents().then(r => { setAgents(r); setLoaded(true); }).catch(() => setLoaded(true));
+    }
+  }, [loaded]);
+
+  const resetForm = () => { setForm({ name: "", description: "", system_prompt: "", model: "gpt-4o", context_sources: [], temperature: 0.7, max_tokens: 4000, is_public: true }); setEditingId(null); setShowForm(false); };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editingId) {
+        const updated = await apiUpdateCustomAgent(editingId, form);
+        setAgents(prev => prev.map(a => a.id === editingId ? updated : a));
+      } else {
+        const created = await apiCreateCustomAgent(form);
+        setAgents(prev => [...prev, created]);
+      }
+      resetForm();
+    } catch (err) { alert("Save failed: " + err.message); }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this agent?")) return;
+    try { await apiDeleteCustomAgent(id); setAgents(prev => prev.filter(a => a.id !== id)); if (activeAgent?.id === id) setActiveAgent(null); } catch (err) { alert("Delete failed: " + err.message); }
+  };
+
+  const handleRun = async () => {
+    if (!runPrompt.trim()) return;
+    setRunLoading(true); setRunResult(null);
+    try {
+      const r = await apiRunCustomAgent(activeAgent.id, { prompt: runPrompt, caseId: runCaseId ? Number(runCaseId) : undefined });
+      setRunResult(r.result || r.response);
+    } catch (err) { alert("Run failed: " + err.message); }
+    setRunLoading(false);
+  };
+
+  const handleChat = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg = { role: "user", content: chatInput };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput(""); setChatLoading(true);
+    try {
+      const r = await apiChatCustomAgent(activeAgent.id, { messages: [...chatMessages, userMsg], caseId: runCaseId ? Number(runCaseId) : undefined });
+      setChatMessages(prev => [...prev, { role: "assistant", content: r.result || r.response }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Error: " + err.message }]);
+    }
+    setChatLoading(false);
+  };
+
+  const handleUploadInstructions = async (agentId, file) => {
+    try {
+      const r = await apiUploadAgentInstructions(agentId, file);
+      setAgents(prev => prev.map(a => a.id === agentId ? { ...a, instructionFile: r.filename } : a));
+    } catch (err) { alert("Upload failed: " + err.message); }
+  };
+
+  const activeCases = allCases.filter(c => c.status !== "Closed");
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+        <div style={{ fontSize: 13, color: "var(--c-text2)" }}>Build custom AI agents with specific instructions, models, and case context.</div>
+        <button onClick={() => { resetForm(); setShowForm(true); }} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>+ New Agent</button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: "var(--c-bg-s)", border: "1px solid var(--c-border)", borderRadius: 10, padding: 20, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Agent Name</label>
+              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Model</label>
+              <select value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }}>
+                {MODEL_OPTIONS.map(g => <optgroup key={g.group} label={g.group}>{g.models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Description</label>
+            <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>System Prompt</label>
+            <textarea value={form.system_prompt} onChange={e => setForm(p => ({ ...p, system_prompt: e.target.value }))} rows={4} style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Context Sources</label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {CONTEXT_SOURCES.map(s => (
+                  <label key={s} style={{ fontSize: 11, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                    <input type="checkbox" checked={form.context_sources.includes(s)} onChange={e => setForm(p => ({ ...p, context_sources: e.target.checked ? [...p.context_sources, s] : p.context_sources.filter(x => x !== s) }))} /> {s.replace(/_/g, " ")}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Temperature ({form.temperature})</label>
+              <input type="range" min="0" max="1" step="0.1" value={form.temperature} onChange={e => setForm(p => ({ ...p, temperature: parseFloat(e.target.value) }))} style={{ width: "100%" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Max Tokens</label>
+              <input type="number" value={form.max_tokens} onChange={e => setForm(p => ({ ...p, max_tokens: parseInt(e.target.value) || 4000 }))} style={{ width: "100%", padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={handleSave} disabled={saving || !form.name.trim()} style={{ padding: "8px 20px", fontSize: 12, fontWeight: 600, background: "#6366f1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", opacity: saving || !form.name.trim() ? 0.6 : 1 }}>{editingId ? "Update" : "Create"} Agent</button>
+            <button onClick={resetForm} style={{ padding: "8px 20px", fontSize: 12, fontWeight: 600, background: "transparent", color: "var(--c-text2)", border: "1px solid var(--c-border)", borderRadius: 6, cursor: "pointer" }}>Cancel</button>
+            <label style={{ fontSize: 12, color: "var(--c-text2)", display: "flex", alignItems: "center", gap: 4, marginLeft: "auto", cursor: "pointer" }}>
+              <input type="checkbox" checked={form.is_public} onChange={e => setForm(p => ({ ...p, is_public: e.target.checked }))} /> Public
+            </label>
+          </div>
+        </div>
+      )}
+
+      {!activeAgent && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+          {agents.map(a => (
+            <div key={a.id} style={{ background: "var(--c-bg-s)", border: "1px solid var(--c-border)", borderRadius: 10, padding: 16, cursor: "pointer", transition: "border-color 0.15s" }} onClick={() => { setActiveAgent(a); setMode("run"); setRunResult(null); setChatMessages([]); }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center" }}><Bot size={18} style={{ color: "#6366f1" }} /></div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{a.name}</div>
+                    <div style={{ fontSize: 11, color: "#6366f1" }}>{a.model}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button onClick={(e) => { e.stopPropagation(); setForm({ name: a.name, description: a.description || "", system_prompt: a.systemPrompt || "", model: a.model, context_sources: a.contextSources || [], temperature: a.temperature || 0.7, max_tokens: a.maxTokens || 4000, is_public: a.isPublic }); setEditingId(a.id); setShowForm(true); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text2)", padding: "2px 4px" }}><Pencil size={13} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "2px 4px" }}><Trash2 size={13} /></button>
+                </div>
+              </div>
+              {a.description && <div style={{ fontSize: 12, color: "var(--c-text2)", lineHeight: 1.5 }}>{a.description}</div>}
+            </div>
+          ))}
+          {agents.length === 0 && loaded && (
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 40, color: "var(--c-text2)" }}>
+              <Bot size={40} style={{ color: "#cbd5e1", marginBottom: 12 }} />
+              <div style={{ fontSize: 14, fontWeight: 500 }}>No custom agents yet</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>Create your first custom AI agent to get started.</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeAgent && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <button onClick={() => { setActiveAgent(null); setRunResult(null); setChatMessages([]); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text2)", fontSize: 18, padding: "2px 6px" }}>&larr;</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center" }}><Bot size={18} style={{ color: "#6366f1" }} /></div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text-h)" }}>{activeAgent.name}</div>
+                <div style={{ fontSize: 11, color: "#6366f1" }}>{activeAgent.model}</div>
+              </div>
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+              <button onClick={() => setMode("run")} style={{ padding: "5px 14px", fontSize: 11, fontWeight: 600, background: mode === "run" ? "#6366f1" : "transparent", color: mode === "run" ? "#fff" : "var(--c-text2)", border: "1px solid var(--c-border)", borderRadius: 4, cursor: "pointer" }}>Run</button>
+              <button onClick={() => setMode("chat")} style={{ padding: "5px 14px", fontSize: 11, fontWeight: 600, background: mode === "chat" ? "#6366f1" : "transparent", color: mode === "chat" ? "#fff" : "var(--c-text2)", border: "1px solid var(--c-border)", borderRadius: 4, cursor: "pointer" }}>Chat</button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Case Context (optional)</label>
+            <select value={runCaseId} onChange={e => setRunCaseId(e.target.value)} style={{ width: "100%", maxWidth: 400, padding: "7px 10px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 6, background: "var(--c-bg)", color: "var(--c-text)" }}>
+              <option value="">No case selected</option>
+              {activeCases.map(c => <option key={c.id} value={c.id}>{c.title} — {c.clientName}</option>)}
+            </select>
+          </div>
+
+          {mode === "run" && (
+            <div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <input value={runPrompt} onChange={e => setRunPrompt(e.target.value)} placeholder="Enter your prompt..." style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 8, background: "var(--c-bg)", color: "var(--c-text)" }} onKeyDown={e => e.key === "Enter" && handleRun()} />
+                <button onClick={handleRun} disabled={runLoading} style={{ padding: "8px 20px", fontSize: 12, fontWeight: 600, background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", opacity: runLoading ? 0.6 : 1 }}>{runLoading ? "Running..." : "Run"}</button>
+              </div>
+              {runResult && (
+                <div style={{ background: "var(--c-bg-s)", border: "1px solid var(--c-border)", borderRadius: 10, padding: 20 }}>
+                  <pre style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.7, margin: 0, fontFamily: "inherit" }}>{runResult}</pre>
+                </div>
+              )}
+            </div>
+          )}
+
+          {mode === "chat" && (
+            <div>
+              <div style={{ background: "var(--c-bg-s)", border: "1px solid var(--c-border)", borderRadius: 10, padding: 16, minHeight: 300, maxHeight: 500, overflow: "auto", marginBottom: 12 }}>
+                {chatMessages.length === 0 && <div style={{ color: "var(--c-text2)", fontSize: 13, textAlign: "center", padding: 40 }}>Start a conversation with {activeAgent.name}</div>}
+                {chatMessages.map((m, i) => (
+                  <div key={i} style={{ marginBottom: 12, display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+                    <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: 10, background: m.role === "user" ? "#6366f1" : "var(--c-bg)", color: m.role === "user" ? "#fff" : "var(--c-text)", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{m.content}</div>
+                  </div>
+                ))}
+                {chatLoading && <div style={{ display: "flex", gap: 4, padding: 8 }}><Loader2 size={16} className="animate-spin" style={{ color: "#6366f1" }} /> <span style={{ fontSize: 12, color: "var(--c-text2)" }}>Thinking...</span></div>}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type a message..." style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1px solid var(--c-border)", borderRadius: 8, background: "var(--c-bg)", color: "var(--c-text)" }} onKeyDown={e => e.key === "Enter" && !chatLoading && handleChat()} />
+                <button onClick={handleChat} disabled={chatLoading} style={{ padding: "8px 20px", fontSize: 12, fontWeight: 600, background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Send</button>
+              </div>
+            </div>
+          )}
+
+          {activeAgent.instructionFile && (
+            <div style={{ marginTop: 16, fontSize: 12, color: "var(--c-text2)", display: "flex", alignItems: "center", gap: 8 }}>
+              <FileText size={14} /> Instruction file: {activeAgent.instructionFile}
+              <button onClick={async () => { try { await apiClearAgentInstructions(activeAgent.id); setAgents(prev => prev.map(a => a.id === activeAgent.id ? { ...a, instructionFile: null } : a)); setActiveAgent(prev => ({ ...prev, instructionFile: null })); } catch {} }} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 11 }}>Remove</button>
+            </div>
+          )}
+          <div style={{ marginTop: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Upload Instructions File</label>
+            <input type="file" accept=".txt,.md,.pdf,.docx" onChange={e => { if (e.target.files[0]) handleUploadInstructions(activeAgent.id, e.target.files[0]); }} style={{ fontSize: 12 }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Reports View ─────────────────────────────────────────────────────────────
 const REPORT_DEFS = [
   {
@@ -11945,6 +12903,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
   const [selectedCase, setSelectedCase] = useState(null);
+  const [reportsTab, setReportsTab] = useState("standard");
 
   const activeTasks = tasks.filter(t => t.status !== "Completed");
   const uniqueTaskTitles = [...new Set(activeTasks.map(t => t.title))].sort();
@@ -11979,7 +12938,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             <p className="!text-xs !text-slate-500 dark:!text-slate-400 !mt-0.5">Generate and export case reports</p>
           </div>
         </div>
-        {generated && (
+        {generated && reportsTab === "standard" && (
           <div className="topbar-actions flex gap-2">
             <button className="!px-3 !py-2 !text-xs !font-medium !text-slate-600 dark:!text-slate-300 !bg-white dark:!bg-slate-800 !border !border-slate-200 dark:!border-slate-700 !rounded-lg hover:!bg-slate-50 !transition-colors !cursor-pointer" onClick={handleCSV}><Download size={14} className="inline mr-1" />Export CSV</button>
             <button className="!px-3 !py-2 !text-xs !font-medium !text-slate-600 dark:!text-slate-300 !bg-white dark:!bg-slate-800 !border !border-slate-200 dark:!border-slate-700 !rounded-lg hover:!bg-slate-50 !transition-colors !cursor-pointer" onClick={handlePrint}>Print</button>
@@ -11987,7 +12946,14 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
         )}
       </div>
       <div className="content">
-        {/* Report picker grid */}
+        <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
+          <button onClick={() => setReportsTab("standard")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${reportsTab === "standard" ? "border-b-amber-500 text-amber-700 dark:text-amber-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><BarChart3 size={15} /> Standard Reports</button>
+          <button onClick={() => setReportsTab("custom")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${reportsTab === "custom" ? "border-b-amber-500 text-amber-700 dark:text-amber-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><Sparkles size={15} /> Custom Report Builder</button>
+        </div>
+
+        {reportsTab === "custom" && <CustomReportBuilder currentUser={currentUser} />}
+
+        {reportsTab === "standard" && <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(200px,100%), 1fr))", gap: 12, marginBottom: 24 }}>
           {REPORT_DEFS.map(r => (
             <div key={r.id} className={`report-card ${activeReport === r.id ? "active" : ""}`}
@@ -12136,7 +13102,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             </div>
           </div>
         )}
-      </div>
+        </>}
 
       {selectedCase && (() => {
         const caseTasks = tasks.filter(t => t.caseId === selectedCase.id);
@@ -12173,6 +13139,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
           />
         );
       })()}
+      </div>
     </>
   );
 }
@@ -12407,27 +13374,31 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
       </div>
       <div className="content" style={{}}>
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
-          <button onClick={() => setAiCenterTab("agents")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] ${aiCenterTab === "agents" ? "border-b-indigo-600 dark:border-b-indigo-400 text-indigo-600 dark:text-indigo-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>AI Agents</button>
-          <button onClick={() => setAiCenterTab("trainer")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${aiCenterTab === "trainer" ? "border-b-indigo-600 dark:border-b-indigo-400 text-indigo-600 dark:text-indigo-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><Brain size={16} /> Advocate AI Trainer</button>
+          <button onClick={() => setAiCenterTab("agents")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${aiCenterTab === "agents" ? "border-b-amber-500 text-amber-700 dark:text-amber-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><Sparkles size={15} /> AI Agents</button>
+          <button onClick={() => setAiCenterTab("custom-agents")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${aiCenterTab === "custom-agents" ? "border-b-amber-500 text-amber-700 dark:text-amber-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><Bot size={16} /> Custom Agents</button>
+          <button onClick={() => setAiCenterTab("trainer")} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 ${aiCenterTab === "trainer" ? "border-b-amber-500 text-amber-700 dark:text-amber-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}><Brain size={16} /> Advocate AI Trainer</button>
         </div>
 
         {aiCenterTab === "agents" && <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px,100%), 1fr))", gap: 14, marginBottom: 24 }}>
           {agents.map(a => (
-            <div key={a.id} onClick={() => selectAgent(a.id)} className={`!rounded-xl !p-5 !cursor-pointer !transition-all !flex !flex-col !h-full ${activeAgent === a.id ? "!bg-slate-50 dark:!bg-slate-800 !border-2 !border-indigo-500 dark:!border-indigo-400" : "!bg-white dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 hover:!border-indigo-300 dark:hover:!border-indigo-500/50"}`}>
+            <div key={a.id} onClick={() => selectAgent(a.id)} className={`!rounded-xl !p-5 !cursor-pointer !transition-all !flex !flex-col !h-full ${activeAgent === a.id ? "!bg-indigo-50/50 dark:!bg-indigo-900/10 !border-2 !border-indigo-500 dark:!border-indigo-400 !shadow-sm" : "!bg-white dark:!bg-slate-800/50 !border !border-slate-200 dark:!border-slate-700 hover:!border-amber-300 dark:hover:!border-amber-500/50 hover:!shadow-sm"}`} style={{ boxShadow: activeAgent === a.id ? "0 1px 3px rgba(0,0,0,0.06)" : undefined }}>
               <div className={`w-9 h-9 rounded-lg ${a.bg} flex items-center justify-center mb-3`}><a.Icon className={`w-5 h-5 ${a.color}`} /></div>
               <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1">{a.title}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 flex-1">{a.desc}</div>
-              {a.needsCase && <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-auto font-medium">Requires case selection</div>}
+              {a.needsCase && <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-auto font-medium flex items-center gap-1"><Sparkles size={10} />Requires case selection</div>}
             </div>
           ))}
         </div>
 
         {activeAgent && (
-          <div style={{ background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: 10, padding: "20px 24px" }}>
-            <div className="font-['Inter'] text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-              {(() => { const ag = agents.find(a => a.id === activeAgent); return ag ? <div className={`w-7 h-7 rounded-md ${ag.bg} flex items-center justify-center`}><ag.Icon className={`w-4 h-4 ${ag.color}`} /></div> : null; })()}
-              {agents.find(a => a.id === activeAgent)?.title}
+          <div style={{ background: "var(--c-card)", border: "1px solid var(--c-border)", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+            <div className="font-['Inter'] text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-3" style={{ paddingBottom: 12, borderBottom: "1px solid var(--c-border)" }}>
+              {(() => { const ag = agents.find(a => a.id === activeAgent); return ag ? <div className={`w-8 h-8 rounded-lg ${ag.bg} flex items-center justify-center`}><ag.Icon className={`w-[18px] h-[18px] ${ag.color}`} /></div> : null; })()}
+              <div>
+                <div>{agents.find(a => a.id === activeAgent)?.title}</div>
+                <div className="text-xs font-normal text-slate-500 dark:text-slate-400 mt-0.5">{agents.find(a => a.id === activeAgent)?.desc}</div>
+              </div>
             </div>
 
             {needsCase && (
@@ -12810,7 +13781,15 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
             {activeAgent === "transcription" && selectedCaseId && (
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Upload Audio for Transcription</label>
-                <p style={{ fontSize: 11, color: "var(--c-text2)", marginBottom: 8 }}>Upload a custody statement, jail call recording, or other audio file. Supports MP3, WAV, M4A, OGG, FLAC, AAC, WebM, and MP4 (up to 100MB).</p>
+                <p style={{ fontSize: 11, color: "var(--c-text2)", marginBottom: 8 }}>Upload an audio or video file for transcription. Supports MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4, MOV, and AVI (up to 100MB). You can also drag & drop files.</p>
+                <DragDropZone accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,.mov,.avi,audio/*,video/*" onFileSelect={(files) => {
+                  const fileInput = document.getElementById("ai-transcript-upload-input");
+                  if (fileInput && files[0]) {
+                    const dt = new DataTransfer();
+                    dt.items.add(files[0]);
+                    fileInput.files = dt.files;
+                  }
+                }}>
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   const fileInput = e.target.querySelector('input[type="file"]');
@@ -12836,12 +13815,13 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                   }
                 }} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 180 }}>
-                    <input type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,audio/*" style={{ fontSize: 12, width: "100%" }} />
+                    <input id="ai-transcript-upload-input" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.mp4,.aac,.flac,.mov,.avi,audio/*,video/*" style={{ fontSize: 12, width: "100%" }} />
                   </div>
-                  <button type="submit" disabled={aiState.loading} className="!py-2 !px-4 !text-sm !font-medium !text-white !bg-indigo-600 hover:!bg-indigo-700 !rounded-md !transition-colors !cursor-pointer !border-none !flex !items-center !gap-2" style={{ opacity: aiState.loading ? 0.5 : 1 }}>
+                  <button type="submit" disabled={aiState.loading} className="!py-2 !px-4 !text-sm !font-semibold !text-slate-900 !bg-amber-400 hover:!bg-amber-500 !rounded-lg !transition-colors !cursor-pointer !border-none !flex !items-center !gap-2 !shadow-sm" style={{ opacity: aiState.loading ? 0.5 : 1 }}>
                     {aiState.loading ? <><Loader2 size={14} className="animate-spin" /> Uploading...</> : <><Upload size={14} /> Upload & Transcribe</>}
                   </button>
                 </form>
+                </DragDropZone>
               </div>
             )}
 
@@ -12855,7 +13835,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
               <AiPanel title={agents.find(a => a.id === activeAgent)?.title} result={aiState.result} loading={aiState.loading} error={aiState.error}
                 onRun={() => runAgent(activeAgent)}
                 actions={aiState.result ? (
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => { navigator.clipboard.writeText(aiState.result); }}>Copy</button>
+                  <button className="border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors" style={{ fontSize: 11, padding: "3px 10px", fontWeight: 500 }} onClick={() => { navigator.clipboard.writeText(aiState.result); }}>Copy</button>
                 ) : null}
               />
             )}
@@ -12959,6 +13939,8 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
           </div>
         )}
         </>}
+
+        {aiCenterTab === "custom-agents" && <CustomAgentsTab currentUser={currentUser} allCases={allCases} pinnedCaseIds={pinnedCaseIds} />}
 
         {aiCenterTab === "trainer" && (
           <>
@@ -16090,12 +17072,16 @@ function DeletedDataView({ onMenuToggle }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState(null);
-  const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState({});
+  const [batchAction, setBatchAction] = useState(null);
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const searchTimerRef = useRef(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (q) => {
     setLoading(true);
     try {
-      const result = await apiGetDeletedData();
+      const result = await apiGetDeletedData(q || "");
       setData(result || []);
     } catch (err) {
       console.error("Failed to load deleted data:", err);
@@ -16106,11 +17092,20 @@ function DeletedDataView({ onMenuToggle }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      loadData(search);
+    }, 300);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [search, loadData]);
+
   const handleRestore = async (type, id) => {
     setRestoring(`${type}-${id}`);
     try {
       await apiRestoreDeletedItem(type, id);
-      loadData();
+      setSelected(prev => { const n = { ...prev }; delete n[`${type}-${id}`]; return n; });
+      loadData(search);
     } catch (err) {
       alert("Restore failed: " + err.message);
     } finally {
@@ -16118,80 +17113,213 @@ function DeletedDataView({ onMenuToggle }) {
     }
   };
 
+  const toggleSelect = (type, id) => {
+    const key = `${type}-${id}`;
+    setSelected(prev => {
+      const n = { ...prev };
+      if (n[key]) delete n[key]; else n[key] = { type, id };
+      return n;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const allItems = data.flatMap(g => g.items.map(i => ({ type: g.type, id: i.id })));
+    const allSelected = allItems.every(i => selected[`${i.type}-${i.id}`]);
+    if (allSelected) {
+      setSelected({});
+    } else {
+      const n = {};
+      allItems.forEach(i => { n[`${i.type}-${i.id}`] = i; });
+      setSelected(n);
+    }
+  };
+
+  const toggleGroupSelect = (group) => {
+    const groupItems = group.items.map(i => ({ type: group.type, id: i.id }));
+    const allGroupSelected = groupItems.every(i => selected[`${i.type}-${i.id}`]);
+    setSelected(prev => {
+      const n = { ...prev };
+      if (allGroupSelected) {
+        groupItems.forEach(i => { delete n[`${i.type}-${i.id}`]; });
+      } else {
+        groupItems.forEach(i => { n[`${i.type}-${i.id}`] = i; });
+      }
+      return n;
+    });
+  };
+
+  const selectedItems = Object.values(selected);
+  const selectedCount = selectedItems.length;
+
+  const handleBatchRestore = async () => {
+    if (selectedCount === 0) return;
+    setBatchAction("restoring");
+    try {
+      await apiBatchRestoreDeleted(selectedItems);
+      setSelected({});
+      loadData(search);
+    } catch (err) {
+      alert("Batch restore failed: " + err.message);
+    } finally {
+      setBatchAction(null);
+    }
+  };
+
+  const handleBatchPurge = async () => {
+    if (selectedCount === 0) return;
+    setBatchAction("purging");
+    try {
+      await apiBatchPurgeDeleted(selectedItems);
+      setSelected({});
+      setConfirmPurge(false);
+      loadData(search);
+    } catch (err) {
+      alert("Batch purge failed: " + err.message);
+    } finally {
+      setBatchAction(null);
+    }
+  };
+
   const totalItems = data.reduce((sum, g) => sum + g.items.length, 0);
-  const filtered = filter ? data.map(g => ({ ...g, items: g.items.filter(i => (i.name || "").toLowerCase().includes(filter.toLowerCase()) || (i.caseTitle || "").toLowerCase().includes(filter.toLowerCase())) })).filter(g => g.items.length > 0) : data;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <button className="md:hidden mr-1" onClick={onMenuToggle}><Menu size={20} /></button>
-          <Trash2 size={22} className="text-red-500" />
+    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexShrink: 0, flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="md:hidden" onClick={onMenuToggle} style={{ marginRight: 4 }}><Menu size={20} /></button>
+          <Trash2 size={22} style={{ color: "#dc2626" }} />
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--c-text-h)" }}>Deleted Data</h1>
-            <p className="text-xs" style={{ color: "var(--c-text2)" }}>Soft-deleted records are automatically purged after 30 days</p>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--c-text-h)", fontFamily: "'Inter',sans-serif" }}>Deleted Data</h1>
+            <p style={{ fontSize: 12, color: "var(--c-text2)", marginTop: 2 }}>Soft-deleted records are automatically purged after 30 days</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-sm font-medium px-3 py-1 rounded-full" style={{ background: "var(--c-bg2)", color: "var(--c-text2)" }}>{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
-          <button onClick={loadData} className="px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer" style={{ borderColor: "var(--c-border)", background: "var(--c-surface)", color: "var(--c-text-h)" }}>
-            <RotateCcw size={12} className="inline mr-1" />Refresh
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, padding: "4px 12px", borderRadius: 20, background: "var(--c-bg2)", color: "var(--c-text2)" }}>{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
+          <button onClick={() => loadData(search)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 500, borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-card)", color: "var(--c-text-h)", cursor: "pointer" }}>
+            <RotateCcw size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />Refresh
           </button>
         </div>
       </div>
 
-      {totalItems > 3 && (
-        <div className="mb-4">
-          <input type="text" placeholder="Filter deleted items..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full max-w-sm px-3 py-2 text-sm rounded-lg border" style={{ borderColor: "var(--c-border)", background: "var(--c-surface)", color: "var(--c-text-h)" }} />
+      <div style={{ marginBottom: 16, flexShrink: 0 }}>
+        <div style={{ position: "relative", maxWidth: 400 }}>
+          <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--c-text3)", pointerEvents: "none" }} />
+          <input
+            type="text"
+            placeholder="Search deleted items..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: "100%", paddingLeft: 38, paddingRight: 12, paddingTop: 8, paddingBottom: 8, fontSize: 13, borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-card)", color: "var(--c-text-h)", fontFamily: "'Inter',sans-serif" }}
+          />
+        </div>
+      </div>
+
+      {selectedCount > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", marginBottom: 12, borderRadius: 8, background: "#eff6ff", border: "1px solid #bfdbfe", flexShrink: 0, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>{selectedCount} selected</span>
+          <button onClick={toggleSelectAll} style={{ fontSize: 12, color: "#1d4ed8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+            {data.flatMap(g => g.items).every(i => selected[`${data.find(g => g.items.includes(i))?.type}-${i.id}`]) ? "Deselect All" : "Select All"}
+          </button>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={handleBatchRestore}
+            disabled={batchAction !== null}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#059669", cursor: "pointer", opacity: batchAction ? 0.6 : 1 }}
+          >
+            {batchAction === "restoring" ? <Loader2 size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} className="animate-spin" /> : <RotateCcw size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />}
+            Restore Selected
+          </button>
+          <button
+            onClick={() => setConfirmPurge(true)}
+            disabled={batchAction !== null}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "1px solid #fca5a5", background: "#fef2f2", color: "#dc2626", cursor: "pointer", opacity: batchAction ? 0.6 : 1 }}
+          >
+            <Trash2 size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+            Purge Selected
+          </button>
         </div>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20" style={{ color: "var(--c-text2)" }}>
-          <Loader2 size={20} className="animate-spin mr-2" /> Loading deleted data...
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-20" style={{ color: "var(--c-text2)" }}>
-          <Trash2 size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-lg font-medium" style={{ color: "var(--c-text-h)" }}>{filter ? "No matching deleted items" : "No deleted data"}</p>
-          <p className="text-sm mt-1">{filter ? "Try a different search term" : "Items you delete will appear here for 30 days before being permanently removed"}</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {filtered.map(group => (
-            <div key={group.type} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--c-border)", background: "var(--c-surface)" }}>
-              <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--c-border)", background: "var(--c-bg2)" }}>
-                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-h)" }}>{group.label}</h3>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "var(--c-border)", color: "var(--c-text2)" }}>{group.items.length}</span>
-              </div>
-              <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
-                {group.items.map(item => (
-                  <div key={item.id} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate" style={{ color: "var(--c-text-h)" }}>{item.name}</div>
-                      <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "var(--c-text2)" }}>
-                        {item.caseTitle && <span>Case: {item.caseTitle}</span>}
-                        <span>Deleted: {new Date(item.deletedAt).toLocaleDateString()}</span>
-                        <span className={`font-medium ${item.daysRemaining <= 7 ? "text-red-500" : item.daysRemaining <= 14 ? "text-amber-500" : ""}`}>
-                          {item.daysRemaining} day{item.daysRemaining !== 1 ? "s" : ""} remaining
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRestore(group.type, item.id)}
-                      disabled={restoring === `${group.type}-${item.id}`}
-                      className="px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
-                      style={{ borderColor: "#a7f3d0", color: "#059669", background: "transparent" }}
-                    >
-                      {restoring === `${group.type}-${item.id}` ? <Loader2 size={12} className="animate-spin" /> : <><RotateCcw size={12} className="inline mr-1" />Restore</>}
-                    </button>
-                  </div>
-                ))}
-              </div>
+      {confirmPurge && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--c-card)", borderRadius: 12, padding: 24, maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#dc2626", marginBottom: 8 }}>Permanently Delete {selectedCount} Item{selectedCount !== 1 ? "s" : ""}?</h3>
+            <p style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 20 }}>This action cannot be undone. The selected items and any associated cloud storage objects will be permanently removed.</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button onClick={() => setConfirmPurge(false)} style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-card)", color: "var(--c-text-h)", cursor: "pointer" }}>Cancel</button>
+              <button onClick={handleBatchPurge} disabled={batchAction === "purging"} style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", cursor: "pointer", opacity: batchAction === "purging" ? 0.6 : 1 }}>
+                {batchAction === "purging" ? "Purging..." : "Permanently Delete"}
+              </button>
             </div>
-          ))}
+          </div>
         </div>
       )}
+
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0", color: "var(--c-text2)" }}>
+            <Loader2 size={20} className="animate-spin" style={{ marginRight: 8 }} /> Loading deleted data...
+          </div>
+        ) : data.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--c-text2)" }}>
+            <Trash2 size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
+            <p style={{ fontSize: 18, fontWeight: 500, color: "var(--c-text-h)" }}>{search ? "No matching deleted items" : "No deleted data"}</p>
+            <p style={{ fontSize: 13, marginTop: 6 }}>{search ? "Try a different search term" : "Items you delete will appear here for 30 days before being permanently removed"}</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {data.map(group => {
+              const allGroupSelected = group.items.every(i => selected[`${group.type}-${i.id}`]);
+              const someGroupSelected = group.items.some(i => selected[`${group.type}-${i.id}`]);
+              return (
+                <div key={group.type} style={{ borderRadius: 12, border: "1px solid var(--c-border)", background: "var(--c-card)", overflow: "hidden" }}>
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--c-border)", background: "var(--c-bg2)", display: "flex", alignItems: "center", gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={allGroupSelected}
+                      ref={el => { if (el) el.indeterminate = someGroupSelected && !allGroupSelected; }}
+                      onChange={() => toggleGroupSelect(group)}
+                      style={{ cursor: "pointer", width: 16, height: 16 }}
+                    />
+                    <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", flex: 1 }}>{group.label}</h3>
+                    <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 10, background: "var(--c-border)", color: "var(--c-text2)" }}>{group.items.length}</span>
+                  </div>
+                  <div>
+                    {group.items.map(item => (
+                      <div key={item.id} style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid var(--c-border2)", transition: "background 0.15s", cursor: "pointer", background: selected[`${group.type}-${item.id}`] ? "#f0f9ff" : "transparent" }} onClick={() => toggleSelect(group.type, item.id)} onMouseEnter={e => { if (!selected[`${group.type}-${item.id}`]) e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { if (!selected[`${group.type}-${item.id}`]) e.currentTarget.style.background = "transparent"; }}>
+                        <input
+                          type="checkbox"
+                          checked={!!selected[`${group.type}-${item.id}`]}
+                          onChange={() => toggleSelect(group.type, item.id)}
+                          onClick={e => e.stopPropagation()}
+                          style={{ cursor: "pointer", width: 16, height: 16, flexShrink: 0 }}
+                        />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text-h)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 3, fontSize: 11, color: "var(--c-text2)", flexWrap: "wrap" }}>
+                            {item.caseTitle && <span>Case: {item.caseTitle}</span>}
+                            <span>Deleted: {new Date(item.deletedAt).toLocaleDateString()}</span>
+                            <span style={{ fontWeight: 500, color: item.daysRemaining <= 7 ? "#dc2626" : item.daysRemaining <= 14 ? "#d97706" : "var(--c-text2)" }}>
+                              {item.daysRemaining} day{item.daysRemaining !== 1 ? "s" : ""} remaining
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleRestore(group.type, item.id); }}
+                          disabled={restoring === `${group.type}-${item.id}`}
+                          style={{ padding: "4px 12px", fontSize: 12, fontWeight: 500, borderRadius: 8, border: "1px solid #a7f3d0", color: "#059669", background: "transparent", cursor: "pointer", opacity: restoring === `${group.type}-${item.id}` ? 0.5 : 1, flexShrink: 0 }}
+                        >
+                          {restoring === `${group.type}-${item.id}` ? <Loader2 size={12} className="animate-spin" /> : <><RotateCcw size={12} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />Restore</>}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

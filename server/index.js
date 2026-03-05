@@ -48,6 +48,8 @@ const portalAdminRoutes      = require("./routes/portal-admin");
 const externalRoutes         = require("./routes/external");
 const voicemailsRoutes       = require("./routes/voicemails");
 const deletedDataRoutes      = require("./routes/deleted-data");
+const customReportsRoutes    = require("./routes/custom-reports");
+const customAgentsBuilderRoutes = require("./routes/custom-agents-builder");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -126,6 +128,8 @@ app.use("/api/portal/case", portalCaseRoutes);
 app.use("/api/portal-admin", portalAdminRoutes);
 app.use("/api/voicemails", voicemailsRoutes);
 app.use("/api/deleted-data", deletedDataRoutes);
+app.use("/api/custom-reports", customReportsRoutes);
+app.use("/api/custom-agents-builder", customAgentsBuilderRoutes);
 
 const externalCorsOrigins = process.env.EXTERNAL_CORS_ORIGINS ? process.env.EXTERNAL_CORS_ORIGINS.split(",") : null;
 app.use("/api/external", cors({
@@ -190,25 +194,96 @@ if (isProd) {
   }
 }
 
+async function ensureColumns() {
+  const tableCreations = [
+    `CREATE TABLE IF NOT EXISTS transcript_history (
+      id SERIAL PRIMARY KEY,
+      transcript_id INTEGER REFERENCES case_transcripts(id) ON DELETE CASCADE,
+      change_type TEXT NOT NULL,
+      change_description TEXT,
+      previous_state JSONB,
+      changed_by TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS custom_reports (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      name TEXT NOT NULL,
+      data_source TEXT NOT NULL,
+      config JSONB NOT NULL DEFAULT '{}',
+      visibility TEXT DEFAULT 'private',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS custom_agents (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      name TEXT NOT NULL,
+      system_prompt TEXT NOT NULL,
+      context_sources JSONB DEFAULT '[]',
+      needs_case BOOLEAN DEFAULT true,
+      interaction_mode TEXT DEFAULT 'single',
+      model TEXT DEFAULT 'gpt-4o-mini',
+      visibility TEXT DEFAULT 'private',
+      shared_with INTEGER[] DEFAULT '{}',
+      instruction_file BYTEA,
+      instruction_filename TEXT,
+      instruction_text TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+  ];
+
+  const migrations = [
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS is_video BOOLEAN DEFAULT false`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS video_data BYTEA`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS video_content_type TEXT`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS r2_audio_key TEXT`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS r2_video_key TEXT`,
+    `ALTER TABLE case_correspondence ADD COLUMN IF NOT EXISTS is_voicemail BOOLEAN DEFAULT false`,
+    `ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS annotations JSONB DEFAULT '[]'`,
+    `ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS content_html TEXT`,
+    `ALTER TABLE jury_analyses ADD COLUMN IF NOT EXISTS daubert_challenge TEXT`,
+    `ALTER TABLE sms_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+  ];
+
+  for (const sql of tableCreations) {
+    await pool.query(sql).catch(() => {});
+  }
+  for (const sql of migrations) {
+    await pool.query(sql).catch(() => {});
+  }
+  console.log("Runtime schema migrations applied.");
+}
+
 const listenPort = isProd ? 5000 : PORT;
-app.listen(listenPort, "0.0.0.0", async () => {
-  console.log(`MattrMindr API listening on port ${listenPort}`);
+
+(async () => {
   try {
-    const { rows } = await pool.query("SELECT count(*) as cnt FROM users");
-    console.log(`Database connected — ${rows[0].cnt} users in database`);
+    await ensureColumns();
   } catch (err) {
-    console.error("Database connectivity check failed:", err.message);
+    console.error("Runtime migration error (non-fatal):", err.message);
   }
 
-  const { processScheduledMessages } = require("./sms-scheduler");
-  const smsInterval = isProd ? 60000 : 300000;
-  setInterval(() => {
-    processScheduledMessages().catch(err => console.error("SMS scheduler tick error:", err));
-  }, smsInterval);
-  console.log(`SMS scheduler started (interval: ${smsInterval / 1000}s)`);
+  app.listen(listenPort, "0.0.0.0", async () => {
+    console.log(`MattrMindr API listening on port ${listenPort}`);
+    try {
+      const { rows } = await pool.query("SELECT count(*) as cnt FROM users");
+      console.log(`Database connected — ${rows[0].cnt} users in database`);
+    } catch (err) {
+      console.error("Database connectivity check failed:", err.message);
+    }
 
-  deletedDataRoutes.autoPurgeExpired();
-  setInterval(() => {
+    const { processScheduledMessages } = require("./sms-scheduler");
+    const smsInterval = isProd ? 60000 : 300000;
+    setInterval(() => {
+      processScheduledMessages().catch(err => console.error("SMS scheduler tick error:", err));
+    }, smsInterval);
+    console.log(`SMS scheduler started (interval: ${smsInterval / 1000}s)`);
+
     deletedDataRoutes.autoPurgeExpired();
-  }, 24 * 60 * 60 * 1000);
-});
+    setInterval(() => {
+      deletedDataRoutes.autoPurgeExpired();
+    }, 24 * 60 * 60 * 1000);
+  });
+})();

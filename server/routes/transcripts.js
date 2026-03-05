@@ -8,6 +8,7 @@ const path = require("path");
 const OpenAI = require("openai");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { isR2Configured, uploadToR2, downloadFromR2, streamFromR2, deleteFromR2, createMultipartUpload, uploadPart, completeMultipartUpload, abortMultipartUpload } = require("../r2");
 
 const router = express.Router();
 router.use(express.json({ limit: "10mb" }));
@@ -45,8 +46,14 @@ const ALLOWED_AUDIO = [
   "audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav",
   "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac",
   "audio/ogg", "audio/webm", "audio/flac", "audio/x-flac",
-  "video/mp4", "video/webm",
+  "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo",
 ];
+
+const VIDEO_MIMES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
+
+function isVideoMime(mime) {
+  return VIDEO_MIMES.some(v => mime.includes(v.split("/")[1]) || mime === v);
+}
 
 const toFrontend = (row) => ({
   id: row.id,
@@ -63,6 +70,8 @@ const toFrontend = (row) => ({
   uploadedByName: row.uploaded_by_name,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+  isVideo: row.is_video || false,
+  videoContentType: row.video_content_type || null,
 });
 
 function runFfmpeg(args) {
@@ -162,12 +171,18 @@ async function processTranscription(transcriptId) {
 
   try {
     const { rows } = await pool.query(
-      "SELECT audio_data, content_type FROM case_transcripts WHERE id = $1",
+      "SELECT audio_data, content_type, r2_audio_key FROM case_transcripts WHERE id = $1",
       [transcriptId]
     );
     if (!rows.length) throw new Error("Transcript record not found");
 
-    await writeFile(inputPath, rows[0].audio_data);
+    let audioBuffer = rows[0].audio_data;
+    if (!audioBuffer && rows[0].r2_audio_key && isR2Configured()) {
+      audioBuffer = await downloadFromR2(rows[0].r2_audio_key);
+    }
+    if (!audioBuffer) throw new Error("No audio data available");
+
+    await writeFile(inputPath, audioBuffer);
 
     let duration;
     try {
@@ -260,15 +275,35 @@ router.post("/upload/init", requireAuth, express.json(), async (req, res) => {
     if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
 
     const uploadId = randomUUID();
-    pendingChunks.set(uploadId, {
+    const pendingData = {
       caseId, filename, contentType, fileSize, totalChunks,
       userId: req.session.userId,
       chunks: new Array(totalChunks).fill(null),
       received: 0,
       createdAt: Date.now(),
-    });
+      useR2Multipart: false,
+      r2AudioKey: null,
+      r2MultipartUploadId: null,
+      r2Parts: [],
+    };
 
-    setTimeout(() => { pendingChunks.delete(uploadId); }, 30 * 60 * 1000);
+    if (isR2Configured()) {
+      const r2Key = `transcripts/${caseId}/${randomUUID()}/audio`;
+      const r2UploadId = await createMultipartUpload(r2Key, contentType || "application/octet-stream");
+      pendingData.useR2Multipart = true;
+      pendingData.r2AudioKey = r2Key;
+      pendingData.r2MultipartUploadId = r2UploadId;
+    }
+
+    pendingChunks.set(uploadId, pendingData);
+
+    setTimeout(() => {
+      const p = pendingChunks.get(uploadId);
+      if (p && p.useR2Multipart && p.r2MultipartUploadId) {
+        abortMultipartUpload(p.r2AudioKey, p.r2MultipartUploadId).catch(() => {});
+      }
+      pendingChunks.delete(uploadId);
+    }, 30 * 60 * 1000);
 
     res.json({ uploadId, totalChunks });
   } catch (err) {
@@ -290,10 +325,19 @@ router.post("/upload/chunk", requireAuth, upload.single("chunk"), async (req, re
     const idx = parseInt(chunkIndex);
     if (idx < 0 || idx >= pending.totalChunks) return res.status(400).json({ error: "Invalid chunk index" });
 
-    if (pending.chunks[idx] === null) {
-      pending.received++;
+    if (pending.useR2Multipart) {
+      const partNumber = idx + 1;
+      const partResult = await uploadPart(pending.r2AudioKey, pending.r2MultipartUploadId, partNumber, req.file.buffer);
+      pending.r2Parts[idx] = partResult;
+      pending.chunks[idx] = true;
+    } else {
+      pending.chunks[idx] = req.file.buffer;
     }
-    pending.chunks[idx] = req.file.buffer;
+
+    if (pending.chunks[idx] !== null && pending.chunks[idx] !== undefined) {
+      const wasNull = pending.received < pending.totalChunks;
+      pending.received = pending.chunks.filter(c => c !== null).length;
+    }
 
     res.json({ received: pending.received, totalChunks: pending.totalChunks });
   } catch (err) {
@@ -313,16 +357,49 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     const missing = pending.chunks.findIndex(c => c === null);
     if (missing !== -1) return res.status(400).json({ error: `Missing chunk ${missing}` });
 
-    const fullBuffer = Buffer.concat(pending.chunks);
-    pendingChunks.delete(uploadId);
-
     const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [pending.userId]);
     const uploaderName = userRows.length ? userRows[0].name : "";
 
+    const mime = (pending.contentType || "").toLowerCase();
+    const isVideo = isVideoMime(mime) || [".mp4", ".webm", ".mov", ".avi"].includes(path.extname(pending.filename).toLowerCase());
+
+    let r2AudioKey = null;
+    let r2VideoKey = null;
+    let fullBuffer = null;
+
+    if (pending.useR2Multipart) {
+      await completeMultipartUpload(pending.r2AudioKey, pending.r2MultipartUploadId, pending.r2Parts.filter(Boolean));
+      r2AudioKey = pending.r2AudioKey;
+
+      if (isVideo) {
+        r2VideoKey = pending.r2AudioKey.replace(/\/audio$/, "/video");
+        const videoData = await downloadFromR2(r2AudioKey);
+        await uploadToR2(r2VideoKey, videoData, pending.contentType);
+      }
+    } else {
+      fullBuffer = Buffer.concat(pending.chunks);
+
+      if (isR2Configured()) {
+        const baseKey = `transcripts/${pending.caseId}/${randomUUID()}`;
+        r2AudioKey = `${baseKey}/audio`;
+        await uploadToR2(r2AudioKey, fullBuffer, pending.contentType);
+        if (isVideo) {
+          r2VideoKey = `${baseKey}/video`;
+          await uploadToR2(r2VideoKey, fullBuffer, pending.contentType);
+        }
+      }
+    }
+
+    pendingChunks.delete(uploadId);
+
+    const storeInDb = !r2AudioKey;
     const { rows } = await pool.query(
-      `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by, uploaded_by_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [pending.caseId, pending.filename, pending.contentType, fullBuffer, fullBuffer.length, pending.userId, uploaderName]
+      `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by, uploaded_by_name, is_video, video_data, video_content_type, r2_audio_key, r2_video_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [pending.caseId, pending.filename, pending.contentType,
+       storeInDb ? fullBuffer : null, pending.fileSize, pending.userId, uploaderName,
+       isVideo, isVideo && storeInDb ? fullBuffer : null, isVideo ? pending.contentType : null,
+       r2AudioKey, r2VideoKey]
     );
 
     res.json(toFrontend(rows[0]));
@@ -346,19 +423,36 @@ router.post("/upload", requireAuth, upload.single("audio"), async (req, res) => 
     const mime = req.file.mimetype.toLowerCase();
     if (!ALLOWED_AUDIO.some(t => mime.includes(t.split("/")[1]) || mime === t)) {
       const ext = path.extname(req.file.originalname).toLowerCase();
-      const allowedExts = [".mp3", ".wav", ".m4a", ".ogg", ".webm", ".mp4", ".aac", ".flac"];
+      const allowedExts = [".mp3", ".wav", ".m4a", ".ogg", ".webm", ".mp4", ".aac", ".flac", ".mov", ".avi"];
       if (!allowedExts.includes(ext)) {
-        return res.status(400).json({ error: `Unsupported audio format. Accepted: ${allowedExts.join(", ")}` });
+        return res.status(400).json({ error: `Unsupported format. Accepted: ${allowedExts.join(", ")}` });
       }
     }
+
+    const isVideo = isVideoMime(mime) || [".mp4", ".webm", ".mov", ".avi"].includes(path.extname(req.file.originalname).toLowerCase());
 
     const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [req.session.userId]);
     const uploaderName = userRows.length ? userRows[0].name : "";
 
+    let r2AudioKey = null;
+    let r2VideoKey = null;
+    if (isR2Configured()) {
+      const baseKey = `transcripts/${caseId}/${randomUUID()}`;
+      r2AudioKey = `${baseKey}/audio`;
+      await uploadToR2(r2AudioKey, req.file.buffer, req.file.mimetype);
+      if (isVideo) {
+        r2VideoKey = `${baseKey}/video`;
+        await uploadToR2(r2VideoKey, req.file.buffer, req.file.mimetype);
+      }
+    }
+
     const { rows } = await pool.query(
-      `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by, uploaded_by_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [caseId, req.file.originalname, req.file.mimetype, req.file.buffer, req.file.size, req.session.userId, uploaderName]
+      `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by, uploaded_by_name, is_video, video_data, video_content_type, r2_audio_key, r2_video_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [caseId, req.file.originalname, req.file.mimetype,
+       isR2Configured() ? null : req.file.buffer, req.file.size, req.session.userId, uploaderName,
+       isVideo, isVideo && !isR2Configured() ? req.file.buffer : null, isVideo ? req.file.mimetype : null,
+       r2AudioKey, r2VideoKey]
     );
 
     res.json(toFrontend(rows[0]));
@@ -376,7 +470,7 @@ router.get("/case/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      `SELECT id, case_id, filename, description, content_type, file_size, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at,
+      `SELECT id, case_id, filename, description, content_type, file_size, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at, is_video, video_content_type,
        jsonb_array_length(transcript) as segment_count
        FROM case_transcripts WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
       [req.params.caseId]
@@ -397,7 +491,7 @@ router.get("/:id/detail", requireAuth, async (req, res) => {
     if (access === null) return res.status(404).json({ error: "Transcript not found" });
     if (access === false) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, description, content_type, file_size, transcript, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at FROM case_transcripts WHERE id = $1",
+      "SELECT id, case_id, filename, description, content_type, file_size, transcript, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at, is_video, video_content_type FROM case_transcripts WHERE id = $1",
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
@@ -466,17 +560,84 @@ router.get("/:id/download-audio", requireAuth, async (req, res) => {
     if (access === null) return res.status(404).json({ error: "Transcript not found" });
     if (access === false) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT filename, content_type, audio_data FROM case_transcripts WHERE id = $1",
+      "SELECT filename, content_type, audio_data, r2_audio_key FROM case_transcripts WHERE id = $1",
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
-    const { filename, content_type, audio_data } = rows[0];
+    const { filename, content_type, audio_data, r2_audio_key } = rows[0];
     res.set("Content-Type", content_type || "application/octet-stream");
     res.set("Content-Disposition", `attachment; filename="${filename}"`);
+    if (r2_audio_key && isR2Configured()) {
+      try {
+        const data = await downloadFromR2(r2_audio_key);
+        return res.send(data);
+      } catch {}
+    }
     res.send(audio_data);
   } catch (err) {
     console.error("Download audio error:", err.message);
     res.status(500).json({ error: "Failed to download audio" });
+  }
+});
+
+router.get("/:id/video", requireAuth, async (req, res) => {
+  try {
+    const access = await verifyTranscriptAccess(req, req.params.id);
+    if (access === null) return res.status(404).json({ error: "Transcript not found" });
+    if (access === false) return res.status(403).json({ error: "Access denied" });
+
+    const { rows } = await pool.query(
+      "SELECT video_content_type, video_data, r2_video_key, is_video FROM case_transcripts WHERE id = $1",
+      [req.params.id]
+    );
+    if (!rows.length || !rows[0].is_video) return res.status(404).json({ error: "Video not found" });
+    const { video_content_type, video_data, r2_video_key } = rows[0];
+    const contentType = video_content_type || "video/mp4";
+    const rangeHeader = req.headers.range;
+
+    if (r2_video_key && isR2Configured()) {
+      try {
+        if (rangeHeader) {
+          const r2Resp = await streamFromR2(r2_video_key, rangeHeader);
+          res.status(206);
+          res.set("Content-Type", contentType);
+          res.set("Accept-Ranges", "bytes");
+          if (r2Resp.contentRange) res.set("Content-Range", r2Resp.contentRange);
+          if (r2Resp.contentLength) res.set("Content-Length", r2Resp.contentLength);
+          return r2Resp.stream.pipe(res);
+        } else {
+          const data = await downloadFromR2(r2_video_key);
+          res.set("Content-Type", contentType);
+          res.set("Content-Length", data.length);
+          res.set("Accept-Ranges", "bytes");
+          return res.send(data);
+        }
+      } catch {}
+    }
+
+    if (!video_data) return res.status(404).json({ error: "Video data not available" });
+
+    if (rangeHeader) {
+      const total = video_data.length;
+      const parts = rangeHeader.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+      const chunkSize = end - start + 1;
+      res.status(206);
+      res.set("Content-Range", `bytes ${start}-${end}/${total}`);
+      res.set("Accept-Ranges", "bytes");
+      res.set("Content-Length", chunkSize);
+      res.set("Content-Type", contentType);
+      return res.send(video_data.slice(start, end + 1));
+    }
+
+    res.set("Content-Type", contentType);
+    res.set("Content-Length", video_data.length);
+    res.set("Accept-Ranges", "bytes");
+    res.send(video_data);
+  } catch (err) {
+    console.error("Video stream error:", err.message);
+    res.status(500).json({ error: "Failed to stream video" });
   }
 });
 
@@ -563,6 +724,123 @@ router.get("/:id/export", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Export transcript error:", err.message);
     res.status(500).json({ error: "Failed to export transcript" });
+  }
+});
+
+router.get("/:id/suggest-name", requireAuth, async (req, res) => {
+  try {
+    const access = await verifyTranscriptAccess(req, req.params.id);
+    if (access === null) return res.status(404).json({ error: "Transcript not found" });
+    if (access === false) return res.status(403).json({ error: "Access denied" });
+    const { rows } = await pool.query(
+      "SELECT transcript, filename FROM case_transcripts WHERE id = $1",
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
+    const segments = rows[0].transcript || [];
+    if (!segments.length) return res.status(400).json({ error: "No transcript content available to suggest a name" });
+    const textContent = segments.map(s => `${s.speaker}: ${s.text}`).join("\n").slice(0, 2000);
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a legal assistant at a plaintiff personal injury law firm. Given the beginning of a transcript, suggest a short, descriptive filename (without file extension). Focus on identifying the type of recording (deposition, client interview, expert consultation, IME, mediation, hearing, etc.), the key participant(s), and the subject matter. Keep it concise — under 60 characters. Return ONLY the suggested filename, nothing else."
+        },
+        {
+          role: "user",
+          content: `Current filename: ${rows[0].filename}\n\nTranscript content:\n${textContent}`
+        }
+      ],
+      max_tokens: 100,
+      temperature: 0.3,
+    });
+    const suggestedName = (completion.choices[0]?.message?.content || "").trim();
+    if (!suggestedName) return res.status(500).json({ error: "AI did not return a suggestion" });
+    res.json({ suggestedName });
+  } catch (err) {
+    console.error("Suggest name error:", err.message);
+    res.status(500).json({ error: "Failed to suggest name" });
+  }
+});
+
+router.get("/:id/history", requireAuth, async (req, res) => {
+  try {
+    const access = await verifyTranscriptAccess(req, req.params.id);
+    if (access === null) return res.status(404).json({ error: "Transcript not found" });
+    if (access === false) return res.status(403).json({ error: "Access denied" });
+    const { rows } = await pool.query(
+      "SELECT id, transcript_id, change_type, change_description, changed_by, created_at FROM transcript_history WHERE transcript_id = $1 ORDER BY created_at DESC LIMIT 50",
+      [req.params.id]
+    );
+    res.json(rows.map(r => ({
+      id: r.id,
+      transcriptId: r.transcript_id,
+      changeType: r.change_type,
+      changeDescription: r.change_description,
+      changedBy: r.changed_by,
+      createdAt: r.created_at,
+    })));
+  } catch (err) {
+    console.error("Get transcript history error:", err.message);
+    res.status(500).json({ error: "Failed to load history" });
+  }
+});
+
+router.post("/:id/history", requireAuth, async (req, res) => {
+  try {
+    const access = await verifyTranscriptAccess(req, req.params.id);
+    if (access === null) return res.status(404).json({ error: "Transcript not found" });
+    if (access === false) return res.status(403).json({ error: "Access denied" });
+    const { changeType, changeDescription, previousState } = req.body;
+    if (!changeType) return res.status(400).json({ error: "changeType is required" });
+    const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [req.session.userId]);
+    const changedBy = userRows.length ? userRows[0].name : "Unknown";
+    const { rows } = await pool.query(
+      "INSERT INTO transcript_history (transcript_id, change_type, change_description, previous_state, changed_by) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [req.params.id, changeType, changeDescription || null, previousState ? JSON.stringify(previousState) : null, changedBy]
+    );
+    res.json({
+      id: rows[0].id,
+      transcriptId: rows[0].transcript_id,
+      changeType: rows[0].change_type,
+      changeDescription: rows[0].change_description,
+      changedBy: rows[0].changed_by,
+      createdAt: rows[0].created_at,
+    });
+  } catch (err) {
+    console.error("Save transcript history error:", err.message);
+    res.status(500).json({ error: "Failed to save history" });
+  }
+});
+
+router.post("/:id/revert/:historyId", requireAuth, async (req, res) => {
+  try {
+    const access = await verifyTranscriptAccess(req, req.params.id);
+    if (access === null) return res.status(404).json({ error: "Transcript not found" });
+    if (access === false) return res.status(403).json({ error: "Access denied" });
+    const { rows: historyRows } = await pool.query(
+      "SELECT previous_state FROM transcript_history WHERE id = $1 AND transcript_id = $2",
+      [req.params.historyId, req.params.id]
+    );
+    if (!historyRows.length) return res.status(404).json({ error: "History entry not found" });
+    if (!historyRows[0].previous_state) return res.status(400).json({ error: "No previous state to revert to" });
+    const { rows: currentRows } = await pool.query("SELECT transcript FROM case_transcripts WHERE id = $1", [req.params.id]);
+    const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [req.session.userId]);
+    const changedBy = userRows.length ? userRows[0].name : "Unknown";
+    await pool.query(
+      "INSERT INTO transcript_history (transcript_id, change_type, change_description, previous_state, changed_by) VALUES ($1, $2, $3, $4, $5)",
+      [req.params.id, "revert", "Reverted to previous version", currentRows.length ? JSON.stringify(currentRows[0].transcript) : null, changedBy]
+    );
+    const { rows } = await pool.query(
+      "UPDATE case_transcripts SET transcript = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+      [JSON.stringify(historyRows[0].previous_state), req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
+    res.json(toFrontend(rows[0]));
+  } catch (err) {
+    console.error("Revert transcript error:", err.message);
+    res.status(500).json({ error: "Failed to revert transcript" });
   }
 });
 

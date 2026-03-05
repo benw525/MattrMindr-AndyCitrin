@@ -234,6 +234,10 @@ export async function apiUploadTranscriptChunked(file, caseId, onProgress) {
   return completeRes.json();
 }
 export const apiUpdateTranscript = (id, data) => apiFetch(`/api/transcripts/${id}`, { method: "PUT", body: data });
+export const apiSuggestTranscriptName = (id) => apiFetch(`/api/transcripts/${id}/suggest-name`);
+export const apiGetTranscriptHistory = (id) => apiFetch(`/api/transcripts/${id}/history`);
+export const apiSaveTranscriptHistory = (id, data) => apiFetch(`/api/transcripts/${id}/history`, { method: "POST", body: data });
+export const apiRevertTranscript = (id, historyId) => apiFetch(`/api/transcripts/${id}/revert/${historyId}`, { method: "POST", body: {} });
 export const apiDeleteTranscript = (id) => apiFetch(`/api/transcripts/${id}`, { method: "DELETE" });
 export async function apiDownloadTranscriptAudio(id) {
   const res = await fetch(`/api/transcripts/${id}/download-audio`, { credentials: "include" });
@@ -583,6 +587,7 @@ export const apiGetUnreadClientComm       = ()    => apiFetch("/api/portal-admin
 export const apiBatchDeleteDocuments      = (ids) => apiFetch("/api/case-documents/batch-delete",  { method: "POST", body: { ids } });
 export const apiBatchDeleteTranscripts    = (ids) => apiFetch("/api/transcripts/batch-delete",     { method: "POST", body: { ids } });
 export const apiBatchDeleteCorrespondence = (ids) => apiFetch("/api/correspondence/batch-delete",  { method: "POST", body: { ids } });
+export const apiBatchDeleteSmsMessages    = (ids) => apiFetch("/api/sms/messages/batch-delete",    { method: "POST", body: { ids } });
 
 // Chunked Upload for Documents
 const DOC_CHUNK_SIZE = 20 * 1024 * 1024;
@@ -647,6 +652,42 @@ export async function apiUploadFilingChunked(file, caseId, filedBy, filingDate, 
   return completeRes.json();
 }
 
+// Document Viewer/Editor
+export const apiGetDocHtml        = (id)             => apiFetch(`/api/case-documents/${id}/html`);
+export const apiSaveDocContent    = (id, html)       => apiFetch(`/api/case-documents/${id}/content`, { method: "PUT", body: { html } });
+export const apiGetXlsxData       = (id)             => apiFetch(`/api/case-documents/${id}/xlsx-data`);
+export const apiSaveXlsxData      = (id, sheets)     => apiFetch(`/api/case-documents/${id}/xlsx-data`, { method: "PUT", body: { sheets } });
+export const apiGetPptxSlides     = (id)             => apiFetch(`/api/case-documents/${id}/pptx-slides`);
+export const apiSavePptxSlides    = (id, slides)     => apiFetch(`/api/case-documents/${id}/pptx-slides`, { method: "PUT", body: { slides } });
+export const apiSaveAnnotations   = (id, annotations) => apiFetch(`/api/case-documents/${id}/annotations`, { method: "PUT", body: { annotations } });
+export const apiGetAnnotations    = (id)             => apiFetch(`/api/case-documents/${id}/annotations`);
+
+// Custom Reports
+export const apiGetCustomReports  = ()               => apiFetch("/api/custom-reports");
+export const apiCreateCustomReport = (data)          => apiFetch("/api/custom-reports", { method: "POST", body: data });
+export const apiUpdateCustomReport = (id, data)      => apiFetch(`/api/custom-reports/${id}`, { method: "PUT", body: data });
+export const apiDeleteCustomReport = (id)            => apiFetch(`/api/custom-reports/${id}`, { method: "DELETE" });
+export const apiRunCustomReport   = (data)           => apiFetch("/api/custom-reports/run", { method: "POST", body: data });
+export const apiCustomReportAiAssist = (prompt)      => apiFetch("/api/custom-reports/ai-assist", { method: "POST", body: { prompt } });
+
+// Custom AI Agents
+export const apiGetCustomAgents   = ()               => apiFetch("/api/custom-agents-builder");
+export const apiCreateCustomAgent = (data)           => apiFetch("/api/custom-agents-builder", { method: "POST", body: data });
+export const apiUpdateCustomAgent = (id, data)       => apiFetch(`/api/custom-agents-builder/${id}`, { method: "PUT", body: data });
+export const apiDeleteCustomAgent = (id)             => apiFetch(`/api/custom-agents-builder/${id}`, { method: "DELETE" });
+export const apiRunCustomAgent    = (id, data)       => apiFetch(`/api/custom-agents-builder/${id}/run`, { method: "POST", body: data });
+export const apiChatCustomAgent   = (id, data)       => apiFetch(`/api/custom-agents-builder/${id}/chat`, { method: "POST", body: data });
+export const apiPreviewCustomAgent = (data)          => apiFetch("/api/custom-agents-builder/preview", { method: "POST", body: data });
+export const apiGetAvailableModels = ()              => apiFetch("/api/custom-agents-builder/available-models");
+export async function apiUploadAgentInstructions(id, file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`/api/custom-agents-builder/${id}/upload-instructions`, { method: "POST", credentials: "include", body: fd });
+  if (!res.ok) { let msg = `Upload error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
+export const apiClearAgentInstructions = (id)         => apiFetch(`/api/custom-agents-builder/${id}/clear-instructions`, { method: "DELETE" });
+
 // Jury Analysis
 export const apiGetJuryAnalysis    = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`);
 export const apiUpdateJurorStrike  = (caseId, data)  => apiFetch(`/api/trial-center/jury-analysis/${caseId}/juror-strike`, { method: "PATCH", body: data });
@@ -654,5 +695,7 @@ export const apiDeleteJuryAnalysis = (caseId)        => apiFetch(`/api/trial-cen
 
 
 // Deleted Data
-export const apiGetDeletedData     = ()             => apiFetch("/api/deleted-data");
+export const apiGetDeletedData     = (search)       => apiFetch(`/api/deleted-data${search ? `?search=${encodeURIComponent(search)}` : ""}`);
 export const apiRestoreDeletedItem = (type, id)     => apiFetch("/api/deleted-data/restore", { method: "POST", body: { type, id } });
+export const apiBatchRestoreDeleted = (items)       => apiFetch("/api/deleted-data/batch-restore", { method: "POST", body: { items } });
+export const apiBatchPurgeDeleted  = (items)        => apiFetch("/api/deleted-data/batch-purge", { method: "POST", body: { items } });

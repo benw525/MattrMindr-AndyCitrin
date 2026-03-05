@@ -17,7 +17,7 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   try {
-    const [casesResult, notesResult, activityResult, tasksResult, deadlinesResult, linksResult, usersResult, partiesResult, expertsResult, corrResult] = await Promise.all([
+    const [casesResult, notesResult, activityResult, tasksResult, deadlinesResult, linksResult, usersResult, partiesResult, expertsResult, corrResult, docsResult, transcriptsResult] = await Promise.all([
       pool.query("SELECT * FROM cases WHERE deleted_at IS NULL AND confidential = FALSE ORDER BY title"),
       pool.query("SELECT case_id, body, type FROM case_notes ORDER BY created_at DESC"),
       pool.query("SELECT case_id, action, detail FROM case_activity ORDER BY ts DESC"),
@@ -28,6 +28,8 @@ router.post("/", requireAuth, async (req, res) => {
       pool.query("SELECT case_id, party_type, data FROM case_parties"),
       pool.query("SELECT case_id, data FROM case_experts"),
       pool.query("SELECT case_id, subject, from_email, to_emails FROM case_correspondence ORDER BY received_at DESC"),
+      pool.query("SELECT case_id, filename FROM case_documents WHERE deleted_at IS NULL ORDER BY created_at DESC"),
+      pool.query("SELECT case_id, filename FROM case_transcripts WHERE deleted_at IS NULL ORDER BY created_at DESC"),
     ]);
 
     const cases = casesResult.rows;
@@ -110,6 +112,22 @@ router.post("/", requireAuth, async (req, res) => {
       }
     }
 
+    const docsByCase = {};
+    for (const doc of docsResult.rows) {
+      if (!docsByCase[doc.case_id]) docsByCase[doc.case_id] = [];
+      if (docsByCase[doc.case_id].length < 10) {
+        docsByCase[doc.case_id].push(doc.filename);
+      }
+    }
+
+    const transcriptsByCase = {};
+    for (const tr of transcriptsResult.rows) {
+      if (!transcriptsByCase[tr.case_id]) transcriptsByCase[tr.case_id] = [];
+      if (transcriptsByCase[tr.case_id].length < 10) {
+        transcriptsByCase[tr.case_id].push(tr.filename);
+      }
+    }
+
     const usersMap = {};
     for (const u of usersResult.rows) usersMap[u.id] = u.name;
 
@@ -187,6 +205,16 @@ router.post("/", requireAuth, async (req, res) => {
         parts.push("Emails:[" + corr.join("; ") + "]");
       }
 
+      const docs = docsByCase[c.id] || [];
+      if (docs.length) {
+        parts.push("Documents:[" + docs.join("; ") + "]");
+      }
+
+      const transcripts = transcriptsByCase[c.id] || [];
+      if (transcripts.length) {
+        parts.push("Transcripts:[" + transcripts.join("; ") + "]");
+      }
+
       return parts.join(" | ");
     });
 
@@ -199,7 +227,8 @@ RULES:
 - If no cases match, return an empty array []
 - The "reason" should be specific about what data matched the query
 - Do NOT include markdown formatting, just raw JSON
-- Search across ALL fields: title, client, injury type, case value, settlement, notes, activity, tasks, deadlines, parties, staff, dates, etc.`;
+- Search across ALL fields: title, client, injury type, case value, settlement, notes, activity, tasks, deadlines, parties, staff, dates, documents, transcripts, etc.
+- Document and transcript filename matches are highly relevant (weight 2x) — prioritize cases where filenames match the search query`;
 
     let caseDataText = caseSummaries.join("\n");
     const MAX_CHARS = 700000;

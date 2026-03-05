@@ -9,6 +9,7 @@
     "build": "cd lextrack && npm run build"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1003.0",
     "autoprefixer": "^10.4.27",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
@@ -24,6 +25,7 @@
     "p-limit": "^7.3.0",
     "p-retry": "^7.1.1",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.5.207",
     "pdfkit": "^0.17.2",
     "pizzip": "^3.2.0",
     "postcss": "^8.5.6",
@@ -31,6 +33,7 @@
     "tailwindcss": "^3.4.19",
     "tesseract.js": "^7.0.0",
     "twilio": "^5.12.2",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6",
     "zod-validation-error": "^5.0.0"
   }

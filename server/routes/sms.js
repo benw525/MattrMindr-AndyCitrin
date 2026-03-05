@@ -136,12 +136,25 @@ router.delete("/configs/:id", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/messages/batch-delete", requireAuth, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(",");
+    await pool.query(`UPDATE sms_messages SET deleted_at = NOW() WHERE id IN (${placeholders}) AND deleted_at IS NULL`, ids);
+    res.json({ ok: true, deleted: ids.length });
+  } catch (err) {
+    console.error("SMS batch delete error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/messages/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT sm.*, u.name as sent_by_name FROM sms_messages sm
        LEFT JOIN users u ON sm.sent_by = u.id
-       WHERE sm.case_id = $1 ORDER BY sm.sent_at DESC`,
+       WHERE sm.case_id = $1 AND sm.deleted_at IS NULL ORDER BY sm.sent_at DESC`,
       [req.params.caseId]
     );
     res.json(rows.map(r => ({

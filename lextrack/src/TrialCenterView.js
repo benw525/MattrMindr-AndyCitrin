@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Scale, Users, Search, Plus, Trash2, ChevronUp, ChevronDown, Loader2, AlertTriangle, FileText, ClipboardList, Sparkles, Download, Pin, X, Edit3 as Pencil, Menu, Mic, Upload, Eye } from "lucide-react";
+import { Scale, Users, Search, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Loader2, AlertTriangle, FileText, ClipboardList, Sparkles, Download, Pin, X, Edit3 as Pencil, Menu, Mic, Upload, Eye, Shield, FolderOpen, Maximize2 } from "lucide-react";
 import {
   apiCreateTrialSession,
   apiGetTrialWitnesses, apiCreateTrialWitness, apiUpdateTrialWitness, apiDeleteTrialWitness, apiReorderTrialWitnesses,
@@ -14,12 +14,82 @@ import {
   apiGetTrialLogEntries, apiCreateTrialLogEntry, apiDeleteTrialLogEntry,
   apiTrialAiWitnessPrep, apiTrialAiJurySelection, apiTrialAiObjectionCoach, apiTrialAiClosingBuilder, apiTrialAiOpeningBuilder, apiTrialAiJuryInstructions, apiTrialAiCaseLawSearch,
   apiGetCaseDocuments, apiDownloadDocument, apiSummarizeDocument,
+  apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides,
   apiExportWitnessPrep, apiGetWitnessDocuments, apiLinkWitnessDocument, apiUnlinkWitnessDocument, apiGetDocumentText,
   apiGetTranscripts, apiDownloadTranscriptAudio, apiGetTranscriptDetail,
   apiExtractOutlineFile,
   apiSavePreferences,
   apiGetJuryAnalysis, apiUpdateJurorStrike, apiDeleteJuryAnalysis,
 } from "./api.js";
+
+const DragDropZone = ({ onFileSelect, accept, multiple, children, style: extraStyle, className: extraClassName }) => {
+  const dragCounter = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current++;
+    if (dragCounter.current === 1) setDragActive(true);
+  }, []);
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) { dragCounter.current = 0; setDragActive(false); }
+  }, []);
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+  }, []);
+  const handleDrop = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current = 0;
+    setDragActive(false);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    if (accept) {
+      const exts = accept.split(",").map(a => a.trim().toLowerCase());
+      const filtered = Array.from(files).filter(f => {
+        const name = f.name.toLowerCase();
+        const type = f.type.toLowerCase();
+        return exts.some(ext => ext.startsWith(".") ? name.endsWith(ext) : type.match(ext.replace("*", ".*")));
+      });
+      if (filtered.length === 0) return;
+      onFileSelect(multiple ? filtered : [filtered[0]]);
+    } else {
+      onFileSelect(multiple ? Array.from(files) : [files[0]]);
+    }
+  }, [onFileSelect, accept, multiple]);
+  return (
+    <div
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className={extraClassName}
+      style={{
+        border: dragActive ? "2px dashed #6366f1" : "2px dashed #e2e8f0",
+        borderRadius: 10,
+        padding: 16,
+        background: dragActive ? "rgba(99,102,241,0.05)" : "transparent",
+        transition: "all 0.2s ease",
+        position: "relative",
+        ...extraStyle,
+      }}
+    >
+      {children}
+      {dragActive && (
+        <div style={{
+          position: "absolute", inset: 0, borderRadius: 10,
+          background: "rgba(99,102,241,0.08)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          pointerEvents: "none", zIndex: 10,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6366f1", background: "rgba(255,255,255,0.9)", padding: "6px 16px", borderRadius: 8 }}>
+            Drop files here
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const TABS = ["Witnesses","Exhibits","Jury","Motions","Outlines","Jury Instructions","Demonstratives","Quick Docs","Trial Log","AI Agents"];
 
@@ -78,6 +148,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   const [juryAnalysis, setJuryAnalysis] = useState(null);
   const [juryAnalysisLoading, setJuryAnalysisLoading] = useState(false);
   const [juryAnalysisCollapsed, setJuryAnalysisCollapsed] = useState({ jurorList: false, strikes: false, suggestedOrder: false, causeStrikes: false });
+  const [daubertChallengeOpen, setDaubertChallengeOpen] = useState(false);
+  const [strategyNotesOpen, setStrategyNotesOpen] = useState(false);
 
   const [showMotionForm, setShowMotionForm] = useState(false);
   const [editMotion, setEditMotion] = useState(null);
@@ -99,6 +171,10 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   const [showDocPicker, setShowDocPicker] = useState(false);
 
   const [exhibitFile, setExhibitFile] = useState(null);
+  const [exhibitDocSearch, setExhibitDocSearch] = useState("");
+  const [showExhibitDocPicker, setShowExhibitDocPicker] = useState(false);
+  const [exhibitSelectedDoc, setExhibitSelectedDoc] = useState(null);
+  const [exhibitDocList, setExhibitDocList] = useState([]);
 
   const [demoFile, setDemoFile] = useState(null);
   const [demoForm, setDemoForm] = useState({ title: "", description: "", association: "general" });
@@ -127,6 +203,10 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const [transcriptSegments, setTranscriptSegments] = useState([]);
   const [viewerTitle, setViewerTitle] = useState("");
+  const [viewerDocxHtml, setViewerDocxHtml] = useState(null);
+  const [viewerXlsxData, setViewerXlsxData] = useState(null);
+  const [viewerPptxSlides, setViewerPptxSlides] = useState(null);
+  const [viewerDocId, setViewerDocId] = useState(null);
 
   const [outlineAiType, setOutlineAiType] = useState(null);
   const [outlineAiLoading, setOutlineAiLoading] = useState(false);
@@ -281,14 +361,29 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
         fd.append("status", eForm.status);
         fd.append("notes", eForm.notes);
         await apiUploadTrialExhibit(fd);
+      } else if (exhibitSelectedDoc) {
+        await apiCreateTrialExhibit({ sessionId: session.id, ...eForm, linked_document_id: exhibitSelectedDoc.id });
       } else {
         await apiCreateTrialExhibit({ sessionId: session.id, ...eForm });
       }
       setShowExhibitForm(false);
       setEditExhibit(null);
       setExhibitFile(null);
+      setExhibitSelectedDoc(null);
+      setShowExhibitDocPicker(false);
+      setExhibitDocSearch("");
       setEForm({ exhibit_number: "", description: "", type: "physical", status: "pending", notes: "" });
       await refreshTab("Exhibits");
+    } catch (err) { console.error(err); }
+  };
+
+  const openExhibitDocPicker = async () => {
+    if (!selectedCase) return;
+    try {
+      const docs = await apiGetCaseDocuments(selectedCase.id);
+      setExhibitDocList(docs || []);
+      setShowExhibitDocPicker(true);
+      setExhibitDocSearch("");
     } catch (err) { console.error(err); }
   };
 
@@ -458,26 +553,56 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   };
 
   const openDocViewer = async (pd) => {
-    if (!pd.case_document_id) return;
+    const docId = pd.case_document_id || pd.linked_document_id;
+    if (!docId) return;
     if (docViewerUrl) URL.revokeObjectURL(docViewerUrl);
     setDocViewerUrl(null);
     setTranscriptSegments([]);
-    setDocViewerId(pd.id);
-    setViewerTitle(pd.label || pd.document_name || "Document");
+    setViewerDocxHtml(null);
+    setViewerXlsxData(null);
+    setViewerPptxSlides(null);
+    setDocViewerId(pd.id || docId);
+    setViewerDocId(docId);
+    const filename = pd.label || pd.document_name || pd.description || "Document";
+    setViewerTitle(filename);
     try {
-      const blob = await apiDownloadDocument(pd.case_document_id);
-      const ft = (pd.file_type || pd.document_content_type || blob.type || "").toLowerCase();
-      if (ft.includes("pdf") || ft.includes("image")) {
+      const ct = (pd.file_type || pd.document_content_type || pd.file_content_type || "").toLowerCase();
+      const ext = (filename || "").split(".").pop().toLowerCase();
+      const isDocx = ct.includes("wordprocessingml") || ext === "docx";
+      const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
+      const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
+      const isImage = ct.includes("image") || ["jpg","jpeg","png","gif","bmp","svg","webp","tiff"].includes(ext);
+      const isPdf = ct.includes("pdf") || ext === "pdf";
+      const isText = ct.includes("text") || ["txt","csv","log","md","json","xml","html"].includes(ext);
+
+      if (isDocx) {
+        try { const r = await apiGetDocHtml(docId); setViewerDocxHtml(r.html || "<p>Could not convert document.</p>"); } catch { setViewerDocxHtml("<p>Could not convert document.</p>"); }
+      } else if (isXlsx) {
+        try { const r = await apiGetXlsxData(docId); setViewerXlsxData(r.sheets || []); } catch { setViewerXlsxData([]); }
+      } else if (isPptx) {
+        try { const r = await apiGetPptxSlides(docId); setViewerPptxSlides(r.slides || []); } catch { setViewerPptxSlides([]); }
+      } else if (isPdf || isImage) {
+        const blob = await apiDownloadDocument(docId);
         setDocViewerUrl(URL.createObjectURL(blob));
+      } else if (isText) {
+        const blob = await apiDownloadDocument(docId);
+        const text = await blob.text();
+        setDocViewerUrl(URL.createObjectURL(new Blob([text], { type: "text/plain" })));
       } else {
-        const res = await apiGetDocumentText(pd.case_document_id);
-        const extractedText = res?.text || "";
-        const displayText = extractedText || "No text could be extracted from this document. Try downloading the file to view it in its native application.";
-        setDocViewerUrl(URL.createObjectURL(new Blob([displayText], { type: "text/plain" })));
+        try {
+          const res = await apiGetDocumentText(docId);
+          const extractedText = res?.text || "";
+          const displayText = extractedText || "No text could be extracted from this document. Try downloading the file to view it in its native application.";
+          setDocViewerUrl(URL.createObjectURL(new Blob([displayText], { type: "text/plain" })));
+        } catch {
+          const blob = await apiDownloadDocument(docId);
+          setDocViewerUrl(URL.createObjectURL(blob));
+        }
       }
     } catch (err) {
       console.error(err);
       setDocViewerId(null);
+      setViewerDocId(null);
     }
   };
 
@@ -487,6 +612,46 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     setDocViewerId(null);
     setTranscriptSegments([]);
     setViewerTitle("");
+    setViewerDocxHtml(null);
+    setViewerXlsxData(null);
+    setViewerPptxSlides(null);
+    setViewerDocId(null);
+  };
+
+  const openPresentMode = () => {
+    const w = window.open("", "_blank", "width=1200,height=800");
+    if (!w) return;
+    let bodyContent = "";
+    if (viewerDocxHtml) {
+      bodyContent = viewerDocxHtml;
+    } else if (viewerXlsxData && viewerXlsxData.length > 0) {
+      bodyContent = viewerXlsxData.map(sheet => {
+        const rows = sheet.data || [];
+        const tableRows = rows.map(row => "<tr>" + row.map(cell => `<td style="border:1px solid #334155;padding:8px 12px;font-size:16px;">${cell != null ? cell : ""}</td>`).join("") + "</tr>").join("");
+        return `<h2 style="color:#e2e8f0;margin:20px 0 10px;">${sheet.name || "Sheet"}</h2><table style="border-collapse:collapse;width:100%;color:#e2e8f0;">${tableRows}</table>`;
+      }).join("");
+    } else if (viewerPptxSlides && viewerPptxSlides.length > 0) {
+      bodyContent = viewerPptxSlides.map((slide, i) => {
+        const texts = (slide.texts || []).map(t => `<p style="font-size:18px;margin:8px 0;">${t}</p>`).join("");
+        return `<div style="border:1px solid #334155;border-radius:12px;padding:32px;margin-bottom:24px;background:#1e293b;"><h3 style="color:#94a3b8;margin-bottom:12px;">Slide ${i + 1}</h3><div style="color:#e2e8f0;">${texts}</div></div>`;
+      }).join("");
+    } else if (transcriptSegments.length > 0) {
+      const speakerColors = ["#6366f1","#f59e0b","#10b981","#ef4444","#8b5cf6","#ec4899","#0ea5e9","#f97316"];
+      const speakers = [...new Set(transcriptSegments.map(s => s.speaker || "Speaker"))];
+      const getSpeakerColor = (sp) => speakerColors[speakers.indexOf(sp) % speakerColors.length];
+      const fmtTime = (sec) => { if (sec == null) return ""; const m = Math.floor(sec / 60); const s = Math.round(sec % 60); return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
+      bodyContent = transcriptSegments.map(seg => {
+        const time = seg.startTime != null ? `<span style="color:#64748b;font-family:monospace;font-size:14px;margin-right:12px;">${fmtTime(seg.startTime)}</span>` : "";
+        return `<div style="display:flex;gap:12px;padding:8px 0;align-items:baseline;">${time}<span style="color:${getSpeakerColor(seg.speaker || "Speaker")};font-weight:600;font-size:15px;min-width:120px;">${seg.speaker || "Speaker"}</span><span style="color:#e2e8f0;font-size:18px;flex:1;">${seg.text || ""}</span></div>`;
+      }).join("");
+    } else if (docViewerUrl) {
+      const ct = (docViewerUrl || "").toLowerCase();
+      if (ct.includes("blob:")) {
+        bodyContent = `<iframe src="${docViewerUrl}" style="width:100%;height:calc(100vh - 60px);border:none;border-radius:8px;"></iframe>`;
+      }
+    }
+    w.document.write(`<!DOCTYPE html><html><head><title>${viewerTitle || "Present Mode"}</title><style>body{margin:0;padding:32px;background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;line-height:1.6;}h1{font-size:24px;margin-bottom:24px;color:#f8fafc;border-bottom:1px solid #334155;padding-bottom:12px;}</style></head><body><h1>${viewerTitle || "Document"}</h1>${bodyContent}</body></html>`);
+    w.document.close();
   };
 
   const runDocSummary = async (pd) => {
@@ -1161,7 +1326,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Exhibits ({exhibits.length})</h3>
-                  <button onClick={() => { setEditExhibit(null); setEForm({ exhibit_number: "", description: "", type: "physical", status: "pending", notes: "" }); setShowExhibitForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Exhibit</button>
+                  <button onClick={() => { setEditExhibit(null); setEForm({ exhibit_number: "", description: "", type: "physical", status: "pending", notes: "" }); setExhibitFile(null); setExhibitSelectedDoc(null); setShowExhibitDocPicker(false); setExhibitDocSearch(""); setShowExhibitForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Exhibit</button>
                 </div>
                 {showExhibitForm && (
                   <div className={CARD_CLS + " p-4 space-y-3"}>
@@ -1173,20 +1338,70 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                     <div><label className={LABEL_CLS}>Description</label><input className={INPUT_CLS} value={eForm.description} onChange={e => setEForm({ ...eForm, description: e.target.value })} /></div>
                     <div><label className={LABEL_CLS}>Notes</label><textarea className={INPUT_CLS + " h-20"} value={eForm.notes} onChange={e => setEForm({ ...eForm, notes: e.target.value })} /></div>
                     {!editExhibit && (
-                      <div>
-                        <label className={LABEL_CLS}>Attach Document</label>
-                        <div className="flex items-center gap-2">
-                          <label className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center gap-1.5">
-                            <Upload size={12} /> Choose File
-                            <input type="file" className="hidden" onChange={e => setExhibitFile(e.target.files?.[0] || null)} />
-                          </label>
-                          {exhibitFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{exhibitFile.name}</span>}
-                        </div>
-                      </div>
+                      <>
+                        {exhibitSelectedDoc ? (
+                          <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg">
+                            <FileText size={14} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                            <span className="text-xs text-indigo-700 dark:text-indigo-300 truncate flex-1">{exhibitSelectedDoc.filename || exhibitSelectedDoc.name}</span>
+                            <button onClick={() => setExhibitSelectedDoc(null)} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300"><X size={14} /></button>
+                          </div>
+                        ) : (
+                          <DragDropZone onFileSelect={(files) => setExhibitFile(files[0] || null)} style={{ padding: 12 }}>
+                            <div>
+                              <label className={LABEL_CLS}>Attach Document — or drag & drop</label>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <label className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center gap-1.5">
+                                  <Upload size={12} /> Choose File
+                                  <input type="file" className="hidden" onChange={e => setExhibitFile(e.target.files?.[0] || null)} />
+                                </label>
+                                <button type="button" onClick={openExhibitDocPicker} className="px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/50 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center gap-1.5">
+                                  <FolderOpen size={12} /> Select from Case Documents
+                                </button>
+                                {exhibitFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{exhibitFile.name}</span>}
+                              </div>
+                            </div>
+                          </DragDropZone>
+                        )}
+                        {showExhibitDocPicker && !exhibitSelectedDoc && (
+                          <div className={CARD_CLS + " p-3 space-y-2 border-indigo-200 dark:border-indigo-800/50"}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Select a Case Document</span>
+                              <button onClick={() => setShowExhibitDocPicker(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                            </div>
+                            <div className="relative">
+                              <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                              <input className={INPUT_CLS} style={{ paddingLeft: 30 }} placeholder="Search documents..." value={exhibitDocSearch} onChange={e => setExhibitDocSearch(e.target.value)} />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto space-y-1">
+                              {exhibitDocList
+                                .filter(d => {
+                                  if (!exhibitDocSearch.trim()) return true;
+                                  const q = exhibitDocSearch.toLowerCase();
+                                  return (d.filename || d.name || "").toLowerCase().includes(q) || (d.content_type || "").toLowerCase().includes(q);
+                                })
+                                .map(d => (
+                                  <button key={d.id} onClick={() => { setExhibitSelectedDoc(d); setExhibitFile(null); setShowExhibitDocPicker(false); }} className="w-full text-left px-3 py-2 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 flex items-center gap-2 transition-colors">
+                                    <FileText size={13} className="text-slate-400 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">{d.filename || d.name}</div>
+                                      <div className="text-[10px] text-slate-400">{d.content_type || ""}{d.file_size ? ` · ${(d.file_size / 1024).toFixed(0)} KB` : ""}</div>
+                                    </div>
+                                  </button>
+                                ))
+                              }
+                              {exhibitDocList.filter(d => {
+                                if (!exhibitDocSearch.trim()) return true;
+                                const q = exhibitDocSearch.toLowerCase();
+                                return (d.filename || d.name || "").toLowerCase().includes(q) || (d.content_type || "").toLowerCase().includes(q);
+                              }).length === 0 && <p className="text-xs text-slate-400 text-center py-4">No documents found.</p>}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                     <div className="flex gap-2">
                       <button onClick={handleExhibitSave} className={BTN_CLS}>{editExhibit ? "Update" : "Save"}</button>
-                      <button onClick={() => { setShowExhibitForm(false); setEditExhibit(null); setExhibitFile(null); }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
+                      <button onClick={() => { setShowExhibitForm(false); setEditExhibit(null); setExhibitFile(null); setExhibitSelectedDoc(null); setShowExhibitDocPicker(false); setExhibitDocSearch(""); }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
                     </div>
                   </div>
                 )}
@@ -1211,7 +1426,10 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                           <td className="px-4 py-2.5"><span className={BADGE_CLS + (ex.status === "admitted" ? " bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50" : ex.status === "objected" ? " bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : ex.status === "excluded" ? " bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600" : " bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50")}>{ex.status}</span></td>
                           <td className="px-4 py-2.5">
                             {ex.linked_document_id ? (
-                              <button onClick={() => handleDownloadDoc(ex.linked_document_id)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"><Download size={12} /> {ex.document_name || "Download"}</button>
+                              <span className="flex items-center gap-2">
+                                <button onClick={() => openDocViewer(ex)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"><Eye size={12} /> {ex.document_name || "View"}</button>
+                                <button onClick={() => handleDownloadDoc(ex.linked_document_id)} className="p-1 text-slate-400 hover:text-slate-600" title="Download"><Download size={12} /></button>
+                              </span>
                             ) : <span className="text-xs text-slate-400">&mdash;</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
@@ -1409,50 +1627,80 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                           )}
                         </div>
 
-                        {ja.strike_strategy && (
-                          <div className={CARD_CLS + " p-3"}>
-                            <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Strike Strategy</h4>
-                            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{ja.strike_strategy || ja.strikeStrategy}</p>
-                          </div>
-                        )}
-
-                        {causeChallenges.length > 0 && (
+                        {(ja.strike_strategy || ja.strikeStrategy || causeChallenges.length > 0 || ja.cause_strategy || ja.causeStrategy) && (
                           <div className={CARD_CLS + " overflow-hidden"}>
-                            <button onClick={() => setJuryAnalysisCollapsed(p => ({ ...p, causeStrikes: !p.causeStrikes }))} className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border-none cursor-pointer">
-                              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Proposed Strikes for Cause ({causeChallenges.length})</span>
-                              {juryAnalysisCollapsed.causeStrikes ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronUp size={14} className="text-slate-400" />}
+                            <button onClick={() => setStrategyNotesOpen(p => !p)} className="w-full flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 border-none cursor-pointer">
+                              {strategyNotesOpen ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                              <Scale size={14} className="text-slate-500 dark:text-slate-400" />
+                              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Strategy Notes</span>
                             </button>
-                            {!juryAnalysisCollapsed.causeStrikes && (
-                              <div className="p-3 space-y-2">
-                                {causeChallenges.map((cc, idx) => (
-                                  <div key={idx} className="border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 bg-amber-50/30 dark:bg-amber-900/10">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Juror #{cc.jurorNumber || cc.number}</span>
-                                      {cc.jurorName && <span className="text-sm text-slate-600 dark:text-slate-400">— {cc.jurorName || cc.name}</span>}
-                                    </div>
-                                    <div className="space-y-1">
-                                      <div>
-                                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Reason: </span>
-                                        <span className="text-xs text-slate-600 dark:text-slate-400">{cc.reason || cc.basis || "—"}</span>
-                                      </div>
-                                      {cc.argument && (
-                                        <div>
-                                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Argument: </span>
-                                          <span className="text-xs text-slate-600 dark:text-slate-400">{cc.argument}</span>
-                                        </div>
-                                      )}
-                                    </div>
+                            {strategyNotesOpen && (
+                              <div className="p-3 space-y-3">
+                                {(ja.strike_strategy || ja.strikeStrategy) && (
+                                  <div className={CARD_CLS + " p-3"}>
+                                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Strike Strategy</h4>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{ja.strike_strategy || ja.strikeStrategy}</p>
                                   </div>
-                                ))}
+                                )}
+
+                                {causeChallenges.length > 0 && (
+                                  <div className={CARD_CLS + " overflow-hidden"}>
+                                    <button onClick={() => setJuryAnalysisCollapsed(p => ({ ...p, causeStrikes: !p.causeStrikes }))} className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border-none cursor-pointer">
+                                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Proposed Strikes for Cause ({causeChallenges.length})</span>
+                                      {juryAnalysisCollapsed.causeStrikes ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronUp size={14} className="text-slate-400" />}
+                                    </button>
+                                    {!juryAnalysisCollapsed.causeStrikes && (
+                                      <div className="p-3 space-y-2">
+                                        {causeChallenges.map((cc, idx) => (
+                                          <div key={idx} className="border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 bg-amber-50/30 dark:bg-amber-900/10">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Juror #{cc.jurorNumber || cc.number}</span>
+                                              {cc.jurorName && <span className="text-sm text-slate-600 dark:text-slate-400">— {cc.jurorName || cc.name}</span>}
+                                            </div>
+                                            <div className="space-y-1">
+                                              <div>
+                                                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Reason: </span>
+                                                <span className="text-xs text-slate-600 dark:text-slate-400">{cc.reason || cc.basis || "—"}</span>
+                                              </div>
+                                              {cc.argument && (
+                                                <div>
+                                                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Argument: </span>
+                                                  <span className="text-xs text-slate-600 dark:text-slate-400">{cc.argument}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {(ja.cause_strategy || ja.causeStrategy) && (
+                                  <div className={CARD_CLS + " p-3"}>
+                                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Cause Challenge Strategy</h4>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{ja.cause_strategy || ja.causeStrategy}</p>
+                                  </div>
+                                )}
+
+                                {(ja.daubert_challenge || ja.daubertChallenge) && (
+                                  <div className="border border-indigo-200 dark:border-indigo-800/50 rounded-xl shadow-sm overflow-hidden">
+                                    <button onClick={() => setDaubertChallengeOpen(p => !p)} className="w-full flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/30 border-none cursor-pointer">
+                                      <span className="flex items-center gap-2">
+                                        <Shield size={14} className="text-indigo-600 dark:text-indigo-400" />
+                                        <span className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">Daubert Challenge Analysis</span>
+                                      </span>
+                                      {daubertChallengeOpen ? <ChevronUp size={14} className="text-indigo-400" /> : <ChevronDown size={14} className="text-indigo-400" />}
+                                    </button>
+                                    {daubertChallengeOpen && (
+                                      <div className="p-4 bg-white dark:bg-slate-800">
+                                        <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{ja.daubert_challenge || ja.daubertChallenge}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
-                          </div>
-                        )}
-
-                        {(ja.cause_strategy || ja.causeStrategy) && (
-                          <div className={CARD_CLS + " p-3"}>
-                            <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Cause Challenge Strategy</h4>
-                            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{ja.cause_strategy || ja.causeStrategy}</p>
                           </div>
                         )}
                       </div>
@@ -1695,8 +1943,9 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                       </div>
                     </div>
                     <div><label className={LABEL_CLS}>Description</label><textarea className={INPUT_CLS + " h-20"} value={demoForm.description} onChange={e => setDemoForm({ ...demoForm, description: e.target.value })} /></div>
+                    <DragDropZone onFileSelect={(files) => setDemoFile(files[0] || null)} style={{ padding: 12 }}>
                     <div>
-                      <label className={LABEL_CLS}>Upload File</label>
+                      <label className={LABEL_CLS}>Upload File — or drag & drop</label>
                       <div className="flex items-center gap-2">
                         <label className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center gap-1.5">
                           <Upload size={12} /> Choose File
@@ -1705,6 +1954,7 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                         {demoFile && <span className="text-xs text-slate-500 truncate max-w-[200px]">{demoFile.name}</span>}
                       </div>
                     </div>
+                    </DragDropZone>
                     <div className="flex gap-2">
                       <button onClick={handleDemoUpload} className={BTN_CLS}>Upload</button>
                       <button onClick={() => { setShowDemoForm(false); setDemoFile(null); }} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
@@ -1762,46 +2012,6 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
                         </div>
                       ))}
                       {caseDocs.length === 0 && caseTranscripts.length === 0 && <p className="text-sm text-slate-400 text-center py-4">No documents or transcriptions found for this case.</p>}
-                    </div>
-                  </div>
-                )}
-                {docViewerId && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeDocViewer}>
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{viewerTitle || "Viewer"}</h4>
-                        <button onClick={closeDocViewer} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={18} /></button>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-5">
-                        {!docViewerUrl && transcriptSegments.length === 0 && (
-                          <div className="flex items-center justify-center py-20"><Loader2 size={28} className="animate-spin text-slate-400" /></div>
-                        )}
-                        {docViewerUrl && transcriptSegments.length === 0 && (
-                          <iframe src={docViewerUrl} className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700" title="Document Viewer" />
-                        )}
-                        {transcriptSegments.length > 0 && (() => {
-                          const speakerColors = ["#6366f1","#f59e0b","#10b981","#ef4444","#8b5cf6","#ec4899","#0ea5e9","#f97316"];
-                          const speakers = [...new Set(transcriptSegments.map(s => s.speaker || "Speaker"))];
-                          const getSpeakerColor = (sp) => speakerColors[speakers.indexOf(sp) % speakerColors.length];
-                          const fmtTime = (sec) => { if (sec == null) return ""; const m = Math.floor(sec / 60); const s = Math.round(sec % 60); return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
-                          return (
-                            <div className="space-y-0.5">
-                              <div className="flex flex-wrap gap-2 mb-4">
-                                {speakers.map(sp => (
-                                  <span key={sp} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: getSpeakerColor(sp) + "18", color: getSpeakerColor(sp), border: `1px solid ${getSpeakerColor(sp)}30` }}>{sp}</span>
-                                ))}
-                              </div>
-                              {transcriptSegments.map((seg, idx) => (
-                                <div key={idx} className="flex gap-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 rounded px-2">
-                                  {seg.startTime != null && <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 w-12 pt-0.5">{fmtTime(seg.startTime)}</span>}
-                                  <span className="text-[11px] font-semibold flex-shrink-0 w-24 truncate pt-0.5" style={{ color: getSpeakerColor(seg.speaker || "Speaker") }}>{seg.speaker || "Speaker"}</span>
-                                  <span className="text-sm text-slate-800 dark:text-slate-200 flex-1">{seg.text || ""}</span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1981,6 +2191,88 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
             )}
           </div>
         </>
+      )}
+
+      {docViewerId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeDocViewer}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{viewerTitle || "Viewer"}</h4>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={openPresentMode} className="px-3 py-1.5 text-xs font-medium bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-md hover:bg-slate-800 dark:hover:bg-slate-200 flex items-center gap-1.5" title="Present Mode"><Maximize2 size={13} /> Present</button>
+                {viewerDocId && <button onClick={() => handleDownloadDoc(viewerDocId)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" title="Download"><Download size={16} /></button>}
+                <button onClick={closeDocViewer} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={18} /></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {!docViewerUrl && !viewerDocxHtml && !viewerXlsxData && !viewerPptxSlides && transcriptSegments.length === 0 && (
+                <div className="flex items-center justify-center py-20"><Loader2 size={28} className="animate-spin text-slate-400" /></div>
+              )}
+              {docViewerUrl && transcriptSegments.length === 0 && !viewerDocxHtml && !viewerXlsxData && !viewerPptxSlides && (
+                <iframe src={docViewerUrl} className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700" title="Document Viewer" />
+              )}
+              {viewerDocxHtml && (
+                <div className="prose prose-sm dark:prose-invert max-w-none border border-slate-200 dark:border-slate-700 rounded-lg p-6 bg-white dark:bg-slate-900 min-h-[50vh]" dangerouslySetInnerHTML={{ __html: viewerDocxHtml }} />
+              )}
+              {viewerXlsxData && viewerXlsxData.length > 0 && (
+                <div className="space-y-4">
+                  {viewerXlsxData.map((sheet, si) => (
+                    <div key={si}>
+                      <h5 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">{sheet.name || `Sheet ${si + 1}`}</h5>
+                      <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                        <table className="w-full text-xs">
+                          <tbody>
+                            {(sheet.data || []).map((row, ri) => (
+                              <tr key={ri} className={ri === 0 ? "bg-slate-100 dark:bg-slate-700 font-semibold" : "border-t border-slate-100 dark:border-slate-700"}>
+                                {row.map((cell, ci) => (
+                                  <td key={ci} className="px-3 py-1.5 text-slate-800 dark:text-slate-200 whitespace-nowrap">{cell != null ? String(cell) : ""}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {viewerPptxSlides && viewerPptxSlides.length > 0 && (
+                <div className="space-y-4">
+                  {viewerPptxSlides.map((slide, si) => (
+                    <div key={si} className="border border-slate-200 dark:border-slate-700 rounded-lg p-6 bg-white dark:bg-slate-900">
+                      <p className="text-[10px] font-semibold text-slate-400 mb-2">Slide {si + 1}</p>
+                      {(slide.texts || []).map((t, ti) => (
+                        <p key={ti} className="text-sm text-slate-800 dark:text-slate-200 mb-1">{t}</p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {transcriptSegments.length > 0 && (() => {
+                const speakerColors = ["#6366f1","#f59e0b","#10b981","#ef4444","#8b5cf6","#ec4899","#0ea5e9","#f97316"];
+                const speakers = [...new Set(transcriptSegments.map(s => s.speaker || "Speaker"))];
+                const getSpeakerColor = (sp) => speakerColors[speakers.indexOf(sp) % speakerColors.length];
+                const fmtTime = (sec) => { if (sec == null) return ""; const m = Math.floor(sec / 60); const s = Math.round(sec % 60); return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
+                return (
+                  <div className="space-y-0.5">
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {speakers.map(sp => (
+                        <span key={sp} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: getSpeakerColor(sp) + "18", color: getSpeakerColor(sp), border: `1px solid ${getSpeakerColor(sp)}30` }}>{sp}</span>
+                      ))}
+                    </div>
+                    {transcriptSegments.map((seg, idx) => (
+                      <div key={idx} className="flex gap-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 rounded px-2">
+                        {seg.startTime != null && <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 w-12 pt-0.5">{fmtTime(seg.startTime)}</span>}
+                        <span className="text-[11px] font-semibold flex-shrink-0 w-24 truncate pt-0.5" style={{ color: getSpeakerColor(seg.speaker || "Speaker") }}>{seg.speaker || "Speaker"}</span>
+                        <span className="text-sm text-slate-800 dark:text-slate-200 flex-1">{seg.text || ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
       )}
 
       {!session && !loading && (

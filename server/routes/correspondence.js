@@ -33,6 +33,7 @@ const toFrontend = (row) => {
     })),
     hasAttachments: atts.length > 0,
     receivedAt: row.received_at instanceof Date ? row.received_at.toISOString() : row.received_at,
+    isVoicemail: row.is_voicemail || false,
   };
 };
 
@@ -81,7 +82,7 @@ router.get("/attachment/:id/:index", requireAuth, async (req, res) => {
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, received_at FROM case_correspondence WHERE case_id = $1 AND deleted_at IS NULL ORDER BY received_at DESC",
+      "SELECT id, case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, received_at, is_voicemail FROM case_correspondence WHERE case_id = $1 AND deleted_at IS NULL ORDER BY received_at DESC",
       [req.params.caseId]
     );
     const result = rows.map(toFrontend);

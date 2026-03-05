@@ -83,14 +83,15 @@ router.post("/cases/:id/jury-analysis", requireExternalAuth, async (req, res) =>
     const caseId = parseInt(req.params.id);
     const { rows: caseRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND deleted_at IS NULL", [caseId]);
     if (!caseRows.length) return res.status(404).json({ error: "Case not found" });
-    const { jurors, strikeStrategy, causeChallenges, causeStrategy, source } = req.body;
+    const { jurors, strikeStrategy, causeChallenges, causeStrategy, daubertChallenge, source } = req.body;
     if (!jurors || !Array.isArray(jurors)) return res.status(400).json({ error: "jurors array is required" });
+    const sanitizedDaubert = daubertChallenge ? String(daubertChallenge).slice(0, 10000) : null;
     const { rows } = await pool.query(
-      `INSERT INTO jury_analyses (case_id, jurors, strike_strategy, cause_challenges, cause_strategy, imported_by, source)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (case_id) DO UPDATE SET jurors = $2, strike_strategy = $3, cause_challenges = $4, cause_strategy = $5, imported_at = NOW(), imported_by = $6, source = $7
+      `INSERT INTO jury_analyses (case_id, jurors, strike_strategy, cause_challenges, cause_strategy, daubert_challenge, imported_by, source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (case_id) DO UPDATE SET jurors = $2, strike_strategy = $3, cause_challenges = $4, cause_strategy = $5, daubert_challenge = $6, imported_at = NOW(), imported_by = $7, source = $8
        RETURNING *`,
-      [caseId, JSON.stringify(jurors), strikeStrategy || "", JSON.stringify(causeChallenges || []), causeStrategy || "", req.extUser.id, source || "external"]
+      [caseId, JSON.stringify(jurors), strikeStrategy || "", JSON.stringify(causeChallenges || []), causeStrategy || "", sanitizedDaubert, req.extUser.id, source || "external"]
     );
     return res.json(rows[0]);
   } catch (err) {

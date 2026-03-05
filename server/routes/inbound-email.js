@@ -102,11 +102,17 @@ router.post("/", upload.any(), async (req, res) => {
     const fromName = from.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1") || from;
     const fromEmail = (from.match(/<(.+)>/) || [, from])[1] || from;
 
+    const isVoicemail = /voice\s*message/i.test(subject);
+
     await pool.query(
-      `INSERT INTO case_correspondence (case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [caseId, fromEmail, fromName, to, cc, subject, text, html, JSON.stringify(attachments)]
+      `INSERT INTO case_correspondence (case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, is_voicemail)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [caseId, fromEmail, fromName, to, cc, subject, text, html, JSON.stringify(attachments), isVoicemail]
     );
+
+    if (isVoicemail) {
+      console.log(`Voicemail detected from email: "${subject}" for case ${caseId}`);
+    }
 
     console.log(`Inbound email saved: case ${caseId}, from ${fromEmail}, subject "${subject}", ${attachments.length} attachments`);
 

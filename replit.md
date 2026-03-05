@@ -33,6 +33,7 @@ server/
   email.js          — SendGrid email utility
   sms.js            — Twilio SMS utility
   sms-scheduler.js  — SMS scheduler for appointment/treatment reminders
+  r2.js             — Cloudflare R2 storage module (S3-compatible, hybrid fallback)
   routes/
     auth.js         — login, logout, me, change-password, forgot/reset-password
     cases.js        — CRUD /api/cases with PI fields, conflict check
@@ -49,13 +50,16 @@ server/
     negotiations.js — CRUD /api/negotiations
     expenses.js     — CRUD /api/expenses
     voicemails.js   — CRUD /api/voicemails
-    ai-agents.js    — All AI agent endpoints
-    trial-center.js — Trial Center CRUD
+    ai-agents.js    — All AI agent endpoints (with AI search enhancement)
+    trial-center.js — Trial Center CRUD (with Daubert challenge)
     trial-center-ai.js — Trial Center AI agents (civil PI context)
+    custom-reports.js — Custom Report Builder with AI assist
+    custom-agents-builder.js — Custom AI Agents with multi-model support
     portal-auth.js  — Client portal auth (login/logout/me/change-password)
     portal-case.js  — Client portal data (case info, messages, documents)
     portal-admin.js — Firm-side portal management (settings, clients, messaging)
     batch-cases.js  — Batch case operations
+    deleted-data.js — Deleted data view with batch restore/purge
     ...
   middleware/
     auth.js         — Firm user authentication middleware
@@ -117,11 +121,59 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 - **SOL Tracker** — Active cases sorted by SOL date with urgency coloring
 - **Case Value Pipeline** — Active cases by estimated value with demand/settlement comparison
 - **Settlement Report** — Settled cases with amounts, contingency fees, time-to-settlement
+- **Custom Report Builder** — Dynamic SQL-based reports from any data source, AI-assisted configuration, saved reports, CSV export
+
+### Custom AI Agents
+- Multi-model support: GPT-4o, GPT-4o Mini, Claude 3.5 Sonnet, Gemini 2.0 Flash
+- Run mode and Chat mode with case context injection
+- Instruction file upload, temperature/max_tokens control
+- Context sources: notes, filings, documents, medical_records
+- Located under AI Center > Custom Agents tab
+
+### Document Viewer/Editor
+- **PDF**: iframe-based viewer with extracted text panel
+- **DOCX**: mammoth HTML conversion, contentEditable editing with formatting toolbar
+- **XLSX**: SheetJS parsing, interactive table display
+- **PPTX**: jszip XML parsing, positioned text blocks per slide
+- **Images**: blob URL display
+- **Audio/Video**: HTML5 media player
+- All document clicks open in-app viewer (T008)
+- PDF annotations stored in database (annotations JSONB column)
+
+### Transcript Enhancements
+- **History & Revert**: Version history with auto-save, color-coded change types, revert to any version
+- **Reading View**: Clean read-only with speaker colors and timestamps
+- **Present Mode**: Dark theme window (18px font) for courtroom presentation
+- **Video Transcription**: Video upload/playback with HTTP Range streaming, R2 hybrid storage
+- **AI Name Suggestion**: GPT-powered transcript naming from content
+
+### Cloud Storage (R2)
+- Cloudflare R2 via S3-compatible API (`server/r2.js`)
+- Hybrid model: R2 when configured (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME), BYTEA fallback
+- Chunked uploads use S3 multipart when R2 available
+- Supports audio, video, and document storage
 
 ### Trial Center
 - Civil PI trial context (plaintiff/client terminology, civil jury options, PI-relevant motions)
 - 10 tabs: Witnesses, Exhibits, Jury, Motions, Outlines, Jury Instructions, Demonstratives, Quick Docs, Trial Log, AI Agents
 - 7 embedded AI agents adapted for civil PI litigation
+- **Daubert Challenge Analysis**: collapsible section in jury analysis with Shield icon
+- **Universal Document Viewer**: all file types viewable in Trial Center with Present Mode
+- **Exhibit Selection from Documents**: select existing case documents as exhibits
+
+### UI Improvements
+- **Drag-Drop Upload**: reusable DragDropZone component for all upload areas
+- **Background Upload Manager**: floating bottom-right indicator with progress/status
+- **Voicemail Detection**: auto-detect "Voice Message" emails in correspondence
+- **Bulk SMS Delete**: checkbox selection with batch delete
+- **Deleted Data View**: search, batch restore, batch purge
+- **Collapsible Strategy Notes**: toggle section in case notes
+- **AI Panel Styling**: amber/indigo/slate consistent design
+
+### Runtime Migrations
+- `ensureColumns()` in server/index.js runs before app.listen()
+- Auto-creates tables: transcript_history, custom_reports, custom_agents
+- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge
 
 ### Contact Categories
 Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorney, Judge, Court, Witness, Expert, Lienholder, Family Member, Miscellaneous
