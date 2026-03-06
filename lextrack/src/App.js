@@ -55,7 +55,7 @@ import {
   apiGetTranscriptFolders, apiCreateTranscriptFolder, apiUpdateTranscriptFolder, apiDeleteTranscriptFolder, apiMoveTranscript, apiReorderTranscriptFolders,
   apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence, apiBatchDeleteSmsMessages,
   apiUploadCaseDocumentChunked, apiUploadFilingChunked,
-  apiGetDocumentText, apiDownloadFiling,
+  apiDownloadFiling,
   apiGetUnreadClientComm,
   apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
@@ -5500,7 +5500,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [selectedCorrIds, setSelectedCorrIds] = useState(new Set());
   const [docUploadProgress, setDocUploadProgress] = useState(null);
   const [filingUploadProgress, setFilingUploadProgress] = useState(null);
-  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
+  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
   const [backgroundUploads, setBackgroundUploads] = useState([]);
   const bgUploadIdRef = useRef(0);
   const startBackgroundUpload = useCallback((filename) => {
@@ -5527,11 +5527,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       const ct = contentType || "application/pdf";
       const ext = (filename || "").split(".").pop().toLowerCase();
       const isOffice = ["docx","xlsx","xls","pptx","ppt","doc"].includes(ext) || ct.includes("wordprocessingml") || ct.includes("spreadsheetml") || ct.includes("presentationml") || ct.includes("msword");
-      let msViewerUrl = null, url = null, extractedText = null, annotations = [];
+      let msViewerUrl = null, url = null, annotations = [];
       if (isOffice) {
         try {
           const tokenRes = await apiGetDocPublicToken(docId);
-          msViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(tokenRes.publicUrl)}`;
+          const publicUrl = `${window.location.origin}/api/case-documents/public-view/${tokenRes.token}`;
+          msViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`;
         } catch { msViewerUrl = null; }
         if (!msViewerUrl) {
           try { const blob = await apiDownloadDocument(docId); url = URL.createObjectURL(blob); } catch {}
@@ -5540,9 +5541,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         const blob = await apiDownloadDocument(docId);
         url = URL.createObjectURL(blob);
       }
-      try { const tRes = await apiGetDocumentText(docId); extractedText = tRes.text || tRes.extractedText || null; } catch {}
       try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
-      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText, docId, msViewerUrl, annotations, editMode: false });
+      setAppDocViewer({ open: true, url, type: ct, name: filename, docId, msViewerUrl, annotations, editMode: false });
     } catch (err) { alert("Failed to open document: " + err.message); }
   };
 
@@ -5552,19 +5552,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       const blob = await apiDownloadFiling(filingId);
       const ct = blob.type || (ext === "pdf" ? "application/pdf" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "xlsx" || ext === "xls" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ext === "pptx" || ext === "ppt" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext === "jpg" ? "jpeg" : ext}` : "application/octet-stream");
       const url = URL.createObjectURL(blob);
-      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
+      setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, msViewerUrl: null, annotations: [], editMode: false });
     } catch (err) { alert("Failed to open filing: " + err.message); }
   };
 
   const closeAppDocViewer = () => {
     if (appDocViewer.url) URL.revokeObjectURL(appDocViewer.url);
-    setAppDocViewer({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
+    setAppDocViewer({ open: false, url: null, type: null, name: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
   };
 
   const openBlobInViewer = (blob, filename, contentType) => {
     const ct = contentType || "application/octet-stream";
     const url = URL.createObjectURL(blob);
-    setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
+    setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, msViewerUrl: null, annotations: [], editMode: false });
   };
 
   const [linkedCases, setLinkedCases] = useState([]);
@@ -10485,8 +10485,8 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                 <button onClick={closeAppDocViewer} style={{ background: "transparent", border: "none", fontSize: 20, color: "#64748b", cursor: "pointer", padding: "2px 6px", lineHeight: 1 }}>✕</button>
               </div>
             </div>
-            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-              <div style={{ flex: appDocViewer.extractedText ? "0 0 60%" : "1 1 100%", overflow: "auto", background: "#1F2428" }}>
+            <div style={{ flex: 1, overflow: "hidden" }}>
+              <div style={{ width: "100%", height: "100%", overflow: "auto", background: "#1F2428" }}>
                 {appDocViewer.msViewerUrl ? (
                   <iframe src={appDocViewer.msViewerUrl} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none" }} />
                 ) : appDocViewer.type?.startsWith("image/") ? (
@@ -10514,12 +10514,6 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                   </div>
                 )}
               </div>
-              {appDocViewer.extractedText && (
-                <div style={{ flex: "0 0 40%", borderLeft: "1px solid var(--c-border)", overflow: "auto", padding: 16, background: "var(--c-bg)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Extracted Text</div>
-                  <pre style={{ fontSize: 12, color: "var(--c-text)", whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.6, margin: 0 }}>{appDocViewer.extractedText}</pre>
-                </div>
-              )}
             </div>
           </div>
         </div>

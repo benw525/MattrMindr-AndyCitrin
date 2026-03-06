@@ -582,7 +582,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       if (isOffice) {
         try {
           const tokenRes = await apiGetDocPublicToken(docId);
-          setViewerMsUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(tokenRes.publicUrl)}`);
+          const publicUrl = `${window.location.origin}/api/case-documents/public-view/${tokenRes.token}`;
+          setViewerMsUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`);
         } catch {
           const blob = await apiDownloadDocument(docId);
           setDocViewerUrl(URL.createObjectURL(blob));

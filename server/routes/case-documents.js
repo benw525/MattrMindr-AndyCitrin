@@ -575,10 +575,7 @@ router.post("/:id/public-token", requireAuth, async (req, res) => {
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
     const token = randomBytes(32).toString("hex");
     publicTokens.set(token, { docId: req.params.id, expiresAt: Date.now() + PUBLIC_TOKEN_TTL });
-    const host = req.headers["x-forwarded-host"] || req.headers.host;
-    const protocol = req.headers["x-forwarded-proto"] || (req.secure ? "https" : "http");
-    const publicUrl = `${protocol}://${host}/api/case-documents/public-view/${token}`;
-    res.json({ token, publicUrl });
+    res.json({ token });
   } catch (err) {
     console.error("Public token error:", err);
     res.status(500).json({ error: "Failed to generate token" });
