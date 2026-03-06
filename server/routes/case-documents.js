@@ -14,10 +14,19 @@ const ALLOWED_TYPES = [
   "text/plain",
 ];
 
-const { randomUUID } = require("crypto");
+const { randomUUID, randomBytes } = require("crypto");
 
 const ATTORNEY_ROLES = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "App Admin"];
 const pendingDocChunks = new Map();
+
+const publicTokens = new Map();
+const PUBLIC_TOKEN_TTL = 10 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of publicTokens) {
+    if (entry.expiresAt < now) publicTokens.delete(token);
+  }
+}, 5 * 60 * 1000);
 
 const toFrontend = (row) => ({
   id: row.id,
@@ -556,6 +565,45 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
   } catch (err) {
     console.error("Doc chunk complete error:", err.message);
     res.status(500).json({ error: "Failed to complete upload" });
+  }
+});
+
+router.post("/:id/public-token", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT case_id, filename, content_type FROM case_documents WHERE id = $1", [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
+    const token = randomBytes(32).toString("hex");
+    publicTokens.set(token, { docId: req.params.id, expiresAt: Date.now() + PUBLIC_TOKEN_TTL });
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const protocol = req.headers["x-forwarded-proto"] || (req.secure ? "https" : "http");
+    const publicUrl = `${protocol}://${host}/api/case-documents/public-view/${token}`;
+    res.json({ token, publicUrl });
+  } catch (err) {
+    console.error("Public token error:", err);
+    res.status(500).json({ error: "Failed to generate token" });
+  }
+});
+
+router.get("/public-view/:token", async (req, res) => {
+  try {
+    const entry = publicTokens.get(req.params.token);
+    if (!entry) return res.status(404).json({ error: "Invalid or expired token" });
+    if (entry.expiresAt < Date.now()) {
+      publicTokens.delete(req.params.token);
+      return res.status(410).json({ error: "Token expired" });
+    }
+    const { rows } = await pool.query("SELECT filename, content_type, file_data FROM case_documents WHERE id = $1", [entry.docId]);
+    if (!rows.length) return res.status(404).json({ error: "Document not found" });
+    const doc = rows[0];
+    res.setHeader("Content-Type", doc.content_type);
+    res.setHeader("Content-Disposition", `inline; filename="${doc.filename}"`);
+    res.setHeader("Access-Control-Allow-Origin", "https://view.officeapps.live.com");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.send(doc.file_data);
+  } catch (err) {
+    console.error("Public view error:", err);
+    res.status(500).json({ error: "Failed to serve document" });
   }
 });
 

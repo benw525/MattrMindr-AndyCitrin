@@ -59,7 +59,7 @@ import {
   apiGetUnreadClientComm,
   apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
-  apiGetDocHtml, apiSaveDocContent, apiGetXlsxData, apiSaveXlsxData, apiGetPptxSlides, apiSavePptxSlides, apiSaveAnnotations, apiGetAnnotations,
+  apiGetAnnotations, apiGetDocPublicToken,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
 } from "./api.js";
@@ -5526,23 +5526,23 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     try {
       const ct = contentType || "application/pdf";
       const ext = (filename || "").split(".").pop().toLowerCase();
-      const isDocx = ct === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || ext === "docx";
-      const isXlsx = ct === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || ext === "xlsx" || ext === "xls";
-      const isPptx = ct === "application/vnd.openxmlformats-officedocument.presentationml.presentation" || ext === "pptx" || ext === "ppt";
-      let docxHtml = null, xlsxData = null, pptxSlides = null, url = null, extractedText = null, annotations = [];
-      if (isDocx) {
-        try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch { docxHtml = "<p>Could not convert document.</p>"; }
-      } else if (isXlsx) {
-        try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch { xlsxData = []; }
-      } else if (isPptx) {
-        try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch { pptxSlides = []; }
+      const isOffice = ["docx","xlsx","xls","pptx","ppt","doc"].includes(ext) || ct.includes("wordprocessingml") || ct.includes("spreadsheetml") || ct.includes("presentationml") || ct.includes("msword");
+      let msViewerUrl = null, url = null, extractedText = null, annotations = [];
+      if (isOffice) {
+        try {
+          const tokenRes = await apiGetDocPublicToken(docId);
+          msViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(tokenRes.publicUrl)}`;
+        } catch { msViewerUrl = null; }
+        if (!msViewerUrl) {
+          try { const blob = await apiDownloadDocument(docId); url = URL.createObjectURL(blob); } catch {}
+        }
       } else {
         const blob = await apiDownloadDocument(docId);
         url = URL.createObjectURL(blob);
       }
       try { const tRes = await apiGetDocumentText(docId); extractedText = tRes.text || tRes.extractedText || null; } catch {}
       try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
-      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText, docId, docxHtml, xlsxData, pptxSlides, annotations, editMode: false });
+      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText, docId, msViewerUrl, annotations, editMode: false });
     } catch (err) { alert("Failed to open document: " + err.message); }
   };
 
@@ -5552,19 +5552,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       const blob = await apiDownloadFiling(filingId);
       const ct = blob.type || (ext === "pdf" ? "application/pdf" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "xlsx" || ext === "xls" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ext === "pptx" || ext === "ppt" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext === "jpg" ? "jpeg" : ext}` : "application/octet-stream");
       const url = URL.createObjectURL(blob);
-      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
+      setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
     } catch (err) { alert("Failed to open filing: " + err.message); }
   };
 
   const closeAppDocViewer = () => {
     if (appDocViewer.url) URL.revokeObjectURL(appDocViewer.url);
-    setAppDocViewer({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
+    setAppDocViewer({ open: false, url: null, type: null, name: null, pdfData: null, extractedText: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
   };
 
   const openBlobInViewer = (blob, filename, contentType) => {
     const ct = contentType || "application/octet-stream";
     const url = URL.createObjectURL(blob);
-    setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [], editMode: false });
+    setAppDocViewer({ open: true, url, type: ct, name: filename, extractedText: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
   };
 
   const [linkedCases, setLinkedCases] = useState([]);
@@ -10479,64 +10479,16 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 18px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", display: "flex", alignItems: "center", gap: 8 }}>
                 {appDocViewer.name}
-                {appDocViewer.docxHtml !== null && (
-                  <button onClick={() => setAppDocViewer(prev => ({ ...prev, editMode: !prev.editMode }))} style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, background: appDocViewer.editMode ? "#6366f1" : "transparent", color: appDocViewer.editMode ? "#fff" : "#6366f1", border: "1px solid #6366f1", borderRadius: 4, cursor: "pointer" }}>{appDocViewer.editMode ? "Editing" : "Edit"}</button>
-                )}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {appDocViewer.editMode && appDocViewer.docxHtml !== null && appDocViewer.docId && (
-                  <button onClick={async () => { try { await apiSaveDocContent(appDocViewer.docId, appDocViewer.docxHtml); alert("Saved!"); } catch { alert("Save failed"); } }} style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, background: "#10b981", color: "#fff", borderRadius: 4, border: "none", cursor: "pointer" }}>Save</button>
-                )}
                 {appDocViewer.url && <a href={appDocViewer.url} download={appDocViewer.name} style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, background: "#f59e0b", color: "#fff", borderRadius: 4, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Download</a>}
                 <button onClick={closeAppDocViewer} style={{ background: "transparent", border: "none", fontSize: 20, color: "#64748b", cursor: "pointer", padding: "2px 6px", lineHeight: 1 }}>✕</button>
               </div>
             </div>
-            {appDocViewer.editMode && appDocViewer.docxHtml !== null && (
-              <div style={{ display: "flex", gap: 4, padding: "6px 18px", borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-s)", flexWrap: "wrap" }}>
-                {[["Bold", "bold"], ["Italic", "italic"], ["Underline", "underline"], ["H1", "formatBlock", "H1"], ["H2", "formatBlock", "H2"], ["H3", "formatBlock", "H3"], ["• List", "insertUnorderedList"], ["1. List", "insertOrderedList"]].map(([label, cmd, val]) => (
-                  <button key={label} onClick={() => document.execCommand(cmd, false, val || null)} style={{ padding: "3px 8px", fontSize: 11, background: "transparent", border: "1px solid var(--c-border)", borderRadius: 3, cursor: "pointer", color: "var(--c-text)" }}>{label}</button>
-                ))}
-              </div>
-            )}
             <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
               <div style={{ flex: appDocViewer.extractedText ? "0 0 60%" : "1 1 100%", overflow: "auto", background: "#1F2428" }}>
-                {appDocViewer.docxHtml !== null ? (
-                  appDocViewer.editMode ? (
-                    <div contentEditable suppressContentEditableWarning style={{ padding: 32, background: "#fff", color: "#1e293b", minHeight: "100%", fontSize: 14, lineHeight: 1.7, outline: "none", fontFamily: "Georgia, serif" }} dangerouslySetInnerHTML={{ __html: appDocViewer.docxHtml }} onInput={e => setAppDocViewer(prev => ({ ...prev, docxHtml: e.currentTarget.innerHTML }))} />
-                  ) : (
-                    <div style={{ padding: 32, background: "#fff", color: "#1e293b", minHeight: "100%", fontSize: 14, lineHeight: 1.7, fontFamily: "Georgia, serif" }} dangerouslySetInnerHTML={{ __html: appDocViewer.docxHtml }} />
-                  )
-                ) : appDocViewer.xlsxData !== null ? (
-                  <div style={{ padding: 16, background: "#fff", color: "#1e293b", overflow: "auto", height: "100%" }}>
-                    {(appDocViewer.xlsxData || []).map((sheet, si) => (
-                      <div key={si} style={{ marginBottom: 20 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 8, padding: "4px 0", borderBottom: "2px solid #6366f1" }}>{sheet.name}</div>
-                        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
-                          <tbody>
-                            {(sheet.rows || []).map((row, ri) => (
-                              <tr key={ri} style={{ background: ri === 0 ? "#f1f5f9" : ri % 2 === 0 ? "#fafafa" : "#fff" }}>
-                                {(row || []).map((cell, ci) => (
-                                  <td key={ci} style={{ border: "1px solid #e2e8f0", padding: "4px 8px", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", fontWeight: ri === 0 ? 600 : 400 }}>{cell != null ? String(cell) : ""}</td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                ) : appDocViewer.pptxSlides !== null ? (
-                  <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
-                    {(appDocViewer.pptxSlides || []).map((slide, si) => (
-                      <div key={si} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 800, minHeight: 200, padding: 24, position: "relative", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-                        <div style={{ position: "absolute", top: 8, right: 12, fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>Slide {si + 1}</div>
-                        {(slide.texts || []).map((t, ti) => (
-                          <div key={ti} style={{ fontSize: t.fontSize || 14, fontWeight: t.bold ? 700 : 400, fontStyle: t.italic ? "italic" : "normal", color: t.color || "#1e293b", marginBottom: 8 }}>{t.text}</div>
-                        ))}
-                        {(!slide.texts || slide.texts.length === 0) && <div style={{ color: "#94a3b8", fontStyle: "italic" }}>Empty slide</div>}
-                      </div>
-                    ))}
-                  </div>
+                {appDocViewer.msViewerUrl ? (
+                  <iframe src={appDocViewer.msViewerUrl} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none" }} />
                 ) : appDocViewer.type?.startsWith("image/") ? (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                     <img src={appDocViewer.url} alt={appDocViewer.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
