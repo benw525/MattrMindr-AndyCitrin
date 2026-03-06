@@ -131,14 +131,14 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 - Located under AI Center > Custom Agents tab
 
 ### Document Viewer
-- **DOCX/XLSX/PPTX/DOC**: Microsoft Office Online viewer (`view.officeapps.live.com/op/embed.aspx`) via temporary public token URLs (10-min expiry)
-- **PDF**: iframe-based viewer with extracted text panel
+- **DOCX/DOC**: mammoth HTML conversion, read-only rendered view
+- **XLSX/XLS**: SheetJS parsing, interactive table display with sheet tabs
+- **PPTX/PPT**: jszip XML parsing, slide cards with positioned text
+- **PDF**: iframe-based viewer
 - **Images**: blob URL display
 - **Audio/Video**: HTML5 media player
 - All document clicks open in-app viewer (T008)
 - PDF annotations stored in database (annotations JSONB column)
-- Backend: `POST /:id/public-token` generates time-limited public URL; `GET /public-view/:token` serves file without auth for Microsoft viewer
-- Token cleanup runs every 5 minutes
 
 ### Transcript Enhancements
 - **History & Revert**: Version history with auto-save, color-coded change types, revert to any version
@@ -234,10 +234,10 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 
 ### Unified Document Viewer
 - In-app overlay (z-index 10001) for viewing documents, filings, and correspondence attachments
-- Office files (DOCX/XLSX/PPTX) use Microsoft Office Online viewer via iframe with temporary public token URLs
-- PDF (iframe), images (img), text (iframe), audio/video (HTML5), with extracted text side panel
+- DOCX rendered as HTML (mammoth), XLSX as interactive tables (SheetJS), PPTX as slide cards (jszip)
+- PDF (iframe), images (img), text (iframe), audio/video (HTML5)
 - Functions: `openAppDocViewer(docId, filename, contentType)`, `openAppFilingViewer(filingId, filename)`, `closeAppDocViewer()`
-- Trial Center viewer and Present Mode also use Microsoft Office Online viewer for Office files
+- Trial Center viewer and Present Mode use same local rendering for all file types
 
 ### Auto-Transcription of Audio Email Attachments
 - `server/routes/inbound-email.js` detects audio MIME types (MP3/WAV/M4A/OGG/WebM/MP4/AAC/FLAC)

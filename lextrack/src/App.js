@@ -59,7 +59,7 @@ import {
   apiGetUnreadClientComm,
   apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
-  apiGetAnnotations, apiGetDocPublicToken,
+  apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
 } from "./api.js";
@@ -5500,7 +5500,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [selectedCorrIds, setSelectedCorrIds] = useState(new Set());
   const [docUploadProgress, setDocUploadProgress] = useState(null);
   const [filingUploadProgress, setFilingUploadProgress] = useState(null);
-  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
+  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
   const [backgroundUploads, setBackgroundUploads] = useState([]);
   const bgUploadIdRef = useRef(0);
   const startBackgroundUpload = useCallback((filename) => {
@@ -5526,23 +5526,22 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     try {
       const ct = contentType || "application/pdf";
       const ext = (filename || "").split(".").pop().toLowerCase();
-      const isOffice = ["docx","xlsx","xls","pptx","ppt","doc"].includes(ext) || ct.includes("wordprocessingml") || ct.includes("spreadsheetml") || ct.includes("presentationml") || ct.includes("msword");
-      let msViewerUrl = null, url = null, annotations = [];
-      if (isOffice) {
-        try {
-          const tokenRes = await apiGetDocPublicToken(docId);
-          const publicUrl = `${window.location.origin}/api/case-documents/public-view/${tokenRes.token}`;
-          msViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`;
-        } catch { msViewerUrl = null; }
-        if (!msViewerUrl) {
-          try { const blob = await apiDownloadDocument(docId); url = URL.createObjectURL(blob); } catch {}
-        }
+      const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
+      const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
+      const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
+      let docxHtml = null, xlsxData = null, pptxSlides = null, url = null, annotations = [];
+      if (isDocx) {
+        try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch { docxHtml = "<p>Could not convert document.</p>"; }
+      } else if (isXlsx) {
+        try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch { xlsxData = []; }
+      } else if (isPptx) {
+        try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch { pptxSlides = []; }
       } else {
         const blob = await apiDownloadDocument(docId);
         url = URL.createObjectURL(blob);
       }
       try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
-      setAppDocViewer({ open: true, url, type: ct, name: filename, docId, msViewerUrl, annotations, editMode: false });
+      setAppDocViewer({ open: true, url, type: ct, name: filename, docId, docxHtml, xlsxData, pptxSlides, annotations });
     } catch (err) { alert("Failed to open document: " + err.message); }
   };
 
@@ -5552,19 +5551,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       const blob = await apiDownloadFiling(filingId);
       const ct = blob.type || (ext === "pdf" ? "application/pdf" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "xlsx" || ext === "xls" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ext === "pptx" || ext === "ppt" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext === "jpg" ? "jpeg" : ext}` : "application/octet-stream");
       const url = URL.createObjectURL(blob);
-      setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, msViewerUrl: null, annotations: [], editMode: false });
+      setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
     } catch (err) { alert("Failed to open filing: " + err.message); }
   };
 
   const closeAppDocViewer = () => {
     if (appDocViewer.url) URL.revokeObjectURL(appDocViewer.url);
-    setAppDocViewer({ open: false, url: null, type: null, name: null, docId: null, msViewerUrl: null, annotations: [], editMode: false });
+    setAppDocViewer({ open: false, url: null, type: null, name: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
   };
 
   const openBlobInViewer = (blob, filename, contentType) => {
     const ct = contentType || "application/octet-stream";
     const url = URL.createObjectURL(blob);
-    setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, msViewerUrl: null, annotations: [], editMode: false });
+    setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
   };
 
   const [linkedCases, setLinkedCases] = useState([]);
@@ -10487,8 +10486,39 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
             </div>
             <div style={{ flex: 1, overflow: "hidden" }}>
               <div style={{ width: "100%", height: "100%", overflow: "auto", background: "#1F2428" }}>
-                {appDocViewer.msViewerUrl ? (
-                  <iframe src={appDocViewer.msViewerUrl} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none" }} />
+                {appDocViewer.docxHtml !== null ? (
+                  <div style={{ padding: 32, background: "#fff", color: "#1e293b", minHeight: "100%", fontSize: 14, lineHeight: 1.7, fontFamily: "Georgia, serif" }} dangerouslySetInnerHTML={{ __html: appDocViewer.docxHtml }} />
+                ) : appDocViewer.xlsxData !== null ? (
+                  <div style={{ padding: 16, background: "#fff", color: "#1e293b", overflow: "auto", height: "100%" }}>
+                    {(appDocViewer.xlsxData || []).map((sheet, si) => (
+                      <div key={si} style={{ marginBottom: 20 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 8, padding: "4px 0", borderBottom: "2px solid #6366f1" }}>{sheet.name}</div>
+                        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+                          <tbody>
+                            {(sheet.rows || []).map((row, ri) => (
+                              <tr key={ri} style={{ background: ri === 0 ? "#f1f5f9" : ri % 2 === 0 ? "#fafafa" : "#fff" }}>
+                                {(row || []).map((cell, ci) => (
+                                  <td key={ci} style={{ border: "1px solid #e2e8f0", padding: "4px 8px", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", fontWeight: ri === 0 ? 600 : 400 }}>{cell != null ? String(cell) : ""}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                ) : appDocViewer.pptxSlides !== null ? (
+                  <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
+                    {(appDocViewer.pptxSlides || []).map((slide, si) => (
+                      <div key={si} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 800, minHeight: 200, padding: 24, position: "relative", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                        <div style={{ position: "absolute", top: 8, right: 12, fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>Slide {si + 1}</div>
+                        {(slide.texts || []).map((t, ti) => (
+                          <div key={ti} style={{ fontSize: t.fontSize || 14, fontWeight: t.bold ? 700 : 400, fontStyle: t.italic ? "italic" : "normal", color: t.color || "#1e293b", marginBottom: 8 }}>{t.text}</div>
+                        ))}
+                        {(!slide.texts || slide.texts.length === 0) && <div style={{ color: "#94a3b8", fontStyle: "italic" }}>Empty slide</div>}
+                      </div>
+                    ))}
+                  </div>
                 ) : appDocViewer.type?.startsWith("image/") ? (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                     <img src={appDocViewer.url} alt={appDocViewer.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />

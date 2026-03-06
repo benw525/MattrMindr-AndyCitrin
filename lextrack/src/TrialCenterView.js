@@ -14,7 +14,7 @@ import {
   apiGetTrialLogEntries, apiCreateTrialLogEntry, apiDeleteTrialLogEntry,
   apiTrialAiWitnessPrep, apiTrialAiJurySelection, apiTrialAiObjectionCoach, apiTrialAiClosingBuilder, apiTrialAiOpeningBuilder, apiTrialAiJuryInstructions, apiTrialAiCaseLawSearch,
   apiGetCaseDocuments, apiDownloadDocument, apiSummarizeDocument,
-  apiGetDocPublicToken,
+  apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides,
   apiExportWitnessPrep, apiGetWitnessDocuments, apiLinkWitnessDocument, apiUnlinkWitnessDocument, apiGetDocumentText,
   apiGetTranscripts, apiDownloadTranscriptAudio, apiGetTranscriptDetail,
   apiExtractOutlineFile,
@@ -203,11 +203,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
 
   const [transcriptSegments, setTranscriptSegments] = useState([]);
   const [viewerTitle, setViewerTitle] = useState("");
-  // eslint-disable-next-line no-unused-vars
   const [viewerDocxHtml, setViewerDocxHtml] = useState(null);
-  // eslint-disable-next-line no-unused-vars
   const [viewerXlsxData, setViewerXlsxData] = useState(null);
-  // eslint-disable-next-line no-unused-vars
   const [viewerPptxSlides, setViewerPptxSlides] = useState(null);
   const [viewerDocId, setViewerDocId] = useState(null);
 
@@ -555,8 +552,6 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     setJiAiLoading(false);
   };
 
-  const [viewerMsUrl, setViewerMsUrl] = useState(null);
-
   const openDocViewer = async (pd) => {
     const docId = pd.case_document_id || pd.linked_document_id;
     if (!docId) return;
@@ -566,7 +561,6 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     setViewerDocxHtml(null);
     setViewerXlsxData(null);
     setViewerPptxSlides(null);
-    setViewerMsUrl(null);
     setDocViewerId(pd.id || docId);
     setViewerDocId(docId);
     const filename = pd.label || pd.document_name || pd.description || "Document";
@@ -574,20 +568,19 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     try {
       const ct = (pd.file_type || pd.document_content_type || pd.file_content_type || "").toLowerCase();
       const ext = (filename || "").split(".").pop().toLowerCase();
-      const isOffice = ["docx","xlsx","xls","pptx","ppt","doc"].includes(ext) || ct.includes("wordprocessingml") || ct.includes("spreadsheetml") || ct.includes("presentationml") || ct.includes("msword");
+      const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
+      const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
+      const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
       const isImage = ct.includes("image") || ["jpg","jpeg","png","gif","bmp","svg","webp","tiff"].includes(ext);
       const isPdf = ct.includes("pdf") || ext === "pdf";
       const isText = ct.includes("text") || ["txt","csv","log","md","json","xml","html"].includes(ext);
 
-      if (isOffice) {
-        try {
-          const tokenRes = await apiGetDocPublicToken(docId);
-          const publicUrl = `${window.location.origin}/api/case-documents/public-view/${tokenRes.token}`;
-          setViewerMsUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`);
-        } catch {
-          const blob = await apiDownloadDocument(docId);
-          setDocViewerUrl(URL.createObjectURL(blob));
-        }
+      if (isDocx) {
+        try { const r = await apiGetDocHtml(docId); setViewerDocxHtml(r.html || "<p>Could not convert document.</p>"); } catch { setViewerDocxHtml("<p>Could not convert document.</p>"); }
+      } else if (isXlsx) {
+        try { const r = await apiGetXlsxData(docId); setViewerXlsxData(r.sheets || []); } catch { setViewerXlsxData([]); }
+      } else if (isPptx) {
+        try { const r = await apiGetPptxSlides(docId); setViewerPptxSlides(r.slides || []); } catch { setViewerPptxSlides([]); }
       } else if (isPdf || isImage) {
         const blob = await apiDownloadDocument(docId);
         setDocViewerUrl(URL.createObjectURL(blob));
@@ -623,15 +616,25 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     setViewerXlsxData(null);
     setViewerPptxSlides(null);
     setViewerDocId(null);
-    setViewerMsUrl(null);
   };
 
   const openPresentMode = () => {
     const w = window.open("", "_blank", "width=1200,height=800");
     if (!w) return;
     let bodyContent = "";
-    if (viewerMsUrl) {
-      bodyContent = `<iframe src="${viewerMsUrl}" style="width:100%;height:calc(100vh - 80px);border:none;border-radius:8px;"></iframe>`;
+    if (viewerDocxHtml) {
+      bodyContent = viewerDocxHtml;
+    } else if (viewerXlsxData && viewerXlsxData.length > 0) {
+      bodyContent = viewerXlsxData.map(sheet => {
+        const rows = sheet.data || [];
+        const tableRows = rows.map(row => "<tr>" + row.map(cell => `<td style="border:1px solid #334155;padding:8px 12px;font-size:16px;">${cell != null ? cell : ""}</td>`).join("") + "</tr>").join("");
+        return `<h2 style="color:#e2e8f0;margin:20px 0 10px;">${sheet.name || "Sheet"}</h2><table style="border-collapse:collapse;width:100%;color:#e2e8f0;">${tableRows}</table>`;
+      }).join("");
+    } else if (viewerPptxSlides && viewerPptxSlides.length > 0) {
+      bodyContent = viewerPptxSlides.map((slide, i) => {
+        const texts = (slide.texts || []).map(t => `<p style="font-size:18px;margin:8px 0;">${t}</p>`).join("");
+        return `<div style="border:1px solid #334155;border-radius:12px;padding:32px;margin-bottom:24px;background:#1e293b;"><h3 style="color:#94a3b8;margin-bottom:12px;">Slide ${i + 1}</h3><div style="color:#e2e8f0;">${texts}</div></div>`;
+      }).join("");
     } else if (transcriptSegments.length > 0) {
       const speakerColors = ["#6366f1","#f59e0b","#10b981","#ef4444","#8b5cf6","#ec4899","#0ea5e9","#f97316"];
       const speakers = [...new Set(transcriptSegments.map(s => s.speaker || "Speaker"))];
@@ -2202,13 +2205,47 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-5">
-              {!docViewerUrl && !viewerMsUrl && transcriptSegments.length === 0 && (
+              {!docViewerUrl && !viewerDocxHtml && !viewerXlsxData && !viewerPptxSlides && transcriptSegments.length === 0 && (
                 <div className="flex items-center justify-center py-20"><Loader2 size={28} className="animate-spin text-slate-400" /></div>
               )}
-              {viewerMsUrl && (
-                <iframe src={viewerMsUrl} className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700" title="Document Viewer" />
+              {viewerDocxHtml && (
+                <div className="prose prose-sm dark:prose-invert max-w-none border border-slate-200 dark:border-slate-700 rounded-lg p-6 bg-white dark:bg-slate-900 min-h-[50vh]" dangerouslySetInnerHTML={{ __html: viewerDocxHtml }} />
               )}
-              {docViewerUrl && transcriptSegments.length === 0 && !viewerMsUrl && (
+              {viewerXlsxData && viewerXlsxData.length > 0 && (
+                <div className="space-y-4">
+                  {viewerXlsxData.map((sheet, si) => (
+                    <div key={si}>
+                      <h5 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">{sheet.name || `Sheet ${si + 1}`}</h5>
+                      <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                        <table className="w-full text-xs">
+                          <tbody>
+                            {(sheet.data || []).map((row, ri) => (
+                              <tr key={ri} className={ri === 0 ? "bg-slate-100 dark:bg-slate-700 font-semibold" : "border-t border-slate-100 dark:border-slate-700"}>
+                                {row.map((cell, ci) => (
+                                  <td key={ci} className="px-3 py-1.5 text-slate-800 dark:text-slate-200 whitespace-nowrap">{cell != null ? String(cell) : ""}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {viewerPptxSlides && viewerPptxSlides.length > 0 && (
+                <div className="space-y-4">
+                  {viewerPptxSlides.map((slide, si) => (
+                    <div key={si} className="border border-slate-200 dark:border-slate-700 rounded-lg p-6 bg-white dark:bg-slate-900">
+                      <p className="text-[10px] font-semibold text-slate-400 mb-2">Slide {si + 1}</p>
+                      {(slide.texts || []).map((t, ti) => (
+                        <p key={ti} className="text-sm text-slate-800 dark:text-slate-200 mb-1">{t}</p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {docViewerUrl && transcriptSegments.length === 0 && !viewerDocxHtml && !viewerXlsxData && !viewerPptxSlides && (
                 <iframe src={docViewerUrl} className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700" title="Document Viewer" />
               )}
               {transcriptSegments.length > 0 && (() => {

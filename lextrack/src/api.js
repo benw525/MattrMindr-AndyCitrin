@@ -661,7 +661,6 @@ export const apiGetPptxSlides     = (id)             => apiFetch(`/api/case-docu
 export const apiSavePptxSlides    = (id, slides)     => apiFetch(`/api/case-documents/${id}/pptx-slides`, { method: "PUT", body: { slides } });
 export const apiSaveAnnotations   = (id, annotations) => apiFetch(`/api/case-documents/${id}/annotations`, { method: "PUT", body: { annotations } });
 export const apiGetAnnotations    = (id)             => apiFetch(`/api/case-documents/${id}/annotations`);
-export const apiGetDocPublicToken = (id)             => apiFetch(`/api/case-documents/${id}/public-token`, { method: "POST" });
 
 // Custom Reports
 export const apiGetCustomReports  = ()               => apiFetch("/api/custom-reports");
