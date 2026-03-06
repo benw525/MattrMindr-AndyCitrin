@@ -5335,6 +5335,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [newDateLabel, setNewDateLabel] = useState("");
   const [showPrint, setShowPrint] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab || "overview");
+  const [headerExpanded, setHeaderExpanded] = useState(true);
   const initialTabConsumed = useRef(false);
   useEffect(() => {
     if (initialTab && !initialTabConsumed.current) {
@@ -5343,8 +5344,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     }
   }, [initialTab]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showMobileActions, setShowMobileActions] = useState(false);
-  const [showMobileHeader, setShowMobileHeader] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [allContacts, setAllContacts] = useState([]);
   const [contactPopup, setContactPopup] = useState(null);
@@ -6150,66 +6149,60 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         {/* Header */}
         <div className="case-overlay-header">
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="hidden md:flex" style={{ gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: headerExpanded ? 6 : 0, flexWrap: "wrap" }}>
               <Badge label="Case" />
               {draft.caseNum && <span style={{ fontSize: 11, color: "#0f172a", fontFamily: "monospace" }}>{draft.caseNum}</span>}
-              {editMode
-                ? <span style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 4, padding: "2px 8px", letterSpacing: "0.03em" }}>EDIT MODE</span>
-                : <span style={{ fontSize: 11, color: "#64748b" }}>Auto-saving</span>
-              }
-              <select
-                value={draft.status || "Active"}
-                onChange={e => setAndLog("status", e.target.value)}
-                style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+              <button
+                onClick={() => setHeaderExpanded(p => !p)}
+                style={{ background: "none", border: "1px solid var(--c-border)", borderRadius: 4, padding: "1px 4px", cursor: "pointer", display: "inline-flex", alignItems: "center", color: "var(--c-text3)" }}
+                title={headerExpanded ? "Collapse header" : "Expand header"}
               >
-                {["Active", "Closed", "Pending", "Disposed", "Transferred"].map(o => <option key={o}>{o}</option>)}
-              </select>
-              <select
-                value={draft.stage || "Intake"}
-                onChange={e => setAndLog("stage", e.target.value)}
-                style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
-              >
-                {["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"].map(o => <option key={o}>{o}</option>)}
-              </select>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.confidential ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Confidential cases are excluded from AI Search">
-                <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
-                {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
-              </label>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.inLitigation ? "#2563eb" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Mark case as in litigation">
-                <input type="checkbox" checked={!!draft.inLitigation} onChange={e => setAndLog("inLitigation", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
-                {draft.inLitigation ? "IN LITIGATION" : "Litigation"}
-              </label>
+                <ChevronDown size={12} style={{ transition: "transform 0.15s", transform: headerExpanded ? "rotate(0deg)" : "rotate(-90deg)" }} />
+              </button>
+              {!headerExpanded && (
+                <>
+                  <span style={{ fontSize: 11, color: "var(--c-text3)" }}>{draft.status || "Active"}</span>
+                  <span style={{ fontSize: 11, color: "var(--c-text3)" }}>{draft.stage || "Intake"}</span>
+                  {draft.confidential && <span style={{ fontSize: 9, color: "#dc2626", fontWeight: 700 }}>CONF</span>}
+                  {draft.inLitigation && <span style={{ fontSize: 9, color: "#2563eb", fontWeight: 700 }}>LIT</span>}
+                </>
+              )}
             </div>
-            <div className="md:hidden" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 0, flexWrap: "wrap" }}>
-              <Badge label="Case" />
-              {draft.caseNum && <span style={{ fontSize: 11, color: "var(--c-text3)", fontFamily: "monospace" }}>{draft.caseNum}</span>}
-              <select
-                value={draft.status || "Active"}
-                onChange={e => setAndLog("status", e.target.value)}
-                style={{ fontSize: 10, padding: "1px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
-              >
-                {["Active", "Closed", "Pending", "Disposed", "Transferred"].map(o => <option key={o}>{o}</option>)}
-              </select>
-              <select
-                value={draft.stage || "Intake"}
-                onChange={e => setAndLog("stage", e.target.value)}
-                style={{ fontSize: 10, padding: "1px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
-              >
-                {["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"].map(o => <option key={o}>{o}</option>)}
-              </select>
-              {draft.confidential && <span style={{ fontSize: 9, color: "#dc2626", fontWeight: 700 }}>CONF</span>}
-              {draft.inLitigation && <span style={{ fontSize: 9, color: "#2563eb", fontWeight: 700 }}>LIT</span>}
-              {editMode && <span style={{ fontSize: 9, fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 3, padding: "1px 5px" }}>EDIT</span>}
-            </div>
+            {headerExpanded && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+                {editMode
+                  ? <span style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 4, padding: "2px 8px", letterSpacing: "0.03em" }}>EDIT MODE</span>
+                  : <span style={{ fontSize: 11, color: "#64748b" }}>Auto-saving</span>
+                }
+                <select
+                  value={draft.status || "Active"}
+                  onChange={e => setAndLog("status", e.target.value)}
+                  style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  {["Active", "Closed", "Pending", "Disposed", "Transferred"].map(o => <option key={o}>{o}</option>)}
+                </select>
+                <select
+                  value={draft.stage || "Intake"}
+                  onChange={e => setAndLog("stage", e.target.value)}
+                  style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  {["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"].map(o => <option key={o}>{o}</option>)}
+                </select>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.confidential ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Confidential cases are excluded from AI Search">
+                  <input type="checkbox" checked={!!draft.confidential} onChange={e => setAndLog("confidential", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
+                  {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
+                </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.inLitigation ? "#2563eb" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Mark case as in litigation">
+                  <input type="checkbox" checked={!!draft.inLitigation} onChange={e => setAndLog("inLitigation", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
+                  {draft.inLitigation ? "IN LITIGATION" : "Litigation"}
+                </label>
+              </div>
+            )}
             <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
               {draft.title || "Untitled"}
             </div>
           </div>
-          <div className="case-overlay-actions" style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
-            <button className="btn btn-outline btn-sm md:hidden" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={() => setShowMobileActions(p => !p)} title="Actions" aria-label="Toggle action menu">
-              <MoreHorizontal size={16} />
-            </button>
-            <div className="hidden md:flex" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="case-overlay-actions" style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowTeamPopup(true)}>👥 Team</button>
               <button
                 className={`btn btn-sm ${editMode ? "" : "btn-outline"}`}
@@ -6226,30 +6219,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               {canDelete && (
                 <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5", lineHeight: "20px" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
               )}
-            </div>
             <button className="btn btn-outline btn-sm" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={onClose}>✕</button>
           </div>
-          {showMobileActions && (
-            <div className="md:hidden" style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "8px 0 0 0" }}>
-              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", fontSize: 12 }} onClick={() => { setShowTeamPopup(true); setShowMobileActions(false); }}>👥 Team</button>
-              <button
-                className={`btn btn-sm ${editMode ? "" : "btn-outline"}`}
-                style={editMode ? { background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", lineHeight: "20px", fontSize: 12 } : { lineHeight: "20px", fontSize: 12 }}
-                onClick={() => { setEditMode(e => !e); setShowMobileActions(false); }}
-              >{editMode ? "✓ Done" : "✎ Edit"}</button>
-              <button className="px-3 py-1.5 border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-md text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-1.5 cursor-pointer" onClick={() => {
-                setAiStrategy(p => ({ ...p, show: true, loading: true, result: null, error: null }));
-                apiCaseStrategy({ caseId: c.id }).then(r => setAiStrategy(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiStrategy(p => ({ ...p, loading: false, error: e.message })));
-                setShowMobileActions(false);
-              }}><Sparkles size={12} className="text-amber-500" /> Strategy</button>
-              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", fontSize: 12 }} onClick={() => { setShowPrint(true); setShowMobileActions(false); }}>🖨 Print</button>
-              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", fontSize: 12 }} onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); setShowMobileActions(false); }}>📄 Generate</button>
-              {onOpenTrialCenter && <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", fontSize: 12 }} onClick={() => { onOpenTrialCenter(c.id); setShowMobileActions(false); }}><Scale size={12} className="inline mr-1" /> Trial Center</button>}
-              {canDelete && (
-                <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5", lineHeight: "20px", fontSize: 12 }} onClick={() => { setShowDeleteConfirm(true); setShowMobileActions(false); }}>Delete</button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Tabs */}
