@@ -284,6 +284,24 @@ async function ensureColumns() {
   for (const sql of migrations) {
     await pool.query(sql).catch(() => {});
   }
+
+  try {
+    const bcrypt = require("bcryptjs");
+    const adminEmail = "admin@mattrmindr.com";
+    const { rows: existing } = await pool.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [adminEmail]);
+    if (existing.length === 0) {
+      const hash = await bcrypt.hash("100%Warrior92", 10);
+      await pool.query(
+        `INSERT INTO users (id, name, role, roles, email, initials, password_hash)
+         SELECT COALESCE(MAX(id), 0) + 1, $1, $2, $3, $4, $5, $6 FROM users`,
+        ["Admin", "App Admin", ["App Admin"], adminEmail, "AD", hash]
+      );
+      console.log("Seeded admin user: " + adminEmail);
+    }
+  } catch (seedErr) {
+    console.error("Admin seed error (non-fatal):", seedErr.message);
+  }
+
   console.log("Runtime schema migrations applied.");
 }
 
