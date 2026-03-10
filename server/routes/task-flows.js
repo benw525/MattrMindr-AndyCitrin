@@ -101,7 +101,7 @@ async function saveSteps(client, flowId, steps) {
         null, JSON.stringify(conditions), !!s.recurring, s.recurringDays || null,
         s.autoEscalate !== false,
         s.escalateMediumDays || 30, s.escalateHighDays || 14, s.escalateUrgentDays || 7,
-        s.notes || null, i,
+        s.notes || "", i,
       ]
     );
     tempIdMap[s.tempId !== undefined ? s.tempId : i] = stepRows[0].id;

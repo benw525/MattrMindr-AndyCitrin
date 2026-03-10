@@ -1844,6 +1844,13 @@ function FirmApp() {
       setAllCases(p => p.map(c => c.id === saved.id ? saved : c));
       setSelectedCase(saved);
 
+      setTimeout(async () => {
+        try {
+          const freshTasks = await apiGetTasks();
+          setTasks(freshTasks);
+        } catch (e) {}
+      }, 800);
+
       const roleChanges = prev ? TEAM_ROLES.filter(role => saved[role] !== prev[role]) : [];
       if (roleChanges.length > 0) {
         const results = await Promise.all(
