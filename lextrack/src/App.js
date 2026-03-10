@@ -1835,6 +1835,25 @@ function FirmApp() {
     }
   };
 
+  const refreshCaseData = async () => {
+    try {
+      const [freshTasks, freshDeadlines, freshCases] = await Promise.all([
+        apiGetTasks(),
+        apiGetDeadlines(),
+        apiGetCases(),
+      ]);
+      setTasks(freshTasks);
+      setAllDeadlines(freshDeadlines);
+      setAllCases(prev => {
+        const merged = freshCases.map(fc => {
+          const existing = prev.find(p => p.id === fc.id);
+          return existing ? { ...existing, ...fc } : fc;
+        });
+        return merged;
+      });
+    } catch (e) {}
+  };
+
   const TEAM_ROLES = ["assignedAttorney", "secondAttorney", "caseManager", "investigator", "paralegal"];
 
   const handleUpdateCase = async (updated) => {
@@ -1844,12 +1863,7 @@ function FirmApp() {
       setAllCases(p => p.map(c => c.id === saved.id ? saved : c));
       setSelectedCase(saved);
 
-      setTimeout(async () => {
-        try {
-          const freshTasks = await apiGetTasks();
-          setTasks(freshTasks);
-        } catch (e) {}
-      }, 800);
+      refreshCaseData();
 
       const roleChanges = prev ? TEAM_ROLES.filter(role => saved[role] !== prev[role]) : [];
       if (roleChanges.length > 0) {
@@ -1930,6 +1944,7 @@ function FirmApp() {
     try {
       const saved = await apiUpdateTask(taskId, changes);
       setTasks(prev => prev.map(t => t.id === taskId ? saved : t));
+      refreshCaseData();
     } catch (err) {
       alert("Failed to update task: " + err.message);
     }
@@ -2130,6 +2145,7 @@ function FirmApp() {
 
       setTasks(updatedTasks);
       logTaskActivity(target, "Task Completed", completionDetail);
+      refreshCaseData();
     } catch (err) {
       alert("Failed to complete task: " + err.message);
     }
@@ -2167,6 +2183,7 @@ function FirmApp() {
         }
       }
       setTasks(updatedTasks);
+      refreshCaseData();
     } catch (err) {
       alert("Failed to process follow-up decision: " + err.message);
     }
@@ -2239,11 +2256,11 @@ function FirmApp() {
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
-        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
+        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
-        {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => setTasks(p => [...p, saved])} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
+        {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
         {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} confirmDelete={confirmDelete} />}
         {view === "trialcenter" && <TrialCenterView currentUser={currentUser} users={allUsers} cases={allCases} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} />}

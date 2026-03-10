@@ -323,8 +323,8 @@ router.put("/:id", requireAuth, async (req, res) => {
       const oldCase = toFrontend(existing.rows[0]);
       const newCase = toFrontend(rows[0]);
       newCase._triggeredBy = req.session.userId;
-      evaluateFlowsForCase(req.params.id, oldCase, newCase).catch(e => console.error("Task flow eval error:", e.message));
-    } catch (e) { console.error("Task flow trigger error:", e.message); }
+      await evaluateFlowsForCase(req.params.id, oldCase, newCase);
+    } catch (e) { console.error("Task flow eval error:", e.message); }
 
     return res.json(toFrontend(rows[0]));
   } catch (err) {
