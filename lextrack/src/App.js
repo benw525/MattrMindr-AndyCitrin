@@ -4999,7 +4999,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{c.title}</span>
-                          
+                          {c.inLitigation && <span title="In Litigation" style={{ fontSize: 9, fontWeight: 700, background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>LIT</span>}
                           {c.caseNum && <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{c.caseNum}</span>}
                         </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{r.reason}</div>
@@ -5057,7 +5057,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td data-label="Style">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
-                            
+                            {c.inLitigation && <span title="In Litigation" style={{ fontSize: 9, fontWeight: 700, background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>LIT</span>}
                             {(() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
                           </div>
                           {c.clientName && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.clientName}</div>}
@@ -5104,7 +5104,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         return (
                           <tr key={c.id}>
                             <td data-label="Case #" style={{ fontFamily: "monospace", fontSize: 11, color: "#0f172a", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
-                            <td data-label="Style"><div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span></div>{c.clientName && <div style={{ fontSize: 11, color: "#64748b" }}>Client: {c.clientName}</div>}</td>
+                            <td data-label="Style"><div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>{c.inLitigation && <span title="In Litigation" style={{ fontSize: 9, fontWeight: 700, background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>LIT</span>}</div>{c.clientName && <div style={{ fontSize: 11, color: "#64748b" }}>Client: {c.clientName}</div>}</td>
                             <td data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
                             <td data-label="Deleted" style={{ fontSize: 12, color: "#e05252" }}>{deletedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                             <td data-label="Expires" style={{ fontSize: 12, color: daysLeft <= 7 ? "#e05252" : "#64748b" }}>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</td>
@@ -5145,7 +5145,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td data-label="Style">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
-                            
+                            {c.inLitigation && <span title="In Litigation" style={{ fontSize: 9, fontWeight: 700, background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>LIT</span>}
                             {(() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
                           </div>
                           {c.clientName && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.clientName}</div>}
