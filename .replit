@@ -47,3 +47,9 @@ externalPort = 3002
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "NODE_ENV=production node server/index.js"]
 build = ["bash", "-c", "node server/schema.js && cd lextrack && npm install && CI=false npm run build && rm -rf node_modules && cd .. && npm prune --production"]
+
+[userenv]
+
+[userenv.shared]
+ONLYOFFICE_URL = "https://docspace-13tl7v.onlyoffice.com"
+ONLYOFFICE_USER = "beemer@quarkgames.com"
