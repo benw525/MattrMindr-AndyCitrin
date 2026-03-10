@@ -294,13 +294,18 @@ router.get("/list-transcripts", requireAuth, async (req, res) => {
     const creds = await getScribeCredentials(req.session.userId);
     if (!creds) return res.status(400).json({ error: "Scribe not connected" });
 
-    const listRes = await fetch(`${creds.scribe_url}/api/external/transcripts`, {
+    const listRes = await fetch(`${creds.scribe_url}/api/transcripts`, {
       headers: { Authorization: `Bearer ${creds.scribe_token}` },
     });
     if (!listRes.ok) {
       const errText = await listRes.text().catch(() => "");
       console.error("Scribe list-transcripts failed:", listRes.status, errText);
       return res.status(500).json({ error: "Could not fetch transcripts from Scribe" });
+    }
+    const contentType = listRes.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      console.error("Scribe list-transcripts returned non-JSON:", contentType);
+      return res.status(500).json({ error: "Scribe returned an unexpected response" });
     }
     const data = await listRes.json();
     const transcripts = (data.transcripts || data || []).map(t => ({
