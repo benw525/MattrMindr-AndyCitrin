@@ -13105,7 +13105,7 @@ function CustomizationView({ currentUser, allCases, allUsers, pinnedCaseIds, onM
         </div>
       </header>
       <div className="p-6">
-        <div className="border-b border-slate-200 dark:border-slate-700 mb-6 flex gap-0 overflow-x-auto">
+        <div className="border-b border-slate-200 dark:border-slate-700 mb-6 flex gap-0 overflow-x-auto overflow-y-hidden">
           {tabs.map(t => {
             const TIcon = t.icon;
             return (
