@@ -72,11 +72,21 @@ router.post("/upload-for-edit", requireAuth, async (req, res) => {
       headers: { Authorization: token },
     });
     const editorData = await editorRes.json();
+    const editorResponse = editorData.response || {};
+
+    if (!req.session.ooEditSessions) req.session.ooEditSessions = {};
+    req.session.ooEditSessions[String(fileId)] = { docId, userId: req.session.userId, createdAt: Date.now() };
 
     res.json({
       fileId,
-      editorUrl: editorData.response?.url || `${OO_URL}/doceditor?fileId=${fileId}`,
-      editorConfig: editorData.response || null,
+      editorUrl: editorResponse.editorUrl || `${OO_URL}/doceditor?fileId=${fileId}`,
+      editorConfig: {
+        document: editorResponse.document || null,
+        documentType: editorResponse.documentType || null,
+        editorConfig: editorResponse.editorConfig || null,
+        token: editorResponse.token || null,
+        type: editorResponse.type || "desktop",
+      },
     });
   } catch (err) {
     console.error("ONLYOFFICE upload error:", err.message);
@@ -87,6 +97,10 @@ router.post("/upload-for-edit", requireAuth, async (req, res) => {
 router.post("/sync-back", requireAuth, async (req, res) => {
   try {
     const { docId, fileId } = req.body;
+    const editSession = (req.session.ooEditSessions || {})[String(fileId)];
+    if (!editSession || editSession.docId !== docId || editSession.userId !== req.session.userId) {
+      return res.status(403).json({ error: "No active editing session for this file" });
+    }
     const { rows: docCheck } = await pool.query("SELECT case_id FROM case_documents WHERE id = $1", [docId]);
     if (docCheck.length) {
       const userId = req.session.userId;
@@ -115,13 +129,19 @@ router.post("/sync-back", requireAuth, async (req, res) => {
 
 router.delete("/cleanup/:fileId", requireAuth, async (req, res) => {
   try {
+    const fid = req.params.fileId;
+    const editSession = (req.session.ooEditSessions || {})[String(fid)];
+    if (!editSession || editSession.userId !== req.session.userId) {
+      return res.status(403).json({ error: "No active editing session for this file" });
+    }
     const token = await getSession();
     if (token) {
-      await fetch(`${OO_URL}/api/2.0/files/file/${req.params.fileId}`, {
+      await fetch(`${OO_URL}/api/2.0/files/file/${fid}`, {
         method: "DELETE",
         headers: { Authorization: token },
       });
     }
+    delete req.session.ooEditSessions[String(fid)];
     res.json({ ok: true });
   } catch (err) {
     console.error("ONLYOFFICE cleanup error:", err.message);

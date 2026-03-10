@@ -303,7 +303,10 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 ### ONLYOFFICE DocSpace Editing (T005)
 - Backend: `server/routes/onlyoffice.js` — `/status`, `/upload-for-edit`, `/sync-back`, `/cleanup/:fileId`
 - DocSpace session authentication with caching
-- Upload to collaboration room, get editor config, sync back, cleanup
+- Upload to collaboration room, get editor config (document, editorConfig, token via openedit API), sync back, cleanup
+- Frontend: `lextrack/src/DocViewerWindow.js` — inline embedded editor using ONLYOFFICE Document Server JS API (`DocsAPI.DocEditor`)
+- Editor loads `api.js` from ONLYOFFICE Document Server (editorUrl), creates editor with full config including JWT token
+- Edit mode shows "EDITING" badge, "Save & Close" (syncs back to DB) and "Discard" buttons in title bar
 - Settings UI: DocSpace status display in Integrations section
 - Env vars: `ONLYOFFICE_URL`, `ONLYOFFICE_PASSWORD`, `ONLYOFFICE_USER`, `ONLYOFFICE_ROOM_ID` (all configured)
 - ONLYOFFICE DocSpace URL: https://docspace-13tl7v.onlyoffice.com, Room: MattrMindr-Edit (ID: 2853087)

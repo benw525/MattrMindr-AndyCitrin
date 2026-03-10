@@ -1,5 +1,30 @@
-import { useState, useRef, useEffect } from "react";
-import { X, Minus, Download, MonitorPlay, Pencil } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { X, Minus, Download, MonitorPlay, Pencil, Save, ArrowLeft } from "lucide-react";
+
+function loadOOScript(url) {
+  return new Promise((resolve, reject) => {
+    if (window.DocsAPI) return resolve();
+    const existing = document.querySelector(`script[src="${url}"]`);
+    if (existing) {
+      const check = setInterval(() => {
+        if (window.DocsAPI) { clearInterval(check); resolve(); }
+      }, 200);
+      setTimeout(() => { clearInterval(check); reject(new Error("Script load timeout")); }, 15000);
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = url;
+    s.async = true;
+    s.onload = () => {
+      const check = setInterval(() => {
+        if (window.DocsAPI) { clearInterval(check); resolve(); }
+      }, 200);
+      setTimeout(() => { clearInterval(check); reject(new Error("DocsAPI not found after load")); }, 10000);
+    };
+    s.onerror = () => reject(new Error("Failed to load ONLYOFFICE script"));
+    document.head.appendChild(s);
+  });
+}
 
 export default function DocViewerWindow({
   viewer,
@@ -17,6 +42,11 @@ export default function DocViewerWindow({
   const [officeFailed, setOfficeFailed] = useState(false);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [ooEditMode, setOoEditMode] = useState(false);
+  const [ooEditData, setOoEditData] = useState(null);
+  const [ooSyncing, setOoSyncing] = useState(false);
+  const ooEditorRef = useRef(null);
+  const ooContainerRef = useRef(null);
   const officeTimerRef = useRef(null);
   const draggingRef = useRef(false);
   const dragStartRef = useRef({ mx: 0, my: 0, ex: 0, ey: 0 });
@@ -27,6 +57,73 @@ export default function DocViewerWindow({
       setOfficeViewMode(true);
     }
   }, [viewer.officeViewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (ooEditorRef.current) {
+        try { ooEditorRef.current.destroyEditor(); } catch {}
+        ooEditorRef.current = null;
+      }
+    };
+  }, []);
+
+  const initOOEditor = useCallback(async (editorUrl, editorConfig) => {
+    try {
+      await loadOOScript(editorUrl);
+
+      if (ooEditorRef.current) {
+        try { ooEditorRef.current.destroyEditor(); } catch {}
+        ooEditorRef.current = null;
+      }
+
+      const containerId = "oo-editor-container";
+      const container = ooContainerRef.current;
+      if (container) {
+        container.innerHTML = "";
+        const editorDiv = document.createElement("div");
+        editorDiv.id = containerId;
+        editorDiv.style.width = "100%";
+        editorDiv.style.height = "100%";
+        container.appendChild(editorDiv);
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+
+      const config = {
+        document: editorConfig.document,
+        documentType: editorConfig.documentType,
+        editorConfig: {
+          ...editorConfig.editorConfig,
+          mode: "edit",
+          customization: {
+            ...(editorConfig.editorConfig?.customization || {}),
+            forcesave: true,
+            compactHeader: true,
+            toolbarNoTabs: false,
+          },
+        },
+        token: editorConfig.token,
+        type: "desktop",
+        width: "100%",
+        height: "100%",
+        events: {
+          onReady: () => {
+            console.log("ONLYOFFICE editor ready");
+          },
+          onError: (e) => {
+            console.error("ONLYOFFICE editor error:", e);
+          },
+        },
+      };
+
+      ooEditorRef.current = new window.DocsAPI.DocEditor(containerId, config);
+    } catch (err) {
+      console.error("Failed to init ONLYOFFICE editor:", err);
+      alert("Failed to open editor: " + err.message);
+      setOoEditMode(false);
+      setOoEditData(null);
+    }
+  }, []);
 
   const handleDragStart = (e) => {
     if (isMobile) return;
@@ -152,8 +249,14 @@ export default function DocViewerWindow({
         }
       } else if (provider === "onlyoffice") {
         const upRes = await apiOnlyofficeUploadForEdit(viewer.docId);
-        if (upRes.editUrl && upRes.fileId) {
-          const editWin = window.open(upRes.editUrl, "_blank");
+        if (upRes.editorUrl && upRes.editorConfig && upRes.fileId) {
+          setOoEditData({ docId: viewer.docId, fileId: upRes.fileId, editorUrl: upRes.editorUrl, editorConfig: upRes.editorConfig });
+          setOoEditMode(true);
+          setTimeout(() => {
+            initOOEditor(upRes.editorUrl, upRes.editorConfig);
+          }, 200);
+        } else if (upRes.editorUrl && upRes.fileId) {
+          const editWin = window.open(upRes.editorUrl, "_blank");
           const checkClosed = setInterval(async () => {
             if (editWin && editWin.closed) {
               clearInterval(checkClosed);
@@ -168,9 +271,46 @@ export default function DocViewerWindow({
       }
     } catch (err) {
       console.error("Edit error:", err);
+      alert("Failed to open editor: " + err.message);
     } finally {
       setEditLoading(false);
     }
+  };
+
+  const handleOOSaveAndClose = async () => {
+    if (!ooEditData) return;
+    setOoSyncing(true);
+    try {
+      const { apiOnlyofficeSyncBack, apiOnlyofficeCleanup } = await import("./api");
+      await apiOnlyofficeSyncBack(ooEditData.docId, ooEditData.fileId);
+      if (onViewerUpdate) onViewerUpdate(ooEditData.docId);
+      try { await apiOnlyofficeCleanup(ooEditData.fileId); } catch {}
+      if (ooEditorRef.current) {
+        try { ooEditorRef.current.destroyEditor(); } catch {}
+        ooEditorRef.current = null;
+      }
+      setOoEditMode(false);
+      setOoEditData(null);
+    } catch (e) {
+      console.error("Sync-back error:", e);
+      alert("Failed to save changes: " + e.message + "\n\nYour edits are still open. Try again or discard.");
+    } finally {
+      setOoSyncing(false);
+    }
+  };
+
+  const handleOODiscard = async () => {
+    if (!ooEditData) return;
+    try {
+      const { apiOnlyofficeCleanup } = await import("./api");
+      try { await apiOnlyofficeCleanup(ooEditData.fileId); } catch {}
+    } catch {}
+    if (ooEditorRef.current) {
+      try { ooEditorRef.current.destroyEditor(); } catch {}
+      ooEditorRef.current = null;
+    }
+    setOoEditMode(false);
+    setOoEditData(null);
   };
 
   const btnStyle = { padding: "3px 8px", background: "transparent", border: "1px solid var(--c-border, #cbd5e1)", borderRadius: 4, cursor: "pointer", color: "var(--c-text3, #64748b)", display: "inline-flex", alignItems: "center" };
@@ -217,6 +357,12 @@ export default function DocViewerWindow({
   };
 
   const renderContent = () => {
+    if (ooEditMode) {
+      return (
+        <div ref={ooContainerRef} style={{ width: "100%", height: "100%", background: "#fff" }} />
+      );
+    }
+
     if (officeViewMode && viewer.officeViewUrl && isOfficeType && !officeFailed) {
       return <iframe src={viewer.officeViewUrl} onLoad={handleOfficeLoad} onError={handleOfficeIframeError} style={{ width: "100%", height: "100%", border: "none" }} title="Office Viewer" />;
     }
@@ -305,46 +451,62 @@ export default function DocViewerWindow({
     <div data-docviewer-window onClick={onBringToFront} style={containerStyle}>
       <div onMouseDown={handleDragStart} style={{ display: "flex", alignItems: "center", padding: "8px 12px", borderBottom: "1px solid var(--c-border, #e2e8f0)", cursor: isMobile ? "default" : "move", flexShrink: 0, userSelect: "none", gap: 8 }}>
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--c-text-h, #0f172a)" }}>
+          {ooEditMode && <span style={{ color: "#059669", marginRight: 6, fontSize: 11, fontWeight: 700 }}>EDITING</span>}
           {viewer.filename || "Document"}
         </span>
 
-        {viewer.officeViewUrl && isOfficeType && !officeFailed && (
-          <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid var(--c-border, #e2e8f0)" }}>
-            <button onClick={(e) => { e.stopPropagation(); setOfficeViewMode(true); }} style={{ padding: "2px 8px", fontSize: 10, fontWeight: 600, background: officeViewMode ? "#6366f1" : "transparent", color: officeViewMode ? "#fff" : "var(--c-text3, #64748b)", border: "none", cursor: "pointer" }}>Office</button>
-            <button onClick={(e) => { e.stopPropagation(); setOfficeViewMode(false); }} style={{ padding: "2px 8px", fontSize: 10, fontWeight: 600, background: !officeViewMode ? "#6366f1" : "transparent", color: !officeViewMode ? "#fff" : "var(--c-text3, #64748b)", border: "none", cursor: "pointer" }}>Built-in</button>
-          </div>
-        )}
-
-        <button onClick={(e) => { e.stopPropagation(); handlePresent(); }} title="Present" style={btnStyle}><MonitorPlay size={13} /></button>
-
-        {canEdit && (
-          <div style={{ position: "relative" }}>
-            <button onClick={(e) => { e.stopPropagation(); setEditMenuOpen(!editMenuOpen); }} title="Edit document" style={{ ...btnStyle, color: editLoading ? "#6366f1" : btnStyle.color }} disabled={editLoading}>
-              <Pencil size={13} />
+        {ooEditMode ? (
+          <>
+            <button onClick={handleOOSaveAndClose} disabled={ooSyncing} style={{ ...btnStyle, background: "#059669", color: "#fff", border: "1px solid #059669", opacity: ooSyncing ? 0.6 : 1 }} title="Save changes back to case">
+              <Save size={13} style={{ marginRight: 4 }} />
+              {ooSyncing ? "Saving..." : "Save & Close"}
             </button>
-            {editMenuOpen && (
-              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
-                {msStatus && msStatus.connected && (
-                  <button onClick={(e) => { e.stopPropagation(); handleEditWith("microsoft"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
-                    Edit with Microsoft 365
-                  </button>
-                )}
-                {ooStatus && ooStatus.available && (
-                  <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
-                    Edit with ONLYOFFICE
-                  </button>
+            <button onClick={handleOODiscard} disabled={ooSyncing} style={btnStyle} title="Discard changes">
+              <ArrowLeft size={13} style={{ marginRight: 4 }} />
+              Discard
+            </button>
+          </>
+        ) : (
+          <>
+            {viewer.officeViewUrl && isOfficeType && !officeFailed && (
+              <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid var(--c-border, #e2e8f0)" }}>
+                <button onClick={(e) => { e.stopPropagation(); setOfficeViewMode(true); }} style={{ padding: "2px 8px", fontSize: 10, fontWeight: 600, background: officeViewMode ? "#6366f1" : "transparent", color: officeViewMode ? "#fff" : "var(--c-text3, #64748b)", border: "none", cursor: "pointer" }}>Office</button>
+                <button onClick={(e) => { e.stopPropagation(); setOfficeViewMode(false); }} style={{ padding: "2px 8px", fontSize: 10, fontWeight: 600, background: !officeViewMode ? "#6366f1" : "transparent", color: !officeViewMode ? "#fff" : "var(--c-text3, #64748b)", border: "none", cursor: "pointer" }}>Built-in</button>
+              </div>
+            )}
+
+            <button onClick={(e) => { e.stopPropagation(); handlePresent(); }} title="Present" style={btnStyle}><MonitorPlay size={13} /></button>
+
+            {canEdit && (
+              <div style={{ position: "relative" }}>
+                <button onClick={(e) => { e.stopPropagation(); setEditMenuOpen(!editMenuOpen); }} title="Edit document" style={{ ...btnStyle, color: editLoading ? "#6366f1" : btnStyle.color }} disabled={editLoading}>
+                  <Pencil size={13} />
+                </button>
+                {editMenuOpen && (
+                  <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
+                    {msStatus && msStatus.connected && (
+                      <button onClick={(e) => { e.stopPropagation(); handleEditWith("microsoft"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
+                        Edit with Microsoft 365
+                      </button>
+                    )}
+                    {ooStatus && ooStatus.available && (
+                      <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
+                        Edit with ONLYOFFICE
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
-          </div>
+
+            {viewer.blobUrl && (
+              <a href={viewer.blobUrl} download={viewer.filename} onClick={e => e.stopPropagation()} style={{ ...btnStyle, textDecoration: "none" }} title="Download"><Download size={13} /></a>
+            )}
+          </>
         )}
 
-        {viewer.blobUrl && (
-          <a href={viewer.blobUrl} download={viewer.filename} onClick={e => e.stopPropagation()} style={{ ...btnStyle, textDecoration: "none" }} title="Download"><Download size={13} /></a>
-        )}
-
-        {!isMobile && <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} title="Minimize" style={btnStyle}><Minus size={13} /></button>}
-        <button onClick={(e) => { e.stopPropagation(); onClose(); }} title="Close" style={btnStyle}><X size={13} /></button>
+        {!isMobile && !ooEditMode && <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} title="Minimize" style={btnStyle}><Minus size={13} /></button>}
+        {!ooEditMode && <button onClick={(e) => { e.stopPropagation(); onClose(); }} title="Close" style={btnStyle}><X size={13} /></button>}
       </div>
 
       <div style={{ flex: 1, overflow: "hidden" }}>
