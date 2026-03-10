@@ -138,13 +138,21 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 - Located under Customization > Custom Agents tab (also accessible from AI Center)
 
 ### Custom Task Flows
-- **Tables**: `custom_task_flows`, `custom_task_flow_steps`, `task_flow_executions`
+- **Tables**: `custom_task_flows`, `custom_task_flow_steps` (with `conditions JSONB`), `task_flow_executions`
 - **Route**: `server/routes/task-flows.js` — CRUD + `evaluateFlowsForCase()` engine
 - **Trigger conditions**: field-based conditions (status, stage, caseType, inLitigation, clientBankruptcy, stateJurisdiction, county, dispositionType, injuryType) with operators (equals, not_equals, contains, is_true, is_false, changed_to)
 - **Trigger timing**: on case create, update, or both
-- **Steps**: Each flow has ordered steps with title, assigned role or specific user, due-in-days, priority, dependencies (step chaining), recurrence, and auto-escalation settings
-- **Execution**: When a case update triggers a flow condition, tasks are auto-created with proper due dates, assignments, and dependency tracking; duplicate execution prevented via `task_flow_executions` table
-- **Integration**: `evaluateFlowsForCase()` called from `server/routes/cases.js` PUT endpoint after case updates
+- **Steps**: Each flow has ordered steps with title, assigned role or specific user, due-in-days, priority, recurrence, and auto-escalation settings
+- **Step Conditions**: Each step can have multiple conditions (all must be met, AND logic) stored as JSONB:
+  - `prior_step` — another step in this flow must have been created first (stepIndex reference)
+  - `case_field` — case field must match a condition (field/operator/value, same operators as trigger)
+  - `task_status` — existing task matching title pattern must be in specified status (Completed/In Progress/Not Started)
+  - `role_assigned` — a specific role (Attorney, Case Manager, etc.) must be filled on the case
+  - `case_age` — case must be at least X days old
+  - `has_document` — document matching filename pattern must exist on the case
+  - `priority_level` — count of open tasks at a priority level must meet threshold (greater_than/equals/less_than)
+- **Execution**: When a case create/update triggers a flow condition, tasks are auto-created for steps whose conditions are met; steps with unmet conditions are skipped; duplicate execution prevented via `task_flow_executions` table
+- **Integration**: `evaluateFlowsForCase()` called from `server/routes/cases.js` POST and PUT endpoints
 - `tasks.source_flow_id` column tracks which flow created each task
 - Located under Customization > Task Flows tab
 

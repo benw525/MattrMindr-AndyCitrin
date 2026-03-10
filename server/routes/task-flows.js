@@ -36,6 +36,7 @@ const stepToFrontend = (row) => ({
   dueInDays: row.due_in_days,
   priority: row.priority,
   dependsOnStepId: row.depends_on_step_id,
+  conditions: row.conditions || [],
   recurring: row.recurring,
   recurringDays: row.recurring_days,
   autoEscalate: row.auto_escalate,
@@ -81,6 +82,50 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 });
 
+async function saveSteps(client, flowId, steps) {
+  const savedSteps = [];
+  if (!Array.isArray(steps)) return savedSteps;
+  const tempIdMap = {};
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    const conditions = Array.isArray(s.conditions) ? s.conditions : [];
+    const { rows: stepRows } = await client.query(
+      `INSERT INTO custom_task_flow_steps
+       (flow_id, title, assigned_role, assigned_user_id, due_in_days, priority,
+        depends_on_step_id, conditions, recurring, recurring_days, auto_escalate,
+        escalate_medium_days, escalate_high_days, escalate_urgent_days, notes, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+      [
+        flowId, s.title, s.assignedRole || null, s.assignedUserId || null,
+        s.dueInDays || null, s.priority || "Medium",
+        null, JSON.stringify(conditions), !!s.recurring, s.recurringDays || null,
+        s.autoEscalate !== false,
+        s.escalateMediumDays || 30, s.escalateHighDays || 14, s.escalateUrgentDays || 7,
+        s.notes || null, i,
+      ]
+    );
+    tempIdMap[s.tempId !== undefined ? s.tempId : i] = stepRows[0].id;
+    savedSteps.push(stepRows[0]);
+  }
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    let realDepId = null;
+    if (s.dependsOnTempId !== undefined && s.dependsOnTempId !== null) {
+      realDepId = tempIdMap[s.dependsOnTempId];
+    } else if (s.dependsOnStepIndex !== undefined && s.dependsOnStepIndex !== null && savedSteps[s.dependsOnStepIndex]) {
+      realDepId = savedSteps[s.dependsOnStepIndex].id;
+    }
+    if (realDepId) {
+      await client.query(
+        "UPDATE custom_task_flow_steps SET depends_on_step_id = $1 WHERE id = $2",
+        [realDepId, savedSteps[i].id]
+      );
+      savedSteps[i].depends_on_step_id = realDepId;
+    }
+  }
+  return savedSteps;
+}
+
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -95,46 +140,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       [name, description || "", JSON.stringify(triggerCondition), triggerOn || "update", isActive !== false, req.session.userId]
     );
     const flow = rows[0];
-    const savedSteps = [];
-    if (Array.isArray(steps)) {
-      const tempIdMap = {};
-      for (let i = 0; i < steps.length; i++) {
-        const s = steps[i];
-        const { rows: stepRows } = await client.query(
-          `INSERT INTO custom_task_flow_steps
-           (flow_id, title, assigned_role, assigned_user_id, due_in_days, priority,
-            depends_on_step_id, recurring, recurring_days, auto_escalate,
-            escalate_medium_days, escalate_high_days, escalate_urgent_days, notes, sort_order)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-          [
-            flow.id, s.title, s.assignedRole || null, s.assignedUserId || null,
-            s.dueInDays || null, s.priority || "Medium",
-            null, !!s.recurring, s.recurringDays || null,
-            s.autoEscalate !== false,
-            s.escalateMediumDays || 30, s.escalateHighDays || 14, s.escalateUrgentDays || 7,
-            s.notes || null, i,
-          ]
-        );
-        tempIdMap[s.tempId || i] = stepRows[0].id;
-        savedSteps.push(stepRows[0]);
-      }
-      for (let i = 0; i < steps.length; i++) {
-        const s = steps[i];
-        let realDepId = null;
-        if (s.dependsOnTempId !== undefined && s.dependsOnTempId !== null) {
-          realDepId = tempIdMap[s.dependsOnTempId];
-        } else if (s.dependsOnStepIndex !== undefined && s.dependsOnStepIndex !== null && savedSteps[s.dependsOnStepIndex]) {
-          realDepId = savedSteps[s.dependsOnStepIndex].id;
-        }
-        if (realDepId) {
-          await client.query(
-            "UPDATE custom_task_flow_steps SET depends_on_step_id = $1 WHERE id = $2",
-            [realDepId, savedSteps[i].id]
-          );
-          savedSteps[i].depends_on_step_id = realDepId;
-        }
-      }
-    }
+    const savedSteps = await saveSteps(client, flow.id, steps);
     await client.query("COMMIT");
     return res.json(flowToFrontend(flow, savedSteps));
   } catch (err) {
@@ -161,46 +167,7 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "Not found" });
     }
     await client.query("DELETE FROM custom_task_flow_steps WHERE flow_id = $1", [req.params.id]);
-    const savedSteps = [];
-    if (Array.isArray(steps)) {
-      const tempIdMap = {};
-      for (let i = 0; i < steps.length; i++) {
-        const s = steps[i];
-        const { rows: stepRows } = await client.query(
-          `INSERT INTO custom_task_flow_steps
-           (flow_id, title, assigned_role, assigned_user_id, due_in_days, priority,
-            depends_on_step_id, recurring, recurring_days, auto_escalate,
-            escalate_medium_days, escalate_high_days, escalate_urgent_days, notes, sort_order)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-          [
-            req.params.id, s.title, s.assignedRole || null, s.assignedUserId || null,
-            s.dueInDays || null, s.priority || "Medium",
-            null, !!s.recurring, s.recurringDays || null,
-            s.autoEscalate !== false,
-            s.escalateMediumDays || 30, s.escalateHighDays || 14, s.escalateUrgentDays || 7,
-            s.notes || null, i,
-          ]
-        );
-        tempIdMap[s.tempId !== undefined ? s.tempId : i] = stepRows[0].id;
-        savedSteps.push(stepRows[0]);
-      }
-      for (let i = 0; i < steps.length; i++) {
-        const s = steps[i];
-        let realDepId = null;
-        if (s.dependsOnTempId !== undefined && s.dependsOnTempId !== null) {
-          realDepId = tempIdMap[s.dependsOnTempId];
-        } else if (s.dependsOnStepIndex !== undefined && s.dependsOnStepIndex !== null && savedSteps[s.dependsOnStepIndex]) {
-          realDepId = savedSteps[s.dependsOnStepIndex].id;
-        }
-        if (realDepId) {
-          await client.query(
-            "UPDATE custom_task_flow_steps SET depends_on_step_id = $1 WHERE id = $2",
-            [realDepId, savedSteps[i].id]
-          );
-          savedSteps[i].depends_on_step_id = realDepId;
-        }
-      }
-    }
+    const savedSteps = await saveSteps(client, parseInt(req.params.id), steps);
     await client.query("COMMIT");
     return res.json(flowToFrontend(rows[0], savedSteps));
   } catch (err) {
@@ -222,6 +189,106 @@ router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 });
+
+function evaluateConditionValue(fieldVal, operator, condValue) {
+  switch (operator) {
+    case "equals": return String(fieldVal) === String(condValue);
+    case "not_equals": return String(fieldVal) !== String(condValue);
+    case "is_true": return fieldVal === true || fieldVal === "true";
+    case "is_false": return fieldVal === false || fieldVal === "false" || !fieldVal;
+    case "contains": return String(fieldVal || "").toLowerCase().includes(String(condValue || "").toLowerCase());
+    case "greater_than": return Number(fieldVal) > Number(condValue);
+    case "less_than": return Number(fieldVal) < Number(condValue);
+    case "changed_to": return false;
+    default: return String(fieldVal) === String(condValue);
+  }
+}
+
+async function evaluateStepConditions(conditions, caseId, newData, stepIdToTaskId, steps) {
+  if (!Array.isArray(conditions) || conditions.length === 0) return true;
+
+  for (const cond of conditions) {
+    switch (cond.type) {
+      case "prior_step": {
+        const depIdx = cond.stepIndex;
+        if (depIdx == null) continue;
+        const depStep = steps[depIdx];
+        if (!depStep || !stepIdToTaskId[depStep.id]) return false;
+        break;
+      }
+      case "case_field": {
+        const fieldVal = newData[cond.field];
+        if (!evaluateConditionValue(fieldVal, cond.operator, cond.value)) return false;
+        break;
+      }
+      case "task_status": {
+        const pattern = (cond.taskTitle || "").toLowerCase();
+        const requiredStatus = cond.status || "Completed";
+        if (!pattern) continue;
+        const { rows: matchTasks } = await pool.query(
+          "SELECT id, status FROM tasks WHERE case_id = $1 AND LOWER(title) LIKE $2 ORDER BY id DESC LIMIT 1",
+          [caseId, `%${pattern}%`]
+        );
+        if (matchTasks.length === 0 || matchTasks[0].status !== requiredStatus) return false;
+        break;
+      }
+      case "role_assigned": {
+        const roleField = {
+          "Attorney": "lead_attorney",
+          "Lead Attorney": "lead_attorney",
+          "Second Attorney": "second_attorney",
+          "Case Manager": "case_manager",
+          "Investigator": "investigator",
+          "Paralegal": "paralegal",
+        }[cond.role];
+        if (roleField) {
+          const val = newData[roleField] || newData[cond.role?.toLowerCase()?.replace(/ /g, "_")];
+          if (!val) return false;
+        }
+        break;
+      }
+      case "case_age": {
+        const minDays = parseInt(cond.minDays) || 0;
+        if (minDays <= 0) continue;
+        const { rows: caseRows } = await pool.query(
+          "SELECT created_at FROM cases WHERE id = $1", [caseId]
+        );
+        if (caseRows.length > 0) {
+          const created = new Date(caseRows[0].created_at);
+          const daysSince = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSince < minDays) return false;
+        }
+        break;
+      }
+      case "has_document": {
+        const docPattern = (cond.documentName || "").toLowerCase();
+        if (!docPattern) continue;
+        const { rows: docs } = await pool.query(
+          "SELECT id FROM case_documents WHERE case_id = $1 AND LOWER(filename) LIKE $2 LIMIT 1",
+          [caseId, `%${docPattern}%`]
+        );
+        if (docs.length === 0) return false;
+        break;
+      }
+      case "priority_level": {
+        const { rows: highTasks } = await pool.query(
+          "SELECT COUNT(*) as cnt FROM tasks WHERE case_id = $1 AND priority = $2 AND status != 'Completed'",
+          [caseId, cond.priority || "Urgent"]
+        );
+        const op = cond.countOperator || "greater_than";
+        const threshold = parseInt(cond.countValue) || 0;
+        const cnt = parseInt(highTasks[0].cnt);
+        if (op === "greater_than" && cnt <= threshold) return false;
+        if (op === "equals" && cnt !== threshold) return false;
+        if (op === "less_than" && cnt >= threshold) return false;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return true;
+}
 
 async function evaluateFlowsForCase(caseId, oldData, newData, triggerType) {
   const eventType = triggerType || (oldData ? "update" : "create");
@@ -298,6 +365,12 @@ async function evaluateFlowsForCase(caseId, oldData, newData, triggerType) {
           continue;
         }
 
+        const stepConditions = step.conditions || [];
+        if (stepConditions.length > 0) {
+          const condsMet = await evaluateStepConditions(stepConditions, caseId, newData, stepIdToTaskId, steps);
+          if (!condsMet) continue;
+        }
+
         let dueDate = null;
         if (step.due_in_days) {
           const d = new Date();
@@ -314,6 +387,8 @@ async function evaluateFlowsForCase(caseId, oldData, newData, triggerType) {
           if (roleUsers.length > 0) assignedUserId = roleUsers[0].id;
         }
 
+        const hasAnyDep = !!step.depends_on_step_id || stepConditions.some(c => c.type === "prior_step");
+
         const { rows: taskRows } = await pool.query(
           `INSERT INTO tasks (case_id, title, assigned, assigned_role, due, priority, status,
             recurring, recurring_days, auto_escalate, escalate_medium_days, escalate_high_days,
@@ -324,7 +399,7 @@ async function evaluateFlowsForCase(caseId, oldData, newData, triggerType) {
             dueDate, step.priority,
             step.recurring, step.recurring_days, step.auto_escalate,
             step.escalate_medium_days, step.escalate_high_days, step.escalate_urgent_days,
-            !!step.depends_on_step_id, step.notes, flow.id,
+            hasAnyDep, step.notes, flow.id,
           ]
         );
         stepIdToTaskId[step.id] = taskRows[0].id;

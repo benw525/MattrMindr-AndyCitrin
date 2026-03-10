@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -12525,6 +12525,26 @@ const TRIGGER_OPERATORS = [
   { value: "changed_to", label: "Changed To" },
 ];
 
+const STEP_CONDITION_TYPES = [
+  { value: "prior_step", label: "After Prior Step" },
+  { value: "case_field", label: "Case Field Matches" },
+  { value: "task_status", label: "Existing Task Status" },
+  { value: "role_assigned", label: "Role Assigned on Case" },
+  { value: "case_age", label: "Case Age (Days)" },
+  { value: "has_document", label: "Document Exists" },
+  { value: "priority_level", label: "Open Task Priority Count" },
+];
+
+const STEP_CONDITION_OPERATORS = [
+  { value: "equals", label: "Equals" },
+  { value: "not_equals", label: "Not Equals" },
+  { value: "contains", label: "Contains" },
+  { value: "is_true", label: "Is True" },
+  { value: "is_false", label: "Is False" },
+  { value: "greater_than", label: "Greater Than" },
+  { value: "less_than", label: "Less Than" },
+];
+
 function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
   const [flows, setFlows] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -12540,7 +12560,17 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
   const handleEdit = async (flow) => {
     try {
       const full = await apiGetTaskFlow(flow.id);
-      setForm({ name: full.name, description: full.description || "", trigger_on: full.triggerOn || "update", is_active: full.isActive !== false, trigger_condition: full.triggerCondition || { field: "status", operator: "equals", value: "" }, steps: (full.steps || []).map((s, i) => ({ _tempId: i + 1, title: s.title, assigned_role: s.assignedRole || "", assigned_user_id: s.assignedUserId || null, due_in_days: s.dueInDays, priority: s.priority || "Medium", depends_on_step_index: null, recurring: s.recurring, recurring_days: s.recurringDays, auto_escalate: s.autoEscalate, escalate_medium_days: s.escalateMediumDays, escalate_high_days: s.escalateHighDays, escalate_urgent_days: s.escalateUrgentDays, notes: s.notes || "" })) });
+      const loadedSteps = (full.steps || []);
+      const stepIdToIndex = {};
+      loadedSteps.forEach((s, i) => { if (s.id) stepIdToIndex[s.id] = i; });
+      setForm({ name: full.name, description: full.description || "", trigger_on: full.triggerOn || "update", is_active: full.isActive !== false, trigger_condition: full.triggerCondition || { field: "status", operator: "equals", value: "" }, steps: loadedSteps.map((s, i) => {
+        let conds = [...(s.conditions || [])];
+        if (s.dependsOnStepId && !conds.some(c => c.type === "prior_step")) {
+          const depIdx = stepIdToIndex[s.dependsOnStepId];
+          if (depIdx !== undefined) conds.unshift({ type: "prior_step", stepIndex: depIdx });
+        }
+        return { _tempId: i + 1, title: s.title, assigned_role: s.assignedRole || "", assigned_user_id: s.assignedUserId || null, due_in_days: s.dueInDays, priority: s.priority || "Medium", conditions: conds, recurring: s.recurring, recurring_days: s.recurringDays, auto_escalate: s.autoEscalate, escalate_medium_days: s.escalateMediumDays, escalate_high_days: s.escalateHighDays, escalate_urgent_days: s.escalateUrgentDays, notes: s.notes || "" };
+      }) });
       setEditingFlow(full);
       setShowEditor(true);
     } catch (e) { alert("Failed to load flow: " + e.message); }
@@ -12551,7 +12581,11 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
     if (form.steps.length === 0) return alert("Add at least one step");
     setSaving(true);
     try {
-      const payload = { name: form.name, description: form.description, triggerCondition: form.trigger_condition, triggerOn: form.trigger_on, isActive: form.is_active, steps: form.steps.map((s, i) => ({ title: s.title, assignedRole: s.assigned_role || null, assignedUserId: s.assigned_user_id ? parseInt(s.assigned_user_id) : null, dueInDays: s.due_in_days ? parseInt(s.due_in_days) : null, priority: s.priority || "Medium", dependsOnStepIndex: s.depends_on_step_index != null ? parseInt(s.depends_on_step_index) : null, recurring: !!s.recurring, recurringDays: s.recurring_days ? parseInt(s.recurring_days) : null, autoEscalate: s.auto_escalate !== false, escalateMediumDays: s.escalate_medium_days || 30, escalateHighDays: s.escalate_high_days || 14, escalateUrgentDays: s.escalate_urgent_days || 7, notes: s.notes || "", sortOrder: i })) };
+      const payload = { name: form.name, description: form.description, triggerCondition: form.trigger_condition, triggerOn: form.trigger_on, isActive: form.is_active, steps: form.steps.map((s, i) => {
+        const conds = (s.conditions || []).map(c => ({ ...c }));
+        const firstPriorStep = conds.find(c => c.type === "prior_step" && c.stepIndex != null);
+        return { title: s.title, assignedRole: s.assigned_role || null, assignedUserId: s.assigned_user_id ? parseInt(s.assigned_user_id) : null, dueInDays: s.due_in_days ? parseInt(s.due_in_days) : null, priority: s.priority || "Medium", conditions: conds, dependsOnStepIndex: firstPriorStep ? parseInt(firstPriorStep.stepIndex) : null, recurring: !!s.recurring, recurringDays: s.recurring_days ? parseInt(s.recurring_days) : null, autoEscalate: s.auto_escalate !== false, escalateMediumDays: s.escalate_medium_days || 30, escalateHighDays: s.escalate_high_days || 14, escalateUrgentDays: s.escalate_urgent_days || 7, notes: s.notes || "", sortOrder: i };
+      }) };
       if (editingFlow) {
         const updated = await apiUpdateTaskFlow(editingFlow.id, payload);
         setFlows(prev => prev.map(f => f.id === editingFlow.id ? { ...f, ...updated } : f));
@@ -12570,11 +12604,15 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
     });
   };
 
-  const addStep = () => { setForm(f => ({ ...f, steps: [...f.steps, { _tempId: Date.now(), title: "", assigned_role: "", assigned_user_id: null, due_in_days: 7, priority: "Medium", depends_on_step_index: null, recurring: false, recurring_days: null, auto_escalate: true, escalate_medium_days: 30, escalate_high_days: 14, escalate_urgent_days: 7, notes: "" }] })); };
+  const addStep = () => { setForm(f => ({ ...f, steps: [...f.steps, { _tempId: Date.now(), title: "", assigned_role: "", assigned_user_id: null, due_in_days: 7, priority: "Medium", conditions: [], recurring: false, recurring_days: null, auto_escalate: true, escalate_medium_days: 30, escalate_high_days: 14, escalate_urgent_days: 7, notes: "" }] })); };
 
   const updateStep = (idx, field, val) => { setForm(f => ({ ...f, steps: f.steps.map((s, i) => i === idx ? { ...s, [field]: val } : s) })); };
 
-  const removeStep = (idx) => { setForm(f => ({ ...f, steps: f.steps.filter((_, i) => i !== idx).map(s => ({ ...s, depends_on_step_index: s.depends_on_step_index === idx ? null : s.depends_on_step_index > idx ? s.depends_on_step_index - 1 : s.depends_on_step_index })) })); };
+  const removeStep = (idx) => { setForm(f => ({ ...f, steps: f.steps.filter((_, i) => i !== idx).map(s => ({ ...s, conditions: (s.conditions || []).map(c => c.type === "prior_step" ? { ...c, stepIndex: c.stepIndex === idx ? null : c.stepIndex > idx ? c.stepIndex - 1 : c.stepIndex } : c).filter(c => c.type !== "prior_step" || c.stepIndex !== null) })) })); };
+
+  const addCondition = (stepIdx) => { updateStep(stepIdx, "conditions", [...(form.steps[stepIdx].conditions || []), { type: "prior_step", stepIndex: null }]); };
+  const updateCondition = (stepIdx, condIdx, updates) => { updateStep(stepIdx, "conditions", (form.steps[stepIdx].conditions || []).map((c, ci) => ci === condIdx ? { ...c, ...updates } : c)); };
+  const removeCondition = (stepIdx, condIdx) => { updateStep(stepIdx, "conditions", (form.steps[stepIdx].conditions || []).filter((_, ci) => ci !== condIdx)); };
 
   const triggerField = CASE_TRIGGER_FIELDS.find(f => f.value === form.trigger_condition.field);
 
@@ -12584,6 +12622,20 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
     if (tc.operator === "is_true") return `${label} is True`;
     if (tc.operator === "is_false") return `${label} is False`;
     return `${label} ${tc.operator.replace("_", " ")} "${tc.value}"`;
+  };
+
+  const stepCondSummary = (cond, allSteps) => {
+    const ct = STEP_CONDITION_TYPES.find(t => t.value === cond.type);
+    switch (cond.type) {
+      case "prior_step": return cond.stepIndex != null ? `After Step ${cond.stepIndex + 1}${allSteps && allSteps[cond.stepIndex] ? `: ${allSteps[cond.stepIndex].title || "(untitled)"}` : ""}` : "After step (not set)";
+      case "case_field": { const cf = CASE_TRIGGER_FIELDS.find(x => x.value === cond.field); const lbl = cf ? cf.label : cond.field; return cond.operator === "is_true" ? `${lbl} is True` : cond.operator === "is_false" ? `${lbl} is False` : `${lbl} ${(cond.operator || "").replace("_", " ")} "${cond.value || ""}"`; }
+      case "task_status": return `Task "${cond.taskTitle || "?"}" is ${cond.status || "Completed"}`;
+      case "role_assigned": return `${cond.role || "Role"} assigned on case`;
+      case "case_age": return `Case is at least ${cond.minDays || 0} days old`;
+      case "has_document": return `Document "${cond.documentName || "?"}" exists`;
+      case "priority_level": return `${cond.priority || "Urgent"} tasks ${(cond.countOperator || "greater_than").replace("_", " ")} ${cond.countValue || 0}`;
+      default: return ct ? ct.label : cond.type;
+    }
   };
 
   if (showEditor) {
@@ -12663,11 +12715,11 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
             {form.steps.map((step, idx) => (
               <div key={step._tempId || idx} className="p-4 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/50">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                     <span className="text-xs font-semibold text-slate-500">Step {idx + 1}</span>
-                    {step.depends_on_step_index != null && step.depends_on_step_index >= 0 && (
-                      <span className="text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full flex items-center gap-1"><ArrowRight size={10} /> After Step {step.depends_on_step_index + 1}</span>
+                    {(step.conditions || []).length > 0 && (
+                      <span className="text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full flex items-center gap-1"><Filter size={10} /> {step.conditions.length} condition{step.conditions.length !== 1 ? "s" : ""}</span>
                     )}
                   </div>
                   <button onClick={() => removeStep(idx)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
@@ -12687,7 +12739,7 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                   <div>
                     <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Due In (days)</label>
                     <input type="number" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.due_in_days || ""} onChange={e => updateStep(idx, "due_in_days", e.target.value ? parseInt(e.target.value) : null)} min="0" />
@@ -12702,13 +12754,6 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Depends On</label>
-                    <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.depends_on_step_index != null ? step.depends_on_step_index : ""} onChange={e => updateStep(idx, "depends_on_step_index", e.target.value !== "" ? parseInt(e.target.value) : null)}>
-                      <option value="">None (immediate)</option>
-                      {form.steps.map((s, si) => si !== idx ? <option key={si} value={si}>Step {si + 1}: {s.title || "(untitled)"}</option> : null)}
-                    </select>
-                  </div>
-                  <div>
                     <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Specific User</label>
                     <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.assigned_user_id || ""} onChange={e => updateStep(idx, "assigned_user_id", e.target.value ? parseInt(e.target.value) : null)}>
                       <option value="">Use role assignment</option>
@@ -12716,6 +12761,117 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
                     </select>
                   </div>
                 </div>
+
+                {(step.conditions || []).length > 0 && (
+                  <div className="mb-3 p-3 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Filter size={13} className="text-violet-600 dark:text-violet-400" />
+                      <span className="text-xs font-bold text-violet-800 dark:text-violet-300">Conditions (ALL must be met)</span>
+                    </div>
+                    <div className="space-y-2">
+                      {step.conditions.map((cond, ci) => {
+                        const condField = cond.type === "case_field" ? CASE_TRIGGER_FIELDS.find(f => f.value === cond.field) : null;
+                        return (
+                          <div key={ci} className="flex items-start gap-2 bg-white dark:bg-slate-700 rounded-lg p-2 border border-violet-100 dark:border-violet-700">
+                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.type} onChange={e => {
+                                const newType = e.target.value;
+                                const base = { type: newType };
+                                if (newType === "prior_step") base.stepIndex = null;
+                                else if (newType === "case_field") { base.field = "status"; base.operator = "equals"; base.value = ""; }
+                                else if (newType === "task_status") { base.taskTitle = ""; base.status = "Completed"; }
+                                else if (newType === "role_assigned") { base.role = ""; }
+                                else if (newType === "case_age") { base.minDays = 30; }
+                                else if (newType === "has_document") { base.documentName = ""; }
+                                else if (newType === "priority_level") { base.priority = "Urgent"; base.countOperator = "greater_than"; base.countValue = 0; }
+                                updateCondition(idx, ci, base);
+                              }}>
+                                {STEP_CONDITION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                              </select>
+
+                              {cond.type === "prior_step" && (
+                                <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.stepIndex != null ? cond.stepIndex : ""} onChange={e => updateCondition(idx, ci, { stepIndex: e.target.value !== "" ? parseInt(e.target.value) : null })}>
+                                  <option value="">Select step...</option>
+                                  {form.steps.map((s, si) => si < idx ? <option key={si} value={si}>Step {si + 1}: {s.title || "(untitled)"}</option> : null)}
+                                </select>
+                              )}
+
+                              {cond.type === "case_field" && (
+                                <>
+                                  <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.field || "status"} onChange={e => updateCondition(idx, ci, { field: e.target.value, value: "" })}>
+                                    {CASE_TRIGGER_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                                  </select>
+                                  <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.operator || "equals"} onChange={e => updateCondition(idx, ci, { operator: e.target.value })}>
+                                    {STEP_CONDITION_OPERATORS.filter(op => { if (condField?.type === "boolean") return ["is_true", "is_false"].includes(op.value); return !["is_true", "is_false"].includes(op.value) || condField?.type === "boolean"; }).map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+                                  </select>
+                                  {!["is_true", "is_false"].includes(cond.operator) && (
+                                    condField?.type === "select" ? (
+                                      <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.value || ""} onChange={e => updateCondition(idx, ci, { value: e.target.value })}>
+                                        <option value="">Select...</option>
+                                        {condField.options.map(o => <option key={o} value={o}>{o}</option>)}
+                                      </select>
+                                    ) : (
+                                      <input className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.value || ""} onChange={e => updateCondition(idx, ci, { value: e.target.value })} placeholder="Value..." />
+                                    )
+                                  )}
+                                </>
+                              )}
+
+                              {cond.type === "task_status" && (
+                                <>
+                                  <input className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.taskTitle || ""} onChange={e => updateCondition(idx, ci, { taskTitle: e.target.value })} placeholder="Task title contains..." />
+                                  <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.status || "Completed"} onChange={e => updateCondition(idx, ci, { status: e.target.value })}>
+                                    <option value="Completed">Completed</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Not Started">Not Started</option>
+                                  </select>
+                                </>
+                              )}
+
+                              {cond.type === "role_assigned" && (
+                                <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.role || ""} onChange={e => updateCondition(idx, ci, { role: e.target.value })}>
+                                  <option value="">Select role...</option>
+                                  {["Attorney", "Second Attorney", "Case Manager", "Investigator", "Paralegal"].map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                              )}
+
+                              {cond.type === "case_age" && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-slate-500">at least</span>
+                                  <input type="number" className="w-16 px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.minDays || ""} onChange={e => updateCondition(idx, ci, { minDays: e.target.value ? parseInt(e.target.value) : null })} min="1" />
+                                  <span className="text-xs text-slate-500">days old</span>
+                                </div>
+                              )}
+
+                              {cond.type === "has_document" && (
+                                <input className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.documentName || ""} onChange={e => updateCondition(idx, ci, { documentName: e.target.value })} placeholder="Filename contains..." />
+                              )}
+
+                              {cond.type === "priority_level" && (
+                                <>
+                                  <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.priority || "Urgent"} onChange={e => updateCondition(idx, ci, { priority: e.target.value })}>
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Urgent">Urgent</option>
+                                  </select>
+                                  <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.countOperator || "greater_than"} onChange={e => updateCondition(idx, ci, { countOperator: e.target.value })}>
+                                    <option value="greater_than">More than</option>
+                                    <option value="equals">Exactly</option>
+                                    <option value="less_than">Less than</option>
+                                  </select>
+                                  <input type="number" className="w-16 px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.countValue ?? 0} onChange={e => updateCondition(idx, ci, { countValue: e.target.value ? parseInt(e.target.value) : 0 })} min="0" />
+                                </>
+                              )}
+                            </div>
+                            <button onClick={() => removeCondition(idx, ci)} className="text-red-400 hover:text-red-600 p-0.5 mt-0.5 flex-shrink-0"><X size={14} /></button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <button onClick={() => addCondition(idx)} className="mb-3 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 flex items-center gap-1 font-medium"><Plus size={12} /> Add Condition</button>
 
                 <div className="flex flex-wrap items-center gap-4 text-xs">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -12790,9 +12946,12 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{flow.triggerOn === "both" ? "Create & Update" : flow.triggerOn === "create" ? "On Create" : "On Update"}</span>
                 </div>
                 {flow.description && <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{flow.description}</p>}
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <Zap size={12} className="text-amber-500" />
                   <span className="text-xs text-slate-500 dark:text-slate-400">{condSummary(flow.triggerCondition)}</span>
+                  {flow.steps && flow.steps.length > 0 && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500">| {flow.steps.length} step{flow.steps.length !== 1 ? "s" : ""}{flow.steps.some(s => (s.conditions || []).length > 0) ? ` (${flow.steps.filter(s => (s.conditions || []).length > 0).length} with conditions)` : ""}</span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 ml-4">
