@@ -2923,7 +2923,7 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
   const [msStatus, setMsStatus] = useState(null);
   const [ooStatus, setOoStatus] = useState(null);
   const [scribeStatus, setScribeStatus] = useState(null);
-  const [scribeForm, setScribeForm] = useState({ url: "", token: "", email: "" });
+  const [scribeForm, setScribeForm] = useState({ email: "", password: "" });
   const [showScribeForm, setShowScribeForm] = useState(false);
   const [busy, setBusy] = useState("");
 
@@ -2953,13 +2953,13 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
   };
 
   const connectScribe = async () => {
-    if (!scribeForm.url || !scribeForm.token) return;
+    if (!scribeForm.email || !scribeForm.password) return;
     setBusy("scribe");
     try {
       await apiConnectScribe(scribeForm);
-      setScribeStatus({ connected: true, url: scribeForm.url, email: scribeForm.email });
+      setScribeStatus({ connected: true, url: "https://scribe.mattrmindr.com", email: scribeForm.email });
       setShowScribeForm(false);
-      setScribeForm({ url: "", token: "", email: "" });
+      setScribeForm({ email: "", password: "" });
     } catch (err) { alert(err.message); }
     setBusy("");
   };
@@ -3031,11 +3031,11 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
 
       {showScribeForm && !scribeStatus?.connected && (
         <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700" style={{ marginTop: -8 }}>
-          <input type="url" placeholder="Scribe URL (e.g. https://scribe.example.com)" value={scribeForm.url} onChange={e => setScribeForm(f => ({ ...f, url: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
-          <input type="password" placeholder="API Token" value={scribeForm.token} onChange={e => setScribeForm(f => ({ ...f, token: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
-          <input type="email" placeholder="Email (optional)" value={scribeForm.email} onChange={e => setScribeForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+          <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Sign in with your MattrMindrScribe account</div>
+          <input type="email" placeholder="Email" value={scribeForm.email} onChange={e => setScribeForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+          <input type="password" placeholder="Password" value={scribeForm.password} onChange={e => setScribeForm(f => ({ ...f, password: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
           <div className="flex gap-2">
-            <button className="flex-1 py-2 text-sm font-medium bg-red-500 text-white rounded-lg border-none cursor-pointer hover:bg-red-600" onClick={connectScribe} disabled={busy === "scribe"}>{busy === "scribe" ? "Connecting..." : "Connect"}</button>
+            <button className="flex-1 py-2 text-sm font-medium bg-red-500 text-white rounded-lg border-none cursor-pointer hover:bg-red-600" onClick={connectScribe} disabled={busy === "scribe"}>{busy === "scribe" ? "Signing in..." : "Sign In"}</button>
             <button className="py-2 px-4 text-sm text-slate-500 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer" onClick={() => setShowScribeForm(false)}>Cancel</button>
           </div>
         </div>

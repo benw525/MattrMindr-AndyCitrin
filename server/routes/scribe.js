@@ -5,6 +5,9 @@ const { randomUUID } = require("crypto");
 
 const router = express.Router();
 
+const SCRIBE_BASE_URL = "https://scribe.mattrmindr.com";
+const SCRIBE_API_KEY = process.env.SCRIBE_API_KEY || "";
+
 const downloadTokens = new Map();
 
 router.get("/status", requireAuth, async (req, res) => {
@@ -28,25 +31,40 @@ router.get("/status", requireAuth, async (req, res) => {
 
 router.post("/connect", requireAuth, async (req, res) => {
   try {
-    const { url, token, email } = req.body;
-    if (!url || !token) return res.status(400).json({ error: "URL and token are required" });
-    const baseUrl = url.replace(/\/+$/, "");
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+
     try {
-      const verifyRes = await fetch(`${baseUrl}/api/status`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const loginRes = await fetch(`${SCRIBE_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(SCRIBE_API_KEY ? { "X-API-Key": SCRIBE_API_KEY } : {}),
+        },
+        body: JSON.stringify({ email, password }),
       });
-      if (!verifyRes.ok) return res.status(400).json({ error: "Could not verify Scribe connection. Check URL and token." });
-    } catch {
-      return res.status(400).json({ error: "Could not reach Scribe server. Check the URL." });
+      if (!loginRes.ok) {
+        const errData = await loginRes.json().catch(() => ({}));
+        return res.status(401).json({ error: errData.error || "Invalid Scribe credentials" });
+      }
+      const loginData = await loginRes.json();
+      const userToken = loginData.token || loginData.accessToken || null;
+      if (!userToken) {
+        return res.status(401).json({ error: "Login succeeded but no access token was returned. Contact your Scribe administrator." });
+      }
+
+      await pool.query(
+        "UPDATE users SET scribe_url = $1, scribe_token = $2, scribe_user_email = $3 WHERE id = $4",
+        [SCRIBE_BASE_URL, userToken, email, req.session.userId]
+      );
+      res.json({ ok: true });
+    } catch (fetchErr) {
+      console.error("Scribe connect fetch error:", fetchErr.message);
+      return res.status(400).json({ error: "Could not reach MattrMindrScribe. Please try again later." });
     }
-    await pool.query(
-      "UPDATE users SET scribe_url = $1, scribe_token = $2, scribe_user_email = $3 WHERE id = $4",
-      [baseUrl, token, email || null, req.session.userId]
-    );
-    res.json({ ok: true });
   } catch (err) {
     console.error("Scribe connect error:", err.message);
-    res.status(500).json({ error: "Failed to connect Scribe" });
+    res.status(500).json({ error: "Failed to connect to Scribe" });
   }
 });
 

@@ -268,7 +268,9 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - DocSpace session authentication with caching
 - Upload to collaboration room, get editor config, sync back, cleanup
 - Settings UI: DocSpace status display in Integrations section
-- Env vars: `ONLYOFFICE_URL`, `ONLYOFFICE_PASSWORD`, `ONLYOFFICE_USER`, `ONLYOFFICE_ROOM_ID`
+- Env vars: `ONLYOFFICE_URL`, `ONLYOFFICE_PASSWORD`, `ONLYOFFICE_USER`, `ONLYOFFICE_ROOM_ID` (all configured)
+- ONLYOFFICE DocSpace URL: https://docspace-13tl7v.onlyoffice.com, Room: MattrMindr-Edit (ID: 2853087)
+- Scribe URL hardcoded to `https://scribe.mattrmindr.com`; users connect via email/password; system API key via `SCRIBE_API_KEY` env var
 
 ### MattrMindrScribe Integration (T006)
 - Backend: `server/routes/scribe.js` — `/status`, `/connect`, `/disconnect`, `/send/:transcriptId`, `/download/:token`, `/transcript-status/:scribeTranscriptId`, `/import/:transcriptId`
