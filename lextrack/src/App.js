@@ -1484,6 +1484,14 @@ function FirmApp() {
       } else {
         lines.push(`Contact directory for insurance adjusters, medical providers, defense attorneys, judges, courts, witnesses, experts, clients, and more.`);
       }
+    } else if (v === "customization") {
+      lines.push(`Screen: Customization`);
+      lines.push(`This is the admin-only Customization hub with 4 sub-tabs:`);
+      lines.push(`1. Custom Agents — Create custom AI agents with configurable system prompts, models, and temperature. Agents can be run against any case.`);
+      lines.push(`2. Custom Reports — Build custom reports from any data source (cases, tasks, deadlines, contacts, correspondence, filings, documents, transcripts, time entries, medical treatments, expenses, negotiations) with filters, column selection, and sorting.`);
+      lines.push(`3. Dashboard Widgets — Create custom dashboard widgets (metric, list, or chart type) from data sources like cases, tasks, deadlines, contacts, correspondence, and expenses. Widgets appear in the dashboard's Customize modal.`);
+      lines.push(`4. Task Flows — Condition-based automation: when a case field matches a condition (e.g. status changes to "Settled", client bankruptcy is true), automatically create a sequence of tasks with role assignments, due dates, priorities, dependencies, recurrence, and auto-escalation.`);
+      lines.push(`Only App Admin users can access the Customization section.`);
     } else if (v === "staff") {
       lines.push(`Screen: Staff`);
       const active = allUsers.filter(u => !u.deleted);
@@ -1585,6 +1593,7 @@ function FirmApp() {
     contacts: ["How do I add a new contact?", "How do I merge duplicate contacts?", "How do I pin a contact?"],
     staff: ["Show me the team workload", "How do I manage staff roles?", "Who has the most cases?"],
     collaborate: ["How do I start a group chat?", "How do I message someone privately?", "How do I use case discussions?"],
+    customization: ["How do I create a task flow?", "How do I build a custom dashboard widget?", "How do I create a custom report?"],
     helpcenter: ["How do I get started with MattrMindr?", "What features are available?", "How do I manage my cases?"],
   };
 
@@ -1600,6 +1609,7 @@ function FirmApp() {
     collaborate: { icon: "💬", label: "Collaborate" },
     contacts: { icon: "📇", label: "Contacts" },
     staff: { icon: "👥", label: "Staff" },
+    customization: { icon: "⚙️", label: "Customization" },
     helpcenter: { icon: "❓", label: "Help Center" },
   };
 
@@ -13096,16 +13106,16 @@ function CustomizationView({ currentUser, allCases, allUsers, pinnedCaseIds, onM
   ];
 
   return (
-    <>
-      <header className="header">
+    <div className="flex flex-col h-full overflow-hidden">
+      <header className="header flex-shrink-0">
         <button className="md:hidden p-1" onClick={onMenuToggle}><Menu size={20} /></button>
         <div>
           <h1 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><SlidersHorizontal size={22} className="text-amber-500" /> Customization</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Custom agents, reports, widgets, and automation flows</p>
         </div>
       </header>
-      <div className="p-6">
-        <div className="border-b border-slate-200 dark:border-slate-700 mb-6 flex gap-0 overflow-x-auto overflow-y-hidden">
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="border-b border-slate-200 dark:border-slate-700 mb-6 flex gap-0 overflow-x-auto overflow-y-hidden sticky top-0 bg-white dark:bg-slate-900 z-10">
           {tabs.map(t => {
             const TIcon = t.icon;
             return (
@@ -13121,7 +13131,7 @@ function CustomizationView({ currentUser, allCases, allUsers, pinnedCaseIds, onM
         {tab === "widgets" && <CustomDashboardWidgetsTab currentUser={currentUser} confirmDelete={confirmDelete} />}
         {tab === "flows" && <TaskFlowsTab currentUser={currentUser} allUsers={allUsers} confirmDelete={confirmDelete} />}
       </div>
-    </>
+    </div>
   );
 }
 
