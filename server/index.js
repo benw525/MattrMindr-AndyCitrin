@@ -46,6 +46,9 @@ const portalAuthRoutes       = require("./routes/portal-auth");
 const portalCaseRoutes       = require("./routes/portal-case");
 const portalAdminRoutes      = require("./routes/portal-admin");
 const externalRoutes         = require("./routes/external");
+const microsoftRoutes        = require("./routes/microsoft");
+const onlyofficeRoutes       = require("./routes/onlyoffice");
+const scribeRoutes           = require("./routes/scribe");
 const voicemailsRoutes       = require("./routes/voicemails");
 const deletedDataRoutes      = require("./routes/deleted-data");
 const customReportsRoutes    = require("./routes/custom-reports");
@@ -130,6 +133,9 @@ app.use("/api/voicemails", voicemailsRoutes);
 app.use("/api/deleted-data", deletedDataRoutes);
 app.use("/api/custom-reports", customReportsRoutes);
 app.use("/api/custom-agents-builder", customAgentsBuilderRoutes);
+app.use("/api/microsoft", microsoftRoutes);
+app.use("/api/onlyoffice", onlyofficeRoutes);
+app.use("/api/scribe", scribeRoutes);
 
 const externalCorsOrigins = process.env.EXTERNAL_CORS_ORIGINS ? process.env.EXTERNAL_CORS_ORIGINS.split(",") : null;
 app.use("/api/external", cors({
@@ -245,6 +251,15 @@ async function ensureColumns() {
     `ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS content_html TEXT`,
     `ALTER TABLE jury_analyses ADD COLUMN IF NOT EXISTS daubert_challenge TEXT`,
     `ALTER TABLE sms_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_access_token TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_refresh_token TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_token_expiry TIMESTAMPTZ`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_account_email TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS scribe_url TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS scribe_token TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS scribe_user_email TEXT`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS scribe_transcript_id TEXT`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS scribe_status TEXT`,
   ];
 
   for (const sql of tableCreations) {

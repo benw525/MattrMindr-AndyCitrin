@@ -559,4 +559,49 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
   }
 });
 
+const officeViewTokens = new Map();
+
+router.get("/:id/office-view-url", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT id, filename, content_type, file_data, case_id FROM case_documents WHERE id = $1", [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    const doc = rows[0];
+    if (!(await verifyCaseAccess(req, doc.case_id))) return res.status(403).json({ error: "Access denied" });
+    const ext = (doc.filename || "").split(".").pop().toLowerCase();
+    const officeExts = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+    if (!officeExts.includes(ext)) return res.json({ url: null });
+    if (!doc.file_data) return res.json({ url: null });
+
+    const token = randomUUID();
+    officeViewTokens.set(token, { docId: doc.id, expiresAt: Date.now() + 10 * 60 * 1000 });
+    setTimeout(() => officeViewTokens.delete(token), 10 * 60 * 1000);
+
+    const host = req.get("host");
+    const protocol = req.get("x-forwarded-proto") || req.protocol;
+    const downloadUrl = `${protocol}://${host}/api/case-documents/office-download/${token}`;
+    const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(downloadUrl)}`;
+    res.json({ url: officeUrl, fallback: true });
+  } catch (err) {
+    console.error("Office view URL error:", err.message);
+    res.json({ url: null });
+  }
+});
+
+router.get("/office-download/:token", async (req, res) => {
+  try {
+    const entry = officeViewTokens.get(req.params.token);
+    if (!entry || Date.now() > entry.expiresAt) return res.status(403).json({ error: "Token expired or invalid" });
+
+    const { rows } = await pool.query("SELECT filename, content_type, file_data FROM case_documents WHERE id = $1", [entry.docId]);
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    const doc = rows[0];
+    res.setHeader("Content-Type", doc.content_type || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${doc.filename}"`);
+    res.send(doc.file_data);
+  } catch (err) {
+    console.error("Office download error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

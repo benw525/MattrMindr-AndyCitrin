@@ -173,7 +173,7 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 ### Runtime Migrations
 - `ensureColumns()` in server/index.js runs before app.listen()
 - Auto-creates tables: transcript_history, custom_reports, custom_agents
-- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge
+- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status
 
 ### Contact Categories
 Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorney, Judge, Court, Witness, Expert, Lienholder, Family Member, Miscellaneous
@@ -232,12 +232,51 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - Routes: `POST /api/case-documents/batch-delete`, `/api/transcripts/batch-delete`, `/api/correspondence/batch-delete`
 - Frontend: Select mode with checkboxes, Select All/Deselect All, Delete Selected with confirmation
 
-### Unified Document Viewer
-- In-app overlay (z-index 10001) for viewing documents, filings, and correspondence attachments
-- DOCX rendered as HTML (mammoth), XLSX as interactive tables (SheetJS), PPTX as slide cards (jszip)
-- PDF (iframe), images (img), text (iframe), audio/video (HTML5)
-- Functions: `openAppDocViewer(docId, filename, contentType)`, `openAppFilingViewer(filingId, filename)`, `closeAppDocViewer()`
-- Trial Center viewer and Present Mode use same local rendering for all file types
+### Multi-Document Floating Window Interface
+- Multiple documents can be viewed simultaneously in draggable/resizable floating windows
+- State: `openDocViewers` array with `topZIndexRef`, `nextViewerIdRef` refs
+- Functions: `openAppDocViewer(docId, filename, contentType)`, `openAppFilingViewer(filingId, filename)`, `openBlobInViewer(blob, filename, contentType)`, `closeDocViewer(id)`, `minimizeDocViewer(id)`, `restoreDocViewer(id)`, `bringDocViewerToFront(id)`
+- Component: `lextrack/src/DocViewerWindow.js` — renders individual floating window with drag/resize handles
+- Minimize-to-taskbar: minimized windows appear in bottom taskbar, click to restore
+- Cascade offset: each new window shifts 30px from previous
+- Mobile: full-screen overlay mode (single window)
+- Document types: DOCX (mammoth HTML), XLSX (SheetJS tables), PPTX (slide cards), PDF (iframe), images, audio/video, text
+
+### Microsoft Office Online Viewer (T002)
+- Backend: `GET /api/case-documents/:id/office-view-url` generates Office Online embed URL via temporary download token
+- Token-based download: `GET /api/case-documents/office-download/:token` (10-minute expiry)
+- Frontend: Office/Built-in toggle in DocViewerWindow header for DOCX/XLSX/PPTX files
+- Graceful fallback: if Office Online can't reach the document URL, built-in viewer is used
+
+### Presenter View (T003)
+- Present button (MonitorPlay icon) in DocViewerWindow toolbar
+- Opens new browser window (1280x720) with type-specific presentation content
+- Supports: Office iframe, PDF embed, images, videos, DOCX rendered HTML
+- Escape key closes presenter window
+
+### Microsoft Office Editing (T004)
+- OAuth2 flow connecting user's Microsoft 365 account
+- DB columns: `ms_access_token`, `ms_refresh_token`, `ms_token_expiry`, `ms_account_email`
+- Backend: `server/routes/microsoft.js` — `/configured`, `/status`, `/auth-url`, `/callback`, `/disconnect`, `/upload-for-edit`, `/sync-back`, `/cleanup/:driveItemId`
+- Token refresh logic for expired access tokens
+- Upload to OneDrive → edit in browser → sync changes back to DB
+- Settings UI: Microsoft 365 connection/disconnection in Integrations section
+- Env vars: `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_REDIRECT_URI` (optional)
+
+### ONLYOFFICE DocSpace Editing (T005)
+- Backend: `server/routes/onlyoffice.js` — `/status`, `/upload-for-edit`, `/sync-back`, `/cleanup/:fileId`
+- DocSpace session authentication with caching
+- Upload to collaboration room, get editor config, sync back, cleanup
+- Settings UI: DocSpace status display in Integrations section
+- Env vars: `ONLYOFFICE_URL`, `ONLYOFFICE_PASSWORD`, `ONLYOFFICE_USER`, `ONLYOFFICE_ROOM_ID`
+
+### MattrMindrScribe Integration (T006)
+- Backend: `server/routes/scribe.js` — `/status`, `/connect`, `/disconnect`, `/send/:transcriptId`, `/download/:token`, `/transcript-status/:scribeTranscriptId`, `/import/:transcriptId`
+- DB columns: `users.scribe_url`, `users.scribe_token`, `users.scribe_user_email`; `case_transcripts.scribe_transcript_id`, `case_transcripts.scribe_status`
+- External API extensions: `GET/POST /api/external/cases/:id/files` for Scribe inbound
+- Temporary download token system (30-min expiry) for audio file access
+- Settings UI: Scribe connection form in Integrations section
+- Transcript UI: "Send to Scribe" and "Import from Scribe" buttons via ScribeTranscriptButtons component
 
 ### Auto-Transcription of Audio Email Attachments
 - `server/routes/inbound-email.js` detects audio MIME types (MP3/WAV/M4A/OGG/WebM/MP4/AAC/FLAC)

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "rea
 import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
+import DocViewerWindow from "./DocViewerWindow.js";
 import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
@@ -59,7 +60,10 @@ import {
   apiGetUnreadClientComm,
   apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
-  apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations,
+  apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
+  apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiMsUploadForEdit, apiMsSyncBack, apiMsCleanup,
+  apiGetOnlyofficeStatus, apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup,
+  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
 } from "./api.js";
@@ -245,6 +249,35 @@ const Avatar = ({ userId, size = 28, hasProfilePicture }) => {
   }
   return <div title={`${u.name} (${u.role})`} style={{ width: size, height: size, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.32, fontWeight: 700, color: "#fff", fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>{u.initials}</div>;
 };
+
+function ScribeTranscriptButtons({ transcriptId, scribeTranscriptId, scribeStatus }) {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState(scribeStatus || null);
+
+  const send = async () => {
+    setBusy(true);
+    try {
+      const r = await apiSendToScribe(transcriptId);
+      setStatus("sent");
+    } catch (err) { alert("Send to Scribe failed: " + err.message); }
+    setBusy(false);
+  };
+
+  const importResult = async () => {
+    setBusy(true);
+    try {
+      await apiImportFromScribe(transcriptId);
+      setStatus("completed");
+    } catch (err) { alert("Import failed: " + err.message); }
+    setBusy(false);
+  };
+
+  const btnS = { fontSize: 11, display: "flex", alignItems: "center", gap: 4, background: "transparent", border: "1px solid #a78bfa", color: "#7c3aed", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 600 };
+
+  if (status === "completed") return <span style={{ fontSize: 10, color: "#7c3aed", display: "flex", alignItems: "center", gap: 3 }}><Check size={10} /> Scribe done</span>;
+  if (status === "sent" || scribeTranscriptId) return <button disabled={busy} onClick={importResult} style={btnS}>{busy ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />} Import from Scribe</button>;
+  return <button disabled={busy} onClick={send} style={btnS}>{busy ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />} Send to Scribe</button>;
+}
 
 const SortTh = ({ col, label, sortCol, sortDir, onSort, style, className }) => (
   <th className={className} style={{ cursor: "pointer", userSelect: "none", ...style }} onClick={() => onSort(col)}>
@@ -2877,10 +2910,126 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
           </div>
         )}
 
+        <SettingsIntegrations currentUser={currentUser} onUpdateUser={onUpdateUser} />
+
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Session</div>
         <button className="!w-full !py-2.5 !text-sm !font-medium !text-red-600 dark:!text-red-400 !bg-transparent !border !border-red-200 dark:!border-red-900/50 !rounded-lg hover:!bg-red-50 dark:hover:!bg-red-900/20 !transition-colors !cursor-pointer" onClick={onSignOut}>Sign Out</button>
       </div>
     </div>
+  );
+}
+
+function SettingsIntegrations({ currentUser, onUpdateUser }) {
+  const [msStatus, setMsStatus] = useState(null);
+  const [ooStatus, setOoStatus] = useState(null);
+  const [scribeStatus, setScribeStatus] = useState(null);
+  const [scribeForm, setScribeForm] = useState({ url: "", token: "", email: "" });
+  const [showScribeForm, setShowScribeForm] = useState(false);
+  const [busy, setBusy] = useState("");
+
+  useEffect(() => {
+    apiGetMsConfigured().then(r => { if (r.configured) apiGetMsStatus().then(setMsStatus).catch(() => {}); else setMsStatus({ connected: false, configured: false }); }).catch(() => setMsStatus({ connected: false, configured: false }));
+    apiGetOnlyofficeStatus().then(setOoStatus).catch(() => setOoStatus({ configured: false }));
+    apiGetScribeStatus().then(setScribeStatus).catch(() => setScribeStatus({ connected: false }));
+  }, []);
+
+  const connectMs = async () => {
+    setBusy("ms");
+    try {
+      const { url } = await apiGetMsAuthUrl();
+      window.open(url, "_blank", "width=600,height=700");
+      setTimeout(async () => {
+        const s = await apiGetMsStatus();
+        setMsStatus(s);
+        setBusy("");
+      }, 5000);
+    } catch (err) { alert(err.message); setBusy(""); }
+  };
+
+  const disconnectMs = async () => {
+    setBusy("ms");
+    try { await apiDisconnectMs(); setMsStatus(prev => ({ ...prev, connected: false, email: null })); } catch {}
+    setBusy("");
+  };
+
+  const connectScribe = async () => {
+    if (!scribeForm.url || !scribeForm.token) return;
+    setBusy("scribe");
+    try {
+      await apiConnectScribe(scribeForm);
+      setScribeStatus({ connected: true, url: scribeForm.url, email: scribeForm.email });
+      setShowScribeForm(false);
+      setScribeForm({ url: "", token: "", email: "" });
+    } catch (err) { alert(err.message); }
+    setBusy("");
+  };
+
+  const disconnectScribe = async () => {
+    setBusy("scribe");
+    try { await apiDisconnectScribe(); setScribeStatus({ connected: false }); } catch {}
+    setBusy("");
+  };
+
+  const sectionLabel = "text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2";
+  const rowStyle = "flex items-center justify-between py-2 px-3 rounded-lg border mb-2";
+  const connBadge = "text-[10px] font-semibold px-2 py-0.5 rounded-full";
+  const btnSmall = "text-xs bg-transparent border border-slate-300 dark:border-slate-600 rounded px-3 py-1.5 cursor-pointer font-medium";
+
+  return (
+    <>
+      <div className={sectionLabel}>Integrations</div>
+
+      {msStatus?.configured && (
+        <div className={`${rowStyle} ${msStatus?.connected ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Microsoft 365</span>
+            {msStatus?.connected && <span className={`${connBadge} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`}>Connected</span>}
+            {msStatus?.connected && msStatus?.email && <span className="text-[10px] text-slate-400 truncate">{msStatus.email}</span>}
+          </div>
+          {msStatus?.connected ? (
+            <button className={`${btnSmall} text-red-500 hover:text-red-700`} onClick={disconnectMs} disabled={busy === "ms"}>Disconnect</button>
+          ) : (
+            <button className={`${btnSmall} text-blue-600 hover:text-blue-800`} onClick={connectMs} disabled={busy === "ms"}>{busy === "ms" ? "..." : "Connect"}</button>
+          )}
+        </div>
+      )}
+
+      {ooStatus?.configured && (
+        <div className={`${rowStyle} ${ooStatus?.available ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">ONLYOFFICE DocSpace</span>
+            {ooStatus?.available ? <span className={`${connBadge} bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400`}>Available</span> : <span className={`${connBadge} bg-red-100 text-red-600`}>Unavailable</span>}
+          </div>
+        </div>
+      )}
+
+      <div className={`${rowStyle} ${scribeStatus?.connected ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">MattrMindrScribe</span>
+          {scribeStatus?.connected && <span className={`${connBadge} bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400`}>Connected</span>}
+          {scribeStatus?.connected && scribeStatus?.email && <span className="text-[10px] text-slate-400 truncate">{scribeStatus.email}</span>}
+        </div>
+        {scribeStatus?.connected ? (
+          <button className={`${btnSmall} text-red-500 hover:text-red-700`} onClick={disconnectScribe} disabled={busy === "scribe"}>Disconnect</button>
+        ) : (
+          <button className={`${btnSmall} text-purple-600 hover:text-purple-800`} onClick={() => setShowScribeForm(true)} disabled={busy === "scribe"}>Connect</button>
+        )}
+      </div>
+
+      {showScribeForm && !scribeStatus?.connected && (
+        <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+          <input type="url" placeholder="Scribe URL (e.g. https://scribe.example.com)" value={scribeForm.url} onChange={e => setScribeForm(f => ({ ...f, url: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+          <input type="password" placeholder="API Token" value={scribeForm.token} onChange={e => setScribeForm(f => ({ ...f, token: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+          <input type="email" placeholder="Email (optional)" value={scribeForm.email} onChange={e => setScribeForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+          <div className="flex gap-2">
+            <button className="flex-1 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg border-none cursor-pointer hover:bg-purple-700" onClick={connectScribe} disabled={busy === "scribe"}>{busy === "scribe" ? "Connecting..." : "Connect"}</button>
+            <button className="py-2 px-4 text-sm text-slate-500 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer" onClick={() => setShowScribeForm(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-4" />
+    </>
   );
 }
 
@@ -5499,7 +5648,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [selectedCorrIds, setSelectedCorrIds] = useState(new Set());
   const [docUploadProgress, setDocUploadProgress] = useState(null);
   const [filingUploadProgress, setFilingUploadProgress] = useState(null);
-  const [appDocViewer, setAppDocViewer] = useState({ open: false, url: null, type: null, name: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
+  const [openDocViewers, setOpenDocViewers] = useState([]);
+  const [appMsStatus, setAppMsStatus] = useState(null);
+  const [appOoStatus, setAppOoStatus] = useState(null);
+  const topZIndexRef = useRef(10010);
+  const nextViewerIdRef = useRef(0);
   const [backgroundUploads, setBackgroundUploads] = useState([]);
   const bgUploadIdRef = useRef(0);
   const startBackgroundUpload = useCallback((filename) => {
@@ -5521,6 +5674,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   }, []);
   const isAttorneyPlus = isAttorney(currentUser) || hasRole(currentUser, "App Admin");
 
+  useEffect(() => {
+    if (openDocViewers.length > 0 && appMsStatus === null) {
+      apiGetMsConfigured().then(r => { if (r.configured) apiGetMsStatus().then(setAppMsStatus).catch(() => {}); else setAppMsStatus({ connected: false, configured: false }); }).catch(() => setAppMsStatus({ connected: false, configured: false }));
+      apiGetOnlyofficeStatus().then(setAppOoStatus).catch(() => setAppOoStatus({ configured: false, available: false }));
+    }
+  }, [openDocViewers.length]);
+
   const openAppDocViewer = async (docId, filename, contentType) => {
     try {
       const ct = contentType || "application/pdf";
@@ -5528,7 +5688,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
       const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
       const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
-      let docxHtml = null, xlsxData = null, pptxSlides = null, url = null, annotations = [];
+      let docxHtml = null, xlsxData = null, pptxSlides = null, blobUrl = null, annotations = [], officeViewUrl = null;
       if (isDocx) {
         try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch { docxHtml = "<p>Could not convert document.</p>"; }
       } else if (isXlsx) {
@@ -5537,10 +5697,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch { pptxSlides = []; }
       } else {
         const blob = await apiDownloadDocument(docId);
-        url = URL.createObjectURL(blob);
+        blobUrl = URL.createObjectURL(blob);
       }
       try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
-      setAppDocViewer({ open: true, url, type: ct, name: filename, docId, docxHtml, xlsxData, pptxSlides, annotations });
+      if (isDocx || isXlsx || isPptx) {
+        try { const r = await apiGetOfficeViewUrl(docId); if (r.url) officeViewUrl = r.url; } catch {}
+      }
+      const id = ++nextViewerIdRef.current;
+      const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
+      topZIndexRef.current += 1;
+      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId, docxHtml, xlsxData, pptxSlides, blobUrl, annotations, officeViewUrl, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
     } catch (err) { alert("Failed to open document: " + err.message); }
   };
 
@@ -5549,20 +5715,43 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       const ext = (filename || "").split(".").pop().toLowerCase();
       const blob = await apiDownloadFiling(filingId);
       const ct = blob.type || (ext === "pdf" ? "application/pdf" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "xlsx" || ext === "xls" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ext === "pptx" || ext === "ppt" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext === "jpg" ? "jpeg" : ext}` : "application/octet-stream");
-      const url = URL.createObjectURL(blob);
-      setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
+      const blobUrl = URL.createObjectURL(blob);
+      const id = ++nextViewerIdRef.current;
+      const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
+      topZIndexRef.current += 1;
+      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, blobUrl, annotations: [], officeViewUrl: null, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
     } catch (err) { alert("Failed to open filing: " + err.message); }
   };
 
-  const closeAppDocViewer = () => {
-    if (appDocViewer.url) URL.revokeObjectURL(appDocViewer.url);
-    setAppDocViewer({ open: false, url: null, type: null, name: null, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
+  const closeDocViewer = (viewerId) => {
+    setOpenDocViewers(prev => {
+      const v = prev.find(w => w.id === viewerId);
+      if (v && v.blobUrl) URL.revokeObjectURL(v.blobUrl);
+      return prev.filter(w => w.id !== viewerId);
+    });
+  };
+
+  const minimizeDocViewer = (viewerId) => {
+    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: true } : v));
+  };
+
+  const restoreDocViewer = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
+  };
+
+  const bringDocViewerToFront = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, zIndex: topZIndexRef.current } : v));
   };
 
   const openBlobInViewer = (blob, filename, contentType) => {
     const ct = contentType || "application/octet-stream";
-    const url = URL.createObjectURL(blob);
-    setAppDocViewer({ open: true, url, type: ct, name: filename, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, annotations: [] });
+    const blobUrl = URL.createObjectURL(blob);
+    const id = ++nextViewerIdRef.current;
+    const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
+    topZIndexRef.current += 1;
+    setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, blobUrl, annotations: [], officeViewUrl: null, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
   };
 
   const [linkedCases, setLinkedCases] = useState([]);
@@ -8468,6 +8657,7 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                                   >
                                     <Scale size={11} /> Present
                                   </button>
+                                  <ScribeTranscriptButtons transcriptId={t.id} scribeTranscriptId={t.scribeTranscriptId} scribeStatus={t.scribeStatus} />
                                 </div>
                               </div>
 
@@ -10443,80 +10633,44 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
         </div>
       )}
 
-      {appDocViewer.open && (
-        <div onClick={closeAppDocViewer} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 10001, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "var(--c-bg)", borderRadius: 10, width: "94vw", maxWidth: 1200, height: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 18px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", display: "flex", alignItems: "center", gap: 8 }}>
-                {appDocViewer.name}
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {appDocViewer.url && <a href={appDocViewer.url} download={appDocViewer.name} style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, background: "#f59e0b", color: "#fff", borderRadius: 4, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Download</a>}
-                <button onClick={closeAppDocViewer} style={{ background: "transparent", border: "none", fontSize: 20, color: "#64748b", cursor: "pointer", padding: "2px 6px", lineHeight: 1 }}>✕</button>
-              </div>
-            </div>
-            <div style={{ flex: 1, overflow: "hidden" }}>
-              <div style={{ width: "100%", height: "100%", overflow: "auto", background: "#1F2428" }}>
-                {appDocViewer.docxHtml !== null ? (
-                  <div style={{ padding: 32, background: "#fff", color: "#1e293b", minHeight: "100%", fontSize: 14, lineHeight: 1.7, fontFamily: "Georgia, serif" }} dangerouslySetInnerHTML={{ __html: appDocViewer.docxHtml }} />
-                ) : appDocViewer.xlsxData !== null ? (
-                  <div style={{ padding: 16, background: "#fff", color: "#1e293b", overflow: "auto", height: "100%" }}>
-                    {(appDocViewer.xlsxData || []).map((sheet, si) => (
-                      <div key={si} style={{ marginBottom: 20 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 8, padding: "4px 0", borderBottom: "2px solid #6366f1" }}>{sheet.name}</div>
-                        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
-                          <tbody>
-                            {(sheet.rows || []).map((row, ri) => (
-                              <tr key={ri} style={{ background: ri === 0 ? "#f1f5f9" : ri % 2 === 0 ? "#fafafa" : "#fff" }}>
-                                {(row || []).map((cell, ci) => (
-                                  <td key={ci} style={{ border: "1px solid #e2e8f0", padding: "4px 8px", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", fontWeight: ri === 0 ? 600 : 400 }}>{cell != null ? String(cell) : ""}</td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                ) : appDocViewer.pptxSlides !== null ? (
-                  <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
-                    {(appDocViewer.pptxSlides || []).map((slide, si) => (
-                      <div key={si} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 800, minHeight: 200, padding: 24, position: "relative", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-                        <div style={{ position: "absolute", top: 8, right: 12, fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>Slide {si + 1}</div>
-                        {(slide.texts || []).map((t, ti) => (
-                          <div key={ti} style={{ fontSize: t.fontSize || 14, fontWeight: t.bold ? 700 : 400, fontStyle: t.italic ? "italic" : "normal", color: t.color || "#1e293b", marginBottom: 8 }}>{t.text}</div>
-                        ))}
-                        {(!slide.texts || slide.texts.length === 0) && <div style={{ color: "#94a3b8", fontStyle: "italic" }}>Empty slide</div>}
-                      </div>
-                    ))}
-                  </div>
-                ) : appDocViewer.type?.startsWith("image/") ? (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                    <img src={appDocViewer.url} alt={appDocViewer.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-                  </div>
-                ) : appDocViewer.type === "application/pdf" ? (
-                  <iframe src={appDocViewer.url} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none" }} />
-                ) : appDocViewer.type?.startsWith("text/") ? (
-                  <iframe src={appDocViewer.url} title={appDocViewer.name} style={{ width: "100%", height: "100%", border: "none", background: "#fff" }} />
-                ) : appDocViewer.type?.startsWith("audio/") ? (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 12 }}>
-                    <div style={{ fontSize: 48 }}>🔊</div>
-                    <audio controls src={appDocViewer.url} style={{ width: "80%", maxWidth: 500 }} />
-                  </div>
-                ) : appDocViewer.type?.startsWith("video/") ? (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                    <video controls src={appDocViewer.url} style={{ maxWidth: "100%", maxHeight: "100%" }} />
-                  </div>
-                ) : (
-                  <div style={{ color: "#64748b", fontSize: 14, textAlign: "center", padding: 40, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
-                    <div>Preview not available for this file type.</div>
-                    {appDocViewer.url && <div style={{ marginTop: 8 }}><a href={appDocViewer.url} download={appDocViewer.name} style={{ color: "#6366f1", textDecoration: "underline", fontSize: 14 }}>Download to view</a></div>}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+      {openDocViewers.filter(v => !v.minimized).map(viewer => (
+        <DocViewerWindow
+          key={viewer.id}
+          viewer={viewer}
+          zIndex={viewer.zIndex}
+          msStatus={appMsStatus}
+          ooStatus={appOoStatus}
+          onClose={() => closeDocViewer(viewer.id)}
+          onMinimize={() => minimizeDocViewer(viewer.id)}
+          onBringToFront={() => bringDocViewerToFront(viewer.id)}
+          onPositionChange={(pos) => setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, position: pos } : v))}
+          onSizeChange={(sz) => setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, size: sz } : v))}
+          onViewerUpdate={async (docId) => {
+            try {
+              const ct = viewer.type || "";
+              const ext = (viewer.filename || "").split(".").pop().toLowerCase();
+              const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
+              const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
+              const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
+              let docxHtml = viewer.docxHtml, xlsxData = viewer.xlsxData, pptxSlides = viewer.pptxSlides, blobUrl = viewer.blobUrl;
+              if (isDocx) { try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch {} }
+              else if (isXlsx) { try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch {} }
+              else if (isPptx) { try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch {} }
+              else { try { const blob = await apiDownloadDocument(docId); blobUrl = URL.createObjectURL(blob); } catch {} }
+              setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, docxHtml, xlsxData, pptxSlides, blobUrl } : v));
+            } catch {}
+          }}
+        />
+      ))}
+
+      {openDocViewers.some(v => v.minimized) && (
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 10000, display: "flex", gap: 2, padding: "0 8px", background: "var(--c-bg, #fff)", borderTop: "1px solid var(--c-border, #e2e8f0)", boxShadow: "0 -2px 8px rgba(0,0,0,0.08)" }}>
+          {openDocViewers.filter(v => v.minimized).map(viewer => (
+            <button key={viewer.id} onClick={() => restoreDocViewer(viewer.id)} style={{ padding: "6px 14px", fontSize: 11, fontWeight: 600, color: "var(--c-text-h, #0f172a)", background: "transparent", border: "none", borderRight: "1px solid var(--c-border, #e2e8f0)", cursor: "pointer", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+              <FileText size={12} />
+              {viewer.filename || "Document"}
+            </button>
+          ))}
         </div>
       )}
     </>

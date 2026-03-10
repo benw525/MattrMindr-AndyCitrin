@@ -100,4 +100,53 @@ router.post("/cases/:id/jury-analysis", requireExternalAuth, async (req, res) =>
   }
 });
 
+router.get("/cases/:id/files", requireExternalAuth, async (req, res) => {
+  try {
+    const caseId = parseInt(req.params.id);
+    const { rows: caseRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND deleted_at IS NULL", [caseId]);
+    if (!caseRows.length) return res.status(404).json({ error: "Case not found" });
+    const { rows: docs } = await pool.query(
+      "SELECT id, filename, content_type, file_size, doc_type, created_at FROM case_documents WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
+      [caseId]
+    );
+    const { rows: transcripts } = await pool.query(
+      "SELECT id, filename, content_type, file_size, status, created_at FROM case_transcripts WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
+      [caseId]
+    );
+    return res.json({ documents: docs, transcripts });
+  } catch (err) {
+    console.error("External case files error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/cases/:id/files", requireExternalAuth, async (req, res) => {
+  try {
+    const caseId = parseInt(req.params.id);
+    const { rows: caseRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND deleted_at IS NULL", [caseId]);
+    if (!caseRows.length) return res.status(404).json({ error: "Case not found" });
+
+    const { transcriptId, transcript, status } = req.body;
+    if (!transcriptId) return res.status(400).json({ error: "transcriptId is required" });
+
+    if (transcript && Array.isArray(transcript)) {
+      await pool.query(
+        `UPDATE case_transcripts SET transcript = $1, scribe_status = $2, status = COALESCE($2, status), updated_at = NOW()
+         WHERE id = $3 AND case_id = $4`,
+        [JSON.stringify(transcript), status || "completed", transcriptId, caseId]
+      );
+    } else if (status) {
+      await pool.query(
+        "UPDATE case_transcripts SET scribe_status = $1, updated_at = NOW() WHERE id = $2 AND case_id = $3",
+        [status, transcriptId, caseId]
+      );
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("External case file update error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

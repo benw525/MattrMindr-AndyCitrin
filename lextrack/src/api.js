@@ -688,6 +688,32 @@ export async function apiUploadAgentInstructions(id, file) {
 }
 export const apiClearAgentInstructions = (id)         => apiFetch(`/api/custom-agents-builder/${id}/clear-instructions`, { method: "DELETE" });
 
+// Office View URL (Microsoft Office Online)
+export const apiGetOfficeViewUrl  = (docId)           => apiFetch(`/api/case-documents/${docId}/office-view-url`);
+
+// Microsoft Office Integration
+export const apiGetMsStatus       = ()                => apiFetch("/api/microsoft/status");
+export const apiGetMsConfigured   = ()                => apiFetch("/api/microsoft/configured");
+export const apiGetMsAuthUrl      = ()                => apiFetch("/api/microsoft/auth-url");
+export const apiDisconnectMs      = ()                => apiFetch("/api/microsoft/disconnect", { method: "POST" });
+export const apiMsUploadForEdit   = (docId)           => apiFetch("/api/microsoft/upload-for-edit", { method: "POST", body: { docId } });
+export const apiMsSyncBack        = (docId, driveItemId) => apiFetch("/api/microsoft/sync-back", { method: "POST", body: { docId, driveItemId } });
+export const apiMsCleanup         = (driveItemId)     => apiFetch(`/api/microsoft/cleanup/${driveItemId}`, { method: "DELETE" });
+
+// ONLYOFFICE DocSpace Integration
+export const apiGetOnlyofficeStatus    = ()           => apiFetch("/api/onlyoffice/status");
+export const apiOnlyofficeUploadForEdit = (docId)     => apiFetch("/api/onlyoffice/upload-for-edit", { method: "POST", body: { docId } });
+export const apiOnlyofficeSyncBack     = (docId, fileId) => apiFetch("/api/onlyoffice/sync-back", { method: "POST", body: { docId, fileId } });
+export const apiOnlyofficeCleanup      = (fileId)     => apiFetch(`/api/onlyoffice/cleanup/${fileId}`, { method: "DELETE" });
+
+// MattrMindrScribe Integration
+export const apiGetScribeStatus    = ()               => apiFetch("/api/scribe/status");
+export const apiConnectScribe      = (data)           => apiFetch("/api/scribe/connect", { method: "POST", body: data });
+export const apiDisconnectScribe   = ()               => apiFetch("/api/scribe/disconnect", { method: "POST" });
+export const apiSendToScribe       = (transcriptId)   => apiFetch(`/api/scribe/send/${transcriptId}`, { method: "POST" });
+export const apiGetScribeTranscriptStatus = (scribeId) => apiFetch(`/api/scribe/transcript-status/${scribeId}`);
+export const apiImportFromScribe   = (transcriptId)   => apiFetch(`/api/scribe/import/${transcriptId}`, { method: "POST" });
+
 // Jury Analysis
 export const apiGetJuryAnalysis    = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`);
 export const apiUpdateJurorStrike  = (caseId, data)  => apiFetch(`/api/trial-center/jury-analysis/${caseId}/juror-strike`, { method: "PATCH", body: data });

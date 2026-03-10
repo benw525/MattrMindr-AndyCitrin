@@ -72,6 +72,8 @@ const toFrontend = (row) => ({
   updatedAt: row.updated_at,
   isVideo: row.is_video || false,
   videoContentType: row.video_content_type || null,
+  scribeTranscriptId: row.scribe_transcript_id || null,
+  scribeStatus: row.scribe_status || null,
 });
 
 function runFfmpeg(args) {
@@ -470,7 +472,7 @@ router.get("/case/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      `SELECT id, case_id, filename, description, content_type, file_size, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at, is_video, video_content_type,
+      `SELECT id, case_id, filename, description, content_type, file_size, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at, is_video, video_content_type, scribe_transcript_id, scribe_status,
        jsonb_array_length(transcript) as segment_count
        FROM case_transcripts WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
       [req.params.caseId]
