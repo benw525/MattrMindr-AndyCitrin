@@ -35,7 +35,7 @@ router.post("/connect", requireAuth, async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
     try {
-      const loginRes = await fetch(`${SCRIBE_BASE_URL}/api/auth/login`, {
+      const loginRes = await fetch(`${SCRIBE_BASE_URL}/api/external/auth`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -93,7 +93,7 @@ router.post("/send/:transcriptId", requireAuth, async (req, res) => {
     const { scribe_url, scribe_token } = userRows[0];
 
     const { rows: tRows } = await pool.query(
-      "SELECT id, filename, case_id, content_type FROM case_transcripts WHERE id = $1",
+      "SELECT id, filename, case_id, content_type, file_size, description FROM case_transcripts WHERE id = $1",
       [req.params.transcriptId]
     );
     if (!tRows.length) return res.status(404).json({ error: "Transcript not found" });
@@ -116,18 +116,23 @@ router.post("/send/:transcriptId", requireAuth, async (req, res) => {
     const protocol = req.get("x-forwarded-proto") || req.protocol;
     const downloadUrl = `${protocol}://${host}/api/scribe/download/${dlToken}`;
 
-    const sendRes = await fetch(`${scribe_url}/api/transcripts/ingest`, {
+    const { rows: caseInfo } = await pool.query("SELECT title, client_name FROM cases WHERE id = $1", [transcript.case_id]);
+    const caseName = caseInfo[0]?.title || caseInfo[0]?.client_name || "";
+
+    const sendRes = await fetch(`${scribe_url}/api/external/receive`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${scribe_token}`,
       },
       body: JSON.stringify({
-        sourceId: `mattrmindr-${transcript.id}`,
         filename: transcript.filename,
-        caseId: transcript.case_id,
-        downloadUrl,
+        fileUrl: downloadUrl,
         contentType: transcript.content_type,
+        fileSize: transcript.file_size || null,
+        description: transcript.description || "",
+        caseId: String(transcript.case_id),
+        caseName,
       }),
     });
 
@@ -195,7 +200,7 @@ router.get("/transcript-status/:scribeTranscriptId", requireAuth, async (req, re
       return res.status(400).json({ error: "Scribe not connected" });
     }
     const { scribe_url, scribe_token } = userRows[0];
-    const statusRes = await fetch(`${scribe_url}/api/transcripts/${req.params.scribeTranscriptId}/status`, {
+    const statusRes = await fetch(`${scribe_url}/api/external/transcripts/${req.params.scribeTranscriptId}/status`, {
       headers: { Authorization: `Bearer ${scribe_token}` },
     });
     if (!statusRes.ok) return res.status(500).json({ error: "Could not fetch Scribe status" });
@@ -231,20 +236,26 @@ router.post("/import/:transcriptId", requireAuth, async (req, res) => {
     }
     const { scribe_url, scribe_token } = userRows[0];
 
-    const importRes = await fetch(`${scribe_url}/api/transcripts/${tRows[0].scribe_transcript_id}`, {
+    const importRes = await fetch(`${scribe_url}/api/external/transcripts/${tRows[0].scribe_transcript_id}/status`, {
       headers: { Authorization: `Bearer ${scribe_token}` },
     });
     if (!importRes.ok) return res.status(500).json({ error: "Could not fetch transcript from Scribe" });
     const data = await importRes.json();
 
-    if (data.transcript) {
+    if (data.status === "completed" && data.segments) {
       await pool.query(
-        "UPDATE case_transcripts SET transcript = $1, scribe_status = 'completed', status = 'completed', updated_at = NOW() WHERE id = $2",
-        [JSON.stringify(data.transcript), req.params.transcriptId]
+        `UPDATE case_transcripts SET transcript = $1, duration_seconds = $2, pipeline_log = $3,
+         scribe_status = 'completed', status = 'completed', updated_at = NOW() WHERE id = $4`,
+        [JSON.stringify(data.segments), data.duration || null, data.pipelineLog ? JSON.stringify(data.pipelineLog) : null, req.params.transcriptId]
+      );
+    } else if (data.status === "failed") {
+      await pool.query(
+        "UPDATE case_transcripts SET scribe_status = 'failed', error_message = $1, updated_at = NOW() WHERE id = $2",
+        [data.errorMessage || "Transcription failed", req.params.transcriptId]
       );
     }
 
-    res.json({ ok: true, segments: (data.transcript || []).length });
+    res.json({ ok: true, status: data.status, segments: (data.segments || []).length });
   } catch (err) {
     console.error("Scribe import error:", err.message);
     res.status(500).json({ error: "Failed to import from Scribe" });

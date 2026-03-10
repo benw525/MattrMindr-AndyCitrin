@@ -285,9 +285,11 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - Creates `case_transcripts` entry with `uploaded_by_name = "Email: {sender}"`
 - Calls `processTranscription()` from transcripts.js for background Whisper transcription
 
-### External API with JWT Auth
-- `server/middleware/external-auth.js`: JWT generation (24h expiry) using `EXTERNAL_JWT_SECRET` or `SESSION_SECRET`
-- `server/routes/external.js`: Login, verify, cases list, case detail, jury analysis import
+### External API with JWT Auth (MattrMindr ↔ Scribe Contract)
+- `server/middleware/external-auth.js`: JWT generation (30-day expiry, `type: "integration"`) using `EXTERNAL_JWT_SECRET` or `SESSION_SECRET`
+- `server/routes/external.js`: Auth (`POST /auth` + `/auth/login`), cases search with `q` param and pinned sorting, file existence check (`GET /cases/:id/files?filename=`), file receive (`POST /cases/:id/files` with segments/versions/summaries/pipelineLog), case detail, jury analysis import
+- Outbound to Scribe: `POST /api/external/auth` (connect), `POST /api/external/receive` (send file), `GET /api/external/transcripts/:id/status` (poll status)
+- DB columns added: `case_transcripts.transcript_versions`, `case_transcripts.summaries`, `case_transcripts.pipeline_log`
 - Mounted at `/api/external` with separate CORS config (`EXTERNAL_CORS_ORIGINS` env var)
 - Package: `jsonwebtoken`
 

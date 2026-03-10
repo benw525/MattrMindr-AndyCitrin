@@ -260,6 +260,9 @@ async function ensureColumns() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS scribe_user_email TEXT`,
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS scribe_transcript_id TEXT`,
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS scribe_status TEXT`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS transcript_versions JSONB`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS summaries JSONB`,
+    `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS pipeline_log JSONB`,
   ];
 
   for (const sql of tableCreations) {

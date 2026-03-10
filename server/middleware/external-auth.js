@@ -4,7 +4,7 @@ const pool = require("../db");
 const JWT_SECRET = process.env.EXTERNAL_JWT_SECRET || process.env.SESSION_SECRET || "lextrack-external-jwt-secret";
 
 function generateToken(userId) {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "24h" });
+  return jwt.sign({ userId, type: "integration" }, JWT_SECRET, { expiresIn: "30d" });
 }
 
 async function requireExternalAuth(req, res, next) {
