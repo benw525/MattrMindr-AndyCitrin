@@ -127,20 +127,24 @@ function validateColumn(col, allowed) {
 
 router.post("/run", requireAuth, async (req, res) => {
   try {
-    const { widgetType, dataSource, config } = req.body;
+    const { widgetType, dataSource } = req.body;
+    const config = req.body.config && typeof req.body.config === "object" ? req.body.config : {};
+    if (dataSource === "staff_assigned" && widgetType !== "chart") {
+      return res.status(400).json({ error: "Staff Assigned data source only supports chart widgets" });
+    }
     const schema = WIDGET_SCHEMA_MAP[dataSource];
-    if (!schema) return res.status(400).json({ error: "Invalid data source" });
+    if (!schema && dataSource !== "staff_assigned") return res.status(400).json({ error: "Invalid data source" });
 
     const filters = config.filters || [];
     const whereClauses = ["1=1"];
     const params = [];
 
-    if (schema.deleteFilter) {
+    if (schema && schema.deleteFilter) {
       whereClauses.push(schema.deleteFilter);
     }
 
     for (const f of filters) {
-      if (!f.field || !f.operator) continue;
+      if (!f.field || !f.operator || !schema) continue;
       const safeField = validateColumn(f.field, schema.allowed);
       if (!safeField) continue;
       const pi = params.length + 1;
@@ -188,6 +192,33 @@ router.post("/run", requireAuth, async (req, res) => {
     }
 
     if (widgetType === "chart") {
+      if (dataSource === "staff_assigned") {
+        const roleColumnMap = {
+          "Lead Attorney": "lead_attorney",
+          "Second Attorney": "second_attorney",
+          "Case Manager": "case_manager",
+          "Investigator": "investigator",
+          "Paralegal": "paralegal",
+        };
+        const role = config.staff_role || "Lead Attorney";
+        const col = roleColumnMap[role];
+        if (!col) return res.status(400).json({ error: "Invalid staff role" });
+        const statusFilter = config.case_status_filter || "Active";
+        const statusClause = statusFilter === "All" ? "" : " AND c.status = $1";
+        const qParams = statusFilter === "All" ? [] : [statusFilter];
+        const { rows } = await pool.query(
+          `SELECT u.name AS label, COUNT(*) AS value
+           FROM cases c
+           JOIN users u ON c.${col} = u.id
+           WHERE c.deleted_at IS NULL AND c.${col} IS NOT NULL${statusClause}
+           GROUP BY u.name
+           ORDER BY value DESC
+           LIMIT 20`,
+          qParams
+        );
+        return res.json({ data: rows.map(r => ({ label: r.label || "Unknown", value: Number(r.value) })) });
+      }
+
       const groupBy = validateColumn(config.chart_field || config.groupBy || "status", schema.allowed) || "status";
       const agg = config.aggregation || "count";
       const targetField = validateColumn(config.target_field || config.targetField || "id", schema.allowed) || "id";

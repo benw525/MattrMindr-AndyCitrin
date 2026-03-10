@@ -160,7 +160,8 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 - **Table**: `custom_dashboard_widgets` (user_id, name, widget_type, data_source, config, size, visibility)
 - **Route**: `server/routes/custom-dashboard-widgets.js` — CRUD + `/run` endpoint
 - **Widget types**: Metric (count/sum/average), List (filtered records table), Chart (bar/pie)
-- **Data sources**: cases, tasks, deadlines, contacts, correspondence, expenses
+- **Data sources**: cases, tasks, deadlines, contacts, correspondence, expenses, staff_assigned (special: joins cases with users by role column, chart-only)
+- **Staff Assigned**: chart widget showing case distribution by staff member; config keys: `staff_role` (Lead Attorney/Second Attorney/Case Manager/Investigator/Paralegal), `case_status_filter` (Active/All/etc.); maps role to DB column (lead_attorney, second_attorney, case_manager, investigator, paralegal)
 - **Filters**: field/operator/value conditions per widget
 - **Dashboard integration**: Custom widgets appear in Customize Dashboard modal alongside built-in widgets; rendered via `CustomDashboardWidgetRenderer` component
 - **Visibility**: private (only creator) or public (all users)

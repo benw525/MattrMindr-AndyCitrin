@@ -3844,6 +3844,9 @@ function CustomDashboardWidgetRenderer({ widgetId }) {
       <div className="flex items-center gap-2 mb-3">
         <Sparkles size={16} className="text-amber-500" />
         <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{widget.name}</span>
+        {(widget.dataSource || widget.data_source) === "staff_assigned" && widget.config?.staff_role && (
+          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">({widget.config.staff_role})</span>
+        )}
       </div>
       {wType === "metric" && data && (
         <div className="text-3xl font-bold text-slate-900 dark:text-white">{data.value != null ? (typeof data.value === "number" ? data.value.toLocaleString() : data.value) : "—"}</div>
@@ -12975,6 +12978,7 @@ const WIDGET_DATA_SOURCES = [
   { value: "contacts", label: "Contacts" },
   { value: "correspondence", label: "Correspondence" },
   { value: "expenses", label: "Expenses" },
+  { value: "staff_assigned", label: "Staff Assigned (Cases by Role)" },
 ];
 
 const WIDGET_TYPES = [
@@ -13053,27 +13057,35 @@ function CustomDashboardWidgetsTab({ currentUser, confirmDelete }) {
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Data Source</label>
-            <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.data_source} onChange={e => setForm(f => ({ ...f, data_source: e.target.value }))}>
+            <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.data_source} onChange={e => { const ds = e.target.value; setForm(f => ({ ...f, data_source: ds, widget_type: ds === "staff_assigned" ? "chart" : f.widget_type, config: ds === "staff_assigned" ? { ...f.config, chart_type: "pie", staff_role: "Lead Attorney", case_status_filter: "Active" } : f.config })); }}>
               {WIDGET_DATA_SOURCES.map(ds => <option key={ds.value} value={ds.value}>{ds.label}</option>)}
             </select>
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">Widget Type</label>
-          <div className="grid grid-cols-3 gap-3">
-            {WIDGET_TYPES.map(t => {
-              const TIcon = t.icon;
-              return (
-                <div key={t.value} onClick={() => setForm(f => ({ ...f, widget_type: t.value }))} className={`p-3 rounded-xl border-2 cursor-pointer transition-all text-center ${form.widget_type === t.value ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20" : "border-slate-200 dark:border-slate-600 hover:border-slate-300"}`}>
-                  <TIcon size={20} className={`mx-auto mb-1 ${form.widget_type === t.value ? "text-amber-600" : "text-slate-400"}`} />
-                  <div className="text-sm font-semibold">{t.label}</div>
-                  <div className="text-xs text-slate-400">{t.desc}</div>
-                </div>
-              );
-            })}
+        {form.data_source === "staff_assigned" ? (
+          <div className="p-3 rounded-xl border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-center">
+            <BarChart3 size={20} className="mx-auto mb-1 text-amber-600" />
+            <div className="text-sm font-semibold">Chart</div>
+            <div className="text-xs text-slate-400">Cases per staff member by role</div>
           </div>
-        </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">Widget Type</label>
+            <div className="grid grid-cols-3 gap-3">
+              {WIDGET_TYPES.map(t => {
+                const TIcon = t.icon;
+                return (
+                  <div key={t.value} onClick={() => setForm(f => ({ ...f, widget_type: t.value }))} className={`p-3 rounded-xl border-2 cursor-pointer transition-all text-center ${form.widget_type === t.value ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20" : "border-slate-200 dark:border-slate-600 hover:border-slate-300"}`}>
+                    <TIcon size={20} className={`mx-auto mb-1 ${form.widget_type === t.value ? "text-amber-600" : "text-slate-400"}`} />
+                    <div className="text-sm font-semibold">{t.label}</div>
+                    <div className="text-xs text-slate-400">{t.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {form.widget_type === "metric" && (
           <div className="grid grid-cols-2 gap-4">
@@ -13118,10 +13130,37 @@ function CustomDashboardWidgetsTab({ currentUser, confirmDelete }) {
                 <option value="pie">Pie Chart</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Group By Field</label>
-              <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.chart_field || ""} onChange={e => setForm(f => ({ ...f, config: { ...f.config, chart_field: e.target.value } }))} placeholder="e.g. status, case_type" />
-            </div>
+            {form.data_source === "staff_assigned" ? (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Staff Role</label>
+                  <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.staff_role || "Lead Attorney"} onChange={e => setForm(f => ({ ...f, config: { ...f.config, staff_role: e.target.value } }))}>
+                    <option value="Lead Attorney">Lead Attorney</option>
+                    <option value="Second Attorney">Second Attorney</option>
+                    <option value="Case Manager">Case Manager</option>
+                    <option value="Investigator">Investigator</option>
+                    <option value="Paralegal">Paralegal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Case Status Filter</label>
+                  <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.case_status_filter || "Active"} onChange={e => setForm(f => ({ ...f, config: { ...f.config, case_status_filter: e.target.value } }))}>
+                    <option value="All">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Pre-Litigation">Pre-Litigation</option>
+                    <option value="In Litigation">In Litigation</option>
+                    <option value="Settlement">Settlement</option>
+                    <option value="Closed">Closed</option>
+                    <option value="On Hold">On Hold</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Group By Field</label>
+                <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.chart_field || ""} onChange={e => setForm(f => ({ ...f, config: { ...f.config, chart_field: e.target.value } }))} placeholder="e.g. status, case_type" />
+              </div>
+            )}
           </div>
         )}
 
