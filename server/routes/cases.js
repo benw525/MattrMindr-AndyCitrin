@@ -33,6 +33,7 @@ const toFrontend = (row) => ({
   demandAmount: row.demand_amount ? parseFloat(row.demand_amount) : null,
   demandDate: row.demand_date ? row.demand_date.toISOString().split("T")[0] : "",
   contingencyFeePct: row.contingency_fee_pct ? parseFloat(row.contingency_fee_pct) : null,
+  feeIsFlat: !!row.fee_is_flat,
   caseExpenses: row.case_expenses ? parseFloat(row.case_expenses) : null,
   liabilityAssessment: row.liability_assessment,
   comparativeFaultPct: row.comparative_fault_pct ? parseFloat(row.comparative_fault_pct) : null,
@@ -191,8 +192,9 @@ router.post("/", requireAuth, async (req, res) => {
          judge, referring_attorney, referral_source,
          custom_fields, custom_dates, hidden_fields, offices, confidential, custom_team,
          in_litigation, demand_response_due,
-         client_dob, client_ssn, client_address, client_phones, client_emergency_contact, client_email, client_bankruptcy)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56)
+         client_dob, client_ssn, client_address, client_phones, client_emergency_contact, client_email, client_bankruptcy,
+         fee_is_flat)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57)
        RETURNING *`,
       [
         d.caseNum || "", d.title, d.clientName || "", d.county || "", d.court || "",
@@ -214,6 +216,7 @@ router.post("/", requireAuth, async (req, res) => {
         orNull(d.clientDob), d.clientSsn || "", d.clientAddress || "",
         JSON.stringify(d.clientPhones || []), d.clientEmergencyContact || "", d.clientEmail || "",
         !!d.clientBankruptcy,
+        !!d.feeIsFlat,
       ]
     );
     const newCase = rows[0];
@@ -261,8 +264,9 @@ router.put("/:id", requireAuth, async (req, res) => {
         custom_fields=$42, custom_dates=$43, hidden_fields=$44, offices=$45, confidential=$46, custom_team=$47,
         in_litigation=$48, demand_response_due=$49,
         client_dob=$50, client_ssn=$51, client_address=$52, client_phones=$53,
-        client_emergency_contact=$54, client_email=$55, client_bankruptcy=$56
-       WHERE id=$57 AND deleted_at IS NULL RETURNING *`,
+        client_emergency_contact=$54, client_email=$55, client_bankruptcy=$56,
+        fee_is_flat=$57
+       WHERE id=$58 AND deleted_at IS NULL RETURNING *`,
       [
         d.caseNum || "", d.title, d.clientName || "", d.county || "", d.court || "",
         d.caseType || "Auto Accident", d.type || "Auto Accident", d.status || "Active", d.stage || "Intake", d.stateJurisdiction || "",
@@ -283,6 +287,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         orNull(d.clientDob), d.clientSsn || "", d.clientAddress || "",
         JSON.stringify(d.clientPhones || []), d.clientEmergencyContact || "", d.clientEmail || "",
         !!d.clientBankruptcy,
+        !!d.feeIsFlat,
         req.params.id,
       ]
     );

@@ -12,6 +12,7 @@ const toFrontend = (r) => ({
   amount: r.amount ? parseFloat(r.amount) : null,
   fromParty: r.from_party,
   notes: r.notes,
+  policyId: r.policy_id || null,
   createdAt: r.created_at,
 });
 
@@ -33,10 +34,10 @@ router.post("/:caseId", requireAuth, async (req, res) => {
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO case_negotiations (case_id, date, direction, amount, from_party, notes)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      `INSERT INTO case_negotiations (case_id, date, direction, amount, from_party, notes, policy_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [req.params.caseId, orNull(d.date), d.direction || "Demand",
-       orNull(d.amount), d.fromParty || "", d.notes || ""]
+       orNull(d.amount), d.fromParty || "", d.notes || "", orNull(d.policyId)]
     );
     res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
@@ -50,10 +51,11 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
     const { rows } = await pool.query(
-      `UPDATE case_negotiations SET date=$1, direction=$2, amount=$3, from_party=$4, notes=$5
-       WHERE id=$6 AND case_id=$7 RETURNING *`,
+      `UPDATE case_negotiations SET date=$1, direction=$2, amount=$3, from_party=$4, notes=$5, policy_id=$6
+       WHERE id=$7 AND case_id=$8 RETURNING *`,
       [orNull(d.date), d.direction || "Demand", orNull(d.amount),
-       d.fromParty || "", d.notes || "", req.params.id, req.params.caseId]
+       d.fromParty || "", d.notes || "", orNull(d.policyId),
+       req.params.id, req.params.caseId]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     res.json(toFrontend(rows[0]));

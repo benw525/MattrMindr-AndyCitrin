@@ -77,6 +77,10 @@ router.delete("/:caseId/:id", requireAuth, async (req, res) => {
       [req.params.id, req.params.caseId]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
+    await pool.query(
+      "UPDATE case_negotiations SET policy_id = NULL WHERE policy_id = $1 AND case_id = $2",
+      [req.params.id, req.params.caseId]
+    );
     res.json({ ok: true });
   } catch (err) {
     console.error("Insurance delete error:", err);

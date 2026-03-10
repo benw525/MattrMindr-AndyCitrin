@@ -263,6 +263,17 @@ async function ensureColumns() {
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS transcript_versions JSONB`,
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS summaries JSONB`,
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS pipeline_log JSONB`,
+    `ALTER TABLE cases ADD COLUMN IF NOT EXISTS fee_is_flat BOOLEAN DEFAULT false`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS billed NUMERIC(12,2)`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS owed NUMERIC(12,2)`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS reduction_value NUMERIC(12,2)`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS reduction_is_percent BOOLEAN DEFAULT false`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS client_paid NUMERIC(12,2)`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS firm_paid NUMERIC(12,2)`,
+    `ALTER TABLE case_liens ADD COLUMN IF NOT EXISTS reduction_value NUMERIC(12,2)`,
+    `ALTER TABLE case_liens ADD COLUMN IF NOT EXISTS reduction_is_percent BOOLEAN DEFAULT false`,
+    `ALTER TABLE case_negotiations ADD COLUMN IF NOT EXISTS policy_id INTEGER`,
+    `ALTER TABLE case_negotiations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
   ];
 
   for (const sql of tableCreations) {

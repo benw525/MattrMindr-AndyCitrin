@@ -13,6 +13,8 @@ const toFrontend = (r) => ({
   negotiatedAmount: r.negotiated_amount ? parseFloat(r.negotiated_amount) : null,
   status: r.status,
   notes: r.notes,
+  reductionValue: r.reduction_value ? parseFloat(r.reduction_value) : null,
+  reductionIsPercent: !!r.reduction_is_percent,
   createdAt: r.created_at,
 });
 
@@ -34,10 +36,11 @@ router.post("/:caseId", requireAuth, async (req, res) => {
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO case_liens (case_id, lien_type, lienholder_name, amount, negotiated_amount, status, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      `INSERT INTO case_liens (case_id, lien_type, lienholder_name, amount, negotiated_amount, status, notes, reduction_value, reduction_is_percent)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [req.params.caseId, d.lienType || "Medical", d.lienholderName || "",
-       orNull(d.amount), orNull(d.negotiatedAmount), d.status || "Pending", d.notes || ""]
+       orNull(d.amount), orNull(d.negotiatedAmount), d.status || "Pending", d.notes || "",
+       orNull(d.reductionValue), !!d.reductionIsPercent]
     );
     res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
@@ -51,10 +54,12 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
     const { rows } = await pool.query(
-      `UPDATE case_liens SET lien_type=$1, lienholder_name=$2, amount=$3, negotiated_amount=$4, status=$5, notes=$6
-       WHERE id=$7 AND case_id=$8 RETURNING *`,
+      `UPDATE case_liens SET lien_type=$1, lienholder_name=$2, amount=$3, negotiated_amount=$4, status=$5, notes=$6,
+       reduction_value=$7, reduction_is_percent=$8
+       WHERE id=$9 AND case_id=$10 RETURNING *`,
       [d.lienType || "Medical", d.lienholderName || "", orNull(d.amount),
        orNull(d.negotiatedAmount), d.status || "Pending", d.notes || "",
+       orNull(d.reductionValue), !!d.reductionIsPercent,
        req.params.id, req.params.caseId]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });

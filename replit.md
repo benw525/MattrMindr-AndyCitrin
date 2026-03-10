@@ -45,9 +45,9 @@ server/
     contacts.js     — CRUD /api/contacts (soft-delete/restore)
     insurance.js    — CRUD /api/insurance (case insurance policies)
     medical-treatments.js — CRUD /api/medical-treatments
-    liens.js        — CRUD /api/liens
-    damages.js      — CRUD /api/damages
-    negotiations.js — CRUD /api/negotiations
+    liens.js        — CRUD /api/liens (with reduction_value/reduction_is_percent fields)
+    damages.js      — CRUD /api/damages (with billed/owed/reduction/client_paid/firm_paid fields)
+    negotiations.js — CRUD /api/negotiations (with policy_id linking to insurance policies)
     expenses.js     — CRUD /api/expenses
     voicemails.js   — CRUD /api/voicemails
     ai-agents.js    — All AI agent endpoints (with AI search enhancement)
@@ -91,13 +91,13 @@ lextrack/
 - **Staff Roles**: Managing Partner, Senior Partner, Partner, Associate Attorney, Of Counsel, Paralegal, Legal Assistant, Case Manager, Medical Records Coordinator, Intake Specialist, Office Administrator, IT Specialist, Investigator, App Admin
 
 ### PI-Specific Tables & Tabs
-- **Insurance Policies** (`case_insurance_policies`): Policy type (Liability/UM/UIM/MedPay/PIP/Homeowner/Commercial/Umbrella), carrier, policy number, limits, adjuster details, claim number — displayed under the Details tab
+- **Insurance Policies** (`case_insurance_policies`): Policy type (Liability/UM/UIM/MedPay/PIP/Homeowner/Commercial/Umbrella/Health Insurance), carrier, policy number, limits, adjuster details, claim number — displayed in its own Insurance tab with collapsible Negotiations under each policy
 - **Medical Treatments** (`case_medical_treatments`): Provider name/type (ER/Hospital/Orthopedic/Chiropractor/PT/etc.), visit dates, billing totals, treatment status — collapsible cards with medical record upload
 - **Medical Records** (`medical_records`): Per-treatment uploaded records with AI-parsed visit entries (provider, date, pages, summary) from PDF uploads
-- **Liens** (`case_liens`): Lien type (Medical/Medicare/Medicaid/ERISA/etc.), lienholder, amount, negotiated amount, status — displayed under the Damages tab
-- **Damages** (`case_damages`): Category (Medical Bills/Lost Wages/Future Medical/Pain & Suffering/etc.), documentation status
+- **Liens** (`case_liens`): Lien type (Medical/Medicare/Medicaid/ERISA/etc.), lienholder, amount, negotiated amount, status, reduction (value + %/$) — displayed under the Damages tab
+- **Damages** (`case_damages`): Category (Medical Bills/Lost Wages/Future Medical/Pain & Suffering/etc.), documentation status, billed, owed, reduction (value + %/$), client paid, firm paid
 - **Expenses** (`case_expenses`): Category (Filing Fees/Expert Fees/Court Reporter/Medical Records/etc.), amount, date, vendor, status — standalone Expenses tab
-- **Negotiations** (`case_negotiations`): Date, direction (Demand/Offer/Counter-Demand/Counter-Offer), amount, from party
+- **Negotiations** (`case_negotiations`): Date, direction (Demand/Offer/Counter-Demand/Counter-Offer), amount, from party, policy_id (links to insurance policy) — displayed as collapsible sections under each insurance policy in the Insurance tab, with Gross/Net calculations
 - **Voicemails** (`case_voicemails`): Caller name/number, duration, transcript, notes, audio — sub-tab under Correspondence
 
 ### AI Agents (server/routes/ai-agents.js)
@@ -342,8 +342,10 @@ Initial Client Interview → Send Preservation Letters → Obtain Police Report 
 - Demand Date shows "Demand Sent" label when populated
 
 ### Tab Organization
-- Insurance Policies section is inside the Details tab (below Experts)
+- Insurance Policies have their own tab (between Details and Medical), with collapsible Negotiations under each policy
 - Liens section is inside the Damages tab (below Damages list)
+- Fee field in Details tab supports both percentage (%) and flat dollar ($) modes via `fee_is_flat` boolean
+- Net Total formula: `Net = Gross - fee (% of gross or flat $) - sum(damages.owed) - sum(liens.negotiated_amount or amount) - sum(expenses.amount)`
 - Expenses has its own standalone tab
 - Voicemails is a sub-tab under Correspondence
 

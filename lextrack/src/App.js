@@ -5611,6 +5611,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [damages, setDamages] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [negotiations, setNegotiations] = useState([]);
+  const [expandedPolicyNeg, setExpandedPolicyNeg] = useState({});
   const [piDataLoading, setPiDataLoading] = useState(false);
   const [showTeamPopup, setShowTeamPopup] = useState(false);
   const [showDocGen, setShowDocGen] = useState(false);
@@ -6429,10 +6430,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <div className="case-overlay-tabs">
           <div className={`case-overlay-tab ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}>Overview</div>
           <div className={`case-overlay-tab ${activeTab === "details" ? "active" : ""}`} onClick={() => setActiveTab("details")}>Details</div>
+          <div className={`case-overlay-tab ${activeTab === "insurance" ? "active" : ""}`} onClick={() => setActiveTab("insurance")}>Insurance</div>
           <div className={`case-overlay-tab ${activeTab === "medical" ? "active" : ""}`} onClick={() => setActiveTab("medical")}>Medical</div>
           <div className={`case-overlay-tab ${activeTab === "damages" ? "active" : ""}`} onClick={() => setActiveTab("damages")}>Damages</div>
           <div className={`case-overlay-tab ${activeTab === "expenses" ? "active" : ""}`} onClick={() => setActiveTab("expenses")}>Expenses</div>
-          <div className={`case-overlay-tab ${activeTab === "negotiations" ? "active" : ""}`} onClick={() => setActiveTab("negotiations")}>Negotiations</div>
           <div className={`case-overlay-tab ${activeTab === "files" ? "active" : ""}`} onClick={() => setActiveTab("files")}>Documents</div>
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
             Correspondence {(correspondence.length + smsMessages.length + voicemails.length) > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length + smsMessages.length + voicemails.length})</span>}
@@ -7039,7 +7040,18 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <EditField fieldKey="policeReportNumber" label="Police Report #" type="text" value={draft.policeReportNumber} onChange={val => set("policeReportNumber", val)} onBlur={() => handleBlur("policeReportNumber")} readOnly={!editMode} />
                         <EditField fieldKey="liabilityAssessment" label="Liability Assessment" type="select" options={["Clear Liability", "Comparative Fault", "Disputed Liability", "Shared Fault", "Pending Investigation", "Undetermined"]} value={draft.liabilityAssessment} onChange={val => setAndLog("liabilityAssessment", val)} readOnly={!editMode} />
                         <EditField fieldKey="comparativeFaultPct" label="Comparative Fault %" type="text" value={draft.comparativeFaultPct} onChange={val => set("comparativeFaultPct", val)} onBlur={() => handleBlur("comparativeFaultPct")} readOnly={!editMode} />
-                        <EditField fieldKey="contingencyFeePct" label="Contingency Fee %" type="text" value={draft.contingencyFeePct} onChange={val => set("contingencyFeePct", val)} onBlur={() => handleBlur("contingencyFeePct")} readOnly={!editMode} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", marginBottom: 2 }}>Fee</label>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <input type="number" step="any" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", boxSizing: "border-box" }}
+                              value={draft.contingencyFeePct || ""} onChange={e => set("contingencyFeePct", e.target.value)} onBlur={() => handleBlur("contingencyFeePct")} readOnly={!editMode} />
+                            <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", minWidth: 44 }}
+                              value={draft.feeIsFlat ? "$" : "%"} onChange={e => { set("feeIsFlat", e.target.value === "$"); setAndLog("feeIsFlat", e.target.value === "$"); }} disabled={!editMode}>
+                              <option value="%">%</option>
+                              <option value="$">$</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                       <div style={{ marginTop: 12 }}>
                         <EditField fieldKey="injuryDescription" label="Injury Description" type="text" value={draft.injuryDescription} onChange={val => set("injuryDescription", val)} onBlur={() => handleBlur("injuryDescription")} readOnly={!editMode} />
@@ -7675,8 +7687,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
             </div>
 
-            <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
+          </div>
+        )}
+
+        {/* ── Insurance Tab (with Negotiations under each policy) ── */}
+        {activeTab === "insurance" && (
+          <div className="case-overlay-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Insurance Policies ({insurancePolicies.length})</div>
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
@@ -7688,14 +7705,22 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
             {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
             {!piDataLoading && insurancePolicies.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No insurance policies recorded yet.</div>}
-            {insurancePolicies.map(p => (
-              <div key={p.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+            {insurancePolicies.map(p => {
+              const policyNegs = negotiations.filter(n => n.policyId === p.id);
+              const isNegOpen = expandedPolicyNeg[p.id];
+              const feePct = Number(draft.contingencyFeePct) || 0;
+              const isFeeFlat = !!draft.feeIsFlat;
+              const totalOwedDamages = damages.reduce((s, d) => s + (Number(d.owed) || 0), 0);
+              const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
+              const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              return (
+              <div key={p.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 12, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Type</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
                         defaultValue={p.policyType || p.policy_type || "Liability"} onChange={e => apiUpdateInsurancePolicy(c.id, p.id, { policyType: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})}>
-                        {["Liability", "UM", "UIM", "MedPay", "PIP", "Homeowner", "Commercial", "Umbrella"].map(o => <option key={o}>{o}</option>)}
+                        {["Liability", "UM", "UIM", "MedPay", "PIP", "Homeowner", "Commercial", "Umbrella", "Health Insurance"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Carrier</label>
                       <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
@@ -7725,9 +7750,129 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteInsurancePolicy(c.id, p.id).then(() => setInsurancePolicies(prev => prev.filter(x => x.id !== p.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
-              </div>
-            ))}
 
+                <div style={{ borderTop: "1px solid var(--c-border)", marginTop: 12, paddingTop: 8 }}>
+                  <div onClick={() => setExpandedPolicyNeg(prev => ({ ...prev, [p.id]: !prev[p.id] }))} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", padding: "4px 0" }}>
+                    {isNegOpen ? <ChevronDown size={14} style={{ color: "#64748b" }} /> : <ChevronRight size={14} style={{ color: "#64748b" }} />}
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text-h)" }}>Negotiations ({policyNegs.length})</span>
+                    {!isNegOpen && <button onClick={e => { e.stopPropagation(); (async () => { try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: p.id }); setNegotiations(prev => [...prev, saved]); setExpandedPolicyNeg(prev => ({ ...prev, [p.id]: true })); } catch (err) { alert("Failed: " + err.message); } })(); }} style={{ marginLeft: "auto", fontSize: 10, padding: "1px 8px", background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>+ Add</button>}
+                  </div>
+                  {isNegOpen && (
+                    <div style={{ paddingTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                        <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 10, padding: "1px 8px" }} onClick={async () => {
+                          try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: p.id }); setNegotiations(prev => [...prev, saved]); } catch (err) { alert("Failed: " + err.message); }
+                        }}>+ Add Entry</button>
+                      </div>
+                      {policyNegs.length === 0 && <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic", marginBottom: 8 }}>No negotiations for this policy yet.</div>}
+                      {policyNegs.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
+                        const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
+                        const gross = Number(n.amount) || 0;
+                        const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
+                        const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
+                        return (
+                          <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 6, padding: "8px 10px", background: "var(--c-bg)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 12px", flex: 1 }}>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Date</label>
+                                  <input type="date" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                    defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, date: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Direction</label>
+                                  <select style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
+                                    defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(c.id, n.id, { ...n, direction: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})}>
+                                    {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
+                                  </select></div>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Amount</label>
+                                  <input type="number" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                    defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, amount: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>From Party</label>
+                                  <input style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                    defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, fromParty: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                              </div>
+                              <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
+                                onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
+                            </div>
+                            {gross > 0 && (
+                              <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)" }}>
+                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
+                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
+                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Net:</span> <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? "#16a34a" : "#dc2626" }}>${net.toLocaleString()}</span></div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ); })}
+
+            {(() => {
+              const generalNegs = negotiations.filter(n => !n.policyId);
+              const isGenOpen = expandedPolicyNeg["general"];
+              const feePct = Number(draft.contingencyFeePct) || 0;
+              const isFeeFlat = !!draft.feeIsFlat;
+              const totalOwedDamages = damages.reduce((s, d) => s + (Number(d.owed) || 0), 0);
+              const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
+              const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              return (
+                <div style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginTop: 16, padding: "12px 14px" }}>
+                  <div onClick={() => setExpandedPolicyNeg(prev => ({ ...prev, general: !prev.general }))} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", padding: "4px 0" }}>
+                    {isGenOpen ? <ChevronDown size={14} style={{ color: "#64748b" }} /> : <ChevronRight size={14} style={{ color: "#64748b" }} />}
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>General Negotiations ({generalNegs.length})</span>
+                    {!isGenOpen && <button onClick={e => { e.stopPropagation(); (async () => { try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: null }); setNegotiations(prev => [...prev, saved]); setExpandedPolicyNeg(prev => ({ ...prev, general: true })); } catch (err) { alert("Failed: " + err.message); } })(); }} style={{ marginLeft: "auto", fontSize: 10, padding: "1px 8px", background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>+ Add</button>}
+                  </div>
+                  {isGenOpen && (
+                    <div style={{ paddingTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                        <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 10, padding: "1px 8px" }} onClick={async () => {
+                          try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: null }); setNegotiations(prev => [...prev, saved]); } catch (err) { alert("Failed: " + err.message); }
+                        }}>+ Add Entry</button>
+                      </div>
+                      {generalNegs.length === 0 && <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic", marginBottom: 8 }}>No general negotiations yet.</div>}
+                      {generalNegs.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
+                        const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
+                        const gross = Number(n.amount) || 0;
+                        const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
+                        const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
+                        return (
+                          <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 6, padding: "8px 10px", background: "var(--c-bg)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 12px", flex: 1 }}>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Date</label>
+                                  <input type="date" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                    defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, date: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Direction</label>
+                                  <select style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
+                                    defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(c.id, n.id, { ...n, direction: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})}>
+                                    {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
+                                  </select></div>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Amount</label>
+                                  <input type="number" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                    defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, amount: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>From Party</label>
+                                  <input style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                    defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, fromParty: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                              </div>
+                              <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
+                                onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
+                            </div>
+                            {gross > 0 && (
+                              <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)" }}>
+                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
+                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
+                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Net:</span> <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? "#16a34a" : "#dc2626" }}>${net.toLocaleString()}</span></div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -7965,11 +8110,17 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
             {(() => {
               const total = damages.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+              const totalBilled = damages.reduce((s, d) => s + (Number(d.billed) || 0), 0);
+              const totalOwed = damages.reduce((s, d) => s + (Number(d.owed) || 0), 0);
+              const totalClientPaid = damages.reduce((s, d) => s + (Number(d.clientPaid) || 0), 0);
+              const totalFirmPaid = damages.reduce((s, d) => s + (Number(d.firmPaid) || 0), 0);
               return damages.length > 0 && (
-                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Damages:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8" }}>${total.toLocaleString()}</span></div>
-                  {draft.demandAmount && <div><span style={{ fontSize: 11, color: "#64748b" }}>Demand:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>${Number(draft.demandAmount).toLocaleString()}</span></div>}
-                  {draft.settlementAmount && <div><span style={{ fontSize: 11, color: "#64748b" }}>Settlement:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${Number(draft.settlementAmount).toLocaleString()}</span></div>}
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24, flexWrap: "wrap" }}>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8" }}>${total.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Billed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#0369a1" }}>${totalBilled.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Owed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>${totalOwed.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Client Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalClientPaid.toLocaleString()}</span></div>
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Firm Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>${totalFirmPaid.toLocaleString()}</span></div>
                 </div>
               );
             })()}
@@ -7980,20 +8131,41 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={d.category || "Other"} onChange={e => apiUpdateDamage(c.id, d.id, { category: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                        defaultValue={d.category || "Other"} onChange={e => apiUpdateDamage(c.id, d.id, { ...d, category: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
                         {["Medical Bills", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.amount || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { amount: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={d.amount || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, amount: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => apiUpdateDamage(c.id, d.id, { documentationStatus: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                        defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => apiUpdateDamage(c.id, d.id, { ...d, documentationStatus: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
                         {["Documented", "Pending", "Estimated"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Billed</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.billed || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, billed: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Owed</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.owed || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, owed: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction</label>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.reductionValue || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, reductionValue: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} />
+                        <select style={{ fontSize: 12, padding: "4px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", minWidth: 36 }}
+                          defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => apiUpdateDamage(c.id, d.id, { ...d, reductionIsPercent: e.target.value === "%" }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                          <option value="$">$</option><option value="%">%</option>
+                        </select>
+                      </div></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Client Paid</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.clientPaid || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, clientPaid: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Firm Paid</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.firmPaid || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, firmPaid: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
                     <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
                       <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.description || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { description: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={d.description || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, description: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e => alert(e.message)); }}>✕</button>
@@ -8015,11 +8187,17 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             {(() => {
               const totalOwed = liens.reduce((s, l) => s + (Number(l.amount) || 0), 0);
               const totalNeg = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || 0), 0);
+              const totalReduction = liens.reduce((s, l) => {
+                const rv = Number(l.reductionValue) || 0;
+                if (!rv) return s;
+                return s + (l.reductionIsPercent ? (Number(l.amount) || 0) * rv / 100 : rv);
+              }, 0);
               return liens.length > 0 && (
-                <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24 }}>
+                <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24, flexWrap: "wrap" }}>
                   <div><span style={{ fontSize: 11, color: "#64748b" }}>Total Liens:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#d97706" }}>${totalOwed.toLocaleString()}</span></div>
                   <div><span style={{ fontSize: 11, color: "#64748b" }}>Negotiated:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalNeg.toLocaleString()}</span></div>
                   <div><span style={{ fontSize: 11, color: "#64748b" }}>Savings:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>${(totalOwed - totalNeg).toLocaleString()}</span></div>
+                  {totalReduction > 0 && <div><span style={{ fontSize: 11, color: "#64748b" }}>Reduction:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>${totalReduction.toLocaleString()}</span></div>}
                 </div>
               );
             })()}
@@ -8030,23 +8208,32 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Lien Type</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={l.lienType || l.lien_type || "Medical"} onChange={e => apiUpdateLien(c.id, l.id, { lienType: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                        defaultValue={l.lienType || l.lien_type || "Medical"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, lienType: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
                         {["Medical", "Medicare", "Medicaid", "Health Insurance", "ERISA", "VA", "Child Support", "Workers Comp", "Attorney", "Other"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Lienholder</label>
                       <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={l.lienholderName || l.lienholder_name || ""} onBlur={e => apiUpdateLien(c.id, l.id, { lienholderName: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={l.lienholderName || l.lienholder_name || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, lienholderName: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={l.amount || ""} onBlur={e => apiUpdateLien(c.id, l.id, { amount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={l.amount || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, amount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Negotiated Amount</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={l.negotiatedAmount || l.negotiated_amount || ""} onBlur={e => apiUpdateLien(c.id, l.id, { negotiatedAmount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={l.negotiatedAmount || l.negotiated_amount || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, negotiatedAmount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={l.status || "Pending"} onChange={e => apiUpdateLien(c.id, l.id, { status: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                        defaultValue={l.status || "Pending"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, status: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
                         {["Pending", "Confirmed", "Negotiated", "Satisfied", "Disputed"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction</label>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={l.reductionValue || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, reductionValue: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} />
+                        <select style={{ fontSize: 12, padding: "4px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", minWidth: 36 }}
+                          defaultValue={l.reductionIsPercent ? "%" : "$"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, reductionIsPercent: e.target.value === "%" }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                          <option value="$">$</option><option value="%">%</option>
+                        </select>
+                      </div></div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>
@@ -8112,49 +8299,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           </div>
         )}
 
-        {/* ── Negotiations Tab ── */}
-        {activeTab === "negotiations" && (
-          <div className="case-overlay-body">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Negotiation History ({negotiations.length})</div>
-              <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
-                try {
-                  const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "" });
-                  setNegotiations(p => [...p, saved]);
-                } catch (err) { alert("Failed: " + err.message); }
-              }}>+ Add Entry</button>
-            </div>
-            {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
-            {!piDataLoading && negotiations.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No negotiation entries yet.</div>}
-            {negotiations.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
-              const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
-              return (
-                <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date</label>
-                        <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { date: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Direction</label>
-                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
-                          defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(c.id, n.id, { direction: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})}>
-                          {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
-                        </select></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
-                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { amount: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
-                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>From Party</label>
-                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { fromParty: e.target.value }).then(u => setNegotiations(p => p.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
-                    </div>
-                    <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                      onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(p => p.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         {/* ── Files Tab ── */}
         {activeTab === "files" && (
