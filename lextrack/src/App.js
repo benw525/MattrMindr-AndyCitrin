@@ -7041,11 +7041,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <EditField fieldKey="liabilityAssessment" label="Liability Assessment" type="select" options={["Clear Liability", "Comparative Fault", "Disputed Liability", "Shared Fault", "Pending Investigation", "Undetermined"]} value={draft.liabilityAssessment} onChange={val => setAndLog("liabilityAssessment", val)} readOnly={!editMode} />
                         <EditField fieldKey="comparativeFaultPct" label="Comparative Fault %" type="text" value={draft.comparativeFaultPct} onChange={val => set("comparativeFaultPct", val)} onBlur={() => handleBlur("comparativeFaultPct")} readOnly={!editMode} />
                         <div style={{ display: "flex", flexDirection: "column" }}>
-                          <label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", marginBottom: 2 }}>Fee</label>
-                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                            <input type="number" step="any" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", boxSizing: "border-box" }}
+                          <label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", marginBottom: 2 }}>Fee ({draft.feeIsFlat ? "Flat $" : "%"})</label>
+                          <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
+                            <input type="number" step="any" placeholder={draft.feeIsFlat ? "0.00" : "33.33"} style={{ flex: 1, fontSize: 13, padding: "6px 10px", borderRadius: "6px 0 0 6px", border: "1px solid var(--c-border)", borderRight: "none", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
                               value={draft.contingencyFeePct || ""} onChange={e => set("contingencyFeePct", e.target.value)} onBlur={() => handleBlur("contingencyFeePct")} readOnly={!editMode} />
-                            <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", minWidth: 44 }}
+                            <select style={{ fontSize: 12, padding: "6px 8px", borderRadius: "0 6px 6px 0", border: "1px solid var(--c-border)", background: editMode ? "var(--c-surface, var(--c-bg))" : "transparent", color: "var(--c-text)", cursor: editMode ? "pointer" : "default", fontWeight: 600 }}
                               value={draft.feeIsFlat ? "$" : "%"} onChange={e => { set("feeIsFlat", e.target.value === "$"); setAndLog("feeIsFlat", e.target.value === "$"); }} disabled={!editMode}>
                               <option value="%">%</option>
                               <option value="$">$</option>
@@ -7710,7 +7710,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const isNegOpen = expandedPolicyNeg[p.id];
               const feePct = Number(draft.contingencyFeePct) || 0;
               const isFeeFlat = !!draft.feeIsFlat;
-              const totalOwedDamages = damages.reduce((s, d) => s + (Number(d.owed) || 0), 0);
+              const totalOwedDamages = damages.reduce((s, d) => {
+                const b = Number(d.billed) || 0;
+                const rv = Number(d.reductionValue) || 0;
+                const red = d.reductionIsPercent ? b * rv / 100 : rv;
+                return s + Math.max(0, b - red - (Number(d.insurancePaid) || 0) - (Number(d.writeOff) || 0));
+              }, 0);
               const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
               const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
               return (
@@ -7813,7 +7818,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const isGenOpen = expandedPolicyNeg["general"];
               const feePct = Number(draft.contingencyFeePct) || 0;
               const isFeeFlat = !!draft.feeIsFlat;
-              const totalOwedDamages = damages.reduce((s, d) => s + (Number(d.owed) || 0), 0);
+              const totalOwedDamages = damages.reduce((s, d) => {
+                const b = Number(d.billed) || 0;
+                const rv = Number(d.reductionValue) || 0;
+                const red = d.reductionIsPercent ? b * rv / 100 : rv;
+                return s + Math.max(0, b - red - (Number(d.insurancePaid) || 0) - (Number(d.writeOff) || 0));
+              }, 0);
               const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
               const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
               return (
@@ -8109,69 +8119,100 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
             {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
             {(() => {
-              const total = damages.reduce((s, d) => s + (Number(d.amount) || 0), 0);
               const totalBilled = damages.reduce((s, d) => s + (Number(d.billed) || 0), 0);
-              const totalOwed = damages.reduce((s, d) => s + (Number(d.owed) || 0), 0);
+              const totalReduction = damages.reduce((s, d) => {
+                const rv = Number(d.reductionValue) || 0;
+                if (!rv) return s;
+                const b = Number(d.billed) || 0;
+                return s + (d.reductionIsPercent ? b * rv / 100 : rv);
+              }, 0);
+              const totalInsPaid = damages.reduce((s, d) => s + (Number(d.insurancePaid) || 0), 0);
+              const totalWriteOff = damages.reduce((s, d) => s + (Number(d.writeOff) || 0), 0);
+              const totalCalcOwed = Math.max(0, totalBilled - totalReduction - totalInsPaid - totalWriteOff);
               const totalClientPaid = damages.reduce((s, d) => s + (Number(d.clientPaid) || 0), 0);
               const totalFirmPaid = damages.reduce((s, d) => s + (Number(d.firmPaid) || 0), 0);
               return damages.length > 0 && (
-                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 24, flexWrap: "wrap" }}>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Total:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8" }}>${total.toLocaleString()}</span></div>
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 20, flexWrap: "wrap" }}>
                   <div><span style={{ fontSize: 11, color: "#64748b" }}>Billed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#0369a1" }}>${totalBilled.toLocaleString()}</span></div>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Owed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>${totalOwed.toLocaleString()}</span></div>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Client Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalClientPaid.toLocaleString()}</span></div>
-                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Firm Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>${totalFirmPaid.toLocaleString()}</span></div>
+                  {totalReduction > 0 && <div><span style={{ fontSize: 11, color: "#64748b" }}>Reduction:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>−${totalReduction.toLocaleString()}</span></div>}
+                  {totalInsPaid > 0 && <div><span style={{ fontSize: 11, color: "#64748b" }}>Ins. Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#0369a1" }}>−${totalInsPaid.toLocaleString()}</span></div>}
+                  {totalWriteOff > 0 && <div><span style={{ fontSize: 11, color: "#64748b" }}>Write-off:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#64748b" }}>−${totalWriteOff.toLocaleString()}</span></div>}
+                  <div><span style={{ fontSize: 11, color: "#64748b" }}>Owed:</span> <span style={{ fontSize: 14, fontWeight: 700, color: totalCalcOwed > 0 ? "#dc2626" : "#16a34a" }}>${totalCalcOwed.toLocaleString()}</span></div>
+                  {totalClientPaid > 0 && <div><span style={{ fontSize: 11, color: "#64748b" }}>Client Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalClientPaid.toLocaleString()}</span></div>}
+                  {totalFirmPaid > 0 && <div><span style={{ fontSize: 11, color: "#64748b" }}>Firm Paid:</span> <span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>${totalFirmPaid.toLocaleString()}</span></div>}
                 </div>
               );
             })()}
             {!piDataLoading && damages.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No damages recorded yet.</div>}
-            {damages.map(d => (
+            {damages.map(d => {
+              const billed = Number(d.billed) || 0;
+              const rv = Number(d.reductionValue) || 0;
+              const reductionAmt = d.reductionIsPercent ? billed * rv / 100 : rv;
+              const insPaid = Number(d.insurancePaid) || 0;
+              const wo = Number(d.writeOff) || 0;
+              const calcOwed = Math.max(0, billed - reductionAmt - insPaid - wo);
+              const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, { ...d, ...updates }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {});
+              return (
               <div key={d.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={d.category || "Other"} onChange={e => apiUpdateDamage(c.id, d.id, { ...d, category: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                        defaultValue={d.category || "Other"} onChange={e => saveDmg({ category: e.target.value })}>
                         {["Medical Bills", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.amount || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, amount: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={d.amount || ""} onBlur={e => saveDmg({ amount: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => apiUpdateDamage(c.id, d.id, { ...d, documentationStatus: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                        defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => saveDmg({ documentationStatus: e.target.value })}>
                         {["Documented", "Pending", "Estimated"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Billed</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.billed || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, billed: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Owed</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.owed || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, owed: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={d.billed || ""} onBlur={e => saveDmg({ billed: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction</label>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.reductionValue || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, reductionValue: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} />
-                        <select style={{ fontSize: 12, padding: "4px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", minWidth: 36 }}
-                          defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => apiUpdateDamage(c.id, d.id, { ...d, reductionIsPercent: e.target.value === "%" }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})}>
+                      <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
+                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
+                          defaultValue={d.reductionValue || ""} onBlur={e => saveDmg({ reductionValue: e.target.value })} />
+                        <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer" }}
+                          defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => saveDmg({ reductionIsPercent: e.target.value === "%" })}>
                           <option value="$">$</option><option value="%">%</option>
                         </select>
-                      </div></div>
+                      </div>
+                      {d.reductionIsPercent && rv > 0 && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>= ${reductionAmt.toLocaleString()}</div>}
+                    </div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insurance Paid</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.insurancePaid || ""} onBlur={e => saveDmg({ insurancePaid: e.target.value })} /></div>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Write-off</label>
+                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                        defaultValue={d.writeOff || ""} onBlur={e => saveDmg({ writeOff: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Client Paid</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.clientPaid || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, clientPaid: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={d.clientPaid || ""} onBlur={e => saveDmg({ clientPaid: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Firm Paid</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.firmPaid || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, firmPaid: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={d.firmPaid || ""} onBlur={e => saveDmg({ firmPaid: e.target.value })} /></div>
                     <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
                       <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.description || ""} onBlur={e => apiUpdateDamage(c.id, d.id, { ...d, description: e.target.value }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {})} /></div>
+                        defaultValue={d.description || ""} onBlur={e => saveDmg({ description: e.target.value })} /></div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
+                {billed > 0 && (
+                  <div style={{ borderTop: "1px dashed var(--c-border)", marginTop: 8, paddingTop: 6, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Billed:</span> <span style={{ fontSize: 12, fontWeight: 600 }}>${billed.toLocaleString()}</span></div>
+                    {reductionAmt > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Reduction:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${reductionAmt.toLocaleString()}</span></div>}
+                    {insPaid > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Ins. Paid:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#0369a1" }}>−${insPaid.toLocaleString()}</span></div>}
+                    {wo > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Write-off:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>−${wo.toLocaleString()}</span></div>}
+                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Owed:</span> <span style={{ fontSize: 12, fontWeight: 700, color: calcOwed > 0 ? "#dc2626" : "#16a34a" }}>${calcOwed.toLocaleString()}</span></div>
+                  </div>
+                )}
               </div>
-            ))}
+            ); })}
 
             <div style={{ borderTop: "1px solid var(--c-border)", margin: "24px 0 24px" }} />
 
@@ -8226,14 +8267,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         {["Pending", "Confirmed", "Negotiated", "Satisfied", "Disputed"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction</label>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                      <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
+                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
                           defaultValue={l.reductionValue || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, reductionValue: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} />
-                        <select style={{ fontSize: 12, padding: "4px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", minWidth: 36 }}
+                        <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer" }}
                           defaultValue={l.reductionIsPercent ? "%" : "$"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, reductionIsPercent: e.target.value === "%" }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
                           <option value="$">$</option><option value="%">%</option>
                         </select>
-                      </div></div>
+                      </div>
+                      {l.reductionIsPercent && (Number(l.reductionValue) || 0) > 0 && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>= ${((Number(l.amount) || 0) * (Number(l.reductionValue) || 0) / 100).toLocaleString()}</div>}
+                    </div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>

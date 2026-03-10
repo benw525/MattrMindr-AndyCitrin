@@ -270,6 +270,8 @@ async function ensureColumns() {
     `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS reduction_is_percent BOOLEAN DEFAULT false`,
     `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS client_paid NUMERIC(12,2)`,
     `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS firm_paid NUMERIC(12,2)`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS insurance_paid NUMERIC(12,2)`,
+    `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS write_off NUMERIC(12,2)`,
     `ALTER TABLE case_liens ADD COLUMN IF NOT EXISTS reduction_value NUMERIC(12,2)`,
     `ALTER TABLE case_liens ADD COLUMN IF NOT EXISTS reduction_is_percent BOOLEAN DEFAULT false`,
     `ALTER TABLE case_negotiations ADD COLUMN IF NOT EXISTS policy_id INTEGER`,

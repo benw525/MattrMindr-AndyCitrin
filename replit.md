@@ -95,7 +95,7 @@ lextrack/
 - **Medical Treatments** (`case_medical_treatments`): Provider name/type (ER/Hospital/Orthopedic/Chiropractor/PT/etc.), visit dates, billing totals, treatment status — collapsible cards with medical record upload
 - **Medical Records** (`medical_records`): Per-treatment uploaded records with AI-parsed visit entries (provider, date, pages, summary) from PDF uploads
 - **Liens** (`case_liens`): Lien type (Medical/Medicare/Medicaid/ERISA/etc.), lienholder, amount, negotiated amount, status, reduction (value + %/$) — displayed under the Damages tab
-- **Damages** (`case_damages`): Category (Medical Bills/Lost Wages/Future Medical/Pain & Suffering/etc.), documentation status, billed, owed, reduction (value + %/$), client paid, firm paid
+- **Damages** (`case_damages`): Category (Medical Bills/Lost Wages/Future Medical/Pain & Suffering/etc.), documentation status, billed, owed (auto-calculated: billed - reduction - insurance paid - write-off), reduction (value + %/$), insurance paid, write-off, client paid, firm paid
 - **Expenses** (`case_expenses`): Category (Filing Fees/Expert Fees/Court Reporter/Medical Records/etc.), amount, date, vendor, status — standalone Expenses tab
 - **Negotiations** (`case_negotiations`): Date, direction (Demand/Offer/Counter-Demand/Counter-Offer), amount, from party, policy_id (links to insurance policy) — displayed as collapsible sections under each insurance policy in the Insurance tab, with Gross/Net calculations
 - **Voicemails** (`case_voicemails`): Caller name/number, duration, transcript, notes, audio — sub-tab under Correspondence

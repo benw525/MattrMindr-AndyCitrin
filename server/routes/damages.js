@@ -18,6 +18,8 @@ const toFrontend = (r) => ({
   reductionIsPercent: !!r.reduction_is_percent,
   clientPaid: r.client_paid ? parseFloat(r.client_paid) : null,
   firmPaid: r.firm_paid ? parseFloat(r.firm_paid) : null,
+  insurancePaid: r.insurance_paid ? parseFloat(r.insurance_paid) : null,
+  writeOff: r.write_off ? parseFloat(r.write_off) : null,
   createdAt: r.created_at,
 });
 
@@ -39,12 +41,13 @@ router.post("/:caseId", requireAuth, async (req, res) => {
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO case_damages (case_id, category, description, amount, documentation_status, notes, billed, owed, reduction_value, reduction_is_percent, client_paid, firm_paid)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      `INSERT INTO case_damages (case_id, category, description, amount, documentation_status, notes, billed, owed, reduction_value, reduction_is_percent, client_paid, firm_paid, insurance_paid, write_off)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [req.params.caseId, d.category || "Medical Bills", d.description || "",
        orNull(d.amount), d.documentationStatus || "Pending", d.notes || "",
        orNull(d.billed), orNull(d.owed), orNull(d.reductionValue),
-       !!d.reductionIsPercent, orNull(d.clientPaid), orNull(d.firmPaid)]
+       !!d.reductionIsPercent, orNull(d.clientPaid), orNull(d.firmPaid),
+       orNull(d.insurancePaid), orNull(d.writeOff)]
     );
     res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
@@ -59,12 +62,14 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `UPDATE case_damages SET category=$1, description=$2, amount=$3, documentation_status=$4, notes=$5,
-       billed=$6, owed=$7, reduction_value=$8, reduction_is_percent=$9, client_paid=$10, firm_paid=$11
-       WHERE id=$12 AND case_id=$13 RETURNING *`,
+       billed=$6, owed=$7, reduction_value=$8, reduction_is_percent=$9, client_paid=$10, firm_paid=$11,
+       insurance_paid=$12, write_off=$13
+       WHERE id=$14 AND case_id=$15 RETURNING *`,
       [d.category || "Medical Bills", d.description || "", orNull(d.amount),
        d.documentationStatus || "Pending", d.notes || "",
        orNull(d.billed), orNull(d.owed), orNull(d.reductionValue),
        !!d.reductionIsPercent, orNull(d.clientPaid), orNull(d.firmPaid),
+       orNull(d.insurancePaid), orNull(d.writeOff),
        req.params.id, req.params.caseId]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
