@@ -725,3 +725,18 @@ export const apiGetDeletedData     = (search)       => apiFetch(`/api/deleted-da
 export const apiRestoreDeletedItem = (type, id)     => apiFetch("/api/deleted-data/restore", { method: "POST", body: { type, id } });
 export const apiBatchRestoreDeleted = (items)       => apiFetch("/api/deleted-data/batch-restore", { method: "POST", body: { items } });
 export const apiBatchPurgeDeleted  = (items)        => apiFetch("/api/deleted-data/batch-purge", { method: "POST", body: { items } });
+
+// Task Flows
+export const apiGetTaskFlows       = ()             => apiFetch("/api/task-flows");
+export const apiGetTaskFlow        = (id)           => apiFetch(`/api/task-flows/${id}`);
+export const apiCreateTaskFlow     = (data)         => apiFetch("/api/task-flows", { method: "POST", body: data });
+export const apiUpdateTaskFlow     = (id, data)     => apiFetch(`/api/task-flows/${id}`, { method: "PUT", body: data });
+export const apiDeleteTaskFlow     = (id)           => apiFetch(`/api/task-flows/${id}`, { method: "DELETE" });
+export const apiEvaluateTaskFlows  = (caseId)       => apiFetch(`/api/task-flows/evaluate/${caseId}`, { method: "POST" });
+
+// Custom Dashboard Widgets
+export const apiGetCustomWidgets   = ()             => apiFetch("/api/custom-dashboard-widgets");
+export const apiCreateCustomWidget = (data)         => apiFetch("/api/custom-dashboard-widgets", { method: "POST", body: data });
+export const apiUpdateCustomWidget = (id, data)     => apiFetch(`/api/custom-dashboard-widgets/${id}`, { method: "PUT", body: data });
+export const apiDeleteCustomWidget = (id)           => apiFetch(`/api/custom-dashboard-widgets/${id}`, { method: "DELETE" });
+export const apiRunCustomWidget    = (data)         => apiFetch("/api/custom-dashboard-widgets/run", { method: "POST", body: data });

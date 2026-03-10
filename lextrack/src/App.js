@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -66,6 +66,8 @@ import {
   apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
+  apiGetTaskFlows, apiGetTaskFlow, apiCreateTaskFlow, apiUpdateTaskFlow, apiDeleteTaskFlow,
+  apiGetCustomWidgets, apiCreateCustomWidget, apiUpdateCustomWidget, apiDeleteCustomWidget, apiRunCustomWidget,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 import TrialCenterView from "./TrialCenterView.js";
@@ -2160,6 +2162,7 @@ function FirmApp() {
             { id: "collaborate", icon: MessageSquare, label: "Collaborate", badge: collabUnread > 0 ? collabUnread : null },
             { id: "contacts", icon: Users, label: "Contacts" },
             { id: "staff", icon: UserCog, label: "Staff" },
+            ...(isAppAdmin(currentUser) ? [{ id: "customization", icon: SlidersHorizontal, label: "Customization" }] : []),
             ...(isAppAdmin(currentUser) ? [{ id: "deleted", icon: Trash2, label: "Deleted Data" }] : []),
           ].map(item => {
             const Icon = item.icon;
@@ -2204,6 +2207,7 @@ function FirmApp() {
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
+        {view === "customization" && isAppAdmin(currentUser) && <CustomizationView currentUser={currentUser} allCases={allCases} allUsers={allUsers} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "deleted" && isAppAdmin(currentUser) && <DeletedDataView onMenuToggle={() => setSidebarOpen(true)} />}
       </div>
       <FollowUpPromptModal
@@ -3718,7 +3722,10 @@ const saveDashboardLayout = (layout) => { apiSavePreferences({ dashboardLayout: 
 function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
-  const available = DASHBOARD_WIDGETS.filter(w => !layout.includes(w.id));
+  const [customWidgets, setCustomWidgets] = useState([]);
+  useEffect(() => { apiGetCustomWidgets().then(r => setCustomWidgets(r || [])).catch(() => {}); }, []);
+  const allWidgets = [...DASHBOARD_WIDGETS, ...customWidgets.map(cw => ({ id: `custom-${cw.id}`, label: cw.name, size: cw.size || "half", icon: "sparkles", _custom: true }))];
+  const available = allWidgets.filter(w => !layout.includes(w.id));
   const remove = (id) => { const n = layout.filter(x => x !== id); setLayout(n); saveDashboardLayout(n); };
   const add = (id) => { const n = [...layout, id]; setLayout(n); saveDashboardLayout(n); };
   const reset = () => { setLayout([...DEFAULT_LAYOUT]); saveDashboardLayout(DEFAULT_LAYOUT); };
@@ -3747,7 +3754,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
         {layout.length === 0 && <div style={{ fontSize: 13, color: "#64748b", padding: "8px 0" }}>No widgets added yet</div>}
         <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); if (dragIdx !== null) { setDragIdx(null); setOverIdx(null); } }}>
         {layout.map((id, i) => {
-          const w = DASHBOARD_WIDGETS.find(x => x.id === id);
+          const w = allWidgets.find(x => x.id === id);
           if (!w) return null;
           const isDragging = dragIdx === i;
           const isOver = overIdx === i && dragIdx !== i;
@@ -3798,6 +3805,61 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
           <button onClick={onClose} className="btn btn-gold" style={{ fontSize: 12 }}>Done</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CustomDashboardWidgetRenderer({ widgetId }) {
+  const [data, setData] = useState(null);
+  const [widget, setWidget] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const customId = parseInt(widgetId.replace("custom-", ""));
+    if (!customId) { setLoading(false); return; }
+    apiGetCustomWidgets().then(widgets => {
+      const w = widgets.find(x => x.id === customId);
+      if (!w) { setLoading(false); return; }
+      setWidget(w);
+      return apiRunCustomWidget({ widgetType: w.widgetType, dataSource: w.dataSource, config: w.config });
+    }).then(result => { if (result) setData(result); }).catch(() => {}).finally(() => setLoading(false));
+  }, [widgetId]);
+
+  if (loading) return <div className="card" style={{ padding: 16 }}><div style={{ fontSize: 12, color: "#64748b" }}>Loading widget...</div></div>;
+  if (!widget) return null;
+
+  const wType = widget.widgetType || widget.widget_type;
+  return (
+    <div className="!bg-white dark:!bg-slate-800 !rounded-xl !border !border-slate-200 dark:!border-slate-700 !shadow-sm !p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles size={16} className="text-amber-500" />
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{widget.name}</span>
+      </div>
+      {wType === "metric" && data && (
+        <div className="text-3xl font-bold text-slate-900 dark:text-white">{data.value != null ? (typeof data.value === "number" ? data.value.toLocaleString() : data.value) : "—"}</div>
+      )}
+      {wType === "list" && data && data.rows && (
+        <div className="overflow-x-auto max-h-48 text-xs">
+          <table className="w-full">
+            <thead><tr>{(data.columns || []).map(c => <th key={c} className="text-left py-1 px-2 font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-600">{c}</th>)}</tr></thead>
+            <tbody>{data.rows.slice(0, 10).map((row, ri) => <tr key={ri}>{(data.columns || []).map(c => <td key={c} className="py-1 px-2 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700">{String(row[c] ?? "")}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      )}
+      {wType === "chart" && data && data.data && (
+        <div className="space-y-1">
+          {data.data.slice(0, 8).map((d, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <span className="w-20 text-right text-slate-500 truncate">{d.label}</span>
+              <div className="flex-1 bg-slate-200 dark:bg-slate-600 rounded-full h-4 overflow-hidden">
+                <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, (d.value / Math.max(...data.data.map(x => x.value), 1)) * 100)}%` }} />
+              </div>
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-8 text-right">{d.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!data && <div className="text-sm text-slate-400">No data</div>}
     </div>
   );
 }
@@ -4661,12 +4723,15 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
       case "client-comm":
         return <UnreadClientCommWidget key={widgetId} allCases={allCases} onSelectCase={onSelectCase} />;
       default:
+        if (widgetId.startsWith("custom-")) {
+          return <CustomDashboardWidgetRenderer key={widgetId} widgetId={widgetId} />;
+        }
         return null;
     }
   };
 
   const renderedGroups = useMemo(() => {
-    const sized = layout.map(id => { const w = DASHBOARD_WIDGETS.find(x => x.id === id); return w ? { id, size: w.size } : null; }).filter(Boolean);
+    const sized = layout.map(id => { const w = DASHBOARD_WIDGETS.find(x => x.id === id); if (w) return { id, size: w.size }; if (id.startsWith("custom-")) return { id, size: "half" }; return null; }).filter(Boolean);
     const groups = [];
     sized.forEach(item => {
       const last = groups[groups.length - 1];
@@ -12422,6 +12487,639 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
             {filtered.length === 0 && <div className="empty">No tasks in this view. Add one above.</div>}
           </div>
         </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Task Flows Builder ──────────────────────────────────────────────────────
+
+const CASE_TRIGGER_FIELDS = [
+  { value: "status", label: "Status", type: "select", options: ["Active","Pre-Litigation","In Litigation","Settlement","Closed","On Hold"] },
+  { value: "stage", label: "Stage", type: "select", options: ["Intake","Treatment","Pre-Litigation","Demand","Negotiation","Litigation","Discovery","Mediation","Trial Prep","Trial","Settlement","Closed"] },
+  { value: "caseType", label: "Case Type", type: "select", options: ["Auto Accident","Truck Accident","Motorcycle","Slip and Fall","Premises Liability","Medical Malpractice","Product Liability","Dog Bite","Wrongful Death","Workers Compensation","Other"] },
+  { value: "inLitigation", label: "In Litigation", type: "boolean" },
+  { value: "clientBankruptcy", label: "Client Bankruptcy", type: "boolean" },
+  { value: "stateJurisdiction", label: "State Jurisdiction", type: "text" },
+  { value: "county", label: "County", type: "text" },
+  { value: "dispositionType", label: "Disposition Type", type: "text" },
+  { value: "injuryType", label: "Injury Type", type: "text" },
+];
+
+const TRIGGER_OPERATORS = [
+  { value: "equals", label: "Equals" },
+  { value: "not_equals", label: "Not Equals" },
+  { value: "contains", label: "Contains" },
+  { value: "is_true", label: "Is True" },
+  { value: "is_false", label: "Is False" },
+  { value: "changed_to", label: "Changed To" },
+];
+
+function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
+  const [flows, setFlows] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingFlow, setEditingFlow] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", trigger_on: "update", is_active: true, trigger_condition: { field: "status", operator: "equals", value: "" }, steps: [] });
+
+  useEffect(() => { if (!loaded) { apiGetTaskFlows().then(r => { setFlows(r); setLoaded(true); }).catch(() => setLoaded(true)); } }, [loaded]);
+
+  const resetForm = () => { setForm({ name: "", description: "", trigger_on: "update", is_active: true, trigger_condition: { field: "status", operator: "equals", value: "" }, steps: [] }); setEditingFlow(null); setShowEditor(false); };
+
+  const handleEdit = async (flow) => {
+    try {
+      const full = await apiGetTaskFlow(flow.id);
+      setForm({ name: full.name, description: full.description || "", trigger_on: full.triggerOn || "update", is_active: full.isActive !== false, trigger_condition: full.triggerCondition || { field: "status", operator: "equals", value: "" }, steps: (full.steps || []).map((s, i) => ({ _tempId: i + 1, title: s.title, assigned_role: s.assignedRole || "", assigned_user_id: s.assignedUserId || null, due_in_days: s.dueInDays, priority: s.priority || "Medium", depends_on_step_index: null, recurring: s.recurring, recurring_days: s.recurringDays, auto_escalate: s.autoEscalate, escalate_medium_days: s.escalateMediumDays, escalate_high_days: s.escalateHighDays, escalate_urgent_days: s.escalateUrgentDays, notes: s.notes || "" })) });
+      setEditingFlow(full);
+      setShowEditor(true);
+    } catch (e) { alert("Failed to load flow: " + e.message); }
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert("Flow name is required");
+    if (form.steps.length === 0) return alert("Add at least one step");
+    setSaving(true);
+    try {
+      const payload = { name: form.name, description: form.description, triggerCondition: form.trigger_condition, triggerOn: form.trigger_on, isActive: form.is_active, steps: form.steps.map((s, i) => ({ title: s.title, assignedRole: s.assigned_role || null, assignedUserId: s.assigned_user_id ? parseInt(s.assigned_user_id) : null, dueInDays: s.due_in_days ? parseInt(s.due_in_days) : null, priority: s.priority || "Medium", dependsOnStepIndex: s.depends_on_step_index != null ? parseInt(s.depends_on_step_index) : null, recurring: !!s.recurring, recurringDays: s.recurring_days ? parseInt(s.recurring_days) : null, autoEscalate: s.auto_escalate !== false, escalateMediumDays: s.escalate_medium_days || 30, escalateHighDays: s.escalate_high_days || 14, escalateUrgentDays: s.escalate_urgent_days || 7, notes: s.notes || "", sortOrder: i })) };
+      if (editingFlow) {
+        const updated = await apiUpdateTaskFlow(editingFlow.id, payload);
+        setFlows(prev => prev.map(f => f.id === editingFlow.id ? { ...f, ...updated } : f));
+      } else {
+        const created = await apiCreateTaskFlow(payload);
+        setFlows(prev => [...prev, created]);
+      }
+      resetForm();
+    } catch (e) { alert("Save failed: " + e.message); }
+    setSaving(false);
+  };
+
+  const handleDelete = (flow) => {
+    confirmDelete(() => {
+      apiDeleteTaskFlow(flow.id).then(() => setFlows(prev => prev.filter(f => f.id !== flow.id))).catch(e => alert("Delete failed: " + e.message));
+    });
+  };
+
+  const addStep = () => { setForm(f => ({ ...f, steps: [...f.steps, { _tempId: Date.now(), title: "", assigned_role: "", assigned_user_id: null, due_in_days: 7, priority: "Medium", depends_on_step_index: null, recurring: false, recurring_days: null, auto_escalate: true, escalate_medium_days: 30, escalate_high_days: 14, escalate_urgent_days: 7, notes: "" }] })); };
+
+  const updateStep = (idx, field, val) => { setForm(f => ({ ...f, steps: f.steps.map((s, i) => i === idx ? { ...s, [field]: val } : s) })); };
+
+  const removeStep = (idx) => { setForm(f => ({ ...f, steps: f.steps.filter((_, i) => i !== idx).map(s => ({ ...s, depends_on_step_index: s.depends_on_step_index === idx ? null : s.depends_on_step_index > idx ? s.depends_on_step_index - 1 : s.depends_on_step_index })) })); };
+
+  const triggerField = CASE_TRIGGER_FIELDS.find(f => f.value === form.trigger_condition.field);
+
+  const condSummary = (tc) => {
+    const f = CASE_TRIGGER_FIELDS.find(x => x.value === tc.field);
+    const label = f ? f.label : tc.field;
+    if (tc.operator === "is_true") return `${label} is True`;
+    if (tc.operator === "is_false") return `${label} is False`;
+    return `${label} ${tc.operator.replace("_", " ")} "${tc.value}"`;
+  };
+
+  if (showEditor) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{editingFlow ? "Edit Task Flow" : "New Task Flow"}</h3>
+          <button onClick={resetForm} className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Cancel</button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Flow Name *</label>
+            <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Bankruptcy Filing Tasks" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Trigger On</label>
+            <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white" value={form.trigger_on} onChange={e => setForm(f => ({ ...f, trigger_on: e.target.value }))}>
+              <option value="update">Case Update</option>
+              <option value="create">Case Create</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Description</label>
+          <textarea className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white" rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe what this flow does..." />
+        </div>
+
+        <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+          <div className="flex items-center gap-2 mb-3">
+            <Zap size={16} className="text-amber-600" />
+            <span className="text-sm font-bold text-amber-800 dark:text-amber-300">Trigger Condition</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Field</label>
+              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.trigger_condition.field} onChange={e => setForm(f => ({ ...f, trigger_condition: { ...f.trigger_condition, field: e.target.value, value: "" } }))}>
+                {CASE_TRIGGER_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Operator</label>
+              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.trigger_condition.operator} onChange={e => setForm(f => ({ ...f, trigger_condition: { ...f.trigger_condition, operator: e.target.value } }))}>
+                {TRIGGER_OPERATORS.filter(op => { if (triggerField?.type === "boolean") return ["is_true", "is_false"].includes(op.value); return !["is_true", "is_false"].includes(op.value) || triggerField?.type === "boolean"; }).map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+              </select>
+            </div>
+            {!["is_true", "is_false"].includes(form.trigger_condition.operator) && (
+              <div>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Value</label>
+                {triggerField?.type === "select" ? (
+                  <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.trigger_condition.value} onChange={e => setForm(f => ({ ...f, trigger_condition: { ...f.trigger_condition, value: e.target.value } }))}>
+                    <option value="">Select...</option>
+                    {triggerField.options.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.trigger_condition.value} onChange={e => setForm(f => ({ ...f, trigger_condition: { ...f.trigger_condition, value: e.target.value } }))} placeholder="Value..." />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <GitBranch size={16} className="text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-bold text-slate-800 dark:text-white">Task Steps ({form.steps.length})</span>
+            </div>
+            <button onClick={addStep} className="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1"><Plus size={14} /> Add Step</button>
+          </div>
+
+          {form.steps.length === 0 && <div className="text-sm text-slate-400 italic py-4 text-center">No steps yet. Add steps that will become tasks when the trigger fires.</div>}
+
+          <div className="space-y-3">
+            {form.steps.map((step, idx) => (
+              <div key={step._tempId || idx} className="p-4 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/50">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                    <span className="text-xs font-semibold text-slate-500">Step {idx + 1}</span>
+                    {step.depends_on_step_index != null && step.depends_on_step_index >= 0 && (
+                      <span className="text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full flex items-center gap-1"><ArrowRight size={10} /> After Step {step.depends_on_step_index + 1}</span>
+                    )}
+                  </div>
+                  <button onClick={() => removeStep(idx)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Task Title *</label>
+                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.title} onChange={e => updateStep(idx, "title", e.target.value)} placeholder="e.g. Notify Bankruptcy Team" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Assigned Role</label>
+                    <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.assigned_role || ""} onChange={e => updateStep(idx, "assigned_role", e.target.value)}>
+                      <option value="">Select role...</option>
+                      {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Due In (days)</label>
+                    <input type="number" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.due_in_days || ""} onChange={e => updateStep(idx, "due_in_days", e.target.value ? parseInt(e.target.value) : null)} min="0" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Priority</label>
+                    <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.priority || "Medium"} onChange={e => updateStep(idx, "priority", e.target.value)}>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Urgent">Urgent</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Depends On</label>
+                    <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.depends_on_step_index != null ? step.depends_on_step_index : ""} onChange={e => updateStep(idx, "depends_on_step_index", e.target.value !== "" ? parseInt(e.target.value) : null)}>
+                      <option value="">None (immediate)</option>
+                      {form.steps.map((s, si) => si !== idx ? <option key={si} value={si}>Step {si + 1}: {s.title || "(untitled)"}</option> : null)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Specific User</label>
+                    <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.assigned_user_id || ""} onChange={e => updateStep(idx, "assigned_user_id", e.target.value ? parseInt(e.target.value) : null)}>
+                      <option value="">Use role assignment</option>
+                      {(allUsers || []).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={!!step.recurring} onChange={e => updateStep(idx, "recurring", e.target.checked)} className="accent-amber-500" />
+                    <span className="text-slate-600 dark:text-slate-300">Recurring</span>
+                  </label>
+                  {step.recurring && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-500">every</span>
+                      <input type="number" className="w-16 px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={step.recurring_days || ""} onChange={e => updateStep(idx, "recurring_days", e.target.value ? parseInt(e.target.value) : null)} min="1" />
+                      <span className="text-slate-500">days</span>
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={step.auto_escalate !== false} onChange={e => updateStep(idx, "auto_escalate", e.target.checked)} className="accent-amber-500" />
+                    <span className="text-slate-600 dark:text-slate-300">Auto-escalate</span>
+                  </label>
+                </div>
+
+                {step.notes !== undefined && (
+                  <div className="mt-2">
+                    <input className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-600 dark:text-slate-300" value={step.notes || ""} onChange={e => updateStep(idx, "notes", e.target.value)} placeholder="Optional notes..." />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            {form.is_active ? <ToggleRight size={20} className="text-green-500" /> : <ToggleLeft size={20} className="text-slate-400" />}
+            <span className={form.is_active ? "text-green-700 dark:text-green-400 font-semibold" : "text-slate-500"}>{form.is_active ? "Active" : "Inactive"}</span>
+            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="hidden" />
+          </label>
+          <div className="flex gap-2">
+            <button onClick={resetForm} className="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">Cancel</button>
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 font-semibold">{saving ? "Saving..." : editingFlow ? "Update Flow" : "Create Flow"}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">Task Flows</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Automate task creation based on case field changes</p>
+        </div>
+        <button onClick={() => { resetForm(); setShowEditor(true); }} className="px-4 py-2 text-sm font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2"><Plus size={16} /> New Flow</button>
+      </div>
+
+      {!loaded && <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-amber-500" /></div>}
+
+      {loaded && flows.length === 0 && (
+        <div className="text-center py-16">
+          <GitBranch size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600" />
+          <p className="text-slate-500 dark:text-slate-400 text-sm">No task flows yet. Create one to automate task creation.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {flows.map(flow => (
+          <div key={flow.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h4 className="font-semibold text-slate-800 dark:text-white">{flow.name}</h4>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${flow.isActive ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}>{flow.isActive ? "Active" : "Inactive"}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{flow.triggerOn === "both" ? "Create & Update" : flow.triggerOn === "create" ? "On Create" : "On Update"}</span>
+                </div>
+                {flow.description && <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{flow.description}</p>}
+                <div className="flex items-center gap-2 mt-2">
+                  <Zap size={12} className="text-amber-500" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{condSummary(flow.triggerCondition)}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-4">
+                <button onClick={() => handleEdit(flow)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Pencil size={15} /></button>
+                <button onClick={() => handleDelete(flow)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={15} /></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Custom Dashboard Widget Builder ─────────────────────────────────────────
+
+const WIDGET_DATA_SOURCES = [
+  { value: "cases", label: "Cases" },
+  { value: "tasks", label: "Tasks" },
+  { value: "deadlines", label: "Deadlines" },
+  { value: "contacts", label: "Contacts" },
+  { value: "correspondence", label: "Correspondence" },
+  { value: "expenses", label: "Expenses" },
+];
+
+const WIDGET_TYPES = [
+  { value: "metric", label: "Metric", desc: "Single number (count, sum, avg)", icon: BarChart2 },
+  { value: "list", label: "List", desc: "Filtered records table", icon: ListChecks },
+  { value: "chart", label: "Chart", desc: "Bar or pie chart", icon: BarChart3 },
+];
+
+function CustomDashboardWidgetsTab({ currentUser, confirmDelete }) {
+  const [widgets, setWidgets] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingWidget, setEditingWidget] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [form, setForm] = useState({ name: "", widget_type: "metric", data_source: "cases", size: "half", visibility: "private", config: { aggregation: "count", target_field: "", filters: [], columns: "", sort_by: "", sort_dir: "ASC", row_limit: 10, chart_type: "bar", chart_field: "" } });
+
+  useEffect(() => { if (!loaded) { apiGetCustomWidgets().then(r => { setWidgets(r); setLoaded(true); }).catch(() => setLoaded(true)); } }, [loaded]);
+
+  const resetForm = () => { setForm({ name: "", widget_type: "metric", data_source: "cases", size: "half", visibility: "private", config: { aggregation: "count", target_field: "", filters: [], columns: "", sort_by: "", sort_dir: "ASC", row_limit: 10, chart_type: "bar", chart_field: "" } }); setEditingWidget(null); setShowEditor(false); setPreview(null); };
+
+  const handleEdit = (w) => {
+    setForm({ name: w.name, widget_type: w.widgetType || w.widget_type, data_source: w.dataSource || w.data_source, size: w.size || "half", visibility: w.visibility || "private", config: w.config || {} });
+    setEditingWidget(w);
+    setShowEditor(true);
+    setPreview(null);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert("Widget name is required");
+    setSaving(true);
+    try {
+      const payload = { name: form.name, widgetType: form.widget_type, dataSource: form.data_source, size: form.size, visibility: form.visibility, config: form.config };
+      if (editingWidget) {
+        const updated = await apiUpdateCustomWidget(editingWidget.id, payload);
+        setWidgets(prev => prev.map(w => w.id === editingWidget.id ? updated : w));
+      } else {
+        const created = await apiCreateCustomWidget(payload);
+        setWidgets(prev => [...prev, created]);
+      }
+      resetForm();
+    } catch (e) { alert("Save failed: " + e.message); }
+    setSaving(false);
+  };
+
+  const handleDelete = (w) => { confirmDelete(() => { apiDeleteCustomWidget(w.id).then(() => setWidgets(prev => prev.filter(x => x.id !== w.id))).catch(e => alert("Delete failed: " + e.message)); }); };
+
+  const handlePreview = async () => {
+    setPreviewing(true);
+    try {
+      const result = await apiRunCustomWidget({ widgetType: form.widget_type, dataSource: form.data_source, config: form.config });
+      setPreview(result);
+    } catch (e) { alert("Preview failed: " + e.message); }
+    setPreviewing(false);
+  };
+
+  const addFilter = () => { setForm(f => ({ ...f, config: { ...f.config, filters: [...(f.config.filters || []), { field: "", operator: "equals", value: "" }] } })); };
+  const updateFilter = (idx, key, val) => { setForm(f => ({ ...f, config: { ...f.config, filters: f.config.filters.map((fl, i) => i === idx ? { ...fl, [key]: val } : fl) } })); };
+  const removeFilter = (idx) => { setForm(f => ({ ...f, config: { ...f.config, filters: f.config.filters.filter((_, i) => i !== idx) } })); };
+
+  const typeIcon = (t) => { const W = WIDGET_TYPES.find(x => x.value === (t?.widgetType || t?.widget_type || t)); return W ? W.icon : BarChart2; };
+
+  if (showEditor) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{editingWidget ? "Edit Widget" : "New Dashboard Widget"}</h3>
+          <button onClick={resetForm} className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Cancel</button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Widget Name *</label>
+            <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Active Cases Count" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Data Source</label>
+            <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.data_source} onChange={e => setForm(f => ({ ...f, data_source: e.target.value }))}>
+              {WIDGET_DATA_SOURCES.map(ds => <option key={ds.value} value={ds.value}>{ds.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">Widget Type</label>
+          <div className="grid grid-cols-3 gap-3">
+            {WIDGET_TYPES.map(t => {
+              const TIcon = t.icon;
+              return (
+                <div key={t.value} onClick={() => setForm(f => ({ ...f, widget_type: t.value }))} className={`p-3 rounded-xl border-2 cursor-pointer transition-all text-center ${form.widget_type === t.value ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20" : "border-slate-200 dark:border-slate-600 hover:border-slate-300"}`}>
+                  <TIcon size={20} className={`mx-auto mb-1 ${form.widget_type === t.value ? "text-amber-600" : "text-slate-400"}`} />
+                  <div className="text-sm font-semibold">{t.label}</div>
+                  <div className="text-xs text-slate-400">{t.desc}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {form.widget_type === "metric" && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Aggregation</label>
+              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.aggregation || "count"} onChange={e => setForm(f => ({ ...f, config: { ...f.config, aggregation: e.target.value } }))}>
+                <option value="count">Count</option>
+                <option value="sum">Sum</option>
+                <option value="average">Average</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Target Field (for sum/avg)</label>
+              <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.target_field || ""} onChange={e => setForm(f => ({ ...f, config: { ...f.config, target_field: e.target.value } }))} placeholder="e.g. settlement_amount" />
+            </div>
+          </div>
+        )}
+
+        {form.widget_type === "list" && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Columns (comma-separated)</label>
+              <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.columns || ""} onChange={e => setForm(f => ({ ...f, config: { ...f.config, columns: e.target.value } }))} placeholder="e.g. title, status, client_name" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Sort By</label>
+              <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.sort_by || ""} onChange={e => setForm(f => ({ ...f, config: { ...f.config, sort_by: e.target.value } }))} placeholder="e.g. created_at" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Row Limit</label>
+              <input type="number" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.row_limit || 10} onChange={e => setForm(f => ({ ...f, config: { ...f.config, row_limit: parseInt(e.target.value) || 10 } }))} min="1" max="100" />
+            </div>
+          </div>
+        )}
+
+        {form.widget_type === "chart" && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Chart Type</label>
+              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.chart_type || "bar"} onChange={e => setForm(f => ({ ...f, config: { ...f.config, chart_type: e.target.value } }))}>
+                <option value="bar">Bar Chart</option>
+                <option value="pie">Pie Chart</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Group By Field</label>
+              <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.config.chart_field || ""} onChange={e => setForm(f => ({ ...f, config: { ...f.config, chart_field: e.target.value } }))} placeholder="e.g. status, case_type" />
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Filters</label>
+            <button onClick={addFilter} className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"><Plus size={12} /> Add Filter</button>
+          </div>
+          {(form.config.filters || []).map((fl, idx) => (
+            <div key={idx} className="flex items-center gap-2 mb-2">
+              <input className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={fl.field} onChange={e => updateFilter(idx, "field", e.target.value)} placeholder="Field..." />
+              <select className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={fl.operator} onChange={e => updateFilter(idx, "operator", e.target.value)}>
+                <option value="equals">Equals</option>
+                <option value="not_equals">Not Equals</option>
+                <option value="contains">Contains</option>
+                <option value="greater_than">Greater Than</option>
+                <option value="less_than">Less Than</option>
+                <option value="is_true">Is True</option>
+                <option value="is_false">Is False</option>
+              </select>
+              {!["is_true","is_false"].includes(fl.operator) && <input className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={fl.value} onChange={e => updateFilter(idx, "value", e.target.value)} placeholder="Value..." />}
+              <button onClick={() => removeFilter(idx)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Size</label>
+            <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))}>
+              <option value="quarter">Quarter</option>
+              <option value="half">Half</option>
+              <option value="full">Full</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Visibility</label>
+            <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.visibility} onChange={e => setForm(f => ({ ...f, visibility: e.target.value }))}>
+              <option value="private">Private (only me)</option>
+              <option value="public">Public (all users)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+          <button onClick={handlePreview} disabled={previewing} className="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center gap-2">{previewing ? <><Loader2 size={14} className="animate-spin" /> Running...</> : <><Eye size={14} /> Preview</>}</button>
+          <div className="flex gap-2">
+            <button onClick={resetForm} className="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">Cancel</button>
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 font-semibold">{saving ? "Saving..." : editingWidget ? "Update Widget" : "Create Widget"}</button>
+          </div>
+        </div>
+
+        {preview && (
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 mt-4">
+            <div className="text-xs font-semibold text-slate-500 mb-2">Preview Result</div>
+            {form.widget_type === "metric" && <div className="text-3xl font-bold text-slate-800 dark:text-white">{preview.value != null ? preview.value : "—"}</div>}
+            {form.widget_type === "list" && preview.rows && (
+              <div className="overflow-x-auto max-h-64">
+                <table className="w-full text-sm">
+                  <thead><tr>{(preview.columns || []).map(c => <th key={c} className="text-left py-1 px-2 text-xs font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-600">{c}</th>)}</tr></thead>
+                  <tbody>{(preview.rows || []).slice(0, 20).map((row, ri) => <tr key={ri}>{(preview.columns || []).map(c => <td key={c} className="py-1 px-2 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700">{String(row[c] ?? "")}</td>)}</tr>)}</tbody>
+                </table>
+              </div>
+            )}
+            {form.widget_type === "chart" && preview.data && (
+              <div className="space-y-1">{(preview.data || []).slice(0, 15).map((d, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span className="w-24 text-right text-slate-500 truncate">{d.label}</span>
+                  <div className="flex-1 bg-slate-200 dark:bg-slate-600 rounded-full h-5 overflow-hidden">
+                    <div className="bg-amber-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, (d.value / Math.max(...preview.data.map(x => x.value), 1)) * 100)}%` }} />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-10 text-right">{d.value}</span>
+                </div>
+              ))}</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">Dashboard Widgets</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Create custom widgets for your dashboard</p>
+        </div>
+        <button onClick={() => { resetForm(); setShowEditor(true); }} className="px-4 py-2 text-sm font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2"><Plus size={16} /> New Widget</button>
+      </div>
+
+      {!loaded && <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-amber-500" /></div>}
+
+      {loaded && widgets.length === 0 && (
+        <div className="text-center py-16">
+          <BarChart2 size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600" />
+          <p className="text-slate-500 dark:text-slate-400 text-sm">No custom widgets yet. Create one to add to your dashboard.</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {widgets.map(w => {
+          const TIcon = typeIcon(w);
+          return (
+            <div key={w.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><TIcon size={18} className="text-amber-600" /></div>
+                  <div>
+                    <h4 className="font-semibold text-sm text-slate-800 dark:text-white">{w.name}</h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-400">{w.widgetType || w.widget_type} / {w.dataSource || w.data_source}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">{w.size}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">{w.visibility}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => handleEdit(w)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Pencil size={14} /></button>
+                  <button onClick={() => handleDelete(w)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Customization View ──────────────────────────────────────────────────────
+
+function CustomizationView({ currentUser, allCases, allUsers, pinnedCaseIds, onMenuToggle, confirmDelete }) {
+  const [tab, setTab] = useState("agents");
+
+  const tabs = [
+    { id: "agents", label: "Custom Agents", icon: Bot },
+    { id: "reports", label: "Custom Reports", icon: BarChart3 },
+    { id: "widgets", label: "Dashboard Widgets", icon: BarChart2 },
+    { id: "flows", label: "Task Flows", icon: GitBranch },
+  ];
+
+  return (
+    <>
+      <header className="header">
+        <button className="md:hidden p-1" onClick={onMenuToggle}><Menu size={20} /></button>
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><SlidersHorizontal size={22} className="text-amber-500" /> Customization</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Custom agents, reports, widgets, and automation flows</p>
+        </div>
+      </header>
+      <div className="p-6">
+        <div className="border-b border-slate-200 dark:border-slate-700 mb-6 flex gap-0 overflow-x-auto">
+          {tabs.map(t => {
+            const TIcon = t.icon;
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)} className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors bg-transparent border-0 cursor-pointer -mb-[2px] flex items-center gap-1.5 whitespace-nowrap ${tab === t.id ? "border-b-amber-500 text-amber-700 dark:text-amber-400" : "border-b-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                <TIcon size={15} /> {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === "agents" && <CustomAgentsTab currentUser={currentUser} allCases={allCases} pinnedCaseIds={pinnedCaseIds} />}
+        {tab === "reports" && <CustomReportBuilder currentUser={currentUser} />}
+        {tab === "widgets" && <CustomDashboardWidgetsTab currentUser={currentUser} confirmDelete={confirmDelete} />}
+        {tab === "flows" && <TaskFlowsTab currentUser={currentUser} allUsers={allUsers} confirmDelete={confirmDelete} />}
       </div>
     </>
   );

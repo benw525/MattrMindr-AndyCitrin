@@ -3,6 +3,7 @@ const multer = require("multer");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { extractText } = require("../utils/extract-text");
+const { evaluateFlowsForCase } = require("./task-flows");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -234,6 +235,12 @@ router.post("/", requireAuth, async (req, res) => {
         );
       } catch (e) { console.error("Auto-task creation error:", e.message); }
     }
+    try {
+      const newCaseData = toFrontend(newCase);
+      newCaseData._triggeredBy = req.session.userId;
+      evaluateFlowsForCase(newCase.id, null, newCaseData, "create").catch(e => console.error("Task flow eval (create) error:", e.message));
+    } catch (e) { console.error("Task flow trigger (create) error:", e.message); }
+
     return res.status(201).json(toFrontend(newCase));
   } catch (err) {
     console.error("Case create error:", err);
@@ -311,6 +318,14 @@ router.put("/:id", requireAuth, async (req, res) => {
         }
       } catch (e) { console.error("Litigation task reassign error:", e.message); }
     }
+
+    try {
+      const oldCase = toFrontend(existing.rows[0]);
+      const newCase = toFrontend(rows[0]);
+      newCase._triggeredBy = req.session.userId;
+      evaluateFlowsForCase(req.params.id, oldCase, newCase).catch(e => console.error("Task flow eval error:", e.message));
+    } catch (e) { console.error("Task flow trigger error:", e.message); }
+
     return res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Case update error:", err);

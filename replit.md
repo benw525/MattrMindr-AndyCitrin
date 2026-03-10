@@ -55,6 +55,8 @@ server/
     trial-center-ai.js — Trial Center AI agents (civil PI context)
     custom-reports.js — Custom Report Builder with AI assist
     custom-agents-builder.js — Custom AI Agents with multi-model support
+    task-flows.js     — Custom Task Flows CRUD + condition evaluation engine
+    custom-dashboard-widgets.js — Custom Dashboard Widgets CRUD + run/execute
     portal-auth.js  — Client portal auth (login/logout/me/change-password)
     portal-case.js  — Client portal data (case info, messages, documents)
     portal-admin.js — Firm-side portal management (settings, clients, messaging)
@@ -123,12 +125,38 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 - **Settlement Report** — Settled cases with amounts, contingency fees, time-to-settlement
 - **Custom Report Builder** — Dynamic SQL-based reports from any data source, AI-assisted configuration, saved reports, CSV export
 
+### Customization Section (App Admin Only)
+- **Navigation**: "Customization" nav item visible to App Admin users, located after Staff and before Deleted Data
+- **Sub-tabs**: Custom Agents, Custom Reports, Dashboard Widgets, Task Flows
+- Consolidates previously-scattered custom builders into one location
+
 ### Custom AI Agents
 - Multi-model support: GPT-4o, GPT-4o Mini, Claude 3.5 Sonnet, Gemini 2.0 Flash
 - Run mode and Chat mode with case context injection
 - Instruction file upload, temperature/max_tokens control
 - Context sources: notes, filings, documents, medical_records
-- Located under AI Center > Custom Agents tab
+- Located under Customization > Custom Agents tab (also accessible from AI Center)
+
+### Custom Task Flows
+- **Tables**: `custom_task_flows`, `custom_task_flow_steps`, `task_flow_executions`
+- **Route**: `server/routes/task-flows.js` — CRUD + `evaluateFlowsForCase()` engine
+- **Trigger conditions**: field-based conditions (status, stage, caseType, inLitigation, clientBankruptcy, stateJurisdiction, county, dispositionType, injuryType) with operators (equals, not_equals, contains, is_true, is_false, changed_to)
+- **Trigger timing**: on case create, update, or both
+- **Steps**: Each flow has ordered steps with title, assigned role or specific user, due-in-days, priority, dependencies (step chaining), recurrence, and auto-escalation settings
+- **Execution**: When a case update triggers a flow condition, tasks are auto-created with proper due dates, assignments, and dependency tracking; duplicate execution prevented via `task_flow_executions` table
+- **Integration**: `evaluateFlowsForCase()` called from `server/routes/cases.js` PUT endpoint after case updates
+- `tasks.source_flow_id` column tracks which flow created each task
+- Located under Customization > Task Flows tab
+
+### Custom Dashboard Widgets
+- **Table**: `custom_dashboard_widgets` (user_id, name, widget_type, data_source, config, size, visibility)
+- **Route**: `server/routes/custom-dashboard-widgets.js` — CRUD + `/run` endpoint
+- **Widget types**: Metric (count/sum/average), List (filtered records table), Chart (bar/pie)
+- **Data sources**: cases, tasks, deadlines, contacts, correspondence, expenses
+- **Filters**: field/operator/value conditions per widget
+- **Dashboard integration**: Custom widgets appear in Customize Dashboard modal alongside built-in widgets; rendered via `CustomDashboardWidgetRenderer` component
+- **Visibility**: private (only creator) or public (all users)
+- Located under Customization > Dashboard Widgets tab
 
 ### Document Viewer
 - **DOCX/DOC**: mammoth HTML conversion, read-only rendered view
@@ -172,8 +200,8 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 
 ### Runtime Migrations
 - `ensureColumns()` in server/index.js runs before app.listen()
-- Auto-creates tables: transcript_history, custom_reports, custom_agents
-- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status
+- Auto-creates tables: transcript_history, custom_reports, custom_agents, custom_task_flows, custom_task_flow_steps, task_flow_executions, custom_dashboard_widgets
+- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status, tasks.source_flow_id
 
 ### Contact Categories
 Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorney, Judge, Court, Witness, Expert, Lienholder, Family Member, Miscellaneous

@@ -53,6 +53,8 @@ const voicemailsRoutes       = require("./routes/voicemails");
 const deletedDataRoutes      = require("./routes/deleted-data");
 const customReportsRoutes    = require("./routes/custom-reports");
 const customAgentsBuilderRoutes = require("./routes/custom-agents-builder");
+const taskFlowsRoutes          = require("./routes/task-flows");
+const customDashboardWidgetsRoutes = require("./routes/custom-dashboard-widgets");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -133,6 +135,8 @@ app.use("/api/voicemails", voicemailsRoutes);
 app.use("/api/deleted-data", deletedDataRoutes);
 app.use("/api/custom-reports", customReportsRoutes);
 app.use("/api/custom-agents-builder", customAgentsBuilderRoutes);
+app.use("/api/task-flows", taskFlowsRoutes);
+app.use("/api/custom-dashboard-widgets", customDashboardWidgetsRoutes);
 app.use("/api/microsoft", microsoftRoutes);
 app.use("/api/onlyoffice", onlyofficeRoutes);
 app.use("/api/scribe", scribeRoutes);
@@ -276,9 +280,64 @@ async function ensureColumns() {
     `ALTER TABLE case_liens ADD COLUMN IF NOT EXISTS reduction_is_percent BOOLEAN DEFAULT false`,
     `ALTER TABLE case_negotiations ADD COLUMN IF NOT EXISTS policy_id INTEGER`,
     `ALTER TABLE case_negotiations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS source_flow_id INTEGER`,
+  ];
+
+  const newTableCreations = [
+    `CREATE TABLE IF NOT EXISTS custom_task_flows (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      trigger_condition JSONB NOT NULL,
+      trigger_on TEXT DEFAULT 'update',
+      is_active BOOLEAN DEFAULT true,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS custom_task_flow_steps (
+      id SERIAL PRIMARY KEY,
+      flow_id INTEGER NOT NULL REFERENCES custom_task_flows(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      assigned_role VARCHAR(50),
+      assigned_user_id INTEGER REFERENCES users(id),
+      due_in_days INTEGER,
+      priority TEXT DEFAULT 'Medium',
+      depends_on_step_id INTEGER REFERENCES custom_task_flow_steps(id) ON DELETE SET NULL,
+      recurring BOOLEAN DEFAULT false,
+      recurring_days INTEGER,
+      auto_escalate BOOLEAN DEFAULT true,
+      escalate_medium_days INTEGER DEFAULT 30,
+      escalate_high_days INTEGER DEFAULT 14,
+      escalate_urgent_days INTEGER DEFAULT 7,
+      notes TEXT,
+      sort_order INTEGER DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_flow_executions (
+      id SERIAL PRIMARY KEY,
+      flow_id INTEGER NOT NULL REFERENCES custom_task_flows(id) ON DELETE CASCADE,
+      case_id INTEGER NOT NULL,
+      triggered_by INTEGER REFERENCES users(id),
+      triggered_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS custom_dashboard_widgets (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      name TEXT NOT NULL,
+      widget_type TEXT NOT NULL,
+      data_source TEXT NOT NULL,
+      config JSONB NOT NULL DEFAULT '{}',
+      size TEXT DEFAULT 'half',
+      visibility TEXT DEFAULT 'private',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
   ];
 
   for (const sql of tableCreations) {
+    await pool.query(sql).catch(() => {});
+  }
+  for (const sql of newTableCreations) {
     await pool.query(sql).catch(() => {});
   }
   for (const sql of migrations) {
