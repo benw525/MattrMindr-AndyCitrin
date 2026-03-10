@@ -9096,10 +9096,10 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                     <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>
                       Email: <span style={{ fontFamily: "monospace", color: "var(--c-text)", cursor: "pointer" }} onClick={() => {
-                        navigator.clipboard.writeText(`case-${c.id}@mcpd.mattrmindr.com`);
+                        navigator.clipboard.writeText(`case-${c.id}@plaintiff.mattrmindr.com`);
                         setCorrCopied(true);
                         setTimeout(() => setCorrCopied(false), 2000);
-                      }}>{corrCopied ? "Copied!" : `case-${c.id}@mcpd.mattrmindr.com`}</span>
+                      }}>{corrCopied ? "Copied!" : `case-${c.id}@plaintiff.mattrmindr.com`}</span>
                     </span>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {isAttorneyPlus && correspondence.filter(e => !e.isVoicemail).length > 0 && (
@@ -9131,7 +9131,7 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                   {corrLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading correspondence...</div>}
                   {!corrLoading && correspondence.length === 0 && (
                     <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
-                      No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "var(--c-text)" }}>case-{c.id}@mcpd.mattrmindr.com</span> and they will appear here.
+                      No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "var(--c-text)" }}>case-{c.id}@plaintiff.mattrmindr.com</span> and they will appear here.
                     </div>
                   )}
                   {!corrLoading && correspondence.map(email => {
