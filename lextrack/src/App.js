@@ -6399,6 +6399,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <input type="checkbox" checked={!!draft.inLitigation} onChange={e => setAndLog("inLitigation", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
                   {draft.inLitigation ? "IN LITIGATION" : "Litigation"}
                 </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.clientBankruptcy ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Client bankruptcy status">
+                  <input type="checkbox" checked={!!draft.clientBankruptcy} onChange={e => setAndLog("clientBankruptcy", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
+                  {draft.clientBankruptcy ? "BANKRUPTCY" : "Bankruptcy"}
+                </label>
               </div>
             )}
             <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 20, color: "var(--c-text-h)", fontWeight: 600, lineHeight: 1.2 }}>
@@ -6608,15 +6612,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   <div className="edit-field-key">Emergency Contact</div>
                   <div className="edit-field-val">
                     <input type="text" value={draft.clientEmergencyContact || ""} onChange={e => set("clientEmergencyContact", e.target.value)} onBlur={() => handleBlur("clientEmergencyContact")} placeholder="Name — Phone" style={{ width: "100%", fontSize: 13 }} />
-                  </div>
-                </div>
-                <div className="edit-field">
-                  <div className="edit-field-key">Bankruptcy</div>
-                  <div className="edit-field-val">
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
-                      <input type="checkbox" checked={!!draft.clientBankruptcy} onChange={e => setAndLog("clientBankruptcy", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
-                      {draft.clientBankruptcy ? "Yes" : "No"}
-                    </label>
                   </div>
                 </div>
               </div>
