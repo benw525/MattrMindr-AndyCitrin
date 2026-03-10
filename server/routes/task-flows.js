@@ -399,7 +399,7 @@ async function evaluateFlowsForCase(caseId, oldData, newData, triggerType) {
             dueDate, step.priority,
             step.recurring, step.recurring_days, step.auto_escalate,
             step.escalate_medium_days, step.escalate_high_days, step.escalate_urgent_days,
-            hasAnyDep, step.notes, flow.id,
+            hasAnyDep, step.notes || "", flow.id,
           ]
         );
         stepIdToTaskId[step.id] = taskRows[0].id;
