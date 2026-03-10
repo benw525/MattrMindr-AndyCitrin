@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const pool = require("../db");
 const { sendTempPasswordEmail, sendPasswordResetEmail } = require("../email");
 const { requireAuth } = require("../middleware/auth");
-const { authenticator } = require("otplib");
+const { generateSecret, generateURI, verifySync } = require("otplib");
 const QRCode = require("qrcode");
 
 const router = express.Router();
@@ -294,13 +294,13 @@ router.put("/preferences", requireAuth, async (req, res) => {
 
 router.post("/mfa/setup", requireAuth, async (req, res) => {
   try {
-    const secret = authenticator.generateSecret();
+    const secret = generateSecret();
     const { rows } = await pool.query("SELECT email FROM users WHERE id = $1", [req.session.userId]);
     if (!rows.length) return res.status(404).json({ error: "User not found" });
-    const otpauth = authenticator.keyuri(rows[0].email, "MattrMindr", secret);
+    const otpauth = generateURI({ issuer: "MattrMindr", label: rows[0].email, secret, type: "totp" });
     const qrDataUrl = await QRCode.toDataURL(otpauth);
     await pool.query("UPDATE users SET mfa_secret = $1 WHERE id = $2", [secret, req.session.userId]);
-    return res.json({ secret, qrDataUrl });
+    return res.json({ secret, qrCode: qrDataUrl });
   } catch (err) {
     console.error("MFA setup error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -309,13 +309,13 @@ router.post("/mfa/setup", requireAuth, async (req, res) => {
 
 router.post("/mfa/verify-setup", requireAuth, async (req, res) => {
   try {
-    const { code } = req.body;
+    const code = req.body.code || req.body.token;
     if (!code) return res.status(400).json({ error: "Code is required" });
     const { rows } = await pool.query("SELECT mfa_secret FROM users WHERE id = $1", [req.session.userId]);
     if (!rows.length) return res.status(404).json({ error: "User not found" });
     if (!rows[0].mfa_secret) return res.status(400).json({ error: "MFA not set up" });
-    const valid = authenticator.check(code.toString(), rows[0].mfa_secret);
-    if (!valid) return res.status(400).json({ error: "Invalid code. Try again." });
+    const result = verifySync({ token: code.toString(), secret: rows[0].mfa_secret });
+    if (!result.valid) return res.status(400).json({ error: "Invalid code. Try again." });
     await pool.query("UPDATE users SET mfa_enabled = TRUE WHERE id = $1", [req.session.userId]);
     return res.json({ ok: true });
   } catch (err) {
@@ -326,15 +326,15 @@ router.post("/mfa/verify-setup", requireAuth, async (req, res) => {
 
 router.post("/mfa/verify", async (req, res) => {
   try {
-    const { code } = req.body;
+    const code = req.body.code || req.body.token;
     if (!code) return res.status(400).json({ error: "Code is required" });
     const pendingUserId = req.session.mfaPendingUserId;
     if (!pendingUserId) return res.status(400).json({ error: "No MFA verification pending" });
     const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [pendingUserId]);
     if (!rows.length) return res.status(404).json({ error: "User not found" });
     const user = rows[0];
-    const valid = authenticator.check(code.toString(), user.mfa_secret);
-    if (!valid) return res.status(401).json({ error: "Invalid verification code" });
+    const result = verifySync({ token: code.toString(), secret: user.mfa_secret });
+    if (!result.valid) return res.status(401).json({ error: "Invalid verification code" });
 
     if (req.session.mfaRememberMe) {
       req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
