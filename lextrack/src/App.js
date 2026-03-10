@@ -12827,7 +12827,7 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Field</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.trigger_condition.field} onChange={e => setForm(f => ({ ...f, trigger_condition: { ...f.trigger_condition, field: e.target.value, value: "" } }))}>
+              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm" value={form.trigger_condition.field} onChange={e => { const newField = e.target.value; const fieldDef = CASE_TRIGGER_FIELDS.find(x => x.value === newField); const newOp = fieldDef?.type === "boolean" ? "is_true" : "equals"; setForm(f => ({ ...f, trigger_condition: { ...f.trigger_condition, field: newField, value: "", operator: newOp } })); }}>
                 {CASE_TRIGGER_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
               </select>
             </div>
@@ -12951,7 +12951,7 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
 
                               {cond.type === "case_field" && (
                                 <>
-                                  <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.field || "status"} onChange={e => updateCondition(idx, ci, { field: e.target.value, value: "" })}>
+                                  <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.field || "status"} onChange={e => { const nf = e.target.value; const fd = CASE_TRIGGER_FIELDS.find(x => x.value === nf); updateCondition(idx, ci, { field: nf, value: "", operator: fd?.type === "boolean" ? "is_true" : "equals" }); }}>
                                     {CASE_TRIGGER_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                                   </select>
                                   <select className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs" value={cond.operator || "equals"} onChange={e => updateCondition(idx, ci, { operator: e.target.value })}>
