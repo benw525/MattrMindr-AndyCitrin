@@ -7043,9 +7043,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div style={{ display: "flex", flexDirection: "column" }}>
                           <label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", marginBottom: 2 }}>Fee ({draft.feeIsFlat ? "Flat $" : "%"})</label>
                           <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                            <input type="number" step="any" placeholder={draft.feeIsFlat ? "0.00" : "33.33"} style={{ flex: 1, fontSize: 13, padding: "6px 10px", borderRadius: "6px 0 0 6px", border: "1px solid var(--c-border)", borderRight: "none", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
+                            <input type="number" step="any" placeholder={draft.feeIsFlat ? "0.00" : "33.33"} style={{ flex: 1, fontSize: 13, padding: "6px 10px", borderRadius: "6px 0 0 6px", border: "1px solid var(--c-border)", borderRight: "none", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
                               value={draft.contingencyFeePct || ""} onChange={e => set("contingencyFeePct", e.target.value)} onBlur={() => handleBlur("contingencyFeePct")} readOnly={!editMode} />
-                            <select style={{ fontSize: 12, padding: "6px 8px", borderRadius: "0 6px 6px 0", border: "1px solid var(--c-border)", background: editMode ? "var(--c-surface, var(--c-bg))" : "transparent", color: "var(--c-text)", cursor: editMode ? "pointer" : "default", fontWeight: 600 }}
+                            <select style={{ fontSize: 12, padding: "6px 8px", borderRadius: "0 6px 6px 0", border: "1px solid var(--c-border)", background: editMode ? "var(--c-surface, var(--c-bg))" : "transparent", color: "var(--c-text)", cursor: editMode ? "pointer" : "default", fontWeight: 600, flexShrink: 0 }}
                               value={draft.feeIsFlat ? "$" : "%"} onChange={e => { set("feeIsFlat", e.target.value === "$"); setAndLog("feeIsFlat", e.target.value === "$"); }} disabled={!editMode}>
                               <option value="%">%</option>
                               <option value="$">$</option>
@@ -8174,9 +8174,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         defaultValue={d.billed || ""} onBlur={e => saveDmg({ billed: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {d.reductionIsPercent ? "(%)" : "($)"}</label>
                       <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                        <input type="number" placeholder={d.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
+                        <input type="number" placeholder={d.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
                           defaultValue={d.reductionValue || ""} onBlur={e => saveDmg({ reductionValue: e.target.value })} />
-                        <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer" }}
+                        <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
                           defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => saveDmg({ reductionIsPercent: e.target.value === "%" })}>
                           <option value="$">$</option><option value="%">%</option>
                         </select>
@@ -8268,9 +8268,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {l.reductionIsPercent ? "(%)" : "($)"}</label>
                       <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                        <input type="number" placeholder={l.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
+                        <input type="number" placeholder={l.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
                           defaultValue={l.reductionValue || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, reductionValue: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} />
-                        <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer" }}
+                        <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
                           defaultValue={l.reductionIsPercent ? "%" : "$"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, reductionIsPercent: e.target.value === "%" }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
                           <option value="$">$</option><option value="%">%</option>
                         </select>
