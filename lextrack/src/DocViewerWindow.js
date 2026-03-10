@@ -14,8 +14,10 @@ export default function DocViewerWindow({
   onViewerUpdate,
 }) {
   const [officeViewMode, setOfficeViewMode] = useState(!!viewer.officeViewUrl);
+  const [officeFailed, setOfficeFailed] = useState(false);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const officeTimerRef = useRef(null);
   const draggingRef = useRef(false);
   const dragStartRef = useRef({ mx: 0, my: 0, ex: 0, ey: 0 });
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
@@ -195,11 +197,46 @@ export default function DocViewerWindow({
         overflow: "hidden",
       };
 
+  const handleOfficeIframeError = () => {
+    setOfficeFailed(true);
+    setOfficeViewMode(false);
+  };
+
+  useEffect(() => {
+    if (officeViewMode && viewer.officeViewUrl && isOfficeType && !officeFailed) {
+      officeTimerRef.current = setTimeout(() => {
+        setOfficeFailed(true);
+        setOfficeViewMode(false);
+      }, 8000);
+    }
+    return () => { if (officeTimerRef.current) clearTimeout(officeTimerRef.current); };
+  }, [officeViewMode, viewer.officeViewUrl, isOfficeType, officeFailed]);
+
+  const handleOfficeLoad = () => {
+    if (officeTimerRef.current) clearTimeout(officeTimerRef.current);
+  };
+
   const renderContent = () => {
-    if (officeViewMode && viewer.officeViewUrl && isOfficeType) {
-      return <iframe src={viewer.officeViewUrl} style={{ width: "100%", height: "100%", border: "none" }} title="Office Viewer" />;
+    if (officeViewMode && viewer.officeViewUrl && isOfficeType && !officeFailed) {
+      return <iframe src={viewer.officeViewUrl} onLoad={handleOfficeLoad} onError={handleOfficeIframeError} style={{ width: "100%", height: "100%", border: "none" }} title="Office Viewer" />;
     }
 
+    if (officeFailed && isOfficeType) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <div style={{ padding: "6px 12px", background: "#fef3c7", color: "#92400e", fontSize: 11, textAlign: "center", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <span>Office Online preview unavailable — showing built-in viewer</span>
+            <button onClick={() => { setOfficeFailed(false); setOfficeViewMode(true); }} style={{ fontSize: 10, padding: "2px 8px", background: "#fbbf24", color: "#78350f", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>Retry</button>
+          </div>
+          <div style={{ flex: 1, overflow: "auto" }}>{renderBuiltInContent()}</div>
+        </div>
+      );
+    }
+
+    return renderBuiltInContent();
+  };
+
+  const renderBuiltInContent = () => {
     if (viewer.docxHtml !== null && viewer.docxHtml !== undefined) {
       return <div style={{ padding: 32, background: "#fff", color: "#1e293b", minHeight: "100%", fontSize: 14, lineHeight: 1.7, fontFamily: "Georgia, serif" }} dangerouslySetInnerHTML={{ __html: viewer.docxHtml }} />;
     }
@@ -271,7 +308,7 @@ export default function DocViewerWindow({
           {viewer.filename || "Document"}
         </span>
 
-        {viewer.officeViewUrl && isOfficeType && (
+        {viewer.officeViewUrl && isOfficeType && !officeFailed && (
           <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid var(--c-border, #e2e8f0)" }}>
             <button onClick={(e) => { e.stopPropagation(); setOfficeViewMode(true); }} style={{ padding: "2px 8px", fontSize: 10, fontWeight: 600, background: officeViewMode ? "#6366f1" : "transparent", color: officeViewMode ? "#fff" : "var(--c-text3, #64748b)", border: "none", cursor: "pointer" }}>Office</button>
             <button onClick={(e) => { e.stopPropagation(); setOfficeViewMode(false); }} style={{ padding: "2px 8px", fontSize: 10, fontWeight: 600, background: !officeViewMode ? "#6366f1" : "transparent", color: !officeViewMode ? "#fff" : "var(--c-text3, #64748b)", border: "none", cursor: "pointer" }}>Built-in</button>

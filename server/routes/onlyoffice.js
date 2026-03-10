@@ -34,7 +34,7 @@ router.get("/status", requireAuth, async (req, res) => {
   const configured = !!(OO_URL && OO_PASSWORD && OO_ROOM_ID);
   if (!configured) return res.json({ configured: false, available: false });
   const token = await getSession();
-  res.json({ configured, available: !!token });
+  res.json({ configured, available: !!token, url: OO_URL || null });
 });
 
 router.post("/upload-for-edit", requireAuth, async (req, res) => {

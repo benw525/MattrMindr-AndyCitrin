@@ -2970,59 +2970,72 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
     setBusy("");
   };
 
-  const sectionLabel = "text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2";
-  const rowStyle = "flex items-center justify-between py-2 px-3 rounded-lg border mb-2";
-  const connBadge = "text-[10px] font-semibold px-2 py-0.5 rounded-full";
-  const btnSmall = "text-xs bg-transparent border border-slate-300 dark:border-slate-600 rounded px-3 py-1.5 cursor-pointer font-medium";
+  const cardStyle = "flex items-center gap-3 p-4 rounded-xl border mb-3";
 
   return (
     <>
-      <div className={sectionLabel}>Integrations</div>
+      <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Connected Accounts</div>
 
-      {msStatus?.configured && (
-        <div className={`${rowStyle} ${msStatus?.connected ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Microsoft 365</span>
-            {msStatus?.connected && <span className={`${connBadge} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`}>Connected</span>}
-            {msStatus?.connected && msStatus?.email && <span className="text-[10px] text-slate-400 truncate">{msStatus.email}</span>}
-          </div>
-          {msStatus?.connected ? (
-            <button className={`${btnSmall} text-red-500 hover:text-red-700`} onClick={disconnectMs} disabled={busy === "ms"}>Disconnect</button>
-          ) : (
-            <button className={`${btnSmall} text-blue-600 hover:text-blue-800`} onClick={connectMs} disabled={busy === "ms"}>{busy === "ms" ? "..." : "Connect"}</button>
-          )}
+      <div className={`${cardStyle} ${msStatus?.connected ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #0078d4, #00bcf2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 21 21" fill="white"><rect x="1" y="1" width="9" height="9" rx="1"/><rect x="11" y="1" width="9" height="9" rx="1"/><rect x="1" y="11" width="9" height="9" rx="1"/><rect x="11" y="11" width="9" height="9" rx="1"/></svg>
         </div>
-      )}
-
-      {ooStatus?.configured && (
-        <div className={`${rowStyle} ${ooStatus?.available ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">ONLYOFFICE DocSpace</span>
-            {ooStatus?.available ? <span className={`${connBadge} bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400`}>Available</span> : <span className={`${connBadge} bg-red-100 text-red-600`}>Unavailable</span>}
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">Microsoft Office</div>
+          <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+            {msStatus?.connected ? `Connected — ${msStatus.email || "Microsoft account"}` : "Connect to edit documents in Microsoft Office"}
           </div>
         </div>
-      )}
+        {msStatus?.connected ? (
+          <button onClick={disconnectMs} disabled={busy === "ms"} className="text-xs font-semibold px-3 py-1.5 rounded-lg border-none cursor-pointer bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100">Disconnect</button>
+        ) : msStatus?.configured !== false ? (
+          <button onClick={connectMs} disabled={busy === "ms"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{busy === "ms" ? "..." : "Connect"}</button>
+        ) : (
+          <span style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: "#f1f5f9", color: "#94a3b8", borderRadius: 8 }}>Not Configured</span>
+        )}
+      </div>
 
-      <div className={`${rowStyle} ${scribeStatus?.connected ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">MattrMindrScribe</span>
-          {scribeStatus?.connected && <span className={`${connBadge} bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400`}>Connected</span>}
-          {scribeStatus?.connected && scribeStatus?.email && <span className="text-[10px] text-slate-400 truncate">{scribeStatus.email}</span>}
+      <div className={`${cardStyle} ${ooStatus?.available ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #ff6f3d, #ff4444)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>OO</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">ONLYOFFICE DocSpace</div>
+          <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+            {ooStatus?.available ? `Connected — ${ooStatus.url || "ONLYOFFICE instance"}` : ooStatus?.configured ? "Server unavailable" : "Not configured"}
+          </div>
+        </div>
+        {ooStatus?.available ? (
+          <span style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: "#dcfce7", color: "#16a34a", borderRadius: 8 }}>Active</span>
+        ) : ooStatus?.configured ? (
+          <span style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: "#fee2e2", color: "#dc2626", borderRadius: 8 }}>Offline</span>
+        ) : null}
+      </div>
+
+      <div className={`${cardStyle} ${scribeStatus?.connected ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #ef4444, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">MattrMindrScribe</div>
+          <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+            {scribeStatus?.connected ? `Connected — ${scribeStatus.url || scribeStatus.email || "Scribe instance"}` : "Connect to send files for AI transcription"}
+          </div>
         </div>
         {scribeStatus?.connected ? (
-          <button className={`${btnSmall} text-red-500 hover:text-red-700`} onClick={disconnectScribe} disabled={busy === "scribe"}>Disconnect</button>
+          <button onClick={disconnectScribe} disabled={busy === "scribe"} className="text-xs font-semibold px-3 py-1.5 rounded-lg border-none cursor-pointer bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100">Disconnect</button>
         ) : (
-          <button className={`${btnSmall} text-purple-600 hover:text-purple-800`} onClick={() => setShowScribeForm(true)} disabled={busy === "scribe"}>Connect</button>
+          <button onClick={() => setShowScribeForm(true)} disabled={busy === "scribe"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Connect</button>
         )}
       </div>
 
       {showScribeForm && !scribeStatus?.connected && (
-        <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+        <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700" style={{ marginTop: -8 }}>
           <input type="url" placeholder="Scribe URL (e.g. https://scribe.example.com)" value={scribeForm.url} onChange={e => setScribeForm(f => ({ ...f, url: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
           <input type="password" placeholder="API Token" value={scribeForm.token} onChange={e => setScribeForm(f => ({ ...f, token: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
           <input type="email" placeholder="Email (optional)" value={scribeForm.email} onChange={e => setScribeForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
           <div className="flex gap-2">
-            <button className="flex-1 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg border-none cursor-pointer hover:bg-purple-700" onClick={connectScribe} disabled={busy === "scribe"}>{busy === "scribe" ? "Connecting..." : "Connect"}</button>
+            <button className="flex-1 py-2 text-sm font-medium bg-red-500 text-white rounded-lg border-none cursor-pointer hover:bg-red-600" onClick={connectScribe} disabled={busy === "scribe"}>{busy === "scribe" ? "Connecting..." : "Connect"}</button>
             <button className="py-2 px-4 text-sm text-slate-500 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer" onClick={() => setShowScribeForm(false)}>Cancel</button>
           </div>
         </div>
@@ -10664,12 +10677,14 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
       ))}
 
       {openDocViewers.some(v => v.minimized) && (
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 10000, display: "flex", gap: 2, padding: "0 8px", background: "var(--c-bg, #fff)", borderTop: "1px solid var(--c-border, #e2e8f0)", boxShadow: "0 -2px 8px rgba(0,0,0,0.08)" }}>
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 10000, display: "flex", gap: 8, padding: "8px 12px", background: "var(--c-bg, #fff)", borderTop: "3px solid #ea580c", boxShadow: "0 -2px 8px rgba(0,0,0,0.08)" }}>
           {openDocViewers.filter(v => v.minimized).map(viewer => (
-            <button key={viewer.id} onClick={() => restoreDocViewer(viewer.id)} style={{ padding: "6px 14px", fontSize: 11, fontWeight: 600, color: "var(--c-text-h, #0f172a)", background: "transparent", border: "none", borderRight: "1px solid var(--c-border, #e2e8f0)", cursor: "pointer", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-              <FileText size={12} />
-              {viewer.filename || "Document"}
-            </button>
+            <div key={viewer.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 8, maxWidth: 220, cursor: "default" }}>
+              <FileText size={13} style={{ color: "#64748b", flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || "Document"}</span>
+              <button onClick={() => restoreDocViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+              <button onClick={(e) => { e.stopPropagation(); closeDocViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
+            </div>
           ))}
         </div>
       )}
