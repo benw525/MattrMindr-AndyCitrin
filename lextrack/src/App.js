@@ -8153,7 +8153,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const calcOwed = Math.max(0, billed - reductionAmt - insPaid - wo);
               const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, { ...d, ...updates }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {});
               return (
-              <div key={d.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+              <div key={`${d.id}-${d.reductionIsPercent}`} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
@@ -8172,9 +8172,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Billed</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
                         defaultValue={d.billed || ""} onBlur={e => saveDmg({ billed: e.target.value })} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction</label>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {d.reductionIsPercent ? "(%)" : "($)"}</label>
                       <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
+                        <input type="number" placeholder={d.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
                           defaultValue={d.reductionValue || ""} onBlur={e => saveDmg({ reductionValue: e.target.value })} />
                         <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer" }}
                           defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => saveDmg({ reductionIsPercent: e.target.value === "%" })}>
@@ -8244,7 +8244,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             })()}
             {liens.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No liens recorded yet.</div>}
             {liens.map(l => (
-              <div key={l.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
+              <div key={`${l.id}-${l.reductionIsPercent}`} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Lien Type</label>
@@ -8266,9 +8266,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         defaultValue={l.status || "Pending"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, status: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
                         {["Pending", "Confirmed", "Negotiated", "Satisfied", "Disputed"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction</label>
+                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {l.reductionIsPercent ? "(%)" : "($)"}</label>
                       <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                        <input type="number" style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
+                        <input type="number" placeholder={l.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 0 }}
                           defaultValue={l.reductionValue || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, reductionValue: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} />
                         <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer" }}
                           defaultValue={l.reductionIsPercent ? "%" : "$"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, reductionIsPercent: e.target.value === "%" }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
