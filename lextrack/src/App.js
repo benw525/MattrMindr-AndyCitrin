@@ -6077,7 +6077,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   }, [transcripts, activeTab, docsSubTab, c.id]);
 
   useEffect(() => {
-    if (activeTab === "documents" && docsSubTab === "transcripts") {
+    if (activeTab === "files" && docsSubTab === "transcripts") {
       apiGetScribeStatus().then(r => setScribeConnected(!!r?.connected)).catch(() => setScribeConnected(false));
     }
   }, [activeTab, docsSubTab]);
