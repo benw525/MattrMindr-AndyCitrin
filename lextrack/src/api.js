@@ -713,6 +713,8 @@ export const apiDisconnectScribe   = ()               => apiFetch("/api/scribe/d
 export const apiSendToScribe       = (transcriptId)   => apiFetch(`/api/scribe/send/${transcriptId}`, { method: "POST" });
 export const apiGetScribeTranscriptStatus = (scribeId) => apiFetch(`/api/scribe/transcript-status/${scribeId}`);
 export const apiImportFromScribe   = (transcriptId)   => apiFetch(`/api/scribe/import/${transcriptId}`, { method: "POST" });
+export const apiListScribeTranscripts = ()            => apiFetch("/api/scribe/list-transcripts");
+export const apiImportNewFromScribe = (scribeTranscriptId, caseId) => apiFetch("/api/scribe/import-new", { method: "POST", body: { scribeTranscriptId, caseId } });
 
 // Jury Analysis
 export const apiGetJuryAnalysis    = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`);

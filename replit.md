@@ -313,12 +313,16 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - Scribe URL hardcoded to `https://scribe.mattrmindr.com`; users connect via email/password; system API key via `SCRIBE_API_KEY` env var
 
 ### MattrMindrScribe Integration (T006)
-- Backend: `server/routes/scribe.js` — `/status`, `/connect`, `/disconnect`, `/send/:transcriptId`, `/download/:token`, `/transcript-status/:scribeTranscriptId`, `/import/:transcriptId`
-- DB columns: `users.scribe_url`, `users.scribe_token`, `users.scribe_user_email`; `case_transcripts.scribe_transcript_id`, `case_transcripts.scribe_status`
+- Backend: `server/routes/scribe.js` — `/status`, `/connect`, `/disconnect`, `/send/:transcriptId`, `/download/:token`, `/transcript-status/:scribeTranscriptId`, `/import/:transcriptId`, `/list-transcripts`, `/import-new`
+- DB columns: `users.scribe_url`, `users.scribe_token`, `users.scribe_user_email`; `case_transcripts.scribe_transcript_id`, `case_transcripts.scribe_status`, `case_transcripts.summaries` (JSONB)
 - External API extensions: `GET/POST /api/external/cases/:id/files` for Scribe inbound
 - Temporary download token system (30-min expiry) for audio file access
 - Settings UI: Scribe connection form in Integrations section
-- Transcript UI: "Send to Scribe" and "Import from Scribe" buttons via ScribeTranscriptButtons component
+- Transcript UI: "Send to Scribe", "Import from Scribe", and "Refresh from Scribe" buttons via ScribeTranscriptButtons component
+- "Pull from Scribe" button in transcripts sub-tab opens modal listing completed Scribe transcripts not yet imported; filters out already-imported transcripts
+- AI Summaries: collapsible section in transcript detail view showing Scribe-generated summaries (from `summaries` JSONB column)
+- Refresh syncs latest segments + summaries from Scribe back to MattrMindr
+- API functions: `apiListScribeTranscripts()`, `apiImportNewFromScribe(scribeTranscriptId, caseId)` in `lextrack/src/api.js`
 
 ### Auto-Transcription of Audio Email Attachments
 - `server/routes/inbound-email.js` detects audio MIME types (MP3/WAV/M4A/OGG/WebM/MP4/AAC/FLAC)

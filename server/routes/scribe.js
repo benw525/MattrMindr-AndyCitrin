@@ -243,10 +243,28 @@ router.post("/import/:transcriptId", requireAuth, async (req, res) => {
     const data = await importRes.json();
 
     if (data.status === "completed" && data.segments) {
+      const updateFields = [
+        "transcript = $1",
+        "duration_seconds = $2",
+        "pipeline_log = $3",
+        "scribe_status = 'completed'",
+        "status = 'completed'",
+        "updated_at = NOW()",
+      ];
+      const params = [
+        JSON.stringify(data.segments),
+        data.duration || null,
+        data.pipelineLog ? JSON.stringify(data.pipelineLog) : null,
+      ];
+      if (data.summaries) {
+        params.push(JSON.stringify(data.summaries));
+        updateFields.push(`summaries = $${params.length}`);
+      }
+      params.push(req.params.transcriptId);
+      updateFields.push("");
       await pool.query(
-        `UPDATE case_transcripts SET transcript = $1, duration_seconds = $2, pipeline_log = $3,
-         scribe_status = 'completed', status = 'completed', updated_at = NOW() WHERE id = $4`,
-        [JSON.stringify(data.segments), data.duration || null, data.pipelineLog ? JSON.stringify(data.pipelineLog) : null, req.params.transcriptId]
+        `UPDATE case_transcripts SET ${updateFields.filter(Boolean).join(", ")} WHERE id = $${params.length}`,
+        params
       );
     } else if (data.status === "failed") {
       await pool.query(
@@ -255,10 +273,113 @@ router.post("/import/:transcriptId", requireAuth, async (req, res) => {
       );
     }
 
-    res.json({ ok: true, status: data.status, segments: (data.segments || []).length });
+    res.json({ ok: true, status: data.status, segments: (data.segments || []).length, hasSummaries: !!(data.summaries && data.summaries.length) });
   } catch (err) {
     console.error("Scribe import error:", err.message);
     res.status(500).json({ error: "Failed to import from Scribe" });
+  }
+});
+
+async function getScribeCredentials(userId) {
+  const { rows } = await pool.query(
+    "SELECT scribe_url, scribe_token FROM users WHERE id = $1",
+    [userId]
+  );
+  if (!rows.length || !rows[0].scribe_url || !rows[0].scribe_token) return null;
+  return { scribe_url: rows[0].scribe_url, scribe_token: rows[0].scribe_token };
+}
+
+router.get("/list-transcripts", requireAuth, async (req, res) => {
+  try {
+    const creds = await getScribeCredentials(req.session.userId);
+    if (!creds) return res.status(400).json({ error: "Scribe not connected" });
+
+    const listRes = await fetch(`${creds.scribe_url}/api/external/transcripts`, {
+      headers: { Authorization: `Bearer ${creds.scribe_token}` },
+    });
+    if (!listRes.ok) {
+      const errText = await listRes.text().catch(() => "");
+      console.error("Scribe list-transcripts failed:", listRes.status, errText);
+      return res.status(500).json({ error: "Could not fetch transcripts from Scribe" });
+    }
+    const data = await listRes.json();
+    const transcripts = (data.transcripts || data || []).map(t => ({
+      id: t.id,
+      filename: t.filename || t.title || "Untitled",
+      duration: t.duration || t.durationSeconds || null,
+      status: t.status || "unknown",
+      caseId: t.caseId || t.case_id || null,
+      caseName: t.caseName || t.case_name || null,
+      hasSummaries: !!(t.summaries && t.summaries.length > 0) || t.hasSummaries || false,
+      createdAt: t.createdAt || t.created_at || null,
+      updatedAt: t.updatedAt || t.updated_at || null,
+    }));
+    res.json({ transcripts });
+  } catch (err) {
+    console.error("Scribe list-transcripts error:", err.message);
+    res.status(500).json({ error: "Failed to list Scribe transcripts" });
+  }
+});
+
+router.post("/import-new", requireAuth, async (req, res) => {
+  try {
+    const { scribeTranscriptId, caseId } = req.body;
+    if (!scribeTranscriptId || !caseId) return res.status(400).json({ error: "scribeTranscriptId and caseId are required" });
+
+    const userId = req.session.userId;
+    const userRole = req.session.userRole || "";
+    const { rows: caseRows } = await pool.query("SELECT id, title, client_name FROM cases WHERE id = $1 AND deleted_at IS NULL", [caseId]);
+    if (!caseRows.length) return res.status(404).json({ error: "Case not found" });
+    if (userRole !== "App Admin") {
+      const { rows: cRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $2 OR case_manager = $2 OR investigator = $2 OR paralegal = $2 OR confidential = false OR confidential IS NULL)", [caseId, userId]);
+      if (!cRows.length) return res.status(403).json({ error: "Access denied to this case" });
+    }
+
+    const { rows: existing } = await pool.query(
+      "SELECT id FROM case_transcripts WHERE scribe_transcript_id = $1 AND deleted_at IS NULL",
+      [String(scribeTranscriptId)]
+    );
+    if (existing.length) return res.status(409).json({ error: "This Scribe transcript has already been imported", existingId: existing[0].id });
+
+    const creds = await getScribeCredentials(userId);
+    if (!creds) return res.status(400).json({ error: "Scribe not connected" });
+
+    const fetchRes = await fetch(`${creds.scribe_url}/api/external/transcripts/${scribeTranscriptId}/status`, {
+      headers: { Authorization: `Bearer ${creds.scribe_token}` },
+    });
+    if (!fetchRes.ok) return res.status(500).json({ error: "Could not fetch transcript from Scribe" });
+    const data = await fetchRes.json();
+
+    if (data.status !== "completed") {
+      return res.status(400).json({ error: `Transcript is not ready (status: ${data.status})` });
+    }
+
+    const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [userId]);
+    const uploaderName = userRows[0]?.name || "Unknown";
+
+    const { rows: inserted } = await pool.query(
+      `INSERT INTO case_transcripts (case_id, filename, content_type, duration_seconds, description, transcript, summaries, pipeline_log, status, scribe_transcript_id, scribe_status, uploaded_by, uploaded_by_name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'completed', $9, 'completed', $10, $11, NOW(), NOW())
+       RETURNING id`,
+      [
+        caseId,
+        data.filename || data.title || "Scribe Import",
+        data.contentType || "audio/mpeg",
+        data.duration || null,
+        data.description || "",
+        data.segments ? JSON.stringify(data.segments) : "[]",
+        data.summaries ? JSON.stringify(data.summaries) : null,
+        data.pipelineLog ? JSON.stringify(data.pipelineLog) : null,
+        String(scribeTranscriptId),
+        userId,
+        uploaderName,
+      ]
+    );
+
+    res.json({ ok: true, transcriptId: inserted[0].id });
+  } catch (err) {
+    console.error("Scribe import-new error:", err.message);
+    res.status(500).json({ error: "Failed to import transcript from Scribe" });
   }
 });
 

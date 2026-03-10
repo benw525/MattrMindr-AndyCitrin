@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -63,7 +63,7 @@ import {
   apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
   apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiMsUploadForEdit, apiMsSyncBack, apiMsCleanup,
   apiGetOnlyofficeStatus, apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup,
-  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe,
+  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
   apiGetTaskFlows, apiGetTaskFlow, apiCreateTaskFlow, apiUpdateTaskFlow, apiDeleteTaskFlow,
@@ -252,14 +252,15 @@ const Avatar = ({ userId, size = 28, hasProfilePicture }) => {
   return <div title={`${u.name} (${u.role})`} style={{ width: size, height: size, borderRadius: "50%", background: u.avatar, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.32, fontWeight: 700, color: "#fff", fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>{u.initials}</div>;
 };
 
-function ScribeTranscriptButtons({ transcriptId, scribeTranscriptId, scribeStatus }) {
+function ScribeTranscriptButtons({ transcriptId, scribeTranscriptId, scribeStatus, onRefreshed }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(scribeStatus || null);
+  const [refreshed, setRefreshed] = useState(false);
 
   const send = async () => {
     setBusy(true);
     try {
-      const r = await apiSendToScribe(transcriptId);
+      await apiSendToScribe(transcriptId);
       setStatus("sent");
     } catch (err) { alert("Send to Scribe failed: " + err.message); }
     setBusy(false);
@@ -274,9 +275,34 @@ function ScribeTranscriptButtons({ transcriptId, scribeTranscriptId, scribeStatu
     setBusy(false);
   };
 
+  const refreshFromScribe = async () => {
+    setBusy(true);
+    try {
+      const result = await apiImportFromScribe(transcriptId);
+      if (result.status === "completed") {
+        setRefreshed(true);
+        setTimeout(() => setRefreshed(false), 3000);
+        if (onRefreshed) onRefreshed();
+      } else {
+        alert(`Transcript is not ready yet (status: ${result.status || "unknown"}). Try again later.`);
+      }
+    } catch (err) { alert("Refresh failed: " + err.message); }
+    setBusy(false);
+  };
+
   const btnS = { fontSize: 11, display: "flex", alignItems: "center", gap: 4, background: "transparent", border: "1px solid #a78bfa", color: "#7c3aed", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 600 };
 
-  if (status === "completed") return <span style={{ fontSize: 10, color: "#7c3aed", display: "flex", alignItems: "center", gap: 3 }}><Check size={10} /> Scribe done</span>;
+  if (status === "completed" || (scribeTranscriptId && status !== "sent")) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 10, color: "#7c3aed", display: "flex", alignItems: "center", gap: 3 }}><Check size={10} /> Scribe</span>
+        <button disabled={busy} onClick={refreshFromScribe} style={btnS}>
+          {busy ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+          {refreshed ? "Updated!" : "Refresh"}
+        </button>
+      </div>
+    );
+  }
   if (status === "sent" || scribeTranscriptId) return <button disabled={busy} onClick={importResult} style={btnS}>{busy ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />} Import from Scribe</button>;
   return <button disabled={busy} onClick={send} style={btnS}>{busy ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />} Send to Scribe</button>;
 }
@@ -5912,6 +5938,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [selectedSegments, setSelectedSegments] = useState(new Set());
   const [mergeUndoStack, setMergeUndoStack] = useState([]);
   const [transcriptReadingView, setTranscriptReadingView] = useState(false);
+  const [showScribeImportModal, setShowScribeImportModal] = useState(false);
+  const [scribeImportList, setScribeImportList] = useState([]);
+  const [scribeImportLoading, setScribeImportLoading] = useState(false);
+  const [scribeImporting, setScribeImporting] = useState(null);
+  const [scribeConnected, setScribeConnected] = useState(false);
+  const [showSummaries, setShowSummaries] = useState(false);
   const autoSaveTimerRef = useRef(null);
   const autoSaveStatusTimerRef = useRef(null);
   const transcriptPollRef = useRef(null);
@@ -6043,6 +6075,40 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     }
     return () => { if (transcriptPollRef.current) clearInterval(transcriptPollRef.current); };
   }, [transcripts, activeTab, docsSubTab, c.id]);
+
+  useEffect(() => {
+    if (activeTab === "documents" && docsSubTab === "transcripts") {
+      apiGetScribeStatus().then(r => setScribeConnected(!!r?.connected)).catch(() => setScribeConnected(false));
+    }
+  }, [activeTab, docsSubTab]);
+
+  const openScribeImportModal = async () => {
+    setShowScribeImportModal(true);
+    setScribeImportLoading(true);
+    try {
+      const res = await apiListScribeTranscripts();
+      const alreadyImported = new Set(transcripts.filter(t => t.scribeTranscriptId).map(t => String(t.scribeTranscriptId)));
+      const filtered = (res.transcripts || []).filter(t => !alreadyImported.has(String(t.id)) && t.status === "completed");
+      setScribeImportList(filtered);
+    } catch (err) {
+      alert("Failed to load Scribe transcripts: " + err.message);
+      setShowScribeImportModal(false);
+    }
+    setScribeImportLoading(false);
+  };
+
+  const handleScribeImport = async (scribeTranscriptId) => {
+    setScribeImporting(scribeTranscriptId);
+    try {
+      const result = await apiImportNewFromScribe(scribeTranscriptId, c.id);
+      setScribeImportList(prev => prev.filter(t => t.id !== scribeTranscriptId));
+      const refreshed = await apiGetTranscripts(c.id);
+      setTranscripts(refreshed);
+    } catch (err) {
+      alert("Import failed: " + err.message);
+    }
+    setScribeImporting(null);
+  };
 
   const handleContactClick = async (name) => {
     if (!name || !name.trim()) return;
@@ -8671,9 +8737,61 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <button type="submit" className="btn btn-sm" disabled={transcriptUploading} style={{ background: "#1e293b", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
                   {transcriptUploading ? <><Loader2 size={12} className="animate-spin" /> Uploading...</> : <><Upload size={12} /> Upload & Transcribe</>}
                 </button>
+                {scribeConnected && (
+                  <button type="button" onClick={openScribeImportModal} style={{ background: "#7c3aed", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 600 }}>
+                    <Download size={12} /> Pull from Scribe
+                  </button>
+                )}
               </form>
               </DragDropZone>
             </div>
+
+            {showScribeImportModal && (
+              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowScribeImportModal(false)}>
+                <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 600, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Download size={16} style={{ color: "#7c3aed" }} />
+                      <span style={{ fontSize: 15, fontWeight: 700, color: "var(--c-text)" }}>Import from Scribe</span>
+                    </div>
+                    <button onClick={() => setShowScribeImportModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text2)", fontSize: 18 }}>&times;</button>
+                  </div>
+                  <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
+                    {scribeImportLoading ? (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 40, color: "#94a3b8" }}>
+                        <Loader2 size={16} className="animate-spin" /> Loading Scribe transcripts...
+                      </div>
+                    ) : scribeImportList.length === 0 ? (
+                      <p style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", padding: 40 }}>No new transcripts available in Scribe to import.</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <p style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>{scribeImportList.length} transcript{scribeImportList.length !== 1 ? "s" : ""} available</p>
+                        {scribeImportList.map(st => (
+                          <div key={st.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", border: "1px solid var(--c-border2)", borderRadius: 8, gap: 12 }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.filename}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                                {st.duration ? `${Math.floor(st.duration / 60)}m ${Math.round(st.duration % 60)}s` : ""}
+                                {st.duration && st.createdAt ? " · " : ""}
+                                {st.createdAt ? new Date(st.createdAt).toLocaleDateString() : ""}
+                                {st.hasSummaries ? " · AI Summaries" : ""}
+                              </div>
+                            </div>
+                            <button
+                              disabled={scribeImporting === st.id}
+                              onClick={() => handleScribeImport(st.id)}
+                              style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: scribeImporting === st.id ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 4, opacity: scribeImporting === st.id ? 0.6 : 1, flexShrink: 0 }}
+                            >
+                              {scribeImporting === st.id ? <><Loader2 size={11} className="animate-spin" /> Importing...</> : <><Download size={11} /> Import</>}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="case-overlay-section">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
@@ -8930,7 +9048,7 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                                   >
                                     <Scale size={11} /> Present
                                   </button>
-                                  <ScribeTranscriptButtons transcriptId={t.id} scribeTranscriptId={t.scribeTranscriptId} scribeStatus={t.scribeStatus} />
+                                  <ScribeTranscriptButtons transcriptId={t.id} scribeTranscriptId={t.scribeTranscriptId} scribeStatus={t.scribeStatus} onRefreshed={() => { apiGetTranscriptDetail(t.id).then(d => { setTranscriptDetail(d); setTranscriptEdits(JSON.parse(JSON.stringify(d.transcript))); }).catch(() => {}); }} />
                                 </div>
                               </div>
 
@@ -9129,6 +9247,38 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                                   </div>
                                 ))}
                               </div>
+                              )}
+
+                              {transcriptDetail.summaries && Array.isArray(transcriptDetail.summaries) && transcriptDetail.summaries.length > 0 && (
+                                <div style={{ marginTop: 16, border: "1px solid #c4b5fd", borderRadius: 8, overflow: "hidden" }}>
+                                  <div
+                                    onClick={() => setShowSummaries(!showSummaries)}
+                                    style={{ padding: "10px 14px", background: "#ede9fe", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                                  >
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <Sparkles size={14} style={{ color: "#7c3aed" }} />
+                                      <span style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>AI Summaries</span>
+                                      <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 400 }}>({transcriptDetail.summaries.length})</span>
+                                    </div>
+                                    <ChevronRight size={14} style={{ color: "#7c3aed", transform: showSummaries ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+                                  </div>
+                                  {showSummaries && (
+                                    <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, background: "#faf5ff" }}>
+                                      {transcriptDetail.summaries.map((summary, si) => (
+                                        <div key={si} style={{ border: "1px solid #e9d5ff", borderRadius: 6, padding: "12px 14px", background: "#fff" }}>
+                                          {(summary.title || summary.type) && (
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: "#5b21b6", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                              {summary.title || summary.type}
+                                            </div>
+                                          )}
+                                          <div style={{ fontSize: 12, lineHeight: 1.7, color: "#334155", whiteSpace: "pre-wrap" }}>
+                                            {summary.content || summary.text || summary.summary || JSON.stringify(summary)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           );

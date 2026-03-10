@@ -74,6 +74,7 @@ const toFrontend = (row) => ({
   videoContentType: row.video_content_type || null,
   scribeTranscriptId: row.scribe_transcript_id || null,
   scribeStatus: row.scribe_status || null,
+  summaries: row.summaries || null,
 });
 
 function runFfmpeg(args) {
@@ -493,7 +494,7 @@ router.get("/:id/detail", requireAuth, async (req, res) => {
     if (access === null) return res.status(404).json({ error: "Transcript not found" });
     if (access === false) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, description, content_type, file_size, transcript, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at, is_video, video_content_type FROM case_transcripts WHERE id = $1",
+      "SELECT id, case_id, filename, description, content_type, file_size, transcript, status, error_message, duration_seconds, uploaded_by, uploaded_by_name, created_at, updated_at, is_video, video_content_type, scribe_transcript_id, scribe_status, summaries FROM case_transcripts WHERE id = $1",
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
