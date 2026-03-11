@@ -124,11 +124,14 @@ router.post("/", upload.any(), async (req, res) => {
       }
       console.log(`Filings email: matched to case ID ${caseId}`);
 
-      await pool.query(
-        `INSERT INTO case_correspondence (case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, is_voicemail)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)`,
-        [caseId, fromEmail, fromName, to, cc, subject, text, html, JSON.stringify(attachments)]
-      );
+      if (!attachments || attachments.length === 0) {
+        await pool.query(
+          `INSERT INTO case_correspondence (case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, is_voicemail)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)`,
+          [caseId, fromEmail, fromName, to, cc, subject, text, html, JSON.stringify(attachments)]
+        );
+        console.log(`Filings email: no attachments, saved to correspondence for case ${caseId}`);
+      }
 
       const pdfAttachments = attachments.filter(a => a.contentType === "application/pdf");
       for (const pdfAtt of pdfAttachments) {
