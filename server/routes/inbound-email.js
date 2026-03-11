@@ -94,22 +94,34 @@ router.post("/", upload.any(), async (req, res) => {
     if (isFilingsEmail) {
       const courtNumPattern = /(\d{1,3}-[A-Za-z]{1,5}-\d{4}-\d+(?:\.\d+)?)/;
       const courtMatch = (subject || "").match(courtNumPattern);
-      if (!courtMatch) {
-        console.log("Filings email: no court case number found in subject:", subject);
-        return res.status(200).send("OK");
-      }
-      const courtCaseNumber = courtMatch[1].trim().toUpperCase();
-      console.log(`Filings email: extracted court case number "${courtCaseNumber}" from subject`);
+      let courtCaseNumber = "";
+      let caseId = null;
 
-      const { rows: matchedCases } = await pool.query(
-        "SELECT id FROM cases WHERE UPPER(TRIM(court_case_number)) = $1 AND deleted_at IS NULL LIMIT 1",
-        [courtCaseNumber]
-      );
-      if (matchedCases.length === 0) {
-        console.log(`Filings email: no case found with court_case_number="${courtCaseNumber}"`);
+      if (courtMatch) {
+        courtCaseNumber = courtMatch[1].trim().toUpperCase();
+        console.log(`Filings email: extracted court case number "${courtCaseNumber}" from subject`);
+        const { rows: matchedCases } = await pool.query(
+          "SELECT id FROM cases WHERE UPPER(TRIM(court_case_number)) = $1 AND deleted_at IS NULL LIMIT 1",
+          [courtCaseNumber]
+        );
+        if (matchedCases.length > 0) {
+          caseId = matchedCases[0].id;
+        } else {
+          console.log(`Filings email: no case found with court_case_number="${courtCaseNumber}"`);
+        }
+      } else {
+        console.log("Filings email: no court case number found in subject:", subject);
+      }
+
+      if (!caseId) {
+        await pool.query(
+          `INSERT INTO unmatched_filings_emails (from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, court_case_number, attachment_count)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [fromEmail, fromName, to, cc, subject, text, html, JSON.stringify(attachments), courtCaseNumber, attachments.length]
+        );
+        console.log(`Filings email: stored as unmatched (court_case_number="${courtCaseNumber}")`);
         return res.status(200).send("OK");
       }
-      const caseId = matchedCases[0].id;
       console.log(`Filings email: matched to case ID ${caseId}`);
 
       await pool.query(

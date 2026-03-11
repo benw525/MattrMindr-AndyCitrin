@@ -408,6 +408,18 @@ router.put("/assign/:messageId", requireAuth, async (req, res) => {
       [caseId, req.params.messageId]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Message not found or already assigned" });
+
+    const assigned = rows[0];
+    if (assigned.phone_number) {
+      await pool.query(
+        `INSERT INTO sms_watch_numbers (case_id, phone_number, contact_name, added_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT DO NOTHING`,
+        [caseId, assigned.phone_number, assigned.contact_name || "", req.session.userId]
+      );
+      console.log(`SMS assign: auto-added watch number ${assigned.phone_number} for case ${caseId}`);
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error("SMS assign error:", err);

@@ -434,6 +434,8 @@ export const apiAddSmsWatch              = (caseId, data)     => apiFetch(`/api/
 export const apiDeleteSmsWatch           = (watchId)          => apiFetch(`/api/sms/watch/${watchId}`, { method: "DELETE" });
 export const apiGetUnmatchedSms          = ()                 => apiFetch("/api/sms/unmatched");
 export const apiAssignSms                = (messageId, caseId) => apiFetch(`/api/sms/assign/${messageId}`, { method: "PUT", body: { caseId } });
+export const apiGetUnmatchedEmails       = ()                 => apiFetch("/api/unmatched-emails");
+export const apiAssignUnmatchedEmail     = (id, caseId)       => apiFetch(`/api/unmatched-emails/assign/${id}`, { method: "PUT", body: { caseId } });
 
 // Trial Center
 export const apiGetTrialSession = (caseId) => apiFetch(`/api/trial-center/sessions/${caseId}`);

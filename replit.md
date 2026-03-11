@@ -199,6 +199,15 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 - **Universal Document Viewer**: all file types viewable in Trial Center with Present Mode
 - **Exhibit Selection from Documents**: select existing case documents as exhibits
 
+### Unmatched Section
+- **Navigation**: "Unmatched" nav item with Inbox icon, located between Contacts and Staff
+- **Tabs**: Emails tab (unmatched filings emails) and Texts tab (unmatched SMS)
+- **Unmatched Filings Emails**: Emails sent to `filings@plaintiff.mattrmindr.com` that can't be matched to a case (no court number found or no matching case in DB) are stored in `unmatched_filings_emails` table instead of being dropped
+- **Email Assignment**: Users search for and assign emails to cases; on assignment, the system runs the full filings auto-sort pipeline (correspondence insert, PDF filing creation, AI classification, hearing deadline extraction) within a DB transaction
+- **Unmatched Texts**: SMS messages with no matching case shown in Texts tab; on assignment, the phone number is automatically added as a monitored number (`sms_watch_numbers`) for the assigned case
+- **Route**: `server/routes/unmatched-emails.js` — GET `/api/unmatched-emails`, PUT `/api/unmatched-emails/assign/:id`
+- **Removed**: "Unmatched" button and modal from case detail correspondence texts tab (moved to dedicated nav section)
+
 ### UI Improvements
 - **Drag-Drop Upload**: reusable DragDropZone component for all upload areas
 - **Background Upload Manager**: floating bottom-right indicator with progress/status
@@ -210,7 +219,7 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 
 ### Runtime Migrations
 - `ensureColumns()` in server/index.js runs before app.listen()
-- Auto-creates tables: transcript_history, custom_reports, custom_agents, custom_task_flows, custom_task_flow_steps, task_flow_executions, custom_dashboard_widgets
+- Auto-creates tables: transcript_history, custom_reports, custom_agents, custom_task_flows, custom_task_flow_steps, task_flow_executions, custom_dashboard_widgets, unmatched_filings_emails
 - Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status, tasks.source_flow_id, cases.court_case_number
 
 ### Contact Categories

@@ -55,6 +55,7 @@ const customReportsRoutes    = require("./routes/custom-reports");
 const customAgentsBuilderRoutes = require("./routes/custom-agents-builder");
 const taskFlowsRoutes          = require("./routes/task-flows");
 const customDashboardWidgetsRoutes = require("./routes/custom-dashboard-widgets");
+const unmatchedEmailsRoutes        = require("./routes/unmatched-emails");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -137,6 +138,7 @@ app.use("/api/custom-reports", customReportsRoutes);
 app.use("/api/custom-agents-builder", customAgentsBuilderRoutes);
 app.use("/api/task-flows", taskFlowsRoutes);
 app.use("/api/custom-dashboard-widgets", customDashboardWidgetsRoutes);
+app.use("/api/unmatched-emails", unmatchedEmailsRoutes);
 app.use("/api/microsoft", microsoftRoutes);
 app.use("/api/onlyoffice", onlyofficeRoutes);
 app.use("/api/scribe", scribeRoutes);
@@ -286,6 +288,21 @@ async function ensureColumns() {
   ];
 
   const newTableCreations = [
+    `CREATE TABLE IF NOT EXISTS unmatched_filings_emails (
+      id SERIAL PRIMARY KEY,
+      from_email TEXT,
+      from_name TEXT,
+      to_emails TEXT,
+      cc_emails TEXT,
+      subject TEXT,
+      body_text TEXT,
+      body_html TEXT,
+      attachments JSONB DEFAULT '[]',
+      court_case_number TEXT DEFAULT '',
+      attachment_count INTEGER DEFAULT 0,
+      assigned_case_id INTEGER REFERENCES cases(id),
+      received_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
     `CREATE TABLE IF NOT EXISTS custom_task_flows (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,

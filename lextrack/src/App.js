@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -46,7 +46,7 @@ import {
   apiGetPortalMessages, apiSendPortalMessage, apiMarkPortalMsgRead,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
-  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms,
+  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail,
   apiSendSupport,
   apiGetCollabUnreadCount,
   apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript, apiSuggestTranscriptName, apiGetTranscriptHistory, apiSaveTranscriptHistory, apiRevertTranscript,
@@ -2234,6 +2234,7 @@ function FirmApp() {
             { id: "trialcenter", icon: Scale, label: "Trial Center" },
             { id: "collaborate", icon: MessageSquare, label: "Collaborate", badge: collabUnread > 0 ? collabUnread : null },
             { id: "contacts", icon: Users, label: "Contacts" },
+            { id: "unmatched", icon: Inbox, label: "Unmatched" },
             { id: "staff", icon: UserCog, label: "Staff" },
             ...(isAppAdmin(currentUser) ? [{ id: "customization", icon: SlidersHorizontal, label: "Customization" }] : []),
             ...(isAppAdmin(currentUser) ? [{ id: "deleted", icon: Trash2, label: "Deleted Data" }] : []),
@@ -2279,6 +2280,7 @@ function FirmApp() {
         {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
+        {view === "unmatched" && <UnmatchedView allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "customization" && isAppAdmin(currentUser) && <CustomizationView currentUser={currentUser} allCases={allCases} allUsers={allUsers} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "deleted" && isAppAdmin(currentUser) && <DeletedDataView onMenuToggle={() => setSidebarOpen(true)} />}
@@ -5714,9 +5716,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [smsWatchAdding, setSmsWatchAdding] = useState(false);
   const [smsWatchPhone, setSmsWatchPhone] = useState("");
   const [smsWatchName, setSmsWatchName] = useState("");
-  const [smsUnmatched, setSmsUnmatched] = useState([]);
-  const [smsUnmatchedOpen, setSmsUnmatchedOpen] = useState(false);
-  const [smsUnmatchedSearch, setSmsUnmatchedSearch] = useState({});
   const [smsCompose, setSmsCompose] = useState(false);
   const [smsComposePhone, setSmsComposePhone] = useState("");
   const [smsComposeBody, setSmsComposeBody] = useState("");
@@ -6077,7 +6076,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       }
     }).finally(() => setPiDataLoading(false));
     apiGetSmsWatch(c.id).then(setSmsWatchNumbers).catch(() => {});
-    apiGetUnmatchedSms().then(setSmsUnmatched).catch(() => {});
     const timersRef = partyTimers.current;
     const pendingRef = partyPendingData.current;
 
@@ -9539,12 +9537,6 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                       {isAttorneyPlus && smsMessages.length > 0 && (
                         <button onClick={() => { setSmsSelectMode(!smsSelectMode); setSelectedSmsIds(new Set()); }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 5, border: smsSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: smsSelectMode ? "#fef2f2" : "var(--c-bg)", color: smsSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{smsSelectMode ? "Cancel" : "Select"}</button>
                       )}
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", position: "relative" }} onClick={() => {
-                        apiGetUnmatchedSms().then(msgs => { setSmsUnmatched(msgs); setSmsUnmatchedOpen(true); }).catch(() => {});
-                      }}>
-                        Unmatched
-                        {smsUnmatched.length > 0 && <span style={{ position: "absolute", top: -5, right: -5, background: "#e05252", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>{smsUnmatched.length > 99 ? "99+" : smsUnmatched.length}</span>}
-                      </button>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                         setSmsCompose(true);
                         setSmsComposePhone("");
@@ -9666,89 +9658,6 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                   )}
                 </>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Unmatched Texts Modal ── */}
-        {smsUnmatchedOpen && (
-          <div className="case-overlay" style={{ zIndex: 10001 }} onClick={() => setSmsUnmatchedOpen(false)}>
-            <div className="login-box" onClick={e => e.stopPropagation()} style={{ width: 520, maxWidth: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text)", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>Unmatched Texts</span>
-                <button onClick={() => setSmsUnmatchedOpen(false)} style={{ background: "none", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer" }}>✕</button>
-              </div>
-              {smsUnmatched.length === 0 && (
-                <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0", textAlign: "center" }}>No unmatched texts.</div>
-              )}
-              <div style={{ flex: 1, overflow: "auto" }}>
-                {smsUnmatched.map(msg => {
-                  const isLinking = smsUnmatchedSearch[msg.id] !== undefined && smsUnmatchedSearch[msg.id] !== null;
-                  const q = (smsUnmatchedSearch[msg.id] || "").toLowerCase().trim();
-                  const matches = q.length >= 2 ? allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q))).slice(0, 6) : [];
-                  const doAssign = (caseId) => {
-                    apiAssignSms(msg.id, caseId).then(() => {
-                      setSmsUnmatched(p => p.filter(x => x.id !== msg.id));
-                      setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; });
-                      apiGetSmsMessages(c.id).then(setSmsMessages).catch(() => {});
-                    }).catch(err => alert(err.message || "Failed to link"));
-                  };
-                  return (
-                    <div key={msg.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--c-border2)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                        <div>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", fontFamily: "monospace" }}>{msg.phoneNumber}</span>
-                          {msg.contactName && <span style={{ fontSize: 12, color: "var(--c-text2)", marginLeft: 8 }}>{msg.contactName}</span>}
-                        </div>
-                        <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap" }}>{msg.sentAt ? new Date(msg.sentAt).toLocaleString() : ""}</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: "var(--c-text)", marginBottom: 10, whiteSpace: "pre-wrap", background: "var(--c-bg2)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border2)" }}>{msg.body}</div>
-                      {!isLinking ? (
-                        <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
-                          onClick={() => setSmsUnmatchedSearch(p => ({ ...p, [msg.id]: "" }))}>
-                          <Briefcase size={14} /> Link to Case
-                        </button>
-                      ) : (
-                        <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 10 }}>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: matches.length > 0 ? 8 : 0 }}>
-                            <Search size={14} style={{ color: "#64748b", flexShrink: 0 }} />
-                            <input
-                              autoFocus
-                              placeholder="Search by case #, client name, or title..."
-                              value={smsUnmatchedSearch[msg.id] || ""}
-                              onChange={e => setSmsUnmatchedSearch(p => ({ ...p, [msg.id]: e.target.value }))}
-                              style={{ flex: 1, fontSize: 12, padding: "6px 10px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }}
-                            />
-                            <button className="btn btn-sm btn-outline" style={{ fontSize: 11 }}
-                              onClick={() => setSmsUnmatchedSearch(p => { const n = { ...p }; delete n[msg.id]; return n; })}>Cancel</button>
-                          </div>
-                          {q.length > 0 && q.length < 2 && <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 22 }}>Type at least 2 characters...</div>}
-                          {q.length >= 2 && matches.length === 0 && <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 22 }}>No cases found.</div>}
-                          {matches.length > 0 && (
-                            <div style={{ borderRadius: 6, border: "1px solid var(--c-border)", overflow: "hidden" }}>
-                              {matches.map(cs => (
-                                <div key={cs.id}
-                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--c-border2)", background: "var(--c-bg)", transition: "background 0.15s" }}
-                                  onClick={() => doAssign(cs.id)}
-                                  onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
-                                  onMouseLeave={e => e.currentTarget.style.background = "var(--c-bg)"}
-                                >
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <Briefcase size={13} style={{ color: "#f59e0b" }} />
-                                    <span style={{ color: "#5599cc", fontFamily: "monospace", fontWeight: 600 }}>{cs.caseNum}</span>
-                                    <span style={{ color: "var(--c-text)" }}>{cs.title || cs.clientName}</span>
-                                  </div>
-                                  <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 600 }}>Link</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         )}
@@ -16802,6 +16711,226 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function UnmatchedView({ allCases, onMenuToggle }) {
+  const [tab, setTab] = useState("emails");
+  const [emails, setEmails] = useState([]);
+  const [texts, setTexts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchMap, setSearchMap] = useState({});
+  const [assigningId, setAssigningId] = useState(null);
+  const [selectedEmail, setSelectedEmail] = useState(null);
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      apiGetUnmatchedEmails().catch(() => []),
+      apiGetUnmatchedSms().catch(() => []),
+    ]).then(([e, t]) => {
+      setEmails(e);
+      setTexts(t);
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const doAssignEmail = async (emailId, caseId) => {
+    setAssigningId(emailId);
+    try {
+      await apiAssignUnmatchedEmail(emailId, caseId);
+      setEmails(p => p.filter(x => x.id !== emailId));
+      setSearchMap(p => { const n = { ...p }; delete n[`e-${emailId}`]; return n; });
+      setSelectedEmail(null);
+    } catch (err) { alert(err.message || "Failed to assign"); }
+    setAssigningId(null);
+  };
+
+  const doAssignText = async (msgId, caseId) => {
+    setAssigningId(msgId);
+    try {
+      await apiAssignSms(msgId, caseId);
+      setTexts(p => p.filter(x => x.id !== msgId));
+      setSearchMap(p => { const n = { ...p }; delete n[`t-${msgId}`]; return n; });
+    } catch (err) { alert(err.message || "Failed to assign"); }
+    setAssigningId(null);
+  };
+
+  const CaseSearchBox = ({ itemKey, onAssign, isAssigning }) => {
+    const q = (searchMap[itemKey] || "").toLowerCase().trim();
+    const matches = q.length >= 2 ? allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q))).slice(0, 8) : [];
+    return (
+      <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 10, marginTop: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: matches.length > 0 ? 8 : 0 }}>
+          <Search size={14} style={{ color: "#64748b", flexShrink: 0 }} />
+          <input
+            autoFocus
+            placeholder="Search by case #, client name, or title..."
+            value={searchMap[itemKey] || ""}
+            onChange={e => setSearchMap(p => ({ ...p, [itemKey]: e.target.value }))}
+            style={{ flex: 1, fontSize: 12, padding: "6px 10px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }}
+          />
+          <button className="btn btn-sm btn-outline" style={{ fontSize: 11 }}
+            onClick={() => setSearchMap(p => { const n = { ...p }; delete n[itemKey]; return n; })}>Cancel</button>
+        </div>
+        {q.length > 0 && q.length < 2 && <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 22 }}>Type at least 2 characters...</div>}
+        {q.length >= 2 && matches.length === 0 && <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 22 }}>No cases found.</div>}
+        {matches.length > 0 && (
+          <div style={{ borderRadius: 6, border: "1px solid var(--c-border)", overflow: "hidden" }}>
+            {matches.map(cs => (
+              <div key={cs.id}
+                style={{ padding: "8px 12px", fontSize: 12, cursor: isAssigning ? "wait" : "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--c-border2)", background: "var(--c-bg)", transition: "background 0.15s", opacity: isAssigning ? 0.6 : 1 }}
+                onClick={() => !isAssigning && onAssign(cs.id)}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--c-bg2)"}
+                onMouseLeave={e => e.currentTarget.style.background = "var(--c-bg)"}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Briefcase size={13} style={{ color: "#f59e0b" }} />
+                  <span style={{ color: "#5599cc", fontFamily: "monospace", fontWeight: 600 }}>{cs.caseNum}</span>
+                  <span style={{ color: "var(--c-text)" }}>{cs.title || cs.clientName}</span>
+                </div>
+                <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 600 }}>Assign</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const totalCount = emails.length + texts.length;
+
+  return (
+    <div style={{ padding: "24px 32px", maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <button className="md:hidden" onClick={onMenuToggle} style={{ background: "none", border: "none", color: "var(--c-text)", cursor: "pointer" }}><Menu size={22} /></button>
+        <Inbox size={22} style={{ color: "#f59e0b" }} />
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--c-text)", margin: 0 }}>Unmatched</h1>
+        {totalCount > 0 && <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>{totalCount} item{totalCount !== 1 ? "s" : ""} need attention</span>}
+      </div>
+
+      <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
+        {[
+          { id: "emails", label: "Emails", icon: Mail, count: emails.length },
+          { id: "texts", label: "Texts", icon: MessageCircle, count: texts.length },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", fontSize: 13, fontWeight: tab === t.id ? 600 : 400,
+            color: tab === t.id ? "#f59e0b" : "var(--c-text2)", background: "none", border: "none", borderBottom: tab === t.id ? "2px solid #f59e0b" : "2px solid transparent",
+            marginBottom: -2, cursor: "pointer", transition: "all 0.15s",
+          }}>
+            <t.icon size={15} />
+            {t.label}
+            {t.count > 0 && <span style={{ background: tab === t.id ? "#f59e0b" : "var(--c-bg2)", color: tab === t.id ? "#fff" : "var(--c-text2)", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10 }}>{t.count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {loading && <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}><Loader2 size={24} className="animate-spin" style={{ margin: "0 auto 8px" }} />Loading...</div>}
+
+      {!loading && tab === "emails" && (
+        <>
+          {emails.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
+              <Mail size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
+              <div style={{ fontSize: 14, fontWeight: 500 }}>No unmatched emails</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>All filings emails have been matched to cases.</div>
+            </div>
+          )}
+          {emails.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {emails.map(email => {
+                const isOpen = selectedEmail === email.id;
+                const itemKey = `e-${email.id}`;
+                const isLinking = searchMap[itemKey] !== undefined;
+                return (
+                  <div key={email.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, background: "var(--c-bg)", overflow: "hidden" }}>
+                    <div style={{ padding: "12px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
+                      onClick={() => setSelectedEmail(isOpen ? null : email.id)}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <Mail size={14} style={{ color: "#f59e0b", flexShrink: 0 }} />
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(No subject)"}</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--c-text2)", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          <span>From: {email.from_name || email.from_email}</span>
+                          {email.court_case_number && <span style={{ fontFamily: "monospace", color: "#f59e0b" }}>Case #: {email.court_case_number}</span>}
+                          {email.attachment_count > 0 && <span style={{ display: "flex", alignItems: "center", gap: 3 }}><FileText size={11} />{email.attachment_count} attachment{email.attachment_count !== 1 ? "s" : ""}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>{email.received_at ? new Date(email.received_at).toLocaleString() : ""}</span>
+                        {isOpen ? <ChevronDown size={14} style={{ color: "#64748b" }} /> : <ChevronRight size={14} style={{ color: "#64748b" }} />}
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div style={{ borderTop: "1px solid var(--c-border2)", padding: "12px 16px" }}>
+                        {email.body_text && (
+                          <div style={{ fontSize: 12, color: "var(--c-text)", whiteSpace: "pre-wrap", maxHeight: 200, overflow: "auto", background: "var(--c-bg2)", padding: "10px 12px", borderRadius: 6, marginBottom: 12, border: "1px solid var(--c-border2)" }}>
+                            {email.body_text.substring(0, 2000)}
+                          </div>
+                        )}
+                        {!isLinking ? (
+                          <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
+                            onClick={() => setSearchMap(p => ({ ...p, [itemKey]: "" }))}>
+                            <Briefcase size={14} /> Assign to Case
+                          </button>
+                        ) : (
+                          <CaseSearchBox itemKey={itemKey} onAssign={(caseId) => doAssignEmail(email.id, caseId)} isAssigning={assigningId === email.id} />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {!loading && tab === "texts" && (
+        <>
+          {texts.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
+              <MessageCircle size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
+              <div style={{ fontSize: 14, fontWeight: 500 }}>No unmatched texts</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>All incoming texts have been matched to cases.</div>
+            </div>
+          )}
+          {texts.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {texts.map(msg => {
+                const itemKey = `t-${msg.id}`;
+                const isLinking = searchMap[itemKey] !== undefined;
+                return (
+                  <div key={msg.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, background: "var(--c-bg)", padding: "12px 16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <MessageCircle size={14} style={{ color: "#3b82f6", flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", fontFamily: "monospace" }}>{msg.phoneNumber}</span>
+                        {msg.contactName && <span style={{ fontSize: 12, color: "var(--c-text2)" }}>{msg.contactName}</span>}
+                      </div>
+                      <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap" }}>{msg.sentAt ? new Date(msg.sentAt).toLocaleString() : ""}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", background: "var(--c-bg2)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border2)", marginBottom: 10 }}>{msg.body}</div>
+                    {!isLinking ? (
+                      <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
+                        onClick={() => setSearchMap(p => ({ ...p, [itemKey]: "" }))}>
+                        <Briefcase size={14} /> Assign to Case
+                      </button>
+                    ) : (
+                      <CaseSearchBox itemKey={itemKey} onAssign={(caseId) => doAssignText(msg.id, caseId)} isAssigning={assigningId === msg.id} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
