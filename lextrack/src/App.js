@@ -8915,7 +8915,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       </div>
                       {docFolders.length > 0 && docFolders.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(folder => {
                         const folderItems = docs.filter(d => d.folderId === folder.id);
-                        if (folderItems.length === 0) return null;
                         return (
                           <div key={`folder-${folder.id}-${sectionLabel}`} style={{ marginBottom: 8, border: "1px solid var(--c-border2)", borderRadius: 6, overflow: "hidden" }}
                             onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
@@ -8933,7 +8932,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
                               </div>
                             </div>
-                            {!folder.collapsed && folderItems.length === 0 && <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8" }}>Drop documents here</div>}
+                            {!folder.collapsed && folderItems.length === 0 && <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Empty — drag documents here</div>}
                             {!folder.collapsed && folderItems.length > 0 && <div style={{ padding: "0 4px 4px" }}>{folderItems.map(doc => renderDocRow(doc))}</div>}
                           </div>
                         );
