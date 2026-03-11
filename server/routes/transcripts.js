@@ -973,5 +973,57 @@ router.post("/batch-delete", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/:id/summarize", requireAuth, async (req, res) => {
+  try {
+    const access = await verifyTranscriptAccess(req, req.params.id);
+    if (access === null) return res.status(404).json({ error: "Transcript not found" });
+    if (access === false) return res.status(403).json({ error: "Access denied" });
+    const { rows } = await pool.query(
+      "SELECT ct.id, ct.transcript, ct.filename, ct.case_id, c.title as case_title, c.client_name FROM case_transcripts ct LEFT JOIN cases c ON c.id = ct.case_id WHERE ct.id = $1",
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Transcript not found" });
+    const row = rows[0];
+    const segments = typeof row.transcript === "string" ? JSON.parse(row.transcript) : (row.transcript || []);
+    if (!segments.length) return res.status(400).json({ error: "Transcript has no content to summarize" });
+    const fullText = segments.map(s => `${s.speaker || "Speaker"}: ${s.text}`).join("\n");
+    const textSnippet = fullText.substring(0, 12000);
+
+    const systemPrompt = `You are a personal injury attorney's transcript analysis assistant. Summarize the provided transcript for an attorney reviewing a personal injury case. Focus on information relevant to the claim.
+
+Provide a structured summary with these sections:
+KEY FACTS & TIMELINE
+PEOPLE & ROLES (speakers, witnesses, parties mentioned)
+LIABILITY-RELEVANT STATEMENTS (fault indicators, admissions, scene descriptions)
+DAMAGES-RELEVANT STATEMENTS (injuries, treatments, pain descriptions, financial losses)
+INCONSISTENCIES OR CONCERNS
+BOTTOM LINE
+
+Be concise but thorough. Flag anything that could help or hurt the case.
+Do not use markdown formatting like headers with # or bold with **. Use plain text with section names in ALL CAPS followed by a colon.`;
+
+    const resp = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Summarize this transcript from "${row.filename}" for the case "${row.case_title || "Unknown"}" (Client: ${row.client_name || "Unknown"}):\n\n${textSnippet}` },
+      ],
+      temperature: 0.3,
+      max_tokens: 4000,
+      store: false,
+    });
+
+    const summaryText = resp.choices[0]?.message?.content || "";
+    const summaries = [{ title: "AI Transcript Summary", content: summaryText, type: "ai_generated", generatedAt: new Date().toISOString() }];
+
+    await pool.query("UPDATE case_transcripts SET summaries = $1, updated_at = NOW() WHERE id = $2", [JSON.stringify(summaries), req.params.id]);
+
+    res.json({ summaries });
+  } catch (err) {
+    console.error("Transcript summarize error:", err);
+    res.status(500).json({ error: "AI transcript summary failed" });
+  }
+});
+
 module.exports = router;
 module.exports.processTranscription = processTranscription;

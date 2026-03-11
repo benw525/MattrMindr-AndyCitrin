@@ -65,7 +65,7 @@ import {
   apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
   apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiMsUploadForEdit, apiMsSyncBack, apiMsCleanup,
   apiGetOnlyofficeStatus, apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup,
-  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
+  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSummarizeTranscript, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
   apiGetTaskFlows, apiGetTaskFlow, apiCreateTaskFlow, apiUpdateTaskFlow, apiDeleteTaskFlow,
@@ -2809,6 +2809,7 @@ function FirmApp() {
           apiRevertTranscript={apiRevertTranscript}
           apiGetTranscriptDetail={apiGetTranscriptDetail}
           apiGetScribeSummaries={apiGetScribeSummaries}
+          apiSummarizeTranscript={apiSummarizeTranscript}
           ScribeTranscriptButtons={ScribeTranscriptButtons}
         />
       ))}
@@ -9368,6 +9369,33 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                       {transcriptDetail?.summaries?.length > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({transcriptDetail.summaries.length})</span>}
                                     </button>
                                   )}
+                                  {!t.scribeTranscriptId && (
+                                    <button
+                                      disabled={summariesLoading}
+                                      onClick={async () => {
+                                        if (transcriptDetail?.summaries?.length && !summariesLoading) {
+                                          setShowSummaries(!showSummaries);
+                                          return;
+                                        }
+                                        setSummariesLoading(true);
+                                        try {
+                                          const result = await apiSummarizeTranscript(t.id);
+                                          if (result.summaries && result.summaries.length > 0) {
+                                            setTranscriptDetail(prev => ({ ...prev, summaries: result.summaries }));
+                                            setShowSummaries(true);
+                                          } else {
+                                            alert("Summary generation returned no results.");
+                                          }
+                                        } catch (err) { alert("Failed to summarize transcript: " + err.message); }
+                                        setSummariesLoading(false);
+                                      }}
+                                      className="btn btn-sm"
+                                      style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, background: showSummaries ? "#ede9fe" : "transparent", border: "1px solid #a78bfa", color: showSummaries ? "#5b21b6" : "#7c3aed" }}
+                                    >
+                                      {summariesLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Summarize
+                                      {transcriptDetail?.summaries?.length > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({transcriptDetail.summaries.length})</span>}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
 
@@ -9426,6 +9454,38 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                   >
                                     Your browser does not support the video tag.
                                   </video>
+                                </div>
+                              )}
+
+                              {transcriptDetail.summaries && Array.isArray(transcriptDetail.summaries) && transcriptDetail.summaries.length > 0 && (
+                                <div style={{ marginBottom: 16, border: "1px solid #c4b5fd", borderRadius: 8, overflow: "hidden" }}>
+                                  <div
+                                    onClick={() => setShowSummaries(!showSummaries)}
+                                    style={{ padding: "10px 14px", background: "#ede9fe", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                                  >
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <Sparkles size={14} style={{ color: "#7c3aed" }} />
+                                      <span style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>AI Summaries</span>
+                                      <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 400 }}>({transcriptDetail.summaries.length})</span>
+                                    </div>
+                                    <ChevronRight size={14} style={{ color: "#7c3aed", transform: showSummaries ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+                                  </div>
+                                  {showSummaries && (
+                                    <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, background: "#faf5ff" }}>
+                                      {transcriptDetail.summaries.map((summary, si) => (
+                                        <div key={si} style={{ border: "1px solid #e9d5ff", borderRadius: 6, padding: "12px 14px", background: "#fff" }}>
+                                          {(summary.title || summary.type) && (
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: "#5b21b6", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                              {summary.title || summary.type}
+                                            </div>
+                                          )}
+                                          <div style={{ fontSize: 12, lineHeight: 1.7, color: "#334155", whiteSpace: "pre-wrap" }}>
+                                            {summary.content || summary.text || summary.summary || JSON.stringify(summary)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
@@ -9568,37 +9628,6 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                               </div>
                               )}
 
-                              {transcriptDetail.summaries && Array.isArray(transcriptDetail.summaries) && transcriptDetail.summaries.length > 0 && (
-                                <div style={{ marginTop: 16, border: "1px solid #c4b5fd", borderRadius: 8, overflow: "hidden" }}>
-                                  <div
-                                    onClick={() => setShowSummaries(!showSummaries)}
-                                    style={{ padding: "10px 14px", background: "#ede9fe", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
-                                  >
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                      <Sparkles size={14} style={{ color: "#7c3aed" }} />
-                                      <span style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>AI Summaries</span>
-                                      <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 400 }}>({transcriptDetail.summaries.length})</span>
-                                    </div>
-                                    <ChevronRight size={14} style={{ color: "#7c3aed", transform: showSummaries ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
-                                  </div>
-                                  {showSummaries && (
-                                    <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, background: "#faf5ff" }}>
-                                      {transcriptDetail.summaries.map((summary, si) => (
-                                        <div key={si} style={{ border: "1px solid #e9d5ff", borderRadius: 6, padding: "12px 14px", background: "#fff" }}>
-                                          {(summary.title || summary.type) && (
-                                            <div style={{ fontSize: 12, fontWeight: 700, color: "#5b21b6", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                                              {summary.title || summary.type}
-                                            </div>
-                                          )}
-                                          <div style={{ fontSize: 12, lineHeight: 1.7, color: "#334155", whiteSpace: "pre-wrap" }}>
-                                            {summary.content || summary.text || summary.summary || JSON.stringify(summary)}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
                             </div>
                           );
                         })() : <p style={{ fontSize: 12, color: "#94a3b8" }}>No transcript data.</p>}

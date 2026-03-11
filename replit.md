@@ -186,6 +186,8 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 - **Present Mode**: Dark theme window (18px font) for courtroom presentation
 - **Video Transcription**: Video upload/playback with HTTP Range streaming, R2 hybrid storage
 - **AI Name Suggestion**: GPT-powered transcript naming from content
+- **AI Summaries at Top**: Imported Scribe AI summaries displayed at top of transcript (collapsible, collapsed by default)
+- **Transcript Summarize**: Non-Scribe transcripts have a "Summarize" button that generates AI summary via `POST /api/transcripts/:id/summarize` using PI-focused transcript analysis prompt; summaries stored in `case_transcripts.summaries` JSONB column
 
 ### Cloud Storage (R2)
 - Cloudflare R2 via S3-compatible API (`server/r2.js`)

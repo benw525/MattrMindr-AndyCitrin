@@ -20,6 +20,7 @@ export default function TranscriptViewerWindow({
   apiRevertTranscript,
   apiGetTranscriptDetail,
   apiGetScribeSummaries,
+  apiSummarizeTranscript,
   ScribeTranscriptButtons,
 }) {
   const [transcriptEdits, setTranscriptEdits] = useState(viewer.transcriptEdits || []);
@@ -421,9 +422,35 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                 } catch (err) { alert("Failed to fetch summaries: " + err.message); }
                 setSummariesLoading(false);
               }}
-              style={{ ...btnStyle, background: showSummaries ? "#ede9fe" : undefined, borderColor: showSummaries ? "#a78bfa" : viewer.scribeTranscriptId ? "#a78bfa" : undefined, color: showSummaries ? "#5b21b6" : viewer.scribeTranscriptId ? "#7c3aed" : undefined }}
+              style={{ ...btnStyle, background: showSummaries ? "#ede9fe" : undefined, borderColor: showSummaries ? "#a78bfa" : "#a78bfa", color: showSummaries ? "#5b21b6" : "#7c3aed" }}
             >
               {summariesLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Summaries
+              {viewer.transcriptDetail?.summaries?.length > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({viewer.transcriptDetail.summaries.length})</span>}
+            </button>
+          )}
+          {!viewer.scribeTranscriptId && (
+            <button
+              disabled={summariesLoading}
+              onClick={async () => {
+                if (viewer.transcriptDetail?.summaries?.length && !summariesLoading) {
+                  setShowSummaries(!showSummaries);
+                  return;
+                }
+                setSummariesLoading(true);
+                try {
+                  const result = await apiSummarizeTranscript(viewer.transcriptId);
+                  if (result.summaries && result.summaries.length > 0) {
+                    if (onViewerDetailUpdate) onViewerDetailUpdate({ ...viewer.transcriptDetail, summaries: result.summaries });
+                    setShowSummaries(true);
+                  } else {
+                    alert("Summary generation returned no results.");
+                  }
+                } catch (err) { alert("Failed to summarize transcript: " + err.message); }
+                setSummariesLoading(false);
+              }}
+              style={{ ...btnStyle, background: showSummaries ? "#ede9fe" : undefined, borderColor: "#a78bfa", color: showSummaries ? "#5b21b6" : "#7c3aed" }}
+            >
+              {summariesLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Summarize
               {viewer.transcriptDetail?.summaries?.length > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({viewer.transcriptDetail.summaries.length})</span>}
             </button>
           )}
@@ -532,6 +559,36 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
             ))}
           </div>
         </div>
+
+        {viewer.transcriptDetail?.summaries && Array.isArray(viewer.transcriptDetail.summaries) && viewer.transcriptDetail.summaries.length > 0 && (
+          <div style={{ marginBottom: 16, border: "1px solid #c4b5fd", borderRadius: 8, overflow: "hidden" }}>
+            <div
+              onClick={() => setShowSummaries(!showSummaries)}
+              style={{ padding: "10px 14px", background: "#ede9fe", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Sparkles size={14} style={{ color: "#7c3aed" }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>AI Summaries</span>
+                <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 400 }}>({viewer.transcriptDetail.summaries.length})</span>
+              </div>
+              <ChevronRight size={14} style={{ color: "#7c3aed", transform: showSummaries ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+            </div>
+            {showSummaries && (
+              <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, background: "#faf5ff" }}>
+                {viewer.transcriptDetail.summaries.map((summary, si) => (
+                  <div key={si} style={{ border: "1px solid #e9d5ff", borderRadius: 6, padding: "12px 14px", background: "#fff" }}>
+                    {(summary.title || summary.type) && (
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#5b21b6", marginBottom: 6 }}>{summary.title || summary.type}</div>
+                    )}
+                    <div style={{ fontSize: 12, lineHeight: 1.7, color: "#334155", whiteSpace: "pre-wrap" }}>
+                      {summary.content || summary.text || summary.summary || JSON.stringify(summary)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {selectedSegments.size >= 2 && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", marginBottom: 8, background: "#6366f118", border: "1px solid #6366f130", borderRadius: 6 }}>
@@ -675,35 +732,6 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
           </div>
         )}
 
-        {viewer.transcriptDetail?.summaries && Array.isArray(viewer.transcriptDetail.summaries) && viewer.transcriptDetail.summaries.length > 0 && (
-          <div style={{ marginTop: 16, border: "1px solid #c4b5fd", borderRadius: 8, overflow: "hidden" }}>
-            <div
-              onClick={() => setShowSummaries(!showSummaries)}
-              style={{ padding: "10px 14px", background: "#ede9fe", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Sparkles size={14} style={{ color: "#7c3aed" }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>AI Summaries</span>
-                <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 400 }}>({viewer.transcriptDetail.summaries.length})</span>
-              </div>
-              <ChevronRight size={14} style={{ color: "#7c3aed", transform: showSummaries ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
-            </div>
-            {showSummaries && (
-              <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, background: "#faf5ff" }}>
-                {viewer.transcriptDetail.summaries.map((summary, si) => (
-                  <div key={si} style={{ border: "1px solid #e9d5ff", borderRadius: 6, padding: "12px 14px", background: "#fff" }}>
-                    {(summary.title || summary.type) && (
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#5b21b6", marginBottom: 6 }}>{summary.title || summary.type}</div>
-                    )}
-                    <div style={{ fontSize: 12, lineHeight: 1.7, color: "#334155", whiteSpace: "pre-wrap" }}>
-                      {summary.content || summary.text || summary.summary || JSON.stringify(summary)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {!isMobile && (
