@@ -4,7 +4,7 @@ import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
 import TranscriptViewerWindow from "./TranscriptViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -1300,6 +1300,7 @@ function FirmApp() {
   const [appOoStatus, setAppOoStatus] = useState(null);
   const topZIndexRef = useRef(10010);
   const nextViewerIdRef = useRef(0);
+  const [minChipScrollIdx, setMinChipScrollIdx] = useState(0);
 
   useEffect(() => {
     if (openDocViewers.length > 0 && appMsStatus === null) {
@@ -1356,6 +1357,7 @@ function FirmApp() {
       if (v && v.blobUrl) URL.revokeObjectURL(v.blobUrl);
       return prev.filter(w => w.id !== viewerId);
     });
+    setMinChipScrollIdx(i => Math.max(0, i - 1));
   };
 
   const minimizeDocViewer = (viewerId) => {
@@ -1407,6 +1409,7 @@ function FirmApp() {
 
   const closeTranscriptViewer = (viewerId) => {
     setOpenTranscriptViewers(prev => prev.filter(v => v.id !== viewerId));
+    setMinChipScrollIdx(i => Math.max(0, i - 1));
   };
 
   const minimizeTranscriptViewer = (viewerId) => {
@@ -2805,19 +2808,44 @@ function FirmApp() {
         />
       ))}
 
-      {[...openDocViewers.filter(v => v.minimized), ...openTranscriptViewers.filter(v => v.minimized)].map((viewer, idx) => {
-        const isTranscript = 'transcriptId' in viewer;
-        return (
-          <div key={`min-${viewer.id}`} style={{ position: "fixed", bottom: 12, left: 12 + idx * 230, zIndex: 10000, display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 10, maxWidth: 220, cursor: "default", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}>
-            {isTranscript
-              ? <FileAudio size={13} style={{ color: "#6366f1", flexShrink: 0 }} />
-              : <FileText size={13} style={{ color: "#64748b", flexShrink: 0 }} />}
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || (isTranscript ? "Transcript" : "Document")}</span>
-            <button onClick={() => isTranscript ? restoreTranscriptViewer(viewer.id) : restoreDocViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
-            <button onClick={(e) => { e.stopPropagation(); isTranscript ? closeTranscriptViewer(viewer.id) : closeDocViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
-          </div>
+      {(() => {
+        const allMin = [...openDocViewers.filter(v => v.minimized), ...openTranscriptViewers.filter(v => v.minimized)];
+        if (!allMin.length) return null;
+        const CHIP_W = 222;
+        const GAP = 8;
+        const ARROW_W = 32;
+        const maxVisible = Math.max(1, Math.floor((window.innerWidth - 24 - ARROW_W * 2) / (CHIP_W + GAP)));
+        const needsScroll = allMin.length > maxVisible;
+        const scrollIdx = Math.min(minChipScrollIdx, Math.max(0, allMin.length - maxVisible));
+        const visible = needsScroll ? allMin.slice(scrollIdx, scrollIdx + maxVisible) : allMin;
+        const canLeft = scrollIdx > 0;
+        const canRight = scrollIdx + maxVisible < allMin.length;
+        const arrowBtn = (dir, enabled, onClick) => (
+          <button onClick={onClick} disabled={!enabled} style={{ position: "fixed", bottom: 12, zIndex: 10001, [dir === "left" ? "left" : "right"]: 4, width: ARROW_W, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: enabled ? "var(--c-bg, #fff)" : "transparent", border: enabled ? "1px solid var(--c-border, #e2e8f0)" : "none", borderRadius: 8, cursor: enabled ? "pointer" : "default", boxShadow: enabled ? "0 2px 8px rgba(0,0,0,0.10)" : "none", opacity: enabled ? 1 : 0, pointerEvents: enabled ? "auto" : "none", transition: "opacity 0.15s" }}>
+            {dir === "left" ? <ChevronLeft size={16} style={{ color: "#64748b" }} /> : <ChevronRight size={16} style={{ color: "#64748b" }} />}
+          </button>
         );
-      })}
+        const chipLeft = (needsScroll && canLeft ? ARROW_W + 8 : 0) + 12;
+        return (
+          <>
+            {needsScroll && arrowBtn("left", canLeft, () => setMinChipScrollIdx(i => Math.max(0, i - 1)))}
+            {visible.map((viewer, idx) => {
+              const isTranscript = 'transcriptId' in viewer;
+              return (
+                <div key={`min-${viewer.id}`} style={{ position: "fixed", bottom: 12, left: chipLeft + idx * (CHIP_W + GAP), zIndex: 10000, display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 10, width: CHIP_W, cursor: "default", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}>
+                  {isTranscript
+                    ? <FileAudio size={13} style={{ color: "#6366f1", flexShrink: 0 }} />
+                    : <FileText size={13} style={{ color: "#64748b", flexShrink: 0 }} />}
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || (isTranscript ? "Transcript" : "Document")}</span>
+                  <button onClick={() => isTranscript ? restoreTranscriptViewer(viewer.id) : restoreDocViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+                  <button onClick={(e) => { e.stopPropagation(); isTranscript ? closeTranscriptViewer(viewer.id) : closeDocViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
+                </div>
+              );
+            })}
+            {needsScroll && arrowBtn("right", canRight, () => setMinChipScrollIdx(i => Math.min(allMin.length - maxVisible, i + 1)))}
+          </>
+        );
+      })()}
 
     </div>
   );
