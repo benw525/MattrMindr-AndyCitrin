@@ -128,8 +128,10 @@ router.post("/", upload.any(), async (req, res) => {
         }
 
         const firstPage = extractedText.substring(0, 5000).toUpperCase();
-        const isFiling = firstPage.includes("NOTICE OF ELECTRONIC FILING");
-        console.log(`PDF triage: "${pdfAtt.filename}" → ${isFiling ? "FILING (NEF detected)" : "DOCUMENT (no NEF coversheet)"}`);
+        const filingMarkers = ["NOTICE OF ELECTRONIC FILING", "ALAFILE E-NOTICE"];
+        const matchedMarker = filingMarkers.find(m => firstPage.includes(m));
+        const isFiling = !!matchedMarker;
+        console.log(`PDF triage: "${pdfAtt.filename}" → ${isFiling ? `FILING (${matchedMarker} detected)` : "DOCUMENT (no filing marker)"}`);
 
         if (isFiling) {
           const { rows: filingRows } = await pool.query(
