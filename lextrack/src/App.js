@@ -6039,7 +6039,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [aiChargeAnalysis, setAiChargeAnalysis] = useState({ loading: false, result: null, error: null, show: false });
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
-  const [docUploadType, setDocUploadType] = useState("Police Report");
+  const [docUploadType, setDocUploadType] = useState("Medical Records");
   const [docsSubTab, setDocsSubTab] = useState("documents");
   const [docFilterType, setDocFilterType] = useState("All");
   const [docSummarizing, setDocSummarizing] = useState(null);
@@ -8800,7 +8800,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div style={{ minWidth: 160 }}>
                   <label style={{ fontSize: 11, color: "var(--c-text2)", display: "block", marginBottom: 4 }}>Document Type</label>
                   <select value={docUploadType} onChange={e => setDocUploadType(e.target.value)} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 5, border: "1px solid var(--c-border)", width: "100%", background: "var(--c-bg)", color: "var(--c-text)" }}>
-                    {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
+                    {["Medical Records", "Police/Accident Report", "Insurance Correspondence", "Demand Letter", "Settlement Agreement", "Expert Report", "Witness Statement", "Discovery Material", "Billing Records", "Deposition Transcript", "Court Order", "Photograph/Video", "Other"].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <button type="submit" className="btn btn-gold btn-sm" disabled={docUploadProgress !== null}>{docUploadProgress !== null ? `${docUploadProgress}%` : "Upload"}</button>
@@ -8857,7 +8857,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                               <input value={editingDocData.filename || ""} onChange={e => setEditingDocData(d => ({ ...d, filename: e.target.value }))} style={{ fontSize: 13, fontWeight: 500, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6", flex: 1, minWidth: 120 }} />
                               <select value={editingDocData.docType || "Other"} onChange={e => setEditingDocData(d => ({ ...d, docType: e.target.value }))} style={{ fontSize: 11, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
-                                {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
+                                {["Medical Records", "Police/Accident Report", "Insurance Correspondence", "Demand Letter", "Settlement Agreement", "Expert Report", "Witness Statement", "Discovery Material", "Billing Records", "Deposition Transcript", "Court Order", "Photograph/Video", "Other"].map(t => <option key={t}>{t}</option>)}
                               </select>
                               <button onClick={async () => { try { const updated = await apiUpdateCaseDocument(doc.id, editingDocData); setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, filename: updated.filename, docType: updated.docType } : d)); log("Document edited", editingDocData.filename); setEditingDocId(null); } catch (err) { alert("Save failed: " + err.message); } }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
                               <button onClick={() => setEditingDocId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
@@ -10677,7 +10677,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
               </div>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Doc Type</label>
-                <input type="text" placeholder="e.g., Motion to Suppress" value={filingUploadDocType} onChange={e => setFilingUploadDocType(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB", width: 160 }} />
+                <input type="text" placeholder="e.g., Motion to Compel" value={filingUploadDocType} onChange={e => setFilingUploadDocType(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB", width: 160 }} />
               </div>
             </div>
             </DragDropZone>
@@ -11280,7 +11280,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
 // ─── CaseFileLinks Component ──────────────────────────────────────────────────
 // Stores local file path strings (not file contents) — user pastes or types a
 // path and it's saved as a clickable link that opens via the file:// protocol.
-const LINK_CATEGORIES = ["General", "Motions", "Discovery", "Police Reports", "Photographs", "Expert Reports", "Court Orders", "Plea Agreements", "Sentencing", "Other"];
+const LINK_CATEGORIES = ["General", "Motions", "Discovery", "Medical Records", "Insurance", "Expert Reports", "Demand/Settlement", "Court Orders", "Depositions", "Photographs", "Other"];
 
 function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink, confirmDelete }) {
   const [showForm, setShowForm] = useState(false);
@@ -11420,7 +11420,7 @@ const NOTE_TYPES = [
   { label: "General",          color: "var(--c-text2)", bg: "var(--c-card)" },
   { label: "Attorney Note",    color: "#0f172a", bg: "#fef3c7" },
   { label: "Client Contact",   color: "#5599cc", bg: "#f1f5f9" },
-  { label: "Plea Discussion",  color: "#44bbaa", bg: "#ccfbf1" },
+  { label: "Settlement Discussion",  color: "#44bbaa", bg: "#ccfbf1" },
   { label: "Court / Hearing",  color: "#e07a30", bg: "#fff7ed" },
   { label: "Investigation",    color: "#4CAE72", bg: "#dcfce7" },
   { label: "Witness Interview", color: "#a066cc", bg: "#fdf4ff" },
@@ -12001,9 +12001,9 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
     cells.push(dateStr);
   }
 
-  const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#d97706", trial: "#dc2626", arraignment: "#0891b2", sentencing: "#7c3aed", external: "#5588cc" };
-  const KIND_ICONS = { deadline: "📋", task: "✅", "court-date": "⚖", trial: "⚖", arraignment: "⚖", sentencing: "⚖", external: "📅" };
-  const KIND_LABELS = { deadline: "Deadline", task: "Task", "court-date": "Court Date", trial: "Trial", arraignment: "Arraignment", sentencing: "Sentencing", external: "External" };
+  const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#d97706", trial: "#dc2626", mediation: "#0891b2", deposition: "#7c3aed", external: "#5588cc" };
+  const KIND_ICONS = { deadline: "📋", task: "✅", "court-date": "⚖", trial: "⚖", mediation: "🤝", deposition: "📝", external: "📅" };
+  const KIND_LABELS = { deadline: "Deadline", task: "Task", "court-date": "Court Date", trial: "Trial", mediation: "Mediation", deposition: "Deposition", external: "External" };
 
   const eventsByDate = useMemo(() => {
     const map = {};
@@ -12118,7 +12118,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
         {selected && (() => {
           const grouped = {};
           selectedEvents.forEach(ev => { const k = ev.kind; if (!grouped[k]) grouped[k] = []; grouped[k].push(ev); });
-          const order = ["deadline","task","court-date","trial","arraignment","sentencing","external"];
+          const order = ["deadline","task","court-date","trial","mediation","deposition","external"];
           return order.filter(k => grouped[k]).map(kind => (
             <div key={kind}>
               <div style={{ padding: "6px 16px", fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)" }}>
@@ -15054,12 +15054,12 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const canOffice = (currentUser?.roles || []).some(r => OFFICE_ROLES.includes(r));
-  const [docType, setDocType] = useState("Motion to Suppress");
+  const [docType, setDocType] = useState("Demand Letter");
   const [docTypeCustom, setDocTypeCustom] = useState("");
   const [docInstructions, setDocInstructions] = useState("");
   const [aiCenterTasks, setAiCenterTasks] = useState({ tasks: [], added: {} });
   const [docSummaryText, setDocSummaryText] = useState("");
-  const [docSummaryType, setDocSummaryType] = useState("Police Report");
+  const [docSummaryType, setDocSummaryType] = useState("Medical Records");
   const [aiCenterFilings, setAiCenterFilings] = useState([]);
   const [aiCenterSelectedFiling, setAiCenterSelectedFiling] = useState("");
   const [aiCenterFilingResult, setAiCenterFilingResult] = useState(null);
@@ -15152,11 +15152,11 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
   const selectAgent = (agentId) => {
     setActiveAgent(agentId);
     setAiState({ loading: false, result: null, error: null });
-    setDocType("Motion to Suppress");
+    setDocType("Demand Letter");
     setDocTypeCustom("");
     setDocInstructions("");
     setDocSummaryText("");
-    setDocSummaryType("Police Report");
+    setDocSummaryType("Medical Records");
     setAiCenterFilings([]);
     setAiCenterSelectedFiling("");
     setBatchOp("reassign-staff");
@@ -15346,18 +15346,18 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Document Type</label>
                   <select value={docType} onChange={e => { setDocType(e.target.value); if (e.target.value !== "Other") setDocTypeCustom(""); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
-                    {["Motion to Suppress", "Motion to Dismiss", "Bond Reduction Motion", "Continuance Request", "Discovery Demand", "Plea Agreement Draft", "Sentencing Memorandum", "Motion for Speedy Trial", "Other"].map(t => <option key={t}>{t}</option>)}
+                    {["Demand Letter", "Settlement Demand", "Motion to Compel", "Motion for Summary Judgment", "Complaint/Petition", "Discovery Request", "Interrogatories", "Request for Production", "Deposition Notice", "Motion to Dismiss", "Continuance Request", "Daubert Motion", "Mediation Brief", "Trial Brief", "Other"].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 {docType === "Other" && (
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Specify Document Type</label>
-                    <input type="text" value={docTypeCustom} onChange={e => setDocTypeCustom(e.target.value)} placeholder="e.g. Habeas Corpus Petition, Expungement Motion, Subpoena..." style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }} />
+                    <input type="text" value={docTypeCustom} onChange={e => setDocTypeCustom(e.target.value)} placeholder="e.g. Letter of Protection, Spoliation Letter, Subpoena Duces Tecum..." style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }} />
                   </div>
                 )}
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Additional Instructions (optional)</label>
-                  <textarea value={docInstructions} onChange={e => setDocInstructions(e.target.value)} style={{ width: "100%", minHeight: 60, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg)", color: "var(--c-text)" }} placeholder="e.g. Focus on Fourth Amendment issues, include specific facts about the traffic stop..." />
+                  <textarea value={docInstructions} onChange={e => setDocInstructions(e.target.value)} style={{ width: "100%", minHeight: 60, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg)", color: "var(--c-text)" }} placeholder="e.g. Emphasize liability and causation, include medical treatment timeline, reference policy limits..." />
                 </div>
               </>
             )}
@@ -15367,7 +15367,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text)", marginBottom: 4, display: "block" }}>Document Type</label>
                   <select value={docSummaryType} onChange={e => setDocSummaryType(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg)", color: "var(--c-text)" }}>
-                    {["Police Report", "Witness Statement", "Lab/Forensic Report", "Mental Health Evaluation", "Prior Record/PSI", "Discovery Material", "Medical Records", "Body Cam/Dash Cam Transcript", "Court Order", "Plea Agreement", "Expert Report", "Other"].map(t => <option key={t}>{t}</option>)}
+                    {["Medical Records", "Police/Accident Report", "Insurance Correspondence", "Demand Letter", "Settlement Agreement", "Expert Report", "Witness Statement", "Discovery Material", "Billing Records", "Deposition Transcript", "Court Order", "Photograph/Video", "Other"].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div style={{ marginBottom: 12 }}>
@@ -18351,7 +18351,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
   const [generating, setGenerating] = useState(false);
   const [includeCoS, setIncludeCoS] = useState(true);
   const [browseOpen, setBrowseOpen] = useState(null);
-  const [aiDraft, setAiDraft] = useState({ loading: false, result: null, error: null, docType: "Motion to Suppress", instructions: "" });
+  const [aiDraft, setAiDraft] = useState({ loading: false, result: null, error: null, docType: "Demand Letter", instructions: "" });
 
   useEffect(() => {
     apiGetTemplates().then(t => { setTemplates(t); setLoading(false); }).catch(() => setLoading(false));
@@ -18448,22 +18448,22 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
         <div style={{ padding: 24, flex: 1, overflowY: "auto", minHeight: 0 }}>
           {mode === "ai" && (
             <div>
-              <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 16 }}>Generate a first draft of a motion, plea, or memorandum using AI — tailored to your case details.</div>
+              <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 16 }}>Generate a first draft of a demand letter, motion, or brief using AI — tailored to your case details.</div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", marginBottom: 4, display: "block" }}>Document Type</label>
                 <select value={aiDraft.docType} onChange={e => setAiDraft(p => ({ ...p, docType: e.target.value, customType: e.target.value !== "Other" ? "" : (p.customType || "") }))} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg2)", color: "var(--c-text)" }}>
-                  {["Motion to Suppress", "Motion to Dismiss", "Bond Reduction Motion", "Continuance Request", "Discovery Demand", "Plea Agreement Draft", "Sentencing Memorandum", "Motion for Speedy Trial", "Other"].map(t => <option key={t}>{t}</option>)}
+                  {["Demand Letter", "Settlement Demand", "Motion to Compel", "Motion for Summary Judgment", "Complaint/Petition", "Discovery Request", "Interrogatories", "Request for Production", "Deposition Notice", "Motion to Dismiss", "Continuance Request", "Daubert Motion", "Mediation Brief", "Trial Brief", "Other"].map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               {aiDraft.docType === "Other" && (
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", marginBottom: 4, display: "block" }}>Specify Document Type</label>
-                  <input type="text" value={aiDraft.customType || ""} onChange={e => setAiDraft(p => ({ ...p, customType: e.target.value }))} placeholder="e.g. Habeas Corpus Petition, Expungement Motion, Subpoena..." style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg2)", color: "var(--c-text)" }} />
+                  <input type="text" value={aiDraft.customType || ""} onChange={e => setAiDraft(p => ({ ...p, customType: e.target.value }))} placeholder="e.g. Letter of Protection, Spoliation Letter, Subpoena Duces Tecum..." style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 13, background: "var(--c-bg2)", color: "var(--c-text)" }} />
                 </div>
               )}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", marginBottom: 4, display: "block" }}>Additional Instructions (optional)</label>
-                <textarea value={aiDraft.instructions} onChange={e => setAiDraft(p => ({ ...p, instructions: e.target.value }))} style={{ width: "100%", minHeight: 60, padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg2)", color: "var(--c-text)" }} placeholder="e.g. Focus on Fourth Amendment issues, include specific facts about the traffic stop..." />
+                <textarea value={aiDraft.instructions} onChange={e => setAiDraft(p => ({ ...p, instructions: e.target.value }))} style={{ width: "100%", minHeight: 60, padding: "8px", borderRadius: 6, border: "1px solid var(--c-border)", fontSize: 12, resize: "vertical", fontFamily: "inherit", background: "var(--c-bg2)", color: "var(--c-text)" }} placeholder="e.g. Emphasize liability and causation, include medical treatment timeline, reference policy limits..." />
               </div>
               {!aiDraft.result && !aiDraft.loading && (
                 <button className="btn btn-gold" style={{ width: "100%" }} onClick={() => {
