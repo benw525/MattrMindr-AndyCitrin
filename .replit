@@ -54,3 +54,7 @@ build = ["bash", "-c", "node server/schema.js && cd lextrack && npm install && C
 ONLYOFFICE_URL = "https://docspace-13tl7v.onlyoffice.com"
 ONLYOFFICE_USER = "beemer@quarkgames.com"
 ONLYOFFICE_ROOM_ID = "2853087"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 120000
