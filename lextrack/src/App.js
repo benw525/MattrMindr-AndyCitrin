@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
+import TranscriptViewerWindow from "./TranscriptViewerWindow.js";
 import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
@@ -5844,6 +5845,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [docUploadProgress, setDocUploadProgress] = useState(null);
   const [filingUploadProgress, setFilingUploadProgress] = useState(null);
   const [openDocViewers, setOpenDocViewers] = useState([]);
+  const [openTranscriptViewers, setOpenTranscriptViewers] = useState([]);
   const [appMsStatus, setAppMsStatus] = useState(null);
   const [appOoStatus, setAppOoStatus] = useState(null);
   const topZIndexRef = useRef(10010);
@@ -5947,6 +5949,54 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
     topZIndexRef.current += 1;
     setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, blobUrl, annotations: [], officeViewUrl: null, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
+  };
+
+  const openTranscriptViewer = async (transcript) => {
+    const existing = openTranscriptViewers.find(v => v.transcriptId === transcript.id);
+    if (existing) {
+      topZIndexRef.current += 1;
+      setOpenTranscriptViewers(prev => prev.map(v => v.transcriptId === transcript.id ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
+      return;
+    }
+    try {
+      const detail = await apiGetTranscriptDetail(transcript.id);
+      const id = ++nextViewerIdRef.current;
+      const offset = (openTranscriptViewers.filter(v => !v.minimized).length % 6) * 30;
+      topZIndexRef.current += 1;
+      setOpenTranscriptViewers(prev => [...prev, {
+        id,
+        transcriptId: transcript.id,
+        filename: transcript.filename,
+        isVideo: transcript.isVideo || false,
+        durationSeconds: detail.durationSeconds || transcript.durationSeconds || 0,
+        scribeTranscriptId: transcript.scribeTranscriptId || null,
+        scribeStatus: transcript.scribeStatus || null,
+        transcriptDetail: detail,
+        transcriptEdits: JSON.parse(JSON.stringify(detail.transcript || [])),
+        minimized: false,
+        zIndex: topZIndexRef.current,
+        position: { x: 100 + offset, y: 50 + offset },
+        size: { width: Math.min(900, window.innerWidth * 0.7), height: Math.min(650, window.innerHeight * 0.8) },
+      }]);
+    } catch (err) { alert("Failed to open transcript: " + err.message); }
+  };
+
+  const closeTranscriptViewer = (viewerId) => {
+    setOpenTranscriptViewers(prev => prev.filter(v => v.id !== viewerId));
+  };
+
+  const minimizeTranscriptViewer = (viewerId) => {
+    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: true } : v));
+  };
+
+  const restoreTranscriptViewer = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
+  };
+
+  const bringTranscriptViewerToFront = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, zIndex: topZIndexRef.current } : v));
   };
 
   const [linkedCases, setLinkedCases] = useState([]);
@@ -9008,6 +9058,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         {t.status === "completed" && (
                           <span style={{ fontSize: 11, color: "#16a34a", background: "#dcfce7", padding: "2px 10px", borderRadius: 12, fontWeight: 600 }}>Completed</span>
                         )}
+                        {t.status === "completed" && (
+                          <button onClick={(e) => { e.stopPropagation(); openTranscriptViewer(t); }} className="border border-green-400 text-green-700 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-green-50 transition-colors bg-transparent cursor-pointer" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <Eye size={12} /> View
+                          </button>
+                        )}
                         {t.status === "error" && (
                           <span style={{ fontSize: 11, color: "#dc2626", background: "#fee2e2", padding: "2px 10px", borderRadius: 12, fontWeight: 600 }} title={t.errorMessage || ""}>Error</span>
                         )}
@@ -11152,7 +11207,35 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
         />
       ))}
 
-      {openDocViewers.some(v => v.minimized) && (
+      {openTranscriptViewers.filter(v => !v.minimized).map(viewer => (
+        <TranscriptViewerWindow
+          key={viewer.id}
+          viewer={viewer}
+          zIndex={viewer.zIndex}
+          onClose={() => closeTranscriptViewer(viewer.id)}
+          onMinimize={() => minimizeTranscriptViewer(viewer.id)}
+          onBringToFront={() => bringTranscriptViewerToFront(viewer.id)}
+          onPositionChange={(pos) => setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, position: pos } : v))}
+          onSizeChange={(sz) => setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, size: sz } : v))}
+          onTranscriptEditsChange={(edits) => {
+            setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, transcriptEdits: edits, transcriptDetail: { ...v.transcriptDetail, transcript: edits } } : v));
+            if (expandedTranscriptId === viewer.transcriptId) {
+              setTranscriptDetail(d => d ? { ...d, transcript: edits } : d);
+              setTranscriptEdits(JSON.parse(JSON.stringify(edits)));
+            }
+          }}
+          apiDownloadTranscriptAudio={apiDownloadTranscriptAudio}
+          apiExportTranscript={apiExportTranscript}
+          apiGetTranscriptHistory={apiGetTranscriptHistory}
+          apiSaveTranscriptHistory={apiSaveTranscriptHistory}
+          apiUpdateTranscript={apiUpdateTranscript}
+          apiRevertTranscript={apiRevertTranscript}
+          apiGetTranscriptDetail={apiGetTranscriptDetail}
+          ScribeTranscriptButtons={ScribeTranscriptButtons}
+        />
+      ))}
+
+      {(openDocViewers.some(v => v.minimized) || openTranscriptViewers.some(v => v.minimized)) && (
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 10000, display: "flex", gap: 8, padding: "8px 12px", background: "var(--c-bg, #fff)", borderTop: "3px solid #ea580c", boxShadow: "0 -2px 8px rgba(0,0,0,0.08)" }}>
           {openDocViewers.filter(v => v.minimized).map(viewer => (
             <div key={viewer.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 8, maxWidth: 220, cursor: "default" }}>
@@ -11160,6 +11243,14 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
               <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || "Document"}</span>
               <button onClick={() => restoreDocViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
               <button onClick={(e) => { e.stopPropagation(); closeDocViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
+            </div>
+          ))}
+          {openTranscriptViewers.filter(v => v.minimized).map(viewer => (
+            <div key={viewer.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 8, maxWidth: 220, cursor: "default" }}>
+              <FileAudio size={13} style={{ color: "#6366f1", flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || "Transcript"}</span>
+              <button onClick={() => restoreTranscriptViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+              <button onClick={(e) => { e.stopPropagation(); closeTranscriptViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
             </div>
           ))}
         </div>
