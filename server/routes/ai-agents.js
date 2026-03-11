@@ -931,7 +931,7 @@ KEYBOARD & TIPS:
 - Press Enter in search fields to filter immediately
 - Speech-to-text available in notes (click microphone icon)
 - Dark/Light mode toggle in sidebar footer
-- All modals can be closed by clicking outside them or pressing the X button
+- All modals and pop-up windows require clicking the X close button or Cancel to dismiss — clicking outside does not close them
 - Advocate AI can be opened from any case (click the AI button in the case header) or globally from the sidebar
 - Advocate AI when opened from a case has full access to all case data for context-aware assistance
 - Multiple document/transcript viewers can be open simultaneously — minimize them to manage screen space

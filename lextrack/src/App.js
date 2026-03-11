@@ -3557,10 +3557,24 @@ function HelpTutorials({ Accordion }) {
       </Accordion>
       <Accordion sectionKey="tut-documents" title="Documents & Filings" icon="📄">
         <p><strong>Uploading Documents:</strong> In a case detail's Documents tab, click "Upload" to attach PDF, DOCX, DOC, or TXT files. Documents are stored securely and can be downloaded, summarized, or deleted.</p>
-        <p><strong>Audio Transcription:</strong> In a case detail's Documents tab, switch to the Transcripts sub-tab to upload audio files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe client interviews, witness statements, and other audio. The system automatically transcribes the audio with timestamps and speaker labels. Click any segment to edit the text, click a speaker chip to rename speakers, and use the Export Text button to download a formatted transcript. You can also upload audio from the Audio Transcription card in AI Center.</p>
+        <p><strong>Document Types:</strong> Categorize each document by type — Medical Records, Police Report, Insurance Correspondence, Demand Letter, Settlement Agreement, Expert Report, Client Correspondence, Court Filing, Discovery, Witness Statement, Photo/Video Evidence, Bills/Invoices, Employment Records, Property Damage, and more. Click the type label inline to change it.</p>
+        <p><strong>Folder Organization:</strong> Create folders within the Documents tab to organize files by category. Drag and drop documents between folders to keep everything organized.</p>
+        <p><strong>Floating Document Viewer:</strong> Click a document filename or the "View" button to open it in a floating viewer window. The viewer supports PDF, Word documents, images, and text files. Multiple viewers can be open simultaneously — each one is independently draggable and resizable. Minimize viewers to chips at the bottom of the screen to save space.</p>
+        <p><strong>Case Info Panel:</strong> While viewing a document, click the briefcase icon in the viewer's title bar to open a side panel showing the full case information — client details, key dates, SOL countdown, financials, liability assessment, and team assignments. This lets you reference case details without leaving the document.</p>
+        <p><strong>Editing Documents:</strong> Office documents (Word, Excel, PowerPoint) can be edited directly in the viewer using Microsoft 365 or ONLYOFFICE DocSpace if connected. Click the "Edit" button in the viewer title bar, make your changes, and save them back to the case.</p>
+        <p><strong>Presenting Documents:</strong> Click the present button (monitor icon) in the viewer to open the document in a dedicated presentation window. Supports dark/light mode toggling and full-screen viewing.</p>
         <p><strong>Generating Documents from Templates:</strong> Go to the Templates view to create reusable document templates with placeholders (e.g., client name, case number). Generate filled documents for any case with one click. Use "AI Draft" for AI-assisted document creation.</p>
         <p><strong>Court Filings:</strong> The Filings tab in case detail manages court filings separately from general documents. Upload filings and use AI classification to auto-detect the filing type, party, date, and summary.</p>
-        <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI extracts key facts, timeline, people mentioned, inconsistencies, liability issues, and a case-relevant takeaway.</p>
+        <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI analyzes the content and extracts key facts, timeline, people mentioned, inconsistencies, liability issues, and a case-relevant takeaway. Medical records receive specialized analysis.</p>
+      </Accordion>
+      <Accordion sectionKey="tut-transcripts" title="Transcripts & Scribe" icon="🎙️">
+        <p><strong>Creating Transcripts:</strong> In a case detail's Documents tab, switch to the Transcripts sub-tab. Upload audio/video files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe client interviews, depositions, witness statements, and other recordings. The system automatically transcribes audio with timestamps and speaker labels.</p>
+        <p><strong>Transcript Viewer:</strong> Click a transcript to open it in the floating Transcript Viewer window. The viewer shows the full transcript with speaker chips, editable segments, timestamps, and audio playback controls (play/pause, skip forward/back 5 seconds, speed adjustment). Multiple transcript viewers can be open at the same time.</p>
+        <p><strong>Editing Transcripts:</strong> Click any transcript segment to edit the text inline. Click a speaker chip to rename speakers across all their segments. Use the Export button to download a formatted text transcript.</p>
+        <p><strong>Folder Organization:</strong> Create folders within the Transcripts sub-tab to organize recordings by category.</p>
+        <p><strong>Scribe Integration:</strong> Connect to MattrMindr Scribe from Settings for professional AI-powered transcription. Once connected, send transcripts to Scribe for enhanced processing. Check the status and import results back into your case.</p>
+        <p><strong>Scribe Summaries:</strong> For Scribe-linked transcripts, click the "Summaries" button (purple) in the Transcript Viewer to fetch AI-generated summaries. Summaries highlight key topics, decisions, and action items from the recording.</p>
+        <p><strong>Presenter Mode:</strong> Click the present button in the Transcript Viewer to open the transcript in a full-screen presentation window with dark/light mode toggle.</p>
       </Accordion>
       <Accordion sectionKey="tut-correspondence" title="Correspondence & SMS" icon="💬">
         <p><strong>Email Correspondence:</strong> The Correspondence tab in case detail shows all emails linked to the case (received via the office's inbound email system). View email threads, attachments, and manage correspondence history.</p>
@@ -3568,8 +3582,8 @@ function HelpTutorials({ Accordion }) {
         <p><strong>Sending Text Messages:</strong> Click "Send Text" to compose a one-off text message. Select a recipient, type your message, or use "AI Draft" to generate a professional message based on the case context. Messages are logged in the case history.</p>
       </Accordion>
       <Accordion sectionKey="tut-ai" title="AI Tools" icon="✦">
-        <p><strong>Using Advocate AI:</strong> Open Advocate AI from the Help Center's "Advocate AI" tab, or click the floating AI button (bottom-right corner) on any screen. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature.</p>
-        <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Liability Analysis, Deadline Generator, Case Valuation & Strategy, Document Drafting, Case Triage, Client Communication Summary, Medical Record Summarizer, Task Suggestions, Filing Classifier, and Batch Case Manager.</p>
+        <p><strong>Using Advocate AI:</strong> Open Advocate AI from the Help Center's "Advocate AI" tab, or click the floating AI button (bottom-right corner) on any screen. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature. Advocate AI also understands the floating document viewer, transcript viewer, Scribe integration, and other system features.</p>
+        <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Liability Analysis, Deadline Generator, Case Valuation & Strategy, Document Drafting, Case Triage, Client Communication Summary, Medical Record Summarizer, Task Suggestions, Filing Classifier, Audio Transcription, and Batch Case Manager.</p>
         <p><strong>Training AI Agents:</strong> Use the "Advocate AI Trainer" tab in AI Center to customize AI behavior. Add personal or office-wide training entries with local rules, office policies, settlement strategies, or jurisdiction preferences. Target specific agents or apply to all. Upload documents or type instructions directly.</p>
       </Accordion>
       <Accordion sectionKey="tut-contacts" title="Contacts & Staff" icon="📇">
@@ -3599,7 +3613,10 @@ function HelpFAQ({ Accordion }) {
         <p>Click "Settings" in the sidebar footer, then "Change Password." If you've forgotten your password entirely, click "Forgot password?" on the login screen and enter your email. You'll receive a temporary reset code via email. If you still can't get in, contact your office administrator to send a new temporary password.</p>
       </Accordion>
       <Accordion sectionKey="faq-mobile" title="Can I use this on my phone?">
-        <p>Yes. MattrMindr is fully responsive and works on phones and tablets. On mobile devices, the sidebar becomes a slide-out menu accessed via the hamburger icon. All features — case management, calendar, tasks, AI tools, and more — are available on mobile with touch-optimized controls.</p>
+        <p>Yes. MattrMindr is fully responsive and works on phones and tablets. On mobile devices, the sidebar becomes a slide-out menu accessed via the hamburger icon. All features — case management, calendar, tasks, AI tools, and more — are available on mobile with touch-optimized controls. Note: the case info panel in the document viewer is hidden on mobile to preserve screen space.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-close-popups" title="How do I close pop-up windows?">
+        <p>All pop-up windows and dialogs require you to click the close button (✕) or Cancel to dismiss them. Clicking outside a pop-up will not close it — this prevents accidentally losing unsaved work in forms and dialogs.</p>
       </Accordion>
 
       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Cases</div>
@@ -3624,15 +3641,38 @@ function HelpFAQ({ Accordion }) {
         <p>Advocate AI is a general-purpose assistant that can help with case strategy questions, explain MattrMindr features, summarize case details, draft communications, suggest next steps, and more. It's context-aware — it knows what screen you're on and can reference specific case data when a case is selected. It can also suggest actionable tasks that you can add to a case with one click.</p>
       </Accordion>
 
-      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Documents</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Documents & Viewers</div>
       <Accordion sectionKey="faq-file-types" title="What file types can I upload?">
-        <p>MattrMindr supports PDF, DOCX, DOC, and TXT files for case documents and filings. For AI training documents, PDF, DOCX, and TXT files are supported. Scanned PDFs are processed using OCR (optical character recognition) to extract text for AI analysis.</p>
+        <p>For case documents: PDF, DOCX, DOC, and TXT files. For court filings: PDF files. For transcripts: audio/video files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB). For AI training documents: PDF, DOCX, and TXT. Scanned PDFs are processed using OCR to extract text for AI analysis.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-viewer" title="How does the floating document viewer work?">
+        <p>Click any document filename or "View" button to open it in a floating window. The viewer supports all major file types. You can have multiple viewers open at once — drag them around, resize them, and minimize them to chips at the bottom of the screen. Click a minimized chip to restore the viewer. The viewer also has buttons for download, print, and present mode.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-case-panel" title="How do I see case info while viewing a document?">
+        <p>When viewing a document in the floating viewer, click the briefcase icon in the title bar. A side panel slides in showing the full case details — client name, case type, key dates, SOL countdown, financials, liability assessment, and team members. This is available for any document opened from a case.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-edit-docs" title="Can I edit documents directly in the viewer?">
+        <p>Yes, for Office documents (Word, Excel, PowerPoint). If you have Microsoft 365 or ONLYOFFICE DocSpace connected, an "Edit" button appears in the viewer. Click it to open the document for editing. When finished, save changes back to the case. Connect these services in Settings under Integrations.</p>
       </Accordion>
       <Accordion sectionKey="faq-classify" title="How does the AI classify filings?">
         <p>When you upload a court filing, the AI Filing Classifier extracts the document text and analyzes it to determine the filing party (State, Defendant, Court, etc.), document type, filing date, and a brief summary. Classification can also be triggered manually via the "Classify" button on any filing.</p>
       </Accordion>
       <Accordion sectionKey="faq-templates" title="Can I create my own document templates?">
         <p>Yes. Go to the Templates view and click "+ New Template." You can create templates with placeholders like {"{{client_name}}"}, {"{{case_number}}"}, etc., that auto-fill when generating a document for a specific case. Templates support categories like Motions, Letters, and Pleadings (which auto-include court caption and signature blocks).</p>
+      </Accordion>
+      <Accordion sectionKey="faq-folders" title="How do I organize documents into folders?">
+        <p>In the Documents tab, click "New Folder" to create a folder. Drag and drop documents into folders to organize them by category — medical records, correspondence, evidence, and more. In the Transcripts tab, you can also create folders to organize recordings.</p>
+      </Accordion>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Transcripts & Scribe</div>
+      <Accordion sectionKey="faq-transcripts" title="How do I transcribe audio recordings?">
+        <p>In a case detail, go to the Documents tab and switch to the Transcripts sub-tab. Upload an audio or video file and the system will automatically transcribe it with timestamps and speaker labels. You can edit the transcript text, rename speakers, and export the results.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-scribe" title="What is Scribe integration?">
+        <p>MattrMindr Scribe is an optional professional transcription service. Connect to Scribe from Settings, then send transcripts for enhanced AI-powered transcription. Once processed, import the results back and view AI-generated summaries highlighting key topics and action items from the recording.</p>
+      </Accordion>
+      <Accordion sectionKey="faq-scribe-summaries" title="How do I get summaries for transcripts?">
+        <p>For transcripts connected to Scribe, a purple "Summaries" button appears in the Transcript Viewer. Click it to fetch AI-generated summaries. Summaries are stored with the transcript so you only need to fetch them once — subsequent clicks toggle the summaries panel open and closed.</p>
       </Accordion>
 
       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Communication</div>
@@ -3660,6 +3700,21 @@ function HelpFAQ({ Accordion }) {
 
 function HelpChangeLog() {
   const versions = [
+    {
+      version: "1.5",
+      date: "April 2026",
+      title: "Floating Viewers, Scribe & Case Info Panel",
+      changes: [
+        { text: "Floating Document Viewer", sub: ["Open documents in draggable, resizable floating windows", "Support for PDF, Word documents, images, and text files", "Multiple viewers open simultaneously with independent controls", "Minimize viewers to compact chips at the bottom of the screen", "Download, print, and present mode buttons in title bar", "Edit Office documents with Microsoft 365 or ONLYOFFICE DocSpace integration"] },
+        { text: "Floating Transcript Viewer", sub: ["Open transcripts in floating windows with full audio playback controls", "Play/pause, skip ±5s, and playback speed adjustment", "Editable segments with inline speaker renaming", "Export transcripts as formatted text", "Minimize to chips alongside document viewers"] },
+        { text: "Case Info Panel in Document Viewer", sub: ["Briefcase toggle button in viewer title bar", "Side panel displays client details, key dates, SOL countdown with color coding", "Shows financials (case value, settlement, fees), liability assessment, and team", "Hidden on mobile to preserve viewing space"] },
+        { text: "MattrMindr Scribe Integration", sub: ["Connect to Scribe from Settings for professional AI transcription", "Send transcripts to Scribe and check processing status", "Import Scribe results back into case transcripts", "Scribe Summaries button (purple) fetches AI-generated summaries", "Summaries highlight key topics, decisions, and action items"] },
+        { text: "Document & Transcript Folders", sub: ["Create folders in both Documents and Transcripts tabs", "Drag and drop documents between folders for easy organization"] },
+        { text: "Document Type Categorization", sub: ["Categorize documents by type: Medical Records, Police Report, Demand Letter, and more", "Inline type editing with click-to-change labels"] },
+        { text: "Advocate AI Knowledge Base Expansion", sub: ["Advocate AI now understands floating viewers, case info panel, and Scribe features", "Context-aware help for document viewer, transcript viewer, and folder workflows"] },
+        { text: "Modal & Popup Behavior Update", sub: ["All pop-up windows now require clicking the close button or Cancel to dismiss", "Prevents accidental data loss from clicking outside a form or dialog"] },
+      ]
+    },
     {
       version: "1.4",
       date: "March 2026",
@@ -9019,8 +9074,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             </div>
 
             {showScribeImportModal && (
-              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowScribeImportModal(false)}>
-                <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 600, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 600, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
                   <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <Download size={16} style={{ color: "#7c3aed" }} />
