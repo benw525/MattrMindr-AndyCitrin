@@ -570,7 +570,7 @@ label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; tex
 .print-doc td { padding: 6px 10px; border-bottom: 1px solid #eee; color: #222; }
 .print-doc .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ccc; font-size: 10px; color: #999; display: flex; justify-content: space-between; }
 .case-overlay { position: fixed; top: 0; left: 220px; right: 0; bottom: 0; background: #f8fafc; z-index: 600; display: flex; flex-direction: column; overflow: hidden; }
-.case-overlay-header { flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #e2e8f0; padding: 18px 32px; display: flex; align-items: flex-start; justify-content: space-between; z-index: 10; gap: 16px; }
+.case-overlay-header { flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #e2e8f0; padding: 18px 32px; display: flex; align-items: flex-start; justify-content: space-between; z-index: 10; gap: 16px; flex-wrap: wrap; }
 .case-overlay-tabs { flex-shrink: 0; display: flex; gap: 0; border-bottom: 1px solid #e2e8f0; padding: 0 32px; background: #FFFFFF; overflow-y: hidden; flex-wrap: nowrap; }
 .case-overlay-tab { padding: 12px 20px; font-size: 13px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; font-family: 'Inter', sans-serif; }
 .case-overlay-tab:hover { color: #334155; }
@@ -5743,6 +5743,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [piDataLoading, setPiDataLoading] = useState(false);
   const [showTeamPopup, setShowTeamPopup] = useState(false);
   const [showDocGen, setShowDocGen] = useState(false);
+  const [actionsExpanded, setActionsExpanded] = useState(false);
   const [activityFilter, setActivityFilter] = useState("all");
   const [aiStrategy, setAiStrategy] = useState({ loading: false, result: null, error: null, show: false });
   const [aiDeadlines, setAiDeadlines] = useState({ loading: false, deadlines: null, error: null, show: false });
@@ -6577,13 +6578,20 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               {draft.title || "Untitled"}
             </div>
           </div>
-          <div className="case-overlay-actions" style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
-              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowTeamPopup(true)}>👥 Team</button>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
               <button
                 className={`btn btn-sm ${editMode ? "" : "btn-outline"}`}
                 style={editMode ? { background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", lineHeight: "20px" } : { lineHeight: "20px" }}
                 onClick={() => setEditMode(e => !e)}
               >{editMode ? "✓ Done" : "✎ Edit"}</button>
+              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", fontSize: 13, padding: "4px 10px" }} onClick={() => setActionsExpanded(e => !e)} title={actionsExpanded ? "Collapse actions" : "More actions"}>
+                {actionsExpanded ? "▲" : "▼"}
+              </button>
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={onClose}>✕</button>
+          </div>
+          {actionsExpanded && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8, width: "100%" }}>
+              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowTeamPopup(true)}>👥 Team</button>
               <button className="px-3 py-1.5 border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-md text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-1.5 cursor-pointer" onClick={() => {
                 setAiStrategy(p => ({ ...p, show: true, loading: true, result: null, error: null }));
                 apiCaseStrategy({ caseId: c.id }).then(r => setAiStrategy(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiStrategy(p => ({ ...p, loading: false, error: e.message })));
@@ -6594,8 +6602,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               {canDelete && (
                 <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5", lineHeight: "20px" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
               )}
-            <button className="btn btn-outline btn-sm" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={onClose}>✕</button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
