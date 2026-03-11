@@ -23,7 +23,7 @@ import {
   apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
   apiGetFilings, apiUploadFiling, apiDeleteFiling, apiSummarizeFiling, apiUpdateFiling, apiClassifyFiling,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
-  apiGetVoicemails, apiCreateVoicemail, apiUpdateVoicemail, apiDeleteVoicemail,
+  apiGetVoicemails, apiCreateVoicemail, apiUpdateVoicemail, apiDeleteVoicemail, apiTranscribeVoicemail, apiUploadVoicemailAudio,
   apiGetParties, apiCreateParty, apiUpdateParty, apiDeleteParty,
   apiConflictCheck,
   apiGetExperts, apiCreateExpert, apiUpdateExpert, apiDeleteExpert,
@@ -5714,6 +5714,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [vmNotes, setVmNotes] = useState("");
   const [vmReceivedAt, setVmReceivedAt] = useState("");
   const [editingVmId, setEditingVmId] = useState(null);
+  const [vmAudioFile, setVmAudioFile] = useState(null);
+  const [vmTranscribing, setVmTranscribing] = useState(null);
   const [smsConfigs, setSmsConfigs] = useState([]);
   const [smsMessages, setSmsMessages] = useState([]);
   const [smsScheduled, setSmsScheduled] = useState([]);
@@ -10181,7 +10183,7 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                     <div style={{ display: "flex", gap: 6 }}>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                         setShowAddVoicemail(true); setEditingVmId(null);
-                        setVmCallerName(""); setVmCallerNumber(""); setVmDuration(""); setVmTranscript(""); setVmNotes(""); setVmReceivedAt("");
+                        setVmCallerName(""); setVmCallerNumber(""); setVmDuration(""); setVmTranscript(""); setVmNotes(""); setVmReceivedAt(""); setVmAudioFile(null);
                       }}>Add Voicemail</button>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                         setVoicemailsLoading(true);
@@ -10299,6 +10301,13 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                         <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Transcript</label>
                         <textarea value={vmTranscript} onChange={e => setVmTranscript(e.target.value)} placeholder="Voicemail transcript text..." rows={3} style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", boxSizing: "border-box" }} />
                       </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Audio File</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <input type="file" accept="audio/*" onChange={e => setVmAudioFile(e.target.files[0] || null)} style={{ fontSize: 12, flex: 1 }} />
+                          {vmAudioFile && <span style={{ fontSize: 11, color: "#10b981" }}>{vmAudioFile.name} ({(vmAudioFile.size / 1024).toFixed(0)} KB)</span>}
+                        </div>
+                      </div>
                       <div style={{ marginBottom: 12 }}>
                         <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 2 }}>Notes</label>
                         <textarea value={vmNotes} onChange={e => setVmNotes(e.target.value)} placeholder="Internal notes..." rows={2} style={{ width: "100%", fontSize: 12, padding: "6px 8px", border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)", resize: "vertical", boxSizing: "border-box" }} />
@@ -10308,18 +10317,18 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                           try {
                             const data = { callerName: vmCallerName, callerNumber: vmCallerNumber, duration: vmDuration ? parseInt(vmDuration) : null, transcriptText: vmTranscript, notes: vmNotes, receivedAt: vmReceivedAt ? new Date(vmReceivedAt).toISOString() : null };
                             if (editingVmId) {
-                              const updated = await apiUpdateVoicemail(editingVmId, data);
+                              const updated = await apiUpdateVoicemail(editingVmId, data, vmAudioFile);
                               setVoicemails(p => p.map(v => v.id === editingVmId ? updated : v));
                               log("Voicemail Updated", `Updated voicemail from ${vmCallerName || "Unknown"}`);
                             } else {
-                              const created = await apiCreateVoicemail(c.id, data);
+                              const created = await apiCreateVoicemail(c.id, data, vmAudioFile);
                               setVoicemails(p => [created, ...p]);
                               log("Voicemail Added", `Added voicemail from ${vmCallerName || "Unknown"}`);
                             }
-                            setShowAddVoicemail(false); setEditingVmId(null);
+                            setShowAddVoicemail(false); setEditingVmId(null); setVmAudioFile(null);
                           } catch (err) { alert("Failed to save voicemail: " + err.message); }
                         }}>{editingVmId ? "Save Changes" : "Add Voicemail"}</button>
-                        <button className="btn btn-outline btn-sm" style={{ fontSize: 12, padding: "4px 14px" }} onClick={() => { setShowAddVoicemail(false); setEditingVmId(null); }}>Cancel</button>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 12, padding: "4px 14px" }} onClick={() => { setShowAddVoicemail(false); setEditingVmId(null); setVmAudioFile(null); }}>Cancel</button>
                       </div>
                     </div>
                   )}
@@ -10361,9 +10370,34 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                                 </audio>
                               </div>
                             )}
-                            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                            <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              {vm.hasAudio && (
+                                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", color: "#6366f1", borderColor: "#6366f1" }} disabled={vmTranscribing === vm.id} onClick={async () => {
+                                  setVmTranscribing(vm.id);
+                                  try {
+                                    const updated = await apiTranscribeVoicemail(vm.id);
+                                    setVoicemails(p => p.map(v => v.id === vm.id ? updated : v));
+                                    log("Voicemail Transcribed", `Transcribed voicemail from ${vm.callerName || "Unknown"}`);
+                                  } catch (err) { alert("Transcription failed: " + err.message); }
+                                  setVmTranscribing(null);
+                                }}>{vmTranscribing === vm.id ? "Transcribing..." : (vm.transcriptText ? "Re-Transcribe" : "Transcribe")}</button>
+                              )}
+                              {!vm.hasAudio && (
+                                <label className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", cursor: "pointer", color: "#6366f1", borderColor: "#6366f1" }}>
+                                  Upload Audio
+                                  <input type="file" accept="audio/*" style={{ display: "none" }} onChange={async (e) => {
+                                    const file = e.target.files[0];
+                                    if (!file) return;
+                                    try {
+                                      const updated = await apiUploadVoicemailAudio(vm.id, file);
+                                      setVoicemails(p => p.map(v => v.id === vm.id ? updated : v));
+                                      log("Audio Uploaded", `Added audio to voicemail from ${vm.callerName || "Unknown"}`);
+                                    } catch (err) { alert("Upload failed: " + err.message); }
+                                  }} />
+                                </label>
+                              )}
                               <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
-                                setEditingVmId(vm.id); setShowAddVoicemail(true);
+                                setEditingVmId(vm.id); setShowAddVoicemail(true); setVmAudioFile(null);
                                 setVmCallerName(vm.callerName || ""); setVmCallerNumber(vm.callerNumber || "");
                                 setVmDuration(vm.duration ? String(vm.duration) : ""); setVmTranscript(vm.transcriptText || "");
                                 setVmNotes(vm.notes || ""); setVmReceivedAt(vm.receivedAt ? new Date(vm.receivedAt).toISOString().slice(0, 16) : "");

@@ -280,9 +280,37 @@ export const apiDeleteContactStaff = (id)        => apiFetch(`/api/contact-staff
 
 // Voicemails
 export const apiGetVoicemails = (caseId) => apiFetch(`/api/voicemails/${caseId}`);
-export const apiCreateVoicemail = (caseId, data) => apiFetch(`/api/voicemails/${caseId}`, { method: "POST", body: data });
-export const apiUpdateVoicemail = (id, data) => apiFetch(`/api/voicemails/${id}`, { method: "PUT", body: data });
+export const apiCreateVoicemail = async (caseId, data, audioFile) => {
+  if (audioFile) {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v != null) fd.append(k, v); });
+    fd.append("audio", audioFile);
+    const res = await fetch(`/api/voicemails/${caseId}`, { method: "POST", body: fd, credentials: "include" });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    return res.json();
+  }
+  return apiFetch(`/api/voicemails/${caseId}`, { method: "POST", body: data });
+};
+export const apiUpdateVoicemail = async (id, data, audioFile) => {
+  if (audioFile) {
+    const fd = new FormData();
+    Object.entries(data).forEach(([k, v]) => { if (v != null) fd.append(k, v); });
+    fd.append("audio", audioFile);
+    const res = await fetch(`/api/voicemails/${id}`, { method: "PUT", body: fd, credentials: "include" });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    return res.json();
+  }
+  return apiFetch(`/api/voicemails/${id}`, { method: "PUT", body: data });
+};
 export const apiDeleteVoicemail = (id) => apiFetch(`/api/voicemails/${id}`, { method: "DELETE" });
+export const apiTranscribeVoicemail = (id) => apiFetch(`/api/voicemails/${id}/transcribe`, { method: "POST" });
+export const apiUploadVoicemailAudio = async (id, audioFile) => {
+  const fd = new FormData();
+  fd.append("audio", audioFile);
+  const res = await fetch(`/api/voicemails/${id}/upload-audio`, { method: "POST", body: fd, credentials: "include" });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.json();
+};
 
 // Correspondence
 export const apiGetCorrespondence    = (caseId) => apiFetch(`/api/correspondence/${caseId}`);
