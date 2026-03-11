@@ -1,4 +1,10 @@
 const express = require("express");
+const { spawn } = require("child_process");
+const { writeFile, unlink, readFile } = require("fs/promises");
+const { randomUUID } = require("crypto");
+const { tmpdir } = require("os");
+const path = require("path");
+const OpenAI = require("openai");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 
@@ -87,6 +93,81 @@ router.delete("/:id", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Voicemail delete error:", err);
     return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/:id/transcribe", requireAuth, async (req, res) => {
+  const tmp = tmpdir();
+  const uid = randomUUID();
+  const inputPath = path.join(tmp, `vm_${uid}_input`);
+  const wavPath = path.join(tmp, `vm_${uid}.wav`);
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, audio_data, audio_mime FROM case_voicemails WHERE id = $1 AND deleted_at IS NULL",
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Voicemail not found" });
+    if (!rows[0].audio_data) return res.status(400).json({ error: "No audio data to transcribe" });
+
+    const audioBuffer = rows[0].audio_data;
+    await writeFile(inputPath, audioBuffer);
+
+    await new Promise((resolve, reject) => {
+      const proc = spawn("ffmpeg", [
+        "-y", "-i", inputPath, "-vn", "-ar", "16000", "-ac", "1",
+        "-acodec", "pcm_s16le", "-f", "wav", wavPath
+      ]);
+      proc.on("close", code => code === 0 ? resolve() : reject(new Error(`ffmpeg convert exit ${code}`)));
+      proc.on("error", reject);
+    });
+
+    const wavBuffer = await readFile(wavPath);
+    const { toFile } = await import("openai");
+    const file = await toFile(wavBuffer, "voicemail.wav");
+
+    const directKey = process.env.OPENAI_API_KEY;
+    const whisperClient = directKey
+      ? new OpenAI({ apiKey: directKey })
+      : new OpenAI({
+          apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        });
+
+    let response;
+    try {
+      response = await whisperClient.audio.transcriptions.create({
+        file,
+        model: "whisper-1",
+        response_format: "text",
+      });
+    } catch (err) {
+      const isUnsupported = err.status === 404 || err.status === 400 || err.status === 422 || err.status === 501
+        || (err.message && (err.message.includes("deployment") || err.message.includes("Unknown model") || err.message.includes("not found") || err.message.includes("not supported")));
+      if (isUnsupported) {
+        return res.status(422).json({ error: "Audio transcription (Whisper) is not available through the current AI provider. Set the OPENAI_API_KEY environment variable with a direct OpenAI API key to enable transcription." });
+      }
+      throw err;
+    }
+
+    const transcriptText = typeof response === "string" ? response : response.text || "";
+
+    const { rows: updated } = await pool.query(
+      `UPDATE case_voicemails SET transcript_text = $1
+       WHERE id = $2 AND deleted_at IS NULL
+       RETURNING id, case_id, caller_name, caller_number, duration, transcript_text,
+                 (audio_data IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at`,
+      [transcriptText, req.params.id]
+    );
+
+    console.log(`Voicemail ${req.params.id} transcribed successfully (${transcriptText.length} chars)`);
+    return res.json(toFrontend(updated[0]));
+  } catch (err) {
+    console.error("Voicemail transcribe error:", err);
+    return res.status(500).json({ error: "Transcription failed: " + err.message });
+  } finally {
+    try { await unlink(inputPath); } catch {}
+    try { await unlink(wavPath); } catch {}
   }
 });
 

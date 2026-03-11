@@ -411,23 +411,39 @@ router.post("/", upload.any(), async (req, res) => {
       const ext = (a.filename || "").toLowerCase().match(/\.[^.]+$/);
       return ext && audioExts.includes(ext[0]);
     });
-    for (const audioAtt of audioAttachments) {
-      try {
-        const fileBuffer = Buffer.from(audioAtt.data, "base64");
-        const { rows: tRows } = await pool.query(
-          `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by_name)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-          [caseId, audioAtt.filename, audioAtt.contentType, fileBuffer, audioAtt.size, `Email: ${fromEmail}`]
-        );
-        if (tRows.length > 0) {
-          const { processTranscription } = require("./transcripts");
-          processTranscription(tRows[0].id).catch(err => {
-            console.error("Auto-transcription from email failed:", err.message);
-          });
-          console.log(`Audio transcript created from email: ${audioAtt.filename} for case ${caseId} (auto-transcribing)`);
+    if (isVoicemail && audioAttachments.length > 0) {
+      for (const audioAtt of audioAttachments) {
+        try {
+          const fileBuffer = Buffer.from(audioAtt.data, "base64");
+          await pool.query(
+            `INSERT INTO case_voicemails (case_id, caller_name, caller_number, audio_data, audio_mime, received_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+            [caseId, fromName || "Unknown", "", fileBuffer, audioAtt.contentType]
+          );
+          console.log(`Voicemail audio saved to case_voicemails: ${audioAtt.filename} for case ${caseId}`);
+        } catch (audioErr) {
+          console.error("Process voicemail audio error:", audioErr.message);
         }
-      } catch (audioErr) {
-        console.error("Process audio from email error:", audioErr.message);
+      }
+    } else {
+      for (const audioAtt of audioAttachments) {
+        try {
+          const fileBuffer = Buffer.from(audioAtt.data, "base64");
+          const { rows: tRows } = await pool.query(
+            `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by_name)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            [caseId, audioAtt.filename, audioAtt.contentType, fileBuffer, audioAtt.size, `Email: ${fromEmail}`]
+          );
+          if (tRows.length > 0) {
+            const { processTranscription } = require("./transcripts");
+            processTranscription(tRows[0].id).catch(err => {
+              console.error("Auto-transcription from email failed:", err.message);
+            });
+            console.log(`Audio transcript created from email: ${audioAtt.filename} for case ${caseId} (auto-transcribing)`);
+          }
+        } catch (audioErr) {
+          console.error("Process audio from email error:", audioErr.message);
+        }
       }
     }
 

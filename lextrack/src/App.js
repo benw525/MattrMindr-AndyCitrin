@@ -23,7 +23,7 @@ import {
   apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
   apiGetFilings, apiUploadFiling, apiDeleteFiling, apiSummarizeFiling, apiUpdateFiling, apiClassifyFiling,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
-  apiGetVoicemails, apiCreateVoicemail, apiUpdateVoicemail, apiDeleteVoicemail,
+  apiGetVoicemails, apiCreateVoicemail, apiUpdateVoicemail, apiDeleteVoicemail, apiTranscribeVoicemail,
   apiGetParties, apiCreateParty, apiUpdateParty, apiDeleteParty,
   apiConflictCheck,
   apiGetExperts, apiCreateExpert, apiUpdateExpert, apiDeleteExpert,
@@ -5706,6 +5706,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [corrSubTab, setCorrSubTab] = useState("emails");
   const [voicemails, setVoicemails] = useState([]);
   const [voicemailsLoading, setVoicemailsLoading] = useState(false);
+  const [transcribingVmId, setTranscribingVmId] = useState(null);
   const [showAddVoicemail, setShowAddVoicemail] = useState(false);
   const [vmCallerName, setVmCallerName] = useState("");
   const [vmCallerNumber, setVmCallerNumber] = useState("");
@@ -10361,7 +10362,18 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                                 </audio>
                               </div>
                             )}
-                            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                            <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+                              {vm.hasAudio && (
+                                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px", color: transcribingVmId === vm.id ? "#94a3b8" : "#7c3aed", borderColor: transcribingVmId === vm.id ? "#94a3b8" : "#7c3aed" }} disabled={transcribingVmId === vm.id} onClick={async () => {
+                                  try {
+                                    setTranscribingVmId(vm.id);
+                                    const updated = await apiTranscribeVoicemail(vm.id);
+                                    setVoicemails(p => p.map(v => v.id === vm.id ? updated : v));
+                                    log("Voicemail Transcribed", `Transcribed voicemail from ${vm.callerName || "Unknown"}`);
+                                  } catch (err) { alert("Transcription failed: " + err.message); }
+                                  finally { setTranscribingVmId(null); }
+                                }}>{transcribingVmId === vm.id ? "Transcribing..." : (vm.transcriptText ? "Re-Transcribe" : "Transcribe")}</button>
+                              )}
                               <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                                 setEditingVmId(vm.id); setShowAddVoicemail(true);
                                 setVmCallerName(vm.callerName || ""); setVmCallerNumber(vm.callerNumber || "");

@@ -102,7 +102,7 @@ lextrack/
 - **Damages** (`case_damages`): Category (Medical Bills/Lost Wages/Future Medical/Pain & Suffering/etc.), documentation status, billed, owed (auto-calculated: billed - reduction - insurance paid - write-off), reduction (value + %/$), insurance paid, write-off, client paid, firm paid
 - **Expenses** (`case_expenses`): Category (Filing Fees/Expert Fees/Court Reporter/Medical Records/etc.), amount, date, vendor, status — standalone Expenses tab
 - **Negotiations** (`case_negotiations`): Date, direction (Demand/Offer/Counter-Demand/Counter-Offer), amount, from party, policy_id (links to insurance policy) — displayed as collapsible sections under each insurance policy in the Insurance tab, with Gross/Net calculations
-- **Voicemails** (`case_voicemails`): Caller name/number, duration, transcript, notes, audio — sub-tab under Correspondence
+- **Voicemails** (`case_voicemails`): Caller name/number, duration, transcript, notes, audio — sub-tab under Correspondence; inbound voicemail emails route audio to this table (not transcripts); on-demand Whisper transcription via `POST /api/voicemails/:id/transcribe`
 
 ### AI Agents (server/routes/ai-agents.js)
 All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-aware using case's `stateJurisdiction`:

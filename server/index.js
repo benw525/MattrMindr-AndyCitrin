@@ -378,6 +378,15 @@ async function ensureColumns() {
   }
 
   try {
+    await pool.query(
+      `UPDATE case_correspondence SET is_voicemail = true
+       WHERE is_voicemail = false AND subject ~* 'voice\\s*message'`
+    );
+  } catch (vmFixErr) {
+    console.error("Voicemail retroactive fix (non-fatal):", vmFixErr.message);
+  }
+
+  try {
     const bcrypt = require("bcryptjs");
     const adminEmail = "admin@mattrmindr.com";
     const { rows: existing } = await pool.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [adminEmail]);

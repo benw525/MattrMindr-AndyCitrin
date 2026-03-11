@@ -283,6 +283,7 @@ export const apiGetVoicemails = (caseId) => apiFetch(`/api/voicemails/${caseId}`
 export const apiCreateVoicemail = (caseId, data) => apiFetch(`/api/voicemails/${caseId}`, { method: "POST", body: data });
 export const apiUpdateVoicemail = (id, data) => apiFetch(`/api/voicemails/${id}`, { method: "PUT", body: data });
 export const apiDeleteVoicemail = (id) => apiFetch(`/api/voicemails/${id}`, { method: "DELETE" });
+export const apiTranscribeVoicemail = (id) => apiFetch(`/api/voicemails/${id}/transcribe`, { method: "POST" });
 
 // Correspondence
 export const apiGetCorrespondence    = (caseId) => apiFetch(`/api/correspondence/${caseId}`);
