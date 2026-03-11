@@ -329,6 +329,7 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - `server/routes/inbound-email.js` detects audio MIME types (MP3/WAV/M4A/OGG/WebM/MP4/AAC/FLAC)
 - Creates `case_transcripts` entry with `uploaded_by_name = "Email: {sender}"`
 - Calls `processTranscription()` from transcripts.js for background Whisper transcription
+- Whisper API requires direct OpenAI key (`OPENAI_API_KEY` env var); Replit AI integration proxy does not support audio transcription endpoints. If Whisper returns 404/400/422/501, a clear error message is stored in `error_message` column
 
 ### External API with JWT Auth (MattrMindr ↔ Scribe Contract)
 - `server/middleware/external-auth.js`: JWT generation (30-day expiry, `type: "integration"`) using `EXTERNAL_JWT_SECRET` or `SESSION_SECRET`

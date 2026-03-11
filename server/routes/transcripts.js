@@ -141,16 +141,35 @@ async function splitAudio(inputPath, chunkDurationSec, outputDir) {
   return { chunks, totalDuration: duration };
 }
 
+function getWhisperClient() {
+  const directKey = process.env.OPENAI_API_KEY;
+  if (directKey) {
+    return new OpenAI({ apiKey: directKey });
+  }
+  return openai;
+}
+
 async function transcribeFile(filePath, offsetSec = 0) {
   const buffer = await readFile(filePath);
   const { toFile } = await import("openai");
   const file = await toFile(buffer, "audio.wav");
-  const response = await openai.audio.transcriptions.create({
-    file,
-    model: "whisper-1",
-    response_format: "verbose_json",
-    timestamp_granularities: ["segment"],
-  });
+  const whisperClient = getWhisperClient();
+  let response;
+  try {
+    response = await whisperClient.audio.transcriptions.create({
+      file,
+      model: "whisper-1",
+      response_format: "verbose_json",
+      timestamp_granularities: ["segment"],
+    });
+  } catch (err) {
+    const isUnsupported = err.status === 404 || err.status === 400 || err.status === 422 || err.status === 501
+      || (err.message && (err.message.includes("deployment") || err.message.includes("Unknown model") || err.message.includes("not found") || err.message.includes("not supported")));
+    if (isUnsupported) {
+      throw new Error("Audio transcription (Whisper) is not available through the current AI provider. Set the OPENAI_API_KEY environment variable with a direct OpenAI API key to enable transcription.");
+    }
+    throw err;
+  }
   const segments = (response.segments || []).map(s => ({
     speaker: "Speaker 1",
     text: s.text.trim(),

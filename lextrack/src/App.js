@@ -9443,12 +9443,12 @@ body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system,
                     </div>
                   )}
                   {corrLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading correspondence...</div>}
-                  {!corrLoading && correspondence.length === 0 && (
+                  {!corrLoading && correspondence.filter(e => !e.isVoicemail).length === 0 && (
                     <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
                       No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "var(--c-text)" }}>case-{c.id}@plaintiff.mattrmindr.com</span> and they will appear here.
                     </div>
                   )}
-                  {!corrLoading && correspondence.map(email => {
+                  {!corrLoading && correspondence.filter(e => !e.isVoicemail).map(email => {
                     const isExpanded = expandedEmail === email.id;
                     const dateStr = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : "";
                     return (
