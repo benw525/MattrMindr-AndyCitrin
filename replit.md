@@ -11,7 +11,8 @@ A case management system for personal injury law firms. Tracks PI cases, manages
 - **Email**: SendGrid (Replit integration) for auth emails; SendGrid Inbound Parse for case correspondence
 - **Styling**: Tailwind CSS v3 + CSS-in-JS template literal; Inter font, slate/amber color palette, lucide-react icons
 - **Icons**: All AI Center agent cards and Reports page cards use lucide-react Icon components with colored rounded-lg background containers
-- **System Dependencies**: ffmpeg (Nix package, required for audio transcription)
+- **OCR**: Google Gemini (`gemini-2.0-flash` vision) for PDF OCR via `@google/generative-ai`; falls back to tesseract.js if `GEMINI_API_KEY` not set
+- **System Dependencies**: ffmpeg (Nix package, required for audio transcription), pdftoppm (for PDF-to-image conversion during OCR)
 - **Design Packages**: tailwindcss@3.4.19, postcss, autoprefixer, lucide-react (in lextrack/package.json devDependencies)
 
 ## Running the App
