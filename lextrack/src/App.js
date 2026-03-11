@@ -3442,9 +3442,9 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
         <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 4 }}>Help Center</div>
         <div style={{ fontSize: 12, color: "var(--c-text3)", marginBottom: 16 }}>Guides, answers, and support for MattrMindr</div>
-        <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--c-border)", marginBottom: 16, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--c-border)", marginBottom: 16, overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", flexWrap: "nowrap" }}>
           {tabs.map(t => (
-            <div key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: tab === t.id ? 600 : 400, marginBottom: -2, transition: "all 0.15s", userSelect: "none", whiteSpace: "nowrap" }} className={tab === t.id ? "text-slate-900 dark:text-slate-100 border-b-2 border-b-slate-900 dark:border-b-slate-100" : "text-slate-400 dark:text-slate-500 border-b-2 border-b-transparent"}>{t.label}</div>
+            <div key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: tab === t.id ? 600 : 400, marginBottom: -2, transition: "all 0.15s", userSelect: "none", whiteSpace: "nowrap", flexShrink: 0 }} className={tab === t.id ? "text-slate-900 dark:text-slate-100 border-b-2 border-b-slate-900 dark:border-b-slate-100" : "text-slate-400 dark:text-slate-500 border-b-2 border-b-transparent"}>{t.label}</div>
           ))}
         </div>
         <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
