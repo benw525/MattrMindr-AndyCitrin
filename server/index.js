@@ -282,6 +282,7 @@ async function ensureColumns() {
     `ALTER TABLE case_negotiations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS source_flow_id INTEGER`,
     `ALTER TABLE custom_task_flow_steps ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT '[]'`,
+    `ALTER TABLE cases ADD COLUMN IF NOT EXISTS court_case_number TEXT NOT NULL DEFAULT ''`,
   ];
 
   const newTableCreations = [

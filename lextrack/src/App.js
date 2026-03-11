@@ -3552,7 +3552,7 @@ function AiPanel({ title, result, loading, error, onRun, onClose, actions, child
 
 // ─── New Case Modal ──────────────────────────────────────────────────────────
 function NewCaseModal({ onSave, onClose }) {
-  const [form, setForm] = useState({ caseNum: "", title: "", clientName: "", county: "", court: "", caseType: "Auto Accident", stage: "Intake", stateJurisdiction: "", accidentDate: "", injuryType: "", assignedAttorney: 0, secondAttorney: 0, caseManager: 0, investigator: 0, paralegal: 0, notes: "" });
+  const [form, setForm] = useState({ caseNum: "", courtCaseNumber: "", title: "", clientName: "", county: "", court: "", caseType: "Auto Accident", stage: "Intake", stateJurisdiction: "", accidentDate: "", injuryType: "", assignedAttorney: 0, secondAttorney: 0, caseManager: 0, investigator: 0, paralegal: 0, notes: "" });
   const [autoTasks, setAutoTasks] = useState(true);
   const [conflicts, setConflicts] = useState(null);
   const [conflictChecking, setConflictChecking] = useState(false);
@@ -3638,10 +3638,11 @@ function NewCaseModal({ onSave, onClose }) {
         )}
 
         <div className="form-row">
-          <div className="form-group"><label>Case Number</label><input value={form.caseNum} onChange={e => set("caseNum", e.target.value)} placeholder="e.g. PI-2025-001234" /></div>
+          <div className="form-group"><label>File Number</label><input value={form.caseNum} onChange={e => set("caseNum", e.target.value)} placeholder="e.g. PI-2025-001234" /></div>
           <div className="form-group"><label>Case Title *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Smith v. Jones" /></div>
         </div>
         <div className="form-row">
+          <div className="form-group"><label>Case Number</label><input value={form.courtCaseNumber} onChange={e => set("courtCaseNumber", e.target.value)} placeholder="e.g. 21-CV-2025-900012.00" /></div>
           <div className="form-group"><label>Client Name</label><input value={form.clientName} onChange={e => set("clientName", e.target.value)} onBlur={e => checkConflicts(e.target.value)} /></div>
           <div className="form-group"><label>Case Type</label>
             <select value={form.caseType} onChange={e => set("caseType", e.target.value)}>
@@ -5342,7 +5343,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <thead>
                     <tr>
                       <th style={{ width: 32 }}></th>
-                      <th>Case Number</th>
+                      <th>File Number</th>
                       <th>Style</th>
                       <th className="hide-mobile">Case Type</th>
                       <th>Stage</th>
@@ -5356,7 +5357,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td data-label="" style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title="Unpin" className="bg-transparent border-none cursor-pointer p-0 leading-none"><Pin size={14} className="text-amber-500" /></button>
                         </td>
-                        <td data-label="Case #" className="whitespace-nowrap">
+                        <td data-label="File #" className="whitespace-nowrap">
                           <div className="font-mono text-xs text-slate-600 dark:text-slate-400">{c.caseNum || "—"}</div>
                         </td>
                         <td data-label="Style">
@@ -5393,7 +5394,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <table className="mobile-cards">
                     <thead>
                       <tr>
-                        <th>Case Number</th>
+                        <th>File Number</th>
                         <th>Style</th>
                         <th>Case Type</th>
                         <th>Deleted On</th>
@@ -5408,7 +5409,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         const daysLeft = Math.ceil((expiresDate - new Date()) / (1000 * 60 * 60 * 24));
                         return (
                           <tr key={c.id}>
-                            <td data-label="Case #" style={{ fontFamily: "monospace", fontSize: 11, color: "#0f172a", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
+                            <td data-label="File #" style={{ fontFamily: "monospace", fontSize: 11, color: "#0f172a", whiteSpace: "nowrap" }}>{c.caseNum || "—"}</td>
                             <td data-label="Style"><div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ color: "var(--c-text)", fontWeight: 600, fontSize: 13 }}>{c.title}</span>{c.inLitigation && <span title="In Litigation" style={{ fontSize: 9, fontWeight: 700, background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>LIT</span>}</div>{c.clientName && <div style={{ fontSize: 11, color: "#64748b" }}>Client: {c.clientName}</div>}</td>
                             <td data-label="Type" style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseType || "—"}</td>
                             <td data-label="Deleted" style={{ fontSize: 12, color: "#e05252" }}>{deletedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
@@ -5430,7 +5431,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                   <thead>
                     <tr>
                       <th style={{ width: 32 }}></th>
-                      <SortTh col="caseNum" label="Case Number" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                      <SortTh col="caseNum" label="File Number" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <SortTh col="title" label="Style" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                       <th className="hide-mobile">Case Type</th>
                       <SortTh col="stage" label="Stage" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
@@ -5444,7 +5445,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                         <td data-label="" style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={e => { e.stopPropagation(); togglePin(c.id); }} title={pinnedIds.includes(c.id) ? "Unpin" : "Pin"} className={`bg-transparent border-none cursor-pointer p-0 leading-none transition-opacity ${pinnedIds.includes(c.id) ? "opacity-100" : "opacity-30 hover:opacity-100"}`}><Pin size={14} className={pinnedIds.includes(c.id) ? "text-amber-500" : "text-slate-300 dark:text-slate-600"} /></button>
                         </td>
-                        <td data-label="Case #" className="whitespace-nowrap">
+                        <td data-label="File #" className="whitespace-nowrap">
                           <div className="font-mono text-xs text-slate-600 dark:text-slate-400">{c.caseNum || "—"}</div>
                         </td>
                         <td data-label="Style">
@@ -5520,10 +5521,11 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
 // Field definitions: key = JS property name, label = display name, type = input type
 const CORE_FIELDS = [
   { key: "title",            label: "Case Title",           type: "text",   section: "details" },
-  { key: "caseNum",          label: "Case Number",          type: "text",   section: "details" },
+  { key: "caseNum",          label: "File Number",           type: "text",   section: "details" },
   { key: "clientName",       label: "Client Name",          type: "text",   section: "details" },
   { key: "caseType",         label: "Case Type",            type: "select", section: "details", options: ["Auto Accident", "Truck Accident", "Motorcycle Accident", "Slip & Fall", "Medical Malpractice", "Product Liability", "Wrongful Death", "Workers Compensation", "Dog Bite", "Premises Liability", "Nursing Home Abuse", "Other"] },
   { key: "stateJurisdiction",label: "State",                type: "select", section: "details", options: ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"] },
+  { key: "courtCaseNumber",  label: "Case Number",          type: "text",   section: "details" },
   { key: "judge",            label: "Judge",                type: "text",   section: "details" },
   { key: "status",           label: "Status",               type: "select", section: "details", options: ["Active", "Pre-Litigation", "In Litigation", "Settled", "Closed", "Referred Out"] },
   { key: "stage",            label: "Stage",                type: "select", section: "details", options: ["Intake", "Investigation", "Treatment", "Pre-Litigation Demand", "Negotiation", "Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial", "Settlement/Verdict", "Closed"] },
@@ -14138,7 +14140,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     case "trial_date": {
       const rows = activeCases.filter(c => c.trialDate).sort((a, b) => a.trialDate.localeCompare(b.trialDate));
       return {
-        columns: ["Case Number", "Style", "Trial Date", "Days", "Judge", "Assigned Attorney", "Stage"],
+        columns: ["File Number", "Style", "Trial Date", "Days", "Judge", "Assigned Attorney", "Stage"],
         rows: rows.map(c => [
           c.caseNum || "—",
           c.title,
@@ -14158,7 +14160,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
       const uid = params.attorney;
       const rows = allCases.filter(c => c.assignedAttorney === uid || c.secondAttorney === uid).sort((a, b) => (a.status + a.title).localeCompare(b.status + b.title));
       return {
-        columns: ["Case Number", "Style", "Status", "Stage", "Trial Date", "Role"],
+        columns: ["File Number", "Style", "Status", "Stage", "Trial Date", "Role"],
         rows: rows.map(c => [
           c.caseNum || "—",
           c.title,
@@ -14174,7 +14176,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     case "nextCourt": {
       const rows = activeCases.filter(c => c.nextCourtDate).sort((a, b) => a.nextCourtDate.localeCompare(b.nextCourtDate));
       return {
-        columns: ["Case Number", "Style", "Next Court Date", "Days", "Judge", "Assigned Attorney"],
+        columns: ["File Number", "Style", "Next Court Date", "Days", "Judge", "Assigned Attorney"],
         rows: rows.map(c => [
           c.caseNum || "—",
           c.title,
@@ -14204,7 +14206,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
       });
       rows.sort((a, b) => a.date.localeCompare(b.date));
       return {
-        columns: ["Case Number", "Style", "Deadline Type", "Date", "Days", "Assigned Attorney"],
+        columns: ["File Number", "Style", "Deadline Type", "Date", "Days", "Assigned Attorney"],
         rows: rows.map(({ c, label, date, d }) => [
           c.caseNum || "—",
           c.title,
@@ -14231,7 +14233,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
         return { row: [c.caseNum || "—", c.title, c.status, fmt(t?.due), `${daysUntil(t?.due) ?? "—"}d`, getUserById(t?.assigned)?.name || "—", getEffectivePriority(t)], caseId: c.id };
       }).filter(Boolean).sort((a, b) => (a.row[3] || "").localeCompare(b.row[3] || ""));
       return {
-        columns: ["Case Number", "Style", "Status", "Task Due", "Days", "Assigned To", "Priority"],
+        columns: ["File Number", "Style", "Status", "Task Due", "Days", "Assigned To", "Priority"],
         rows: tfEntries.map(e => e.row),
         caseIds: tfEntries.map(e => e.caseId),
         colorCol: 4,
@@ -14242,7 +14244,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     case "no_trial": {
       const rows = activeCases.filter(c => !c.trialDate).sort((a, b) => a.title.localeCompare(b.title));
       return {
-        columns: ["Case Number", "Style", "Stage", "Arrest Date", "Assigned Attorney", "Case Type"],
+        columns: ["File Number", "Style", "Stage", "Arrest Date", "Assigned Attorney", "Case Type"],
         rows: rows.map(c => [
           c.caseNum || "—",
           c.title,
@@ -14270,7 +14272,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
         });
       });
       return {
-        columns: ["Case Number", "Style", "Task", "Was Due", "Overdue By", "Assigned To", "Priority"],
+        columns: ["File Number", "Style", "Task", "Was Due", "Overdue By", "Assigned To", "Priority"],
         rows: otRows,
         caseIds: otCaseIds,
         colorCol: 4,
@@ -14304,7 +14306,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
           return { row: [c?.caseNum || "—", c?.title?.slice(0, 50) || `#${d.caseId}`, d.title, d.type || "—", fmt(d.date), `${days}d`, getUserById(d.assigned)?.name || "—"], caseId: d.caseId };
         });
       return {
-        columns: ["Case Number", "Style", "Deadline", "Type", "Date", "Days", "Assigned"],
+        columns: ["File Number", "Style", "Deadline", "Type", "Date", "Days", "Assigned"],
         rows: udEntries.map(e => e.row),
         caseIds: udEntries.map(e => e.caseId),
         colorCol: 5,
@@ -14315,7 +14317,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     case "sol_tracker": {
       const rows = activeCases.filter(c => c.statuteOfLimitationsDate).sort((a, b) => a.statuteOfLimitationsDate.localeCompare(b.statuteOfLimitationsDate));
       return {
-        columns: ["Case Number", "Style", "SOL Date", "Days Left", "State", "Case Type", "Assigned Attorney"],
+        columns: ["File Number", "Style", "SOL Date", "Days Left", "State", "Case Type", "Assigned Attorney"],
         rows: rows.map(c => [c.caseNum || "—", c.title, fmt(c.statuteOfLimitationsDate), daysUntil(c.statuteOfLimitationsDate) !== null ? `${daysUntil(c.statuteOfLimitationsDate)}d` : "—", c.stateJurisdiction || "—", c.caseType || "—", getUserById(c.assignedAttorney)?.name || "—"]),
         caseIds: rows.map(c => c.id),
         colorCol: 3,
@@ -14326,7 +14328,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     case "case_value_pipeline": {
       const rows = activeCases.filter(c => c.caseValueEstimate).sort((a, b) => (Number(b.caseValueEstimate) || 0) - (Number(a.caseValueEstimate) || 0));
       return {
-        columns: ["Case Number", "Style", "Case Value", "Demand", "Settlement", "Stage", "Assigned Attorney"],
+        columns: ["File Number", "Style", "Case Value", "Demand", "Settlement", "Stage", "Assigned Attorney"],
         rows: rows.map(c => [c.caseNum || "—", c.title, c.caseValueEstimate ? `$${Number(c.caseValueEstimate).toLocaleString()}` : "—", c.demandAmount ? `$${Number(c.demandAmount).toLocaleString()}` : "—", c.settlementAmount ? `$${Number(c.settlementAmount).toLocaleString()}` : "—", c.stage || "—", getUserById(c.assignedAttorney)?.name || "—"]),
         caseIds: rows.map(c => c.id),
         count: rows.length,
@@ -14335,7 +14337,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
     case "settlement_report": {
       const rows = allCases.filter(c => c.settlementAmount).sort((a, b) => (b.settlementDate || "").localeCompare(a.settlementDate || ""));
       return {
-        columns: ["Case Number", "Style", "Settlement Amount", "Contingency %", "Fee Amount", "Settlement Date", "State"],
+        columns: ["File Number", "Style", "Settlement Amount", "Contingency %", "Fee Amount", "Settlement Date", "State"],
         rows: rows.map(c => { const fee = c.contingencyFeePct && c.settlementAmount ? `$${(Number(c.settlementAmount) * Number(c.contingencyFeePct) / 100).toLocaleString()}` : "—"; return [c.caseNum || "—", c.title, `$${Number(c.settlementAmount).toLocaleString()}`, c.contingencyFeePct ? `${c.contingencyFeePct}%` : "—", fee, fmt(c.settlementDate), c.stateJurisdiction || "—"]; }),
         caseIds: rows.map(c => c.id),
         count: rows.length,
@@ -16516,7 +16518,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginBottom: 12 }}>
                 <thead>
                   <tr style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Case Number</th>
+                    <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>File Number</th>
                     <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Style</th>
                     <th style={{ textAlign: "left", padding: "4px 8px 8px 0" }}>Status</th>
                     <th style={{ width: 30 }}></th>
@@ -17325,7 +17327,8 @@ function AddStaffModal({ onSave, onClose }) {
 // eslint-disable-next-line no-unused-vars
 const CASE_FIELD_MAP = [
   { key: "title", label: "Case Title" },
-  { key: "caseNum", label: "Case Number" },
+  { key: "caseNum", label: "File Number" },
+  { key: "courtCaseNumber", label: "Case Number" },
   { key: "clientName", label: "Client Name" },
   { key: "caseType", label: "Case Type" },
   { key: "injuryType", label: "Injury Type" },
@@ -17487,7 +17490,8 @@ function getPlaceholderSuggestions(token, caseData, parties, experts) {
       if (addr) suggestions.push({ label: "Our Client Address", value: addr });
     }
   } else if (/^(case_number|case_no|civil_action|cause_no|case_num)/.test(key)) {
-    if (caseData.caseNum) suggestions.push({ label: "Case Number", value: caseData.caseNum });
+    if (caseData.caseNum) suggestions.push({ label: "File Number", value: caseData.caseNum });
+    if (caseData.courtCaseNumber) suggestions.push({ label: "Case Number", value: caseData.courtCaseNumber });
     if (caseData.shortCaseNum) suggestions.push({ label: "Short Case Number", value: caseData.shortCaseNum });
   } else if (/^(court$|court_name)/.test(key)) {
     if (caseData.court) suggestions.push({ label: "Court", value: caseData.court });
@@ -17578,6 +17582,7 @@ const PLEADING_HEADER_PLACEHOLDERS = [
   { token: "PLAINTIFFS", label: "Plaintiff(s)" },
   { token: "DEFENDANTS", label: "Defendant(s)" },
   { token: "CASE_NUMBER", label: "Case Number" },
+  { token: "FILE_NUMBER", label: "File Number" },
 ];
 const PLEADING_SIGNATURE_PLACEHOLDERS = [
   { token: "SIGNATURE", label: "Signature" },
@@ -17595,7 +17600,8 @@ function buildAllCaseFields(caseData, parties, experts) {
   const fields = [];
   const add = (cat, label, value) => { if (value) fields.push({ category: cat, label, value: String(value) }); };
   add("Case Info", "Case Title", caseData.title);
-  add("Case Info", "Case Number", caseData.caseNum);
+  add("Case Info", "File Number", caseData.caseNum);
+  add("Case Info", "Case Number", caseData.courtCaseNumber);
   add("Case Info", "Client Name", caseData.clientName);
   add("Case Info", "Case Type", caseData.caseType);
   add("Case Info", "Injury Type", caseData.injuryType);

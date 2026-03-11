@@ -211,7 +211,7 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 ### Runtime Migrations
 - `ensureColumns()` in server/index.js runs before app.listen()
 - Auto-creates tables: transcript_history, custom_reports, custom_agents, custom_task_flows, custom_task_flow_steps, task_flow_executions, custom_dashboard_widgets
-- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status, tasks.source_flow_id
+- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status, tasks.source_flow_id, cases.court_case_number
 
 ### Contact Categories
 Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorney, Judge, Court, Witness, Expert, Lienholder, Family Member, Miscellaneous
@@ -330,6 +330,16 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - Creates `case_transcripts` entry with `uploaded_by_name = "Email: {sender}"`
 - Calls `processTranscription()` from transcripts.js for background Whisper transcription
 - Whisper API requires direct OpenAI key (`OPENAI_API_KEY` env var); Replit AI integration proxy does not support audio transcription endpoints. If Whisper returns 404/400/422/501, a clear error message is stored in `error_message` column
+
+### Filings Email Handling
+- Dedicated email: `filings@plaintiff.mattrmindr.com` (requires SendGrid Inbound Parse DNS/MX config)
+- Emails to `filings@` are parsed for court case number in subject line (format: `XX-XX-YYYY-NNNNNN.NN`, e.g., `21-CV-2025-900012.00`)
+- Regex: `/(\d{1,3}-[A-Za-z]{1,5}-\d{4}-\d+(?:\.\d+)?)/` extracts the court case number
+- Matches against `cases.court_case_number` field (renamed from old "Case Number" concept)
+- PDF attachments → `case_filings` table with AI classification (same pipeline as existing filing detection)
+- All filing emails also stored in `case_correspondence` for audit trail
+- "Case Number" field = court-assigned number (stored in `court_case_number` column, frontend key: `courtCaseNumber`)
+- "File Number" field = internal firm file number (stored in `case_num` column, frontend key: `caseNum`, was previously labeled "Case Number")
 
 ### External API with JWT Auth (MattrMindr ↔ Scribe Contract)
 - `server/middleware/external-auth.js`: JWT generation (30-day expiry, `type: "integration"`) using `EXTERNAL_JWT_SECRET` or `SESSION_SECRET`

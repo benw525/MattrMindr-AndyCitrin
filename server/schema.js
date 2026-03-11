@@ -916,6 +916,8 @@ async function createSchema() {
     await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_email TEXT NOT NULL DEFAULT ''`);
     await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS client_bankruptcy BOOLEAN NOT NULL DEFAULT FALSE`);
 
+    await client.query(`ALTER TABLE cases ADD COLUMN IF NOT EXISTS court_case_number TEXT NOT NULL DEFAULT ''`);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS medical_records (
         id              SERIAL PRIMARY KEY,
