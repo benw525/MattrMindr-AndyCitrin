@@ -56,6 +56,7 @@ const customAgentsBuilderRoutes = require("./routes/custom-agents-builder");
 const taskFlowsRoutes          = require("./routes/task-flows");
 const customDashboardWidgetsRoutes = require("./routes/custom-dashboard-widgets");
 const unmatchedEmailsRoutes        = require("./routes/unmatched-emails");
+const permissionsRoutes            = require("./routes/permissions");
 const { sendEmail }          = require("./email");
 
 const app  = express();
@@ -139,6 +140,7 @@ app.use("/api/custom-agents-builder", customAgentsBuilderRoutes);
 app.use("/api/task-flows", taskFlowsRoutes);
 app.use("/api/custom-dashboard-widgets", customDashboardWidgetsRoutes);
 app.use("/api/unmatched-emails", unmatchedEmailsRoutes);
+app.use("/api/permissions", permissionsRoutes);
 app.use("/api/microsoft", microsoftRoutes);
 app.use("/api/onlyoffice", onlyofficeRoutes);
 app.use("/api/scribe", scribeRoutes);
@@ -288,6 +290,18 @@ async function ensureColumns() {
   ];
 
   const newTableCreations = [
+    `CREATE TABLE IF NOT EXISTS permissions (
+      id SERIAL PRIMARY KEY,
+      permission_key TEXT NOT NULL,
+      target_type TEXT NOT NULL CHECK (target_type IN ('role', 'user')),
+      target_value TEXT NOT NULL,
+      granted BOOLEAN NOT NULL DEFAULT true,
+      expires_at TIMESTAMPTZ,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(permission_key, target_type, target_value)
+    )`,
     `CREATE TABLE IF NOT EXISTS unmatched_filings_emails (
       id SERIAL PRIMARY KEY,
       from_email TEXT,

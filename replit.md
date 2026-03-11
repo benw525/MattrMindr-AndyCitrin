@@ -61,6 +61,7 @@ server/
     portal-auth.js  — Client portal auth (login/logout/me/change-password)
     portal-case.js  — Client portal data (case info, messages, documents)
     portal-admin.js — Firm-side portal management (settings, clients, messaging)
+    permissions.js  — Permissions CRUD (role/user-based, optional expiry)
     batch-cases.js  — Batch case operations
     deleted-data.js — Deleted data view with batch restore/purge
     ...

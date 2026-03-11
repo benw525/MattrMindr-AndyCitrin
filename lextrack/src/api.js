@@ -437,6 +437,15 @@ export const apiAssignSms                = (messageId, caseId) => apiFetch(`/api
 export const apiGetUnmatchedEmails       = ()                 => apiFetch("/api/unmatched-emails");
 export const apiAssignUnmatchedEmail     = (id, caseId)       => apiFetch(`/api/unmatched-emails/assign/${id}`, { method: "PUT", body: { caseId } });
 
+// Permissions
+export const apiGetPermissionKeys       = ()                 => apiFetch("/api/permissions/keys");
+export const apiGetPermissions          = ()                 => apiFetch("/api/permissions");
+export const apiCreatePermission        = (data)             => apiFetch("/api/permissions", { method: "POST", body: data });
+export const apiCreatePermissionsBulk   = (permissions)      => apiFetch("/api/permissions/bulk", { method: "POST", body: { permissions } });
+export const apiDeletePermission        = (id)               => apiFetch(`/api/permissions/${id}`, { method: "DELETE" });
+export const apiDeletePermissionsBulk   = (target_type, target_value, permission_keys) => apiFetch("/api/permissions/delete-bulk", { method: "POST", body: { target_type, target_value, permission_keys } });
+export const apiCheckPermissions        = ()                 => apiFetch("/api/permissions/check");
+
 // Trial Center
 export const apiGetTrialSession = (caseId) => apiFetch(`/api/trial-center/sessions/${caseId}`);
 export const apiCreateTrialSession = (data) => apiFetch("/api/trial-center/sessions", { method: "POST", body: data });

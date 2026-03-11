@@ -47,6 +47,7 @@ import {
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
   apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail,
+  apiGetPermissionKeys, apiGetPermissions, apiCreatePermission, apiCreatePermissionsBulk, apiDeletePermission, apiDeletePermissionsBulk, apiCheckPermissions,
   apiSendSupport,
   apiGetCollabUnreadCount,
   apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript, apiSuggestTranscriptName, apiGetTranscriptHistory, apiSaveTranscriptHistory, apiRevertTranscript,
@@ -13456,6 +13457,7 @@ function CustomizationView({ currentUser, allCases, allUsers, pinnedCaseIds, onM
     { id: "reports", label: "Custom Reports", icon: BarChart3 },
     { id: "widgets", label: "Dashboard Widgets", icon: BarChart2 },
     { id: "flows", label: "Task Flows", icon: GitBranch },
+    { id: "permissions", label: "Permissions", icon: Shield },
   ];
 
   return (
@@ -13483,6 +13485,359 @@ function CustomizationView({ currentUser, allCases, allUsers, pinnedCaseIds, onM
         {tab === "reports" && <CustomReportBuilder currentUser={currentUser} />}
         {tab === "widgets" && <CustomDashboardWidgetsTab currentUser={currentUser} confirmDelete={confirmDelete} />}
         {tab === "flows" && <TaskFlowsTab currentUser={currentUser} allUsers={allUsers} confirmDelete={confirmDelete} />}
+        {tab === "permissions" && <PermissionsTab currentUser={currentUser} allUsers={allUsers} />}
+      </div>
+    </div>
+  );
+}
+
+// ─── Permissions Tab ──────────────────────────────────────────────────────────
+function PermissionsTab({ currentUser, allUsers }) {
+  const [permKeys, setPermKeys] = useState([]);
+  const [permissions, setPermissions] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [mode, setMode] = useState("role");
+  const [selectedTarget, setSelectedTarget] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [saving, setSaving] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState({});
+  const [expiryMap, setExpiryMap] = useState({});
+  const [showExpiry, setShowExpiry] = useState({});
+
+  useEffect(() => {
+    if (!loaded) {
+      Promise.all([apiGetPermissionKeys(), apiGetPermissions()])
+        .then(([keys, perms]) => {
+          setPermKeys(keys);
+          setPermissions(perms);
+          setLoaded(true);
+        })
+        .catch(() => { setPermKeys([]); setPermissions([]); setLoaded(true); });
+    }
+  }, [loaded]);
+
+  const categories = useMemo(() => {
+    const cats = [...new Set(permKeys.map(pk => pk.category))];
+    return ["All", ...cats];
+  }, [permKeys]);
+
+  const filteredKeys = useMemo(() => {
+    let filtered = permKeys;
+    if (categoryFilter !== "All") filtered = filtered.filter(pk => pk.category === categoryFilter);
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase();
+      filtered = filtered.filter(pk => pk.label.toLowerCase().includes(q) || pk.key.toLowerCase().includes(q) || pk.category.toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [permKeys, categoryFilter, searchFilter]);
+
+  const groupedKeys = useMemo(() => {
+    const groups = {};
+    for (const pk of filteredKeys) {
+      if (!groups[pk.category]) groups[pk.category] = [];
+      groups[pk.category].push(pk);
+    }
+    return groups;
+  }, [filteredKeys]);
+
+  const activeUsers = useMemo(() => (allUsers || []).filter(u => !u.deleted), [allUsers]);
+
+  const getCurrentValue = (permKey) => {
+    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
+    if (changeKey in pendingChanges) return pendingChanges[changeKey];
+    const existing = permissions.find(p =>
+      p.permission_key === permKey && p.target_type === mode && p.target_value === selectedTarget
+    );
+    if (existing) {
+      if (existing.expires_at && new Date(existing.expires_at) < new Date()) return null;
+      return existing.granted;
+    }
+    return null;
+  };
+
+  const getCurrentExpiry = (permKey) => {
+    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
+    if (changeKey in expiryMap) return expiryMap[changeKey];
+    const existing = permissions.find(p =>
+      p.permission_key === permKey && p.target_type === mode && p.target_value === selectedTarget
+    );
+    if (!existing?.expires_at) return "";
+    const d = new Date(existing.expires_at);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const togglePermission = (permKey) => {
+    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
+    const current = getCurrentValue(permKey);
+    let next;
+    if (current === null) next = true;
+    else if (current === true) next = false;
+    else next = null;
+    setPendingChanges(p => ({ ...p, [changeKey]: next }));
+  };
+
+  const setExpiry = (permKey, val) => {
+    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
+    setExpiryMap(p => ({ ...p, [changeKey]: val }));
+  };
+
+  const hasChanges = Object.keys(pendingChanges).length > 0 || Object.keys(expiryMap).length > 0;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const toCreate = [];
+      const toDelete = [];
+
+      for (const [changeKey, value] of Object.entries(pendingChanges)) {
+        const [targetType, targetValue, permKey] = changeKey.split(":");
+        if (value === null) {
+          toDelete.push({ targetType, targetValue, permKey });
+        } else {
+          const expiry = expiryMap[changeKey] || getCurrentExpiry(permKey);
+          toCreate.push({
+            permission_key: permKey,
+            target_type: targetType,
+            target_value: targetValue,
+            granted: value,
+            expires_at: expiry || null,
+          });
+        }
+      }
+
+      for (const [changeKey, val] of Object.entries(expiryMap)) {
+        if (changeKey in pendingChanges) continue;
+        const [targetType, targetValue, permKey] = changeKey.split(":");
+        const currentVal = getCurrentValue(permKey);
+        if (currentVal !== null) {
+          toCreate.push({
+            permission_key: permKey,
+            target_type: targetType,
+            target_value: targetValue,
+            granted: currentVal,
+            expires_at: val || null,
+          });
+        }
+      }
+
+      if (toCreate.length > 0) {
+        await apiCreatePermissionsBulk(toCreate);
+      }
+      for (const del of toDelete) {
+        await apiDeletePermissionsBulk(del.targetType, del.targetValue, [del.permKey]);
+      }
+
+      const perms = await apiGetPermissions();
+      setPermissions(perms);
+      setPendingChanges({});
+      setExpiryMap({});
+    } catch (err) {
+      alert("Failed to save permissions: " + (err.message || "Server error"));
+    }
+    setSaving(false);
+  };
+
+  const handleClearAll = async () => {
+    if (!selectedTarget) return;
+    if (!window.confirm(`Remove all permissions for this ${mode === "role" ? "role" : "user"}? This will reset to default behavior.`)) return;
+    setSaving(true);
+    try {
+      await apiDeletePermissionsBulk(mode, selectedTarget);
+      const perms = await apiGetPermissions();
+      setPermissions(perms);
+      setPendingChanges({});
+      setExpiryMap({});
+    } catch (err) {
+      alert("Failed to clear: " + (err.message || "Server error"));
+    }
+    setSaving(false);
+  };
+
+  const targetPermCount = useMemo(() => {
+    if (!selectedTarget) return 0;
+    const now = new Date();
+    return permissions.filter(p => p.target_type === mode && p.target_value === selectedTarget && (!p.expires_at || new Date(p.expires_at) >= now)).length;
+  }, [permissions, mode, selectedTarget]);
+
+  if (!loaded) return <div className="text-center py-10 text-slate-500"><Loader2 size={24} className="animate-spin mx-auto mb-2" />Loading permissions...</div>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Shield size={20} className="text-amber-500" /> Permissions</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Control what roles and individual users can access. User-level permissions override role-level permissions.</p>
+        </div>
+      </div>
+
+      <div className="flex gap-6">
+        <div className="w-64 flex-shrink-0">
+          <div className="flex gap-0 mb-3 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+            <button onClick={() => { setMode("role"); setSelectedTarget(""); setPendingChanges({}); setExpiryMap({}); }}
+              className={`flex-1 py-2 text-xs font-semibold border-0 cursor-pointer transition-colors ${mode === "role" ? "bg-amber-500 text-white" : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
+              By Role
+            </button>
+            <button onClick={() => { setMode("user"); setSelectedTarget(""); setPendingChanges({}); setExpiryMap({}); }}
+              className={`flex-1 py-2 text-xs font-semibold border-0 cursor-pointer transition-colors ${mode === "user" ? "bg-amber-500 text-white" : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
+              By User
+            </button>
+          </div>
+
+          <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden max-h-[500px] overflow-y-auto">
+            {mode === "role" && STAFF_ROLES.filter(r => r !== "App Admin").map(role => {
+              const now = new Date();
+              const count = permissions.filter(p => p.target_type === "role" && p.target_value === role && (!p.expires_at || new Date(p.expires_at) >= now)).length;
+              return (
+                <div key={role} onClick={() => { setSelectedTarget(role); setPendingChanges({}); setExpiryMap({}); }}
+                  className={`px-3 py-2.5 cursor-pointer text-sm border-b border-slate-100 dark:border-slate-700 transition-colors flex justify-between items-center ${selectedTarget === role ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
+                  <span>{role}</span>
+                  {count > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedTarget === role ? "bg-amber-500 text-white" : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"}`}>{count}</span>}
+                </div>
+              );
+            })}
+            {mode === "user" && activeUsers.map(u => {
+              const now = new Date();
+              const count = permissions.filter(p => p.target_type === "user" && p.target_value === u.id.toString() && (!p.expires_at || new Date(p.expires_at) >= now)).length;
+              const isAdmin = (u.roles || [u.role]).includes("App Admin");
+              return (
+                <div key={u.id} onClick={() => { if (!isAdmin) { setSelectedTarget(u.id.toString()); setPendingChanges({}); setExpiryMap({}); } }}
+                  className={`px-3 py-2.5 text-sm border-b border-slate-100 dark:border-slate-700 transition-colors flex justify-between items-center ${isAdmin ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${selectedTarget === u.id.toString() ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
+                  <div>
+                    <div className="font-medium">{u.name}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">{(u.roles || [u.role]).join(", ")}{isAdmin ? " (Admin)" : ""}</div>
+                  </div>
+                  {count > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedTarget === u.id.toString() ? "bg-amber-500 text-white" : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"}`}>{count}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {!selectedTarget && (
+            <div className="text-center py-16 text-slate-400">
+              <Shield size={48} className="mx-auto mb-3 opacity-30" />
+              <div className="text-sm font-medium">Select a {mode === "role" ? "role" : "user"} to manage permissions</div>
+              <div className="text-xs mt-1">Permissions that are not explicitly set will follow the system's default access rules.</div>
+            </div>
+          )}
+
+          {selectedTarget && (
+            <>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <div>
+                  <h4 className="text-base font-bold text-slate-800 dark:text-white">
+                    {mode === "role" ? selectedTarget : activeUsers.find(u => u.id.toString() === selectedTarget)?.name || "User"}
+                  </h4>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {targetPermCount} permission{targetPermCount !== 1 ? "s" : ""} configured
+                    {mode === "user" && <span className="ml-2">· User-level overrides role-level</span>}
+                  </div>
+                </div>
+                <div className="flex gap-2 items-center">
+                  {targetPermCount > 0 && (
+                    <button onClick={handleClearAll} disabled={saving}
+                      className="text-xs px-3 py-1.5 rounded-md border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer disabled:opacity-50 transition-colors">
+                      Clear All
+                    </button>
+                  )}
+                  {hasChanges && (
+                    <button onClick={handleSave} disabled={saving}
+                      className="text-xs px-4 py-1.5 rounded-md bg-amber-500 text-white font-semibold cursor-pointer disabled:opacity-50 hover:bg-amber-600 transition-colors border-0 flex items-center gap-1.5">
+                      {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      Save Changes
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 mb-4 flex-wrap">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={searchFilter} onChange={e => setSearchFilter(e.target.value)}
+                    placeholder="Search permissions..."
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+                <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+                  className="text-xs px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500">
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-[1fr_90px_90px_160px] gap-0 px-4 py-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Permission</span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Status</span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Action</span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Expires</span>
+                </div>
+
+                <div className="max-h-[480px] overflow-y-auto">
+                  {Object.entries(groupedKeys).map(([cat, keys]) => (
+                    <Fragment key={cat}>
+                      <div className="px-4 py-2 bg-slate-25 dark:bg-slate-850 border-b border-slate-100 dark:border-slate-700">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">{cat}</span>
+                      </div>
+                      {keys.map(pk => {
+                        const val = getCurrentValue(pk.key);
+                        const expiry = getCurrentExpiry(pk.key);
+                        const isExpired = expiry && new Date(expiry) < new Date();
+                        const expiryVisible = showExpiry[`${mode}:${selectedTarget}:${pk.key}`] || expiry;
+                        return (
+                          <div key={pk.key} className="grid grid-cols-[1fr_90px_90px_160px] gap-0 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700/50 items-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                            <span className="text-xs text-slate-700 dark:text-slate-300">{pk.label}</span>
+                            <div className="flex justify-center">
+                              {val === true && !isExpired && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Allowed</span>}
+                              {val === false && !isExpired && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">Denied</span>}
+                              {(val === null || isExpired) && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500">Default</span>}
+                            </div>
+                            <div className="flex justify-center">
+                              <button onClick={() => togglePermission(pk.key)}
+                                className="text-[10px] px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                {val === null || isExpired ? "Allow" : val === true ? "Deny" : "Clear"}
+                              </button>
+                            </div>
+                            <div className="flex justify-center items-center gap-1">
+                              {expiryVisible ? (
+                                <input type="datetime-local" value={expiryMap[`${mode}:${selectedTarget}:${pk.key}`] || expiry || ""}
+                                  onChange={e => setExpiry(pk.key, e.target.value)}
+                                  className="text-[10px] px-1.5 py-1 border border-slate-200 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 w-[140px]"
+                                />
+                              ) : (
+                                <button onClick={() => setShowExpiry(p => ({ ...p, [`${mode}:${selectedTarget}:${pk.key}`]: true }))}
+                                  className="text-[10px] px-2 py-1 rounded border border-dashed border-slate-300 dark:border-slate-600 bg-transparent text-slate-400 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 hover:border-slate-400 transition-colors">
+                                  + Expiry
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
+                </div>
+              </div>
+
+              {hasChanges && (
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={() => { setPendingChanges({}); setExpiryMap({}); }}
+                    className="text-xs px-4 py-2 rounded-md border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                    Discard
+                  </button>
+                  <button onClick={handleSave} disabled={saving}
+                    className="text-xs px-5 py-2 rounded-md bg-amber-500 text-white font-semibold cursor-pointer disabled:opacity-50 hover:bg-amber-600 transition-colors border-0 flex items-center gap-1.5">
+                    {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                    Save All Changes
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
