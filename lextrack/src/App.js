@@ -199,7 +199,9 @@ const generateDefaultTasks = (caseObj, userId) => {
   }));
 };
 
-const statusBadgeStyle = (status) => {
+const isDarkMode = () => document.body.classList.contains("dark-body");
+
+const statusBadgeStyle = (status, dark) => {
   const map = {
     Case: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
     Matter: { bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" },
@@ -231,12 +233,20 @@ const statusBadgeStyle = (status) => {
     Low: { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" },
     Monitoring: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
   };
+  const darkMap = {
+    Urgent: { bg: "#fca5a5", color: "#1a1a1a", border: "#f87171" },
+    Overdue: { bg: "#fca5a5", color: "#1a1a1a", border: "#f87171" },
+    High: { bg: "#fdba74", color: "#1a1a1a", border: "#fb923c" },
+    Medium: { bg: "#93c5fd", color: "#1a1a1a", border: "#60a5fa" },
+    Low: { bg: "#cbd5e1", color: "#1a1a1a", border: "#94a3b8" },
+  };
+  if (dark && darkMap[status]) return darkMap[status];
   return map[status] || { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" };
 };
 
 const Badge = ({ label }) => {
   if (!label) return null;
-  const s = statusBadgeStyle(label);
+  const s = statusBadgeStyle(label, isDarkMode());
   return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap", fontFamily: "'Inter',sans-serif" }}>{label}</span>;
 };
 
@@ -2442,6 +2452,8 @@ function FirmApp() {
               const parsedTasks = msg.suggestedTasks && Array.isArray(msg.suggestedTasks) && msg.suggestedTasks.length > 0 ? msg.suggestedTasks : null;
               const msgAdded = advocateTasksAdded[i] || {};
               const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
+              const priorityDarkBg = { Urgent: "#fca5a5", High: "#fdba74", Medium: "#93c5fd", Low: "#cbd5e1" };
+              const dk = isDarkMode();
               return (
               <div key={i}>
               <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
@@ -2500,7 +2512,7 @@ function FirmApp() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 11, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
                           <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
-                            <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[t.priority] || "#d97706") + "18", color: priorityColors[t.priority] || "#d97706" }}>{t.priority}</span>
+                            <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: dk ? (priorityDarkBg[t.priority] || "#cbd5e1") : (priorityColors[t.priority] || "#d97706") + "18", color: dk ? "#1a1a1a" : (priorityColors[t.priority] || "#d97706") }}>{t.priority}</span>
                             {t.assignedRole && <span style={{ fontSize: 9, color: "#64748b" }}>{t.assignedRole}</span>}
                             {t.dueInDays && <span style={{ fontSize: 9, color: "#64748b" }}>{t.dueInDays}d</span>}
                           </div>
@@ -7123,13 +7135,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         {aiTasks.tasks.map((s, i) => {
                           const isAdded = aiTasks.added[i];
                           const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
+                          const priorityDarkBg = { Urgent: "#fca5a5", High: "#fdba74", Medium: "#93c5fd", Low: "#cbd5e1" };
+                          const dk = isDarkMode();
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "7px 0", borderBottom: "1px dashed #d4c9a8", opacity: isAdded ? 0.45 : 1 }}>
                               <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 12, color: "#0f172a", fontWeight: 500 }}>{s.title}</div>
+                                <div style={{ fontSize: 12, color: dk ? "var(--c-text)" : "#0f172a", fontWeight: 500 }}>{s.title}</div>
                                 <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
-                                  <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: (priorityColors[s.priority] || "#d97706") + "18", color: priorityColors[s.priority] || "#d97706" }}>{s.priority}</span>
+                                  <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: dk ? (priorityDarkBg[s.priority] || "#cbd5e1") : (priorityColors[s.priority] || "#d97706") + "18", color: dk ? "#1a1a1a" : (priorityColors[s.priority] || "#d97706") }}>{s.priority}</span>
                                   {s.assignedRole && <span style={{ fontSize: 9, color: "#64748b" }}>{s.assignedRole}</span>}
                                   {s.dueInDays && <span style={{ fontSize: 9, color: "#64748b" }}>· {s.dueInDays}d</span>}
                                 </div>
@@ -15249,13 +15263,15 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                 {aiCenterTasks.tasks.map((s, i) => {
                   const isAdded = aiCenterTasks.added[i];
                   const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
+                  const priorityDarkBg = { Urgent: "#fca5a5", High: "#fdba74", Medium: "#93c5fd", Low: "#cbd5e1" };
+                  const dk = isDarkMode();
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--c-border)", opacity: isAdded ? 0.45 : 1 }}>
                       <span style={{ fontSize: 12, marginTop: 1 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={12} className="text-amber-500" />}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: "var(--c-text-h)", fontWeight: 500 }}>{s.title}</div>
                         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: (priorityColors[s.priority] || "#d97706") + "18", color: priorityColors[s.priority] || "#d97706" }}>{s.priority}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: dk ? (priorityDarkBg[s.priority] || "#cbd5e1") : (priorityColors[s.priority] || "#d97706") + "18", color: dk ? "#1a1a1a" : (priorityColors[s.priority] || "#d97706") }}>{s.priority}</span>
                           {s.assignedRole && <span style={{ fontSize: 10, color: "#64748b" }}>{s.assignedRole}</span>}
                           {s.dueInDays && <span style={{ fontSize: 10, color: "#64748b" }}>· Due in {s.dueInDays} days</span>}
                         </div>
