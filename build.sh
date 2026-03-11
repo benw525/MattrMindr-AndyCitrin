@@ -8,6 +8,6 @@ echo "Installing frontend dependencies..."
 cd lextrack && npm install
 
 echo "Building frontend..."
-CI=false npm run build
+GENERATE_SOURCEMAP=false CI=false NODE_OPTIONS="--max-old-space-size=512" npm run build
 
 echo "Build complete!"
