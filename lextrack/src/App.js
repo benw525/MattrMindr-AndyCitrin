@@ -6615,7 +6615,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   {draft.confidential ? "CONFIDENTIAL" : "Confidential"}
                 </label>
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.inLitigation ? "#2563eb" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Mark case as in litigation">
-                  <input type="checkbox" checked={!!draft.inLitigation} onChange={e => setAndLog("inLitigation", e.target.checked)} style={{ margin: 0, cursor: "pointer" }} />
+                  <input type="checkbox" checked={!!draft.inLitigation} onChange={e => { setAndLog("inLitigation", e.target.checked); if (!e.target.checked && activeTab === "filings") setActiveTab("overview"); }} style={{ margin: 0, cursor: "pointer" }} />
                   {draft.inLitigation ? "IN LITIGATION" : "Litigation"}
                 </label>
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: draft.clientBankruptcy ? "#dc2626" : "#64748b", cursor: "pointer", userSelect: "none", marginLeft: 4 }} title="Client bankruptcy status">
@@ -6668,9 +6668,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className={`case-overlay-tab ${activeTab === "correspondence" ? "active" : ""}`} onClick={() => setActiveTab("correspondence")}>
             Correspondence {(correspondence.length + smsMessages.length + voicemails.length) > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({correspondence.length + smsMessages.length + voicemails.length})</span>}
           </div>
-          <div className={`case-overlay-tab ${activeTab === "filings" ? "active" : ""}`} onClick={() => setActiveTab("filings")}>
+          {draft.inLitigation && <div className={`case-overlay-tab ${activeTab === "filings" ? "active" : ""}`} onClick={() => setActiveTab("filings")}>
             Filings {filings.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({filings.length})</span>}
-          </div>
+          </div>}
           <div className={`case-overlay-tab ${activeTab === "activity" ? "active" : ""}`} onClick={() => setActiveTab("activity")}>
             Activity {activity.length > 0 && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>({activity.length})</span>}
           </div>
