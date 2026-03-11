@@ -1112,7 +1112,8 @@ export default function App() {
 function FirmApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [view, setView] = useState("dashboard");
+  const [view, setViewRaw] = useState(() => localStorage.getItem("lextrack-last-view") || "dashboard");
+  const setView = useCallback((v) => { localStorage.setItem("lextrack-last-view", v); setViewRaw(v); }, []);
   const [selectedCase, setSelectedCase] = useState(null);
   const [pendingTab, setPendingTab] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1732,6 +1733,23 @@ function FirmApp() {
         const allU = [...users, ...(deletedUsersResult || []).map(u => ({ ...u, deletedAt: u.deletedAt || u.deleted_at }))];
         USERS.splice(0, USERS.length, ...users);
         setAllUsers(allU);
+
+        const lastCaseId = localStorage.getItem("lextrack-last-case-id");
+        const lastView = localStorage.getItem("lextrack-last-view");
+        if (lastCaseId && lastView === "cases") {
+          const found = cases.find(c => c.id === Number(lastCaseId));
+          if (found) {
+            setSelectedCase(found);
+            setViewRaw("cases");
+            apiGetCaseTasks(found.id).then(caseTasks => {
+              setTasks(prev => {
+                const ids = new Set(prev.map(t => t.id));
+                const extra = caseTasks.filter(t => !ids.has(t.id));
+                return extra.length > 0 ? [...prev, ...extra] : prev;
+              });
+            }).catch(() => {});
+          }
+        }
       })
       .catch(err => setDataError(err.message))
       .finally(() => setLoading(false));
@@ -1755,6 +1773,7 @@ function FirmApp() {
   const handleSelectCase = useCallback(async (c) => {
     setSelectedCase(c);
     if (c) {
+      localStorage.setItem("lextrack-last-case-id", c.id.toString());
       try {
         const caseTasks = await apiGetCaseTasks(c.id);
         setTasks(prev => {
@@ -1765,6 +1784,8 @@ function FirmApp() {
       } catch (err) {
         console.error("Failed to load case tasks:", err);
       }
+    } else {
+      localStorage.removeItem("lextrack-last-case-id");
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2247,7 +2268,7 @@ function FirmApp() {
             const Icon = item.icon;
             const isActive = view === item.id;
             return (
-              <div key={item.id} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer text-[13px] transition-all border-l-[3px] ${isActive ? "text-white bg-slate-800 border-l-amber-500 font-medium" : "text-slate-400 border-l-transparent hover:text-slate-200 hover:bg-slate-800/50"}`} onClick={() => { setView(item.id); setSelectedCase(null); setSidebarOpen(false); }}>
+              <div key={item.id} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer text-[13px] transition-all border-l-[3px] ${isActive ? "text-white bg-slate-800 border-l-amber-500 font-medium" : "text-slate-400 border-l-transparent hover:text-slate-200 hover:bg-slate-800/50"}`} onClick={() => { setView(item.id); setSelectedCase(null); localStorage.removeItem("lextrack-last-case-id"); setSidebarOpen(false); }}>
                 <Icon size={17} className={isActive ? "text-amber-500" : ""} />
                 {item.label}
                 {item.badge && <span className="ml-auto bg-red-500/20 text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}
@@ -2268,7 +2289,7 @@ function FirmApp() {
         <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />
       )}
       {showSettings && (
-        <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); }} onClose={() => setShowSettings(false)} hideAdvocateAI={hideAdvocateAI} onToggleHideAdvocate={(val) => { setHideAdvocateAI(val); apiSavePreferences({ hideAdvocateAI: val }).catch(() => {}); if (val) setShowAdvocateGlobal(false); }} onUpdateUser={setCurrentUser} />
+        <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); localStorage.removeItem("lextrack-last-case-id"); localStorage.removeItem("lextrack-last-view"); }} onClose={() => setShowSettings(false)} hideAdvocateAI={hideAdvocateAI} onToggleHideAdvocate={(val) => { setHideAdvocateAI(val); apiSavePreferences({ hideAdvocateAI: val }).catch(() => {}); if (val) setShowAdvocateGlobal(false); }} onUpdateUser={setCurrentUser} />
       )}
       {showHelpCenter && (
         <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} />
