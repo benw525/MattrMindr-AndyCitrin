@@ -1851,12 +1851,16 @@ function FirmApp() {
 
   const refreshCaseData = async () => {
     try {
-      const [freshTasks, freshDeadlines, freshCases] = await Promise.all([
-        apiGetTasks(),
-        apiGetDeadlines(),
-        apiGetCases(),
-      ]);
-      setTasks(freshTasks);
+      const fetches = [apiGetTasks(), apiGetDeadlines(), apiGetCases()];
+      if (selectedCase) fetches.push(apiGetCaseTasks(selectedCase.id));
+      const [freshTasks, freshDeadlines, freshCases, caseTasks] = await Promise.all(fetches);
+      if (caseTasks && caseTasks.length > 0) {
+        const userTaskIds = new Set(freshTasks.map(t => t.id));
+        const extra = caseTasks.filter(t => !userTaskIds.has(t.id));
+        setTasks(extra.length > 0 ? [...freshTasks, ...extra] : freshTasks);
+      } else {
+        setTasks(freshTasks);
+      }
       setAllDeadlines(freshDeadlines);
       setAllCases(prev => {
         const merged = freshCases.map(fc => {
