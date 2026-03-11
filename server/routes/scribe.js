@@ -243,10 +243,14 @@ router.post("/import/:transcriptId", requireAuth, async (req, res) => {
     const data = await importRes.json();
 
     if (data.status === "completed" && data.segments) {
+      const summariesData = data.summaries || data.aiSummaries || data.ai_summaries || null;
+      console.log(`Scribe refresh for transcript ${req.params.transcriptId}: status=${data.status}, segments=${(data.segments || []).length}, summaries=${summariesData ? JSON.stringify(summariesData).substring(0, 200) : 'null'}, keys=${Object.keys(data).join(',')}`);
+
       const updateFields = [
         "transcript = $1",
         "duration_seconds = $2",
         "pipeline_log = $3",
+        "summaries = $4",
         "scribe_status = 'completed'",
         "status = 'completed'",
         "updated_at = NOW()",
@@ -255,15 +259,11 @@ router.post("/import/:transcriptId", requireAuth, async (req, res) => {
         JSON.stringify(data.segments),
         data.duration || null,
         data.pipelineLog ? JSON.stringify(data.pipelineLog) : null,
+        summariesData ? JSON.stringify(summariesData) : null,
       ];
-      if (data.summaries) {
-        params.push(JSON.stringify(data.summaries));
-        updateFields.push(`summaries = $${params.length}`);
-      }
       params.push(req.params.transcriptId);
-      updateFields.push("");
       await pool.query(
-        `UPDATE case_transcripts SET ${updateFields.filter(Boolean).join(", ")} WHERE id = $${params.length}`,
+        `UPDATE case_transcripts SET ${updateFields.join(", ")} WHERE id = $${params.length}`,
         params
       );
     } else if (data.status === "failed") {
@@ -273,7 +273,8 @@ router.post("/import/:transcriptId", requireAuth, async (req, res) => {
       );
     }
 
-    res.json({ ok: true, status: data.status, segments: (data.segments || []).length, hasSummaries: !!(data.summaries && data.summaries.length) });
+    const summariesResult = data.summaries || data.aiSummaries || data.ai_summaries || null;
+    res.json({ ok: true, status: data.status, segments: (data.segments || []).length, hasSummaries: !!(summariesResult && summariesResult.length) });
   } catch (err) {
     console.error("Scribe import error:", err.message);
     res.status(500).json({ error: "Failed to import from Scribe" });
@@ -373,7 +374,7 @@ router.post("/import-new", requireAuth, async (req, res) => {
         data.duration || null,
         data.description || "",
         data.segments ? JSON.stringify(data.segments) : "[]",
-        data.summaries ? JSON.stringify(data.summaries) : null,
+        (data.summaries || data.aiSummaries || data.ai_summaries) ? JSON.stringify(data.summaries || data.aiSummaries || data.ai_summaries) : null,
         data.pipelineLog ? JSON.stringify(data.pipelineLog) : null,
         String(scribeTranscriptId),
         userId,
