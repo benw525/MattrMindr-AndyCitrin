@@ -13779,12 +13779,12 @@ function PermissionsTab({ currentUser, allUsers }) {
               </div>
 
               <div className="flex gap-3 mb-4 flex-wrap">
-                <div className="relative flex-1 min-w-[180px]">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="flex-1 min-w-[180px] flex items-center border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 px-3 gap-2 focus-within:ring-1 focus-within:ring-amber-500">
+                  <Search size={14} className="text-slate-400 flex-shrink-0" />
                   <input
                     value={searchFilter} onChange={e => setSearchFilter(e.target.value)}
                     placeholder="Search permissions..."
-                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full py-2 text-xs bg-transparent text-slate-800 dark:text-white focus:outline-none border-0"
                   />
                 </div>
                 <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
