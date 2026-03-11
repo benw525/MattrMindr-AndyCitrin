@@ -1294,6 +1294,135 @@ function FirmApp() {
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [helpCenterTab, setHelpCenterTab] = useState("tutorials");
 
+  const [openDocViewers, setOpenDocViewers] = useState([]);
+  const [openTranscriptViewers, setOpenTranscriptViewers] = useState([]);
+  const [appMsStatus, setAppMsStatus] = useState(null);
+  const [appOoStatus, setAppOoStatus] = useState(null);
+  const topZIndexRef = useRef(10010);
+  const nextViewerIdRef = useRef(0);
+
+  useEffect(() => {
+    if (openDocViewers.length > 0 && appMsStatus === null) {
+      apiGetMsConfigured().then(r => { if (r.configured) apiGetMsStatus().then(setAppMsStatus).catch(() => {}); else setAppMsStatus({ connected: false, configured: false }); }).catch(() => setAppMsStatus({ connected: false, configured: false }));
+      apiGetOnlyofficeStatus().then(setAppOoStatus).catch(() => setAppOoStatus({ configured: false, available: false }));
+    }
+  }, [openDocViewers.length]);
+
+  const openAppDocViewer = async (docId, filename, contentType) => {
+    try {
+      const ct = contentType || "application/pdf";
+      const ext = (filename || "").split(".").pop().toLowerCase();
+      const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
+      const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
+      const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
+      let docxHtml = null, xlsxData = null, pptxSlides = null, blobUrl = null, annotations = [], officeViewUrl = null;
+      if (isDocx) {
+        try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch { docxHtml = "<p>Could not convert document.</p>"; }
+      } else if (isXlsx) {
+        try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch { xlsxData = []; }
+      } else if (isPptx) {
+        try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch { pptxSlides = []; }
+      } else {
+        const blob = await apiDownloadDocument(docId);
+        blobUrl = URL.createObjectURL(blob);
+      }
+      try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
+      if (isDocx || isXlsx || isPptx) {
+        try { const r = await apiGetOfficeViewUrl(docId); if (r.url) officeViewUrl = r.url; } catch {}
+      }
+      const id = ++nextViewerIdRef.current;
+      const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
+      topZIndexRef.current += 1;
+      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId, docxHtml, xlsxData, pptxSlides, blobUrl, annotations, officeViewUrl, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
+    } catch (err) { alert("Failed to open document: " + err.message); }
+  };
+
+  const openAppFilingViewer = async (filingId, filename) => {
+    try {
+      const ext = (filename || "").split(".").pop().toLowerCase();
+      const blob = await apiDownloadFiling(filingId);
+      const ct = blob.type || (ext === "pdf" ? "application/pdf" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "xlsx" || ext === "xls" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ext === "pptx" || ext === "ppt" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext === "jpg" ? "jpeg" : ext}` : "application/octet-stream");
+      const blobUrl = URL.createObjectURL(blob);
+      const id = ++nextViewerIdRef.current;
+      const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
+      topZIndexRef.current += 1;
+      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, blobUrl, annotations: [], officeViewUrl: null, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
+    } catch (err) { alert("Failed to open filing: " + err.message); }
+  };
+
+  const closeDocViewer = (viewerId) => {
+    setOpenDocViewers(prev => {
+      const v = prev.find(w => w.id === viewerId);
+      if (v && v.blobUrl) URL.revokeObjectURL(v.blobUrl);
+      return prev.filter(w => w.id !== viewerId);
+    });
+  };
+
+  const minimizeDocViewer = (viewerId) => {
+    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: true } : v));
+  };
+
+  const restoreDocViewer = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
+  };
+
+  const bringDocViewerToFront = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, zIndex: topZIndexRef.current } : v));
+  };
+
+  const openBlobInViewer = (blob, filename, contentType) => {
+    const ct = contentType || "application/octet-stream";
+    const blobUrl = URL.createObjectURL(blob);
+    const id = ++nextViewerIdRef.current;
+    const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
+    topZIndexRef.current += 1;
+    setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, blobUrl, annotations: [], officeViewUrl: null, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
+  };
+
+  const openTranscriptViewer = async (transcript) => {
+    const existing = openTranscriptViewers.find(v => v.transcriptId === transcript.id);
+    if (existing) {
+      topZIndexRef.current += 1;
+      setOpenTranscriptViewers(prev => prev.map(v => v.transcriptId === transcript.id ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
+      return;
+    }
+    try {
+      const detail = await apiGetTranscriptDetail(transcript.id);
+      const id = ++nextViewerIdRef.current;
+      const offset = (openTranscriptViewers.filter(v => !v.minimized).length % 6) * 30;
+      topZIndexRef.current += 1;
+      setOpenTranscriptViewers(prev => [...prev, {
+        id, transcriptId: transcript.id, filename: transcript.filename,
+        isVideo: transcript.isVideo || false, durationSeconds: detail.durationSeconds || transcript.durationSeconds || 0,
+        scribeTranscriptId: transcript.scribeTranscriptId || null, scribeStatus: transcript.scribeStatus || null,
+        transcriptDetail: detail, transcriptEdits: JSON.parse(JSON.stringify(detail.transcript || [])),
+        minimized: false, zIndex: topZIndexRef.current,
+        position: { x: 100 + offset, y: 50 + offset },
+        size: { width: Math.min(900, window.innerWidth * 0.7), height: Math.min(650, window.innerHeight * 0.8) },
+      }]);
+    } catch (err) { alert("Failed to open transcript: " + err.message); }
+  };
+
+  const closeTranscriptViewer = (viewerId) => {
+    setOpenTranscriptViewers(prev => prev.filter(v => v.id !== viewerId));
+  };
+
+  const minimizeTranscriptViewer = (viewerId) => {
+    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: true } : v));
+  };
+
+  const restoreTranscriptViewer = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
+  };
+
+  const bringTranscriptViewerToFront = (viewerId) => {
+    topZIndexRef.current += 1;
+    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, zIndex: topZIndexRef.current } : v));
+  };
+
   useEffect(() => {
     apiMe().then(user => {
       setCurrentUser(user);
@@ -2297,11 +2426,11 @@ function FirmApp() {
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
+        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
         {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} confirmDelete={confirmDelete} />}
         {view === "trialcenter" && <TrialCenterView currentUser={currentUser} users={allUsers} cases={allCases} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} />}
@@ -2621,6 +2750,75 @@ function FirmApp() {
           </div>
         </div>
       )}
+
+      {openDocViewers.filter(v => !v.minimized).map(viewer => (
+        <DocViewerWindow
+          key={viewer.id}
+          viewer={viewer}
+          zIndex={viewer.zIndex}
+          msStatus={appMsStatus}
+          ooStatus={appOoStatus}
+          onClose={() => closeDocViewer(viewer.id)}
+          onMinimize={() => minimizeDocViewer(viewer.id)}
+          onBringToFront={() => bringDocViewerToFront(viewer.id)}
+          onPositionChange={(pos) => setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, position: pos } : v))}
+          onSizeChange={(sz) => setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, size: sz } : v))}
+          onViewerUpdate={async (docId) => {
+            try {
+              const ct = viewer.type || "";
+              const ext = (viewer.filename || "").split(".").pop().toLowerCase();
+              const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
+              const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
+              const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
+              let docxHtml = viewer.docxHtml, xlsxData = viewer.xlsxData, pptxSlides = viewer.pptxSlides, blobUrl = viewer.blobUrl;
+              if (isDocx) { try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch {} }
+              else if (isXlsx) { try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch {} }
+              else if (isPptx) { try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch {} }
+              else { try { const blob = await apiDownloadDocument(docId); blobUrl = URL.createObjectURL(blob); } catch {} }
+              setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, docxHtml, xlsxData, pptxSlides, blobUrl } : v));
+            } catch {}
+          }}
+        />
+      ))}
+
+      {openTranscriptViewers.filter(v => !v.minimized).map(viewer => (
+        <TranscriptViewerWindow
+          key={viewer.id}
+          viewer={viewer}
+          zIndex={viewer.zIndex}
+          onClose={() => closeTranscriptViewer(viewer.id)}
+          onMinimize={() => minimizeTranscriptViewer(viewer.id)}
+          onBringToFront={() => bringTranscriptViewerToFront(viewer.id)}
+          onPositionChange={(pos) => setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, position: pos } : v))}
+          onSizeChange={(sz) => setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, size: sz } : v))}
+          onTranscriptEditsChange={(edits) => {
+            setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, transcriptEdits: edits, transcriptDetail: { ...v.transcriptDetail, transcript: edits } } : v));
+          }}
+          apiDownloadTranscriptAudio={apiDownloadTranscriptAudio}
+          apiExportTranscript={apiExportTranscript}
+          apiGetTranscriptHistory={apiGetTranscriptHistory}
+          apiSaveTranscriptHistory={apiSaveTranscriptHistory}
+          apiUpdateTranscript={apiUpdateTranscript}
+          apiRevertTranscript={apiRevertTranscript}
+          apiGetTranscriptDetail={apiGetTranscriptDetail}
+          ScribeTranscriptButtons={ScribeTranscriptButtons}
+        />
+      ))}
+
+      {[...openDocViewers.filter(v => v.minimized), ...openTranscriptViewers.filter(v => v.minimized)].map((viewer, idx) => {
+        const isTranscript = 'transcriptId' in viewer;
+        return (
+          <div key={`min-${viewer.id}`} style={{ position: "fixed", bottom: 12, left: 12 + idx * 230, zIndex: 10000, display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 10, maxWidth: 220, cursor: "default", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}>
+            {isTranscript
+              ? <FileAudio size={13} style={{ color: "#6366f1", flexShrink: 0 }} />
+              : <FileText size={13} style={{ color: "#64748b", flexShrink: 0 }} />}
+            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || (isTranscript ? "Transcript" : "Document")}</span>
+            <button onClick={() => isTranscript ? restoreTranscriptViewer(viewer.id) : restoreDocViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+            <button onClick={(e) => { e.stopPropagation(); isTranscript ? closeTranscriptViewer(viewer.id) : closeDocViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
+          </div>
+        );
+      })}
+
     </div>
   );
 }
@@ -5065,7 +5263,7 @@ function BatchStaffPicker({ staffList, value, onChange, inputValue, onInputChang
   );
 }
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin, onOpenAdvocate, onOpenTrialCenter, confirmDelete }) {
+function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
   const setSelectedCase = useCallback((c) => { if (clearPendingTab) clearPendingTab(); rawSetSelectedCase(c); }, [clearPendingTab, rawSetSelectedCase]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
@@ -5540,6 +5738,10 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
           onOpenAdvocate={onOpenAdvocate}
           onOpenTrialCenter={onOpenTrialCenter}
           confirmDelete={confirmDelete}
+          openAppDocViewer={openAppDocViewer}
+          openAppFilingViewer={openAppFilingViewer}
+          openBlobInViewer={openBlobInViewer}
+          openTranscriptViewer={openTranscriptViewer}
         />
       )}
     </>
@@ -5658,7 +5860,7 @@ const KEY_DATE_FIELDS = ["accidentDate", "statuteOfLimitationsDate", "nextCourtD
 const KEY_DATE_TYPES = { accidentDate: "Other", statuteOfLimitationsDate: "SOL", nextCourtDate: "Hearing", trialDate: "Hearing", mediationDate: "Mediation", dispositionDate: "Other", demandDate: "Filing", settlementDate: "Other" };
 
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate, onOpenTrialCenter, confirmDelete }) {
+function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -5844,12 +6046,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [selectedCorrIds, setSelectedCorrIds] = useState(new Set());
   const [docUploadProgress, setDocUploadProgress] = useState(null);
   const [filingUploadProgress, setFilingUploadProgress] = useState(null);
-  const [openDocViewers, setOpenDocViewers] = useState([]);
-  const [openTranscriptViewers, setOpenTranscriptViewers] = useState([]);
-  const [appMsStatus, setAppMsStatus] = useState(null);
-  const [appOoStatus, setAppOoStatus] = useState(null);
-  const topZIndexRef = useRef(10010);
-  const nextViewerIdRef = useRef(0);
   const [backgroundUploads, setBackgroundUploads] = useState([]);
   const bgUploadIdRef = useRef(0);
   const startBackgroundUpload = useCallback((filename) => {
@@ -5870,134 +6066,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     setBackgroundUploads(prev => prev.filter(u => u.id !== id));
   }, []);
   const isAttorneyPlus = isAttorney(currentUser) || hasRole(currentUser, "App Admin");
-
-  useEffect(() => {
-    if (openDocViewers.length > 0 && appMsStatus === null) {
-      apiGetMsConfigured().then(r => { if (r.configured) apiGetMsStatus().then(setAppMsStatus).catch(() => {}); else setAppMsStatus({ connected: false, configured: false }); }).catch(() => setAppMsStatus({ connected: false, configured: false }));
-      apiGetOnlyofficeStatus().then(setAppOoStatus).catch(() => setAppOoStatus({ configured: false, available: false }));
-    }
-  }, [openDocViewers.length]);
-
-  const openAppDocViewer = async (docId, filename, contentType) => {
-    try {
-      const ct = contentType || "application/pdf";
-      const ext = (filename || "").split(".").pop().toLowerCase();
-      const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
-      const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
-      const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
-      let docxHtml = null, xlsxData = null, pptxSlides = null, blobUrl = null, annotations = [], officeViewUrl = null;
-      if (isDocx) {
-        try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch { docxHtml = "<p>Could not convert document.</p>"; }
-      } else if (isXlsx) {
-        try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch { xlsxData = []; }
-      } else if (isPptx) {
-        try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch { pptxSlides = []; }
-      } else {
-        const blob = await apiDownloadDocument(docId);
-        blobUrl = URL.createObjectURL(blob);
-      }
-      try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
-      if (isDocx || isXlsx || isPptx) {
-        try { const r = await apiGetOfficeViewUrl(docId); if (r.url) officeViewUrl = r.url; } catch {}
-      }
-      const id = ++nextViewerIdRef.current;
-      const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
-      topZIndexRef.current += 1;
-      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId, docxHtml, xlsxData, pptxSlides, blobUrl, annotations, officeViewUrl, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
-    } catch (err) { alert("Failed to open document: " + err.message); }
-  };
-
-  const openAppFilingViewer = async (filingId, filename) => {
-    try {
-      const ext = (filename || "").split(".").pop().toLowerCase();
-      const blob = await apiDownloadFiling(filingId);
-      const ct = blob.type || (ext === "pdf" ? "application/pdf" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "xlsx" || ext === "xls" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ext === "pptx" || ext === "ppt" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext === "jpg" ? "jpeg" : ext}` : "application/octet-stream");
-      const blobUrl = URL.createObjectURL(blob);
-      const id = ++nextViewerIdRef.current;
-      const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
-      topZIndexRef.current += 1;
-      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, blobUrl, annotations: [], officeViewUrl: null, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
-    } catch (err) { alert("Failed to open filing: " + err.message); }
-  };
-
-  const closeDocViewer = (viewerId) => {
-    setOpenDocViewers(prev => {
-      const v = prev.find(w => w.id === viewerId);
-      if (v && v.blobUrl) URL.revokeObjectURL(v.blobUrl);
-      return prev.filter(w => w.id !== viewerId);
-    });
-  };
-
-  const minimizeDocViewer = (viewerId) => {
-    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: true } : v));
-  };
-
-  const restoreDocViewer = (viewerId) => {
-    topZIndexRef.current += 1;
-    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
-  };
-
-  const bringDocViewerToFront = (viewerId) => {
-    topZIndexRef.current += 1;
-    setOpenDocViewers(prev => prev.map(v => v.id === viewerId ? { ...v, zIndex: topZIndexRef.current } : v));
-  };
-
-  const openBlobInViewer = (blob, filename, contentType) => {
-    const ct = contentType || "application/octet-stream";
-    const blobUrl = URL.createObjectURL(blob);
-    const id = ++nextViewerIdRef.current;
-    const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
-    topZIndexRef.current += 1;
-    setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId: null, docxHtml: null, xlsxData: null, pptxSlides: null, blobUrl, annotations: [], officeViewUrl: null, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
-  };
-
-  const openTranscriptViewer = async (transcript) => {
-    const existing = openTranscriptViewers.find(v => v.transcriptId === transcript.id);
-    if (existing) {
-      topZIndexRef.current += 1;
-      setOpenTranscriptViewers(prev => prev.map(v => v.transcriptId === transcript.id ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
-      return;
-    }
-    try {
-      const detail = await apiGetTranscriptDetail(transcript.id);
-      const id = ++nextViewerIdRef.current;
-      const offset = (openTranscriptViewers.filter(v => !v.minimized).length % 6) * 30;
-      topZIndexRef.current += 1;
-      setOpenTranscriptViewers(prev => [...prev, {
-        id,
-        transcriptId: transcript.id,
-        filename: transcript.filename,
-        isVideo: transcript.isVideo || false,
-        durationSeconds: detail.durationSeconds || transcript.durationSeconds || 0,
-        scribeTranscriptId: transcript.scribeTranscriptId || null,
-        scribeStatus: transcript.scribeStatus || null,
-        transcriptDetail: detail,
-        transcriptEdits: JSON.parse(JSON.stringify(detail.transcript || [])),
-        minimized: false,
-        zIndex: topZIndexRef.current,
-        position: { x: 100 + offset, y: 50 + offset },
-        size: { width: Math.min(900, window.innerWidth * 0.7), height: Math.min(650, window.innerHeight * 0.8) },
-      }]);
-    } catch (err) { alert("Failed to open transcript: " + err.message); }
-  };
-
-  const closeTranscriptViewer = (viewerId) => {
-    setOpenTranscriptViewers(prev => prev.filter(v => v.id !== viewerId));
-  };
-
-  const minimizeTranscriptViewer = (viewerId) => {
-    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: true } : v));
-  };
-
-  const restoreTranscriptViewer = (viewerId) => {
-    topZIndexRef.current += 1;
-    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, minimized: false, zIndex: topZIndexRef.current } : v));
-  };
-
-  const bringTranscriptViewerToFront = (viewerId) => {
-    topZIndexRef.current += 1;
-    setOpenTranscriptViewers(prev => prev.map(v => v.id === viewerId ? { ...v, zIndex: topZIndexRef.current } : v));
-  };
 
   const [linkedCases, setLinkedCases] = useState([]);
   const [linkedCasesLoading, setLinkedCasesLoading] = useState(false);
@@ -11177,84 +11245,6 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
         </div>
       )}
 
-      {openDocViewers.filter(v => !v.minimized).map(viewer => (
-        <DocViewerWindow
-          key={viewer.id}
-          viewer={viewer}
-          zIndex={viewer.zIndex}
-          msStatus={appMsStatus}
-          ooStatus={appOoStatus}
-          onClose={() => closeDocViewer(viewer.id)}
-          onMinimize={() => minimizeDocViewer(viewer.id)}
-          onBringToFront={() => bringDocViewerToFront(viewer.id)}
-          onPositionChange={(pos) => setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, position: pos } : v))}
-          onSizeChange={(sz) => setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, size: sz } : v))}
-          onViewerUpdate={async (docId) => {
-            try {
-              const ct = viewer.type || "";
-              const ext = (viewer.filename || "").split(".").pop().toLowerCase();
-              const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
-              const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
-              const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
-              let docxHtml = viewer.docxHtml, xlsxData = viewer.xlsxData, pptxSlides = viewer.pptxSlides, blobUrl = viewer.blobUrl;
-              if (isDocx) { try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch {} }
-              else if (isXlsx) { try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch {} }
-              else if (isPptx) { try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch {} }
-              else { try { const blob = await apiDownloadDocument(docId); blobUrl = URL.createObjectURL(blob); } catch {} }
-              setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, docxHtml, xlsxData, pptxSlides, blobUrl } : v));
-            } catch {}
-          }}
-        />
-      ))}
-
-      {openTranscriptViewers.filter(v => !v.minimized).map(viewer => (
-        <TranscriptViewerWindow
-          key={viewer.id}
-          viewer={viewer}
-          zIndex={viewer.zIndex}
-          onClose={() => closeTranscriptViewer(viewer.id)}
-          onMinimize={() => minimizeTranscriptViewer(viewer.id)}
-          onBringToFront={() => bringTranscriptViewerToFront(viewer.id)}
-          onPositionChange={(pos) => setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, position: pos } : v))}
-          onSizeChange={(sz) => setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, size: sz } : v))}
-          onTranscriptEditsChange={(edits) => {
-            setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, transcriptEdits: edits, transcriptDetail: { ...v.transcriptDetail, transcript: edits } } : v));
-            if (expandedTranscriptId === viewer.transcriptId) {
-              setTranscriptDetail(d => d ? { ...d, transcript: edits } : d);
-              setTranscriptEdits(JSON.parse(JSON.stringify(edits)));
-            }
-          }}
-          apiDownloadTranscriptAudio={apiDownloadTranscriptAudio}
-          apiExportTranscript={apiExportTranscript}
-          apiGetTranscriptHistory={apiGetTranscriptHistory}
-          apiSaveTranscriptHistory={apiSaveTranscriptHistory}
-          apiUpdateTranscript={apiUpdateTranscript}
-          apiRevertTranscript={apiRevertTranscript}
-          apiGetTranscriptDetail={apiGetTranscriptDetail}
-          ScribeTranscriptButtons={ScribeTranscriptButtons}
-        />
-      ))}
-
-      {(openDocViewers.some(v => v.minimized) || openTranscriptViewers.some(v => v.minimized)) && (
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 10000, display: "flex", gap: 8, padding: "8px 12px", background: "var(--c-bg, #fff)", borderTop: "3px solid #ea580c", boxShadow: "0 -2px 8px rgba(0,0,0,0.08)" }}>
-          {openDocViewers.filter(v => v.minimized).map(viewer => (
-            <div key={viewer.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 8, maxWidth: 220, cursor: "default" }}>
-              <FileText size={13} style={{ color: "#64748b", flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || "Document"}</span>
-              <button onClick={() => restoreDocViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
-              <button onClick={(e) => { e.stopPropagation(); closeDocViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
-            </div>
-          ))}
-          {openTranscriptViewers.filter(v => v.minimized).map(viewer => (
-            <div key={viewer.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 8, maxWidth: 220, cursor: "default" }}>
-              <FileAudio size={13} style={{ color: "#6366f1", flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{viewer.filename || "Transcript"}</span>
-              <button onClick={() => restoreTranscriptViewer(viewer.id)} title="Restore" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#64748b", display: "inline-flex", flexShrink: 0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
-              <button onClick={(e) => { e.stopPropagation(); closeTranscriptViewer(viewer.id); }} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", display: "inline-flex", flexShrink: 0 }}><X size={13} /></button>
-            </div>
-          ))}
-        </div>
-      )}
     </>
   );
 }
@@ -14766,7 +14756,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
   }
 }
 
-function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle, onOpenAdvocate, onOpenTrialCenter, confirmDelete }) {
+function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
   const [activeReport, setActiveReport] = useState(null);
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
@@ -15004,6 +14994,10 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
             onOpenAdvocate={onOpenAdvocate}
             onOpenTrialCenter={onOpenTrialCenter}
             confirmDelete={confirmDelete}
+            openAppDocViewer={openAppDocViewer}
+            openAppFilingViewer={openAppFilingViewer}
+            openBlobInViewer={openBlobInViewer}
+            openTranscriptViewer={openTranscriptViewer}
           />
         );
       })()}
