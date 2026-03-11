@@ -186,6 +186,7 @@ export async function apiUploadCaseDocument(formData) {
   return res.json();
 }
 export const apiSummarizeDocument = (docId) => apiFetch(`/api/case-documents/${docId}/summarize`, { method: "POST", body: {} });
+export const apiReExtractDocument = (docId) => apiFetch(`/api/case-documents/${docId}/re-extract`, { method: "POST" });
 export async function apiDownloadDocument(docId) {
   const res = await fetch(`/api/case-documents/${docId}/download`, { credentials: "include" });
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);

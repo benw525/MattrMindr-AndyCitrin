@@ -120,6 +120,24 @@ router.get("/:id/text", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/:id/re-extract", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT cd.case_id, cd.file_data, cd.content_type, cd.filename FROM case_documents cd WHERE cd.id = $1", [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
+    if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
+    const doc = rows[0];
+    if (!doc.file_data) return res.status(400).json({ error: "No file data available for re-extraction" });
+    const newText = await extractText(doc.file_data, doc.content_type, doc.filename);
+    await pool.query("UPDATE case_documents SET extracted_text = $1 WHERE id = $2", [newText || "", req.params.id]);
+    return res.json({ text: newText || "", length: (newText || "").length });
+  } catch (err) {
+    console.error("Re-extract text error:", err);
+    return res.status(500).json({ error: "Failed to re-extract text" });
+  }
+});
+
 router.post("/:id/summarize", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(

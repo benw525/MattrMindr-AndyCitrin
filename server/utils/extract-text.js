@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const OCR_MIN_TEXT_LENGTH = 50;
+const OCR_MIN_TEXT_LENGTH = 200;
 const OCR_MAX_PAGES = 10;
 
 async function ocrPdfBuffer(buffer, filename) {
@@ -74,11 +74,14 @@ async function extractText(buffer, contentType, filename) {
     const data = await pdfParse(buffer);
     const text = (data.text || "").trim();
 
-    if (text.length >= OCR_MIN_TEXT_LENGTH) {
+    const wordCount = text.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
+    const hasUsefulText = text.length >= OCR_MIN_TEXT_LENGTH && wordCount >= 20;
+
+    if (hasUsefulText) {
       return text;
     }
 
-    console.log(`PDF text extraction yielded only ${text.length} chars for "${filename}", attempting OCR...`);
+    console.log(`PDF text extraction yielded ${text.length} chars / ${wordCount} words for "${filename}", attempting OCR...`);
     try {
       const ocrText = await ocrPdfBuffer(buffer, filename);
       if (ocrText.length > text.length) {
