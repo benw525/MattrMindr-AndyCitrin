@@ -814,6 +814,9 @@ body.dark-body { background: #0E1116; }
   .info-row { flex-direction: column; gap: 2px; }
   .info-val { text-align: left; }
   .mobile-grid-1 { grid-template-columns: 1fr !important; display: grid !important; }
+  .collapse-strip { display: none !important; }
+  .col-collapse-btn { display: none !important; }
+  .case-overlay-section { border-right: none !important; padding-left: 0 !important; padding-right: 0 !important; }
   .mobile-full { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
   .cal-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   .cal-grid-wrap > div { min-width: 320px; }
@@ -5652,6 +5655,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [contactEditMode, setContactEditMode] = useState(false);
   const [contactEditDraft, setContactEditDraft] = useState(null);
   const [showCompletedOverlay, setShowCompletedOverlay] = useState(false);
+  const [collapsedCols, setCollapsedCols] = useState({ deadlines: false, tasks: false, notes: false });
+  const toggleCol = (col) => setCollapsedCols(p => ({ ...p, [col]: !p[col] }));
+  useEffect(() => { setCollapsedCols({ deadlines: false, tasks: false, notes: false }); }, [c.id]);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e) => { if (e.matches) setCollapsedCols({ deadlines: false, tasks: false, notes: false }); };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
   const [customTeam, setCustomTeam] = useState(c._customTeam || []);
   const [addingTeamSlot, setAddingTeamSlot] = useState(false);
   const [newTeamRole, setNewTeamRole] = useState("");
@@ -6883,10 +6895,20 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             <div style={{ borderTop: "1px solid var(--c-border)", margin: "8px 0 32px" }} />
 
             {/* Three-column: Deadlines | Tasks | Notes */}
-            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 32px" }}>
-              <div className="case-overlay-section">
+            <div className="mobile-grid-1" style={{ display: "grid", gridTemplateColumns: `${collapsedCols.deadlines ? "48px" : "1fr"} ${collapsedCols.tasks ? "48px" : "1fr"} ${collapsedCols.notes ? "48px" : "1.4fr"}`, gap: "0 0", transition: "grid-template-columns 0.3s ease" }}>
+              <div className="case-overlay-section" style={{ overflow: "hidden", borderRight: "1px solid var(--c-border2)", paddingRight: collapsedCols.deadlines ? 0 : 16, transition: "padding 0.3s ease" }}>
+                {collapsedCols.deadlines ? (
+                  <div className="collapse-strip" onClick={() => toggleCol("deadlines")} style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, paddingTop: 4 }}>
+                    <ChevronRight size={14} style={{ color: "var(--c-text3)" }} />
+                    <span style={{ writingMode: "vertical-lr", fontSize: 12, fontWeight: 600, color: "var(--c-text2)", letterSpacing: "0.5px" }}>Deadlines ({deadlines.length})</span>
+                  </div>
+                ) : (
+                <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button className="col-collapse-btn" onClick={() => toggleCol("deadlines")} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", alignItems: "center" }}><ChevronDown size={14} style={{ color: "var(--c-text3)" }} /></button>
+                    <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
+                  </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowAddDeadline(s => !s); if (showAddDeadline) setDlForm({ title: "", date: "", type: "Other" }); }}>
                       {showAddDeadline ? "Cancel" : "+ Add Deadline"}
@@ -6976,11 +6998,23 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     )}
                   </div>
                 )}
+                </>
+                )}
               </div>
 
-              <div className="case-overlay-section">
+              <div className="case-overlay-section" style={{ overflow: "hidden", borderRight: "1px solid var(--c-border2)", paddingLeft: 16, paddingRight: collapsedCols.tasks ? 0 : 16, transition: "padding 0.3s ease" }}>
+                {collapsedCols.tasks ? (
+                  <div className="collapse-strip" onClick={() => toggleCol("tasks")} style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, paddingTop: 4 }}>
+                    <ChevronRight size={14} style={{ color: "var(--c-text3)" }} />
+                    <span style={{ writingMode: "vertical-lr", fontSize: 12, fontWeight: 600, color: "var(--c-text2)", letterSpacing: "0.5px" }}>Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</span>
+                  </div>
+                ) : (
+                <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button className="col-collapse-btn" onClick={() => toggleCol("tasks")} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", alignItems: "center" }}><ChevronDown size={14} style={{ color: "var(--c-text3)" }} /></button>
+                    <div className="case-overlay-section-title">Tasks ({tasks.filter(t => t.status !== "Completed").length} open)</div>
+                  </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowAddTask(s => !s); if (showAddTask) setTkForm({ title: "", priority: "Medium", due: "" }); }}>
                       {showAddTask ? "Cancel" : "+ Add Task"}
@@ -7171,10 +7205,21 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     )}
                   </div>
                 )}
+                </>
+                )}
               </div>
 
-              <div className="case-overlay-section">
-                <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={handleAddNote} onDeleteNote={handleDeleteNote} onUpdateNote={handleUpdateNote} caseRecord={c} confirmDelete={confirmDelete} />
+              <div className="case-overlay-section" style={{ overflow: "hidden", paddingLeft: 16, transition: "padding 0.3s ease" }}>
+                {collapsedCols.notes ? (
+                  <div className="collapse-strip" onClick={() => toggleCol("notes")} style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, paddingTop: 4 }}>
+                    <ChevronRight size={14} style={{ color: "var(--c-text3)" }} />
+                    <span style={{ writingMode: "vertical-lr", fontSize: 12, fontWeight: 600, color: "var(--c-text2)", letterSpacing: "0.5px" }}>Notes ({notes.length})</span>
+                  </div>
+                ) : (
+                <>
+                  <CaseNotes caseId={c.id} notes={notes} currentUser={currentUser} onAddNote={handleAddNote} onDeleteNote={handleDeleteNote} onUpdateNote={handleUpdateNote} caseRecord={c} confirmDelete={confirmDelete} collapseToggle={<button className="col-collapse-btn" onClick={() => toggleCol("notes")} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", alignItems: "center" }}><ChevronDown size={14} style={{ color: "var(--c-text3)" }} /></button>} />
+                </>
+                )}
               </div>
             </div>
 
@@ -11302,7 +11347,7 @@ const NOTE_TYPES = [
 const noteTypeStyle = (label) => NOTE_TYPES.find(t => t.label === label) || NOTE_TYPES[0];
 
 // ─── CaseNotes Component ──────────────────────────────────────────────────────
-function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpdateNote, caseRecord, confirmDelete }) {
+function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpdateNote, caseRecord, confirmDelete, collapseToggle }) {
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [form, setForm] = useState({ type: "General", body: "", time: "" });
@@ -11380,8 +11425,11 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
     <div className="panel-section">
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <div className="panel-section-title" style={{ marginBottom: 0 }}>
-          Notes {notes.length > 0 && <span style={{ color: "#64748b" }}>({notes.length})</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {collapseToggle}
+          <div className="panel-section-title" style={{ marginBottom: 0 }}>
+            Notes {notes.length > 0 && <span style={{ color: "#64748b" }}>({notes.length})</span>}
+          </div>
         </div>
         <button
           className="btn btn-outline btn-sm"
