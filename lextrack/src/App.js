@@ -958,7 +958,7 @@ function TimePromptModal({ pending, onSubmit }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onSubmit(pending.taskId, time.trim() || null, null, task?.assigned > 0 ? task.assigned : null)}>
+    <div className="modal-overlay">
       <div className="modal" style={{ maxWidth: 430 }}>
         <div className="modal-title" style={{ marginBottom: 6 }}>Log Time</div>
         <p style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 14 }}>
@@ -1043,7 +1043,7 @@ function FollowUpPromptModal({ prompt, onDecide }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onDecide(false, null, null)}>
+    <div className="modal-overlay">
       <div className="modal" style={{ width: 460, maxWidth: "calc(100vw - 24px)" }}>
         <div className="modal-title" style={{ marginBottom: 6 }}>Follow-up Task Completed</div>
         <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>
@@ -3088,7 +3088,7 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
   }
 
   return (
-    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
       <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
         <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 16 }}>Change Password</div>
@@ -3167,7 +3167,7 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[1100]" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[1100]">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-8 relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-transparent border-none cursor-pointer text-lg"><X size={18} /></button>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-5">Settings</h2>
@@ -3436,7 +3436,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
   };
 
   return (
-    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
       <div className="login-box" style={{ maxWidth: 640, width: "calc(100vw - 32px)", borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", padding: "28px 32px" }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
         <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 4 }}>Help Center</div>
@@ -3863,7 +3863,7 @@ function NewCaseModal({ onSave, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal">
         <div className="modal-title">Open New Case</div>
         <div className="modal-sub">
@@ -4083,7 +4083,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   };
   const handleDragEnd = () => { setDragIdx(null); setOverIdx(null); };
   return (
-    <div className="login-bg" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="login-bg" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }}>
       <div className="login-box" style={{ width: 480, maxWidth: "calc(100vw - 24px)", maxHeight: "80vh", overflow: "auto" }}>
         <div className="login-title" style={{ fontSize: 20, marginBottom: 4 }}>Customize Dashboard</div>
         <div className="login-sub" style={{ marginBottom: 20 }}>Drag to reorder, add or remove widgets</div>
@@ -6563,7 +6563,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         <GenerateDocumentModal caseData={draft} currentUser={currentUser} onClose={() => setShowDocGen(false)} parties={parties} experts={experts} caseId={c.id} onAddNote={onAddNote} onLogActivity={onLogActivity} />
       )}
       {aiStrategy.show && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setAiStrategy({ loading: false, result: null, error: null, show: false })}>
+        <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 700, maxHeight: "85vh", overflow: "auto" }}>
             <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="flex items-center gap-1.5"><Sparkles size={16} className="text-amber-500" /> Case Valuation & Strategy</span>
@@ -6587,7 +6587,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         </div>
       )}
       {showDeleteConfirm && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
+        <div className="modal-overlay">
           <div className="modal-box" style={{ maxWidth: 440 }}>
             <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 10 }}>Delete {recordType(draft)}?</div>
             <div style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 6, lineHeight: 1.6 }}>
@@ -6662,7 +6662,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
         </div>
       )}
       {contactPopup && (
-        <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && (setContactPopup(null), setContactEditMode(false))}>
+        <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
           <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
             <button onClick={() => { setContactPopup(null); setContactEditMode(false); }} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
             {contactEditMode && contactEditDraft ? (
@@ -11157,8 +11157,8 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
               </>)}
 
               {portalInviteOpen && (
-                <div className="case-overlay" style={{ zIndex: 10002 }} onClick={() => setPortalInviteOpen(false)}>
-                  <div className="login-box" onClick={e => e.stopPropagation()} style={{ width: 440, maxWidth: "95vw" }}>
+                <div className="case-overlay" style={{ zIndex: 10002 }}>
+                  <div className="login-box" style={{ width: 440, maxWidth: "95vw" }}>
                     <div style={{ fontSize: 16, fontWeight: 600, color: "var(--c-text)", marginBottom: 16 }}>Invite Client to Portal</div>
                     {!portalInviteResult ? (<>
                       <div className="form-group">
@@ -11784,7 +11784,7 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
   const now = new Date().toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
   return (
-    <div className="print-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="print-overlay">
       <div style={{ width: "100%", maxWidth: 860 }}>
         {/* Toolbar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, padding: "0 4px" }}>
@@ -15980,7 +15980,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
             })()}
 
             {showAddTraining && (
-              <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAddTraining(false)}>
+              <div className="modal-overlay">
                 <div className="modal" style={{ maxWidth: 540 }}>
                   <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>Add Agent Training</span>
@@ -16431,7 +16431,7 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
   const selectedCase = allCases.find(c => c.id === caseId);
 
   return (
-    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
       <div className="login-box" style={{ maxWidth: 440, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
         <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 16 }}>Add Time Entry</div>
@@ -16577,7 +16577,7 @@ function NewContactModal({ onSave, onClose }) {
     }
   };
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 500, maxWidth: "calc(100vw - 24px)" }}>
         <div className="modal-header"><span>New Contact</span><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -16844,7 +16844,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
   };
 
   return (
-    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
       <div className="login-box" onClick={e => e.stopPropagation()} style={{ width: 600, maxWidth: "calc(100vw - 24px)", maxHeight: "calc(100vh - 48px)", borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", padding: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ padding: "20px 28px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
@@ -17158,7 +17158,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div onClick={e => e.stopPropagation()} style={{ width: 700, maxWidth: "calc(100vw - 40px)", maxHeight: "90vh", background: "var(--c-card)", border: "1px solid var(--c-border3)", borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>Merge {contacts.length} Contacts</span>
@@ -17928,7 +17928,7 @@ function EditContactModal({ user, onSave, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose(null)}>
+    <div className="modal-overlay">
       <div className="modal">
         <div className="modal-title">Edit Contact Info</div>
         <div className="modal-sub">{user.name} · {(user.roles && user.roles.length ? user.roles : [user.role]).join(", ")}</div>
@@ -17980,7 +17980,7 @@ function AddStaffModal({ onSave, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose(null)}>
+    <div className="modal-overlay">
       <div className="modal">
         <div className="modal-title">Add Staff Member</div>
         <div className="modal-sub">A temporary password will be emailed to the new staff member.</div>
@@ -18460,7 +18460,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ background: "var(--c-bg)", borderRadius: 12, width: "90%", maxWidth: 750, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ padding: "20px 24px 0", borderBottom: "1px solid var(--c-border)", paddingBottom: 0, flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
