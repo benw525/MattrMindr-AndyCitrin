@@ -11,6 +11,7 @@ export default function TranscriptViewerWindow({
   onSizeChange,
   onSave,
   onTranscriptEditsChange,
+  onViewerDetailUpdate,
   apiDownloadTranscriptAudio,
   apiExportTranscript,
   apiGetTranscriptHistory,
@@ -18,6 +19,7 @@ export default function TranscriptViewerWindow({
   apiUpdateTranscript,
   apiRevertTranscript,
   apiGetTranscriptDetail,
+  apiGetScribeSummaries,
   ScribeTranscriptButtons,
 }) {
   const [transcriptEdits, setTranscriptEdits] = useState(viewer.transcriptEdits || []);
@@ -34,6 +36,7 @@ export default function TranscriptViewerWindow({
   const [transcriptReadingView, setTranscriptReadingView] = useState(false);
   const [exportDropdownId, setExportDropdownId] = useState(false);
   const [showSummaries, setShowSummaries] = useState(false);
+  const [summariesLoading, setSummariesLoading] = useState(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -261,7 +264,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
             </span>
           </div>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-            <button onClick={onMinimize} title="Minimize" style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#64748b" }}><Minus size={15} /></button>
+            {!isMobile && <button onClick={onMinimize} title="Minimize" style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#64748b" }}><Minus size={15} /></button>}
             <button onClick={onClose} title="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#94a3b8" }}><X size={15} /></button>
           </div>
         </div>
@@ -392,9 +395,37 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                 apiGetTranscriptDetail(viewer.transcriptId).then(d => {
                   setTranscriptEdits(JSON.parse(JSON.stringify(d.transcript)));
                   if (onTranscriptEditsChange) onTranscriptEditsChange(d.transcript);
+                  if (onViewerDetailUpdate) onViewerDetailUpdate(d);
                 }).catch(() => {});
               }}
             />
+          )}
+
+          {viewer.scribeTranscriptId && (
+            <button
+              disabled={summariesLoading}
+              onClick={async () => {
+                if (viewer.transcriptDetail?.summaries?.length && !summariesLoading) {
+                  setShowSummaries(!showSummaries);
+                  return;
+                }
+                setSummariesLoading(true);
+                try {
+                  const result = await apiGetScribeSummaries(viewer.transcriptId);
+                  if (result.summaries && result.summaries.length > 0) {
+                    if (onViewerDetailUpdate) onViewerDetailUpdate({ ...viewer.transcriptDetail, summaries: result.summaries });
+                    setShowSummaries(true);
+                  } else {
+                    alert("No summaries available yet for this transcript.");
+                  }
+                } catch (err) { alert("Failed to fetch summaries: " + err.message); }
+                setSummariesLoading(false);
+              }}
+              style={{ ...btnStyle, background: showSummaries ? "#ede9fe" : undefined, borderColor: showSummaries ? "#a78bfa" : viewer.scribeTranscriptId ? "#a78bfa" : undefined, color: showSummaries ? "#5b21b6" : viewer.scribeTranscriptId ? "#7c3aed" : undefined }}
+            >
+              {summariesLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Summaries
+              {viewer.transcriptDetail?.summaries?.length > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({viewer.transcriptDetail.summaries.length})</span>}
+            </button>
           )}
 
           <div style={{ flex: 1 }} />

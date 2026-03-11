@@ -722,6 +722,7 @@ export const apiOnlyofficeCleanup      = (fileId)     => apiFetch(`/api/onlyoffi
 export const apiGetScribeStatus    = ()               => apiFetch("/api/scribe/status");
 export const apiConnectScribe      = (data)           => apiFetch("/api/scribe/connect", { method: "POST", body: data });
 export const apiDisconnectScribe   = ()               => apiFetch("/api/scribe/disconnect", { method: "POST" });
+export const apiGetScribeSummaries  = (transcriptId)   => apiFetch(`/api/scribe/summaries/${transcriptId}`, { method: "POST" });
 export const apiSendToScribe       = (transcriptId)   => apiFetch(`/api/scribe/send/${transcriptId}`, { method: "POST" });
 export const apiGetScribeTranscriptStatus = (scribeId) => apiFetch(`/api/scribe/transcript-status/${scribeId}`);
 export const apiImportFromScribe   = (transcriptId)   => apiFetch(`/api/scribe/import/${transcriptId}`, { method: "POST" });

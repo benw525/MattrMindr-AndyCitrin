@@ -389,4 +389,49 @@ router.post("/import-new", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/summaries/:transcriptId", requireAuth, async (req, res) => {
+  try {
+    const { rows: tRows } = await pool.query(
+      "SELECT id, scribe_transcript_id, case_id FROM case_transcripts WHERE id = $1 AND deleted_at IS NULL",
+      [req.params.transcriptId]
+    );
+    if (!tRows.length) return res.status(404).json({ error: "Transcript not found" });
+    if (!tRows[0].scribe_transcript_id) return res.status(400).json({ error: "No Scribe transcript ID linked" });
+
+    const userId = req.session.userId;
+    const userRole = req.session.userRole || "";
+    if (userRole !== "App Admin") {
+      const { rows: cRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $2 OR case_manager = $2 OR investigator = $2 OR paralegal = $2 OR confidential = false OR confidential IS NULL)", [tRows[0].case_id, userId]);
+      if (!cRows.length) return res.status(403).json({ error: "Access denied" });
+    }
+
+    const creds = await getScribeCredentials(userId);
+    if (!creds) return res.status(400).json({ error: "Scribe not connected" });
+
+    const summariesRes = await fetch(`${creds.scribe_url}/api/transcripts/${tRows[0].scribe_transcript_id}/summaries`, {
+      headers: { Authorization: `Bearer ${creds.scribe_token}` },
+    });
+    if (!summariesRes.ok) {
+      const errText = await summariesRes.text().catch(() => "");
+      console.error("Scribe getSummaries failed:", summariesRes.status, errText);
+      return res.status(500).json({ error: "Could not fetch summaries from Scribe" });
+    }
+    const data = await summariesRes.json();
+    const summaries = data.summaries || data.aiSummaries || data.ai_summaries || data || [];
+    const summariesArr = Array.isArray(summaries) ? summaries : [summaries];
+
+    if (summariesArr.length > 0) {
+      await pool.query(
+        "UPDATE case_transcripts SET summaries = $1, updated_at = NOW() WHERE id = $2",
+        [JSON.stringify(summariesArr), req.params.transcriptId]
+      );
+    }
+
+    res.json({ ok: true, summaries: summariesArr });
+  } catch (err) {
+    console.error("Scribe getSummaries error:", err.message);
+    res.status(500).json({ error: "Failed to fetch summaries from Scribe" });
+  }
+});
+
 module.exports = router;

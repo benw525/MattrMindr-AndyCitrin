@@ -65,7 +65,7 @@ import {
   apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
   apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiMsUploadForEdit, apiMsSyncBack, apiMsCleanup,
   apiGetOnlyofficeStatus, apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup,
-  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
+  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
   apiGetTaskFlows, apiGetTaskFlow, apiCreateTaskFlow, apiUpdateTaskFlow, apiDeleteTaskFlow,
@@ -2797,6 +2797,9 @@ function FirmApp() {
           onTranscriptEditsChange={(edits) => {
             setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, transcriptEdits: edits, transcriptDetail: { ...v.transcriptDetail, transcript: edits } } : v));
           }}
+          onViewerDetailUpdate={(detail) => {
+            setOpenTranscriptViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, transcriptDetail: detail } : v));
+          }}
           apiDownloadTranscriptAudio={apiDownloadTranscriptAudio}
           apiExportTranscript={apiExportTranscript}
           apiGetTranscriptHistory={apiGetTranscriptHistory}
@@ -2804,6 +2807,7 @@ function FirmApp() {
           apiUpdateTranscript={apiUpdateTranscript}
           apiRevertTranscript={apiRevertTranscript}
           apiGetTranscriptDetail={apiGetTranscriptDetail}
+          apiGetScribeSummaries={apiGetScribeSummaries}
           ScribeTranscriptButtons={ScribeTranscriptButtons}
         />
       ))}
@@ -6168,6 +6172,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [scribeImporting, setScribeImporting] = useState(null);
   const [scribeConnected, setScribeConnected] = useState(false);
   const [showSummaries, setShowSummaries] = useState(false);
+  const [summariesLoading, setSummariesLoading] = useState(false);
   const autoSaveTimerRef = useRef(null);
   const autoSaveStatusTimerRef = useRef(null);
   const transcriptPollRef = useRef(null);
@@ -9346,6 +9351,33 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                     <Scale size={11} /> Present
                                   </button>
                                   <ScribeTranscriptButtons transcriptId={t.id} scribeTranscriptId={t.scribeTranscriptId} scribeStatus={t.scribeStatus} onRefreshed={() => { apiGetTranscriptDetail(t.id).then(d => { setTranscriptDetail(d); setTranscriptEdits(JSON.parse(JSON.stringify(d.transcript))); }).catch(() => {}); }} />
+                                  {t.scribeTranscriptId && (
+                                    <button
+                                      disabled={summariesLoading}
+                                      onClick={async () => {
+                                        if (transcriptDetail?.summaries?.length && !summariesLoading) {
+                                          setShowSummaries(!showSummaries);
+                                          return;
+                                        }
+                                        setSummariesLoading(true);
+                                        try {
+                                          const result = await apiGetScribeSummaries(t.id);
+                                          if (result.summaries && result.summaries.length > 0) {
+                                            setTranscriptDetail(prev => ({ ...prev, summaries: result.summaries }));
+                                            setShowSummaries(true);
+                                          } else {
+                                            alert("No summaries available yet for this transcript.");
+                                          }
+                                        } catch (err) { alert("Failed to fetch summaries: " + err.message); }
+                                        setSummariesLoading(false);
+                                      }}
+                                      className="btn btn-sm"
+                                      style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, background: showSummaries ? "#ede9fe" : "transparent", border: "1px solid #a78bfa", color: showSummaries ? "#5b21b6" : "#7c3aed" }}
+                                    >
+                                      {summariesLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Summaries
+                                      {transcriptDetail?.summaries?.length > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({transcriptDetail.summaries.length})</span>}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
 
