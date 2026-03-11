@@ -20,8 +20,9 @@ Login: email + password (existing users default: `1234`, new users get temp pass
 
 ## Deployment
 - **Target**: autoscale
-- **Build**: `node server/schema.js && cd lextrack && npm install && CI=false npm run build && rm -rf node_modules && cd .. && npm prune --production`
+- **Build**: `npm install && cd server && npm install && cd ../lextrack && npm install && CI=false npm run build`
 - **Run**: `NODE_ENV=production node server/index.js` (serves API + React build on port 5000)
+- **Note**: `CI=false` is required because Replit's deployment sets `CI=true`, which causes `react-scripts build` to treat ESLint warnings as errors
 
 ## Project Structure
 ```
