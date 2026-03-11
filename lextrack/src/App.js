@@ -7443,12 +7443,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <EditField fieldKey="policeReportNumber" label="Police Report #" type="text" value={draft.policeReportNumber} onChange={val => set("policeReportNumber", val)} onBlur={() => handleBlur("policeReportNumber")} readOnly={!editMode} />
                         <EditField fieldKey="liabilityAssessment" label="Liability Assessment" type="select" options={["Clear Liability", "Comparative Fault", "Disputed Liability", "Shared Fault", "Pending Investigation", "Undetermined"]} value={draft.liabilityAssessment} onChange={val => setAndLog("liabilityAssessment", val)} readOnly={!editMode} />
                         <EditField fieldKey="comparativeFaultPct" label="Comparative Fault %" type="text" value={draft.comparativeFaultPct} onChange={val => set("comparativeFaultPct", val)} onBlur={() => handleBlur("comparativeFaultPct")} readOnly={!editMode} />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginTop: 12 }}>
                         <div style={{ display: "flex", flexDirection: "column" }}>
-                          <label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", marginBottom: 2 }}>Fee ({draft.feeIsFlat ? "Flat $" : "%"})</label>
+                          <label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", marginBottom: 2 }}>Contingency Fee</label>
                           <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                            <input type="number" step="any" placeholder={draft.feeIsFlat ? "0.00" : "33.33"} style={{ flex: 1, fontSize: 13, padding: "6px 10px", borderRadius: "6px 0 0 6px", border: "1px solid var(--c-border)", borderRight: "none", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
+                            <input type="number" step="any" placeholder={draft.feeIsFlat ? "0.00" : "33.33"} style={{ flex: 1, fontSize: 13, padding: "6px 10px", borderRadius: "6px 0 0 6px", border: "1px solid var(--c-border)", borderRight: "none", background: editMode ? "var(--c-bg)" : "transparent", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60 }}
                               value={draft.contingencyFeePct || ""} onChange={e => set("contingencyFeePct", e.target.value)} onBlur={() => handleBlur("contingencyFeePct")} readOnly={!editMode} />
-                            <select style={{ fontSize: 12, padding: "6px 8px", borderRadius: "0 6px 6px 0", border: "1px solid var(--c-border)", background: editMode ? "var(--c-surface, var(--c-bg))" : "transparent", color: "var(--c-text)", cursor: editMode ? "pointer" : "default", fontWeight: 600, flexShrink: 0 }}
+                            <select style={{ fontSize: 12, padding: "6px 6px", borderRadius: "0 6px 6px 0", border: "1px solid var(--c-border)", background: editMode ? "var(--c-surface, var(--c-bg))" : "transparent", color: "var(--c-text)", cursor: editMode ? "pointer" : "default", fontWeight: 600, width: 42, flexShrink: 0 }}
                               value={draft.feeIsFlat ? "$" : "%"} onChange={e => { set("feeIsFlat", e.target.value === "$"); setAndLog("feeIsFlat", e.target.value === "$"); }} disabled={!editMode}>
                               <option value="%">%</option>
                               <option value="$">$</option>

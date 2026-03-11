@@ -459,7 +459,7 @@ router.put("/reorder-folders", requireAuth, async (req, res) => {
   }
 });
 
-router.put("/move/:docId", requireAuth, async (req, res) => {
+router.put("/:docId/move", requireAuth, async (req, res) => {
   try {
     const { folderId } = req.body;
     const { rows } = await pool.query(

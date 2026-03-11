@@ -37,6 +37,7 @@ server/
   r2.js             — Cloudflare R2 storage module (S3-compatible, hybrid fallback)
   routes/
     auth.js         — login, logout, me, change-password, forgot/reset-password
+    case-documents.js — CRUD /api/case-documents; PUT /:docId/move for folder drag-and-drop
     cases.js        — CRUD /api/cases with PI fields, conflict check
     tasks.js        — CRUD /api/tasks (bulk create, complete)
     deadlines.js    — GET/POST/PUT /api/deadlines
