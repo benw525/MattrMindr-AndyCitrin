@@ -284,9 +284,9 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 ### Multi-Document Floating Window Interface
 - Multiple documents can be viewed simultaneously in draggable/resizable floating windows
 - State lives in `FirmApp`: `openDocViewers`, `openTranscriptViewers` arrays with `topZIndexRef`, `nextViewerIdRef` refs
-- Functions in `FirmApp`: `openAppDocViewer(docId, filename, contentType)`, `openAppFilingViewer(filingId, filename)`, `openBlobInViewer(blob, filename, contentType)`, `closeDocViewer(id)`, `minimizeDocViewer(id)`, `restoreDocViewer(id)`, `bringDocViewerToFront(id)`, `openTranscriptViewer(transcript)`, `closeTranscriptViewer(id)`, `minimizeTranscriptViewer(id)`, `restoreTranscriptViewer(id)`, `bringTranscriptViewerToFront(id)`
+- Functions in `FirmApp`: `openAppDocViewer(docId, filename, contentType, caseId)`, `openAppFilingViewer(filingId, filename)`, `openBlobInViewer(blob, filename, contentType)`, `closeDocViewer(id)`, `minimizeDocViewer(id)`, `restoreDocViewer(id)`, `bringDocViewerToFront(id)`, `openTranscriptViewer(transcript)`, `closeTranscriptViewer(id)`, `minimizeTranscriptViewer(id)`, `restoreTranscriptViewer(id)`, `bringTranscriptViewerToFront(id)`
 - Props threaded: FirmApp → CasesView → CaseDetailOverlay and FirmApp → ReportsView → CaseDetailOverlay
-- Component: `lextrack/src/DocViewerWindow.js` — renders individual floating window with drag/resize handles
+- Component: `lextrack/src/DocViewerWindow.js` — renders individual floating window with drag/resize handles; includes Case Info Panel (briefcase icon in title bar) showing full case details (client, dates, financials, liability, team) in a 280px right-side slide-in panel; requires `caseId` in viewer state + `allCases` prop
 - Component: `lextrack/src/TranscriptViewerWindow.js` — floating transcript viewer with audio player (play/pause, ±5s skip, progress bar, speed buttons), speaker chips, editable segments, reading view, version history, AI summaries, toolbar (Audio Download, Export, History, Reading View, Present, Scribe/Refresh, Save)
 - Minimized chips: floating chips (position: fixed, bottom-left, no background bar) that persist across all app screens
 - Viewer rendering in FirmApp's return — both DocViewerWindow and TranscriptViewerWindow render at FirmApp level so they persist across navigation

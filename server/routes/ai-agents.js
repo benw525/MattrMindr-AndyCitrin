@@ -821,16 +821,39 @@ NEGOTIATIONS TAB:
 - Track amounts, dates, and parties for each negotiation entry
 
 DOCUMENTS:
-- Documents tab in Case Detail: upload PDF, DOCX, DOC, or TXT files
+- Documents tab in Case Detail: upload PDF, DOCX, DOC, XLS/XLSX, PPT/PPTX, images, and other file types
+- Document types include: Medical Records, Police Report, Insurance Correspondence, Demand Letter, Settlement Agreement, Expert Report, Client Correspondence, Court Filing, Discovery, Witness Statement, Photo/Video Evidence, Bills/Invoices, Employment Records, Property Damage, and more
 - Each document can be AI-summarized (click "Summarize" button) — medical records get specialized analysis
 - Edit document name and type inline by clicking on them
 - Download or delete documents via action buttons
+- Documents can be organized into folders — drag and drop to move documents between folders
+- Click a document filename or "View" button to open it in the floating Document Viewer window
+- Document Viewer: floating, draggable, resizable window with title bar buttons for download, print, present (opens in new window), and reload
+- Document Viewer supports: PDF, Word (DOCX/DOC), Excel (XLSX/XLS), PowerPoint (PPTX/PPT), images, video, audio, and text files
+- Document Viewer: Office documents can be viewed via Microsoft 365 Online or built-in viewer (toggle between them)
+- Document Viewer: Office documents can be edited in-place using Microsoft 365 or ONLYOFFICE DocSpace (if connected)
+- Document Viewer: Case Info Panel — click the briefcase icon in the title bar to open a side panel showing all case information (client, dates, financials, liability, team) for quick reference while reviewing documents
+- Multiple document viewers can be open simultaneously; minimize to chips at bottom of screen
 
 FILINGS:
 - Filings tab in Case Detail: upload court filings (PDF only)
 - AI auto-classifies uploaded filings (name, filing party, type, date, hearing dates)
 - Filter filings by filing party (Plaintiff, Defendant, Court, etc.)
 - Click "Classify" to re-run AI classification; "Summarize" for a detailed summary
+
+TRANSCRIPTS:
+- Transcripts tab in Case Detail: upload audio/video files for transcription or create text-based transcripts
+- Transcripts can be organized into folders — drag and drop to move between folders
+- Click a transcript to open it in the floating Transcript Viewer window (similar to Document Viewer — draggable, resizable)
+- Transcript Viewer: shows full transcript text with speaker labels, timestamps, and playback controls for audio/video
+- Scribe Integration: if connected, transcripts can be sent to Scribe for professional AI transcription
+- Scribe Summaries: click "Summaries" button in the Transcript Viewer to fetch AI-generated summaries from Scribe (requires Scribe connection)
+- Multiple transcript viewers can be open simultaneously; minimize to chips at bottom of screen
+
+CASE FEE STRUCTURE:
+- Cases support fee structure tracking: Contingency, Hourly, Flat Fee, or Hybrid
+- Contingency fee percentage can be set per case (shown in case header and overview)
+- Fee information appears in reports and case valuation analysis
 
 CALENDAR:
 - Monthly grid showing deadlines, task due dates, court dates, and imported calendar events
@@ -889,11 +912,29 @@ STAFF:
 - Admins can: change roles, toggle offices, send temporary passwords, deactivate staff
 - Pin staff members for quick access at the top of the list
 
+CASE DETAILS — INJURY & INCIDENT FIELDS:
+- Injury Type: categorize the type of injury (Soft Tissue, Fracture, TBI, Spinal, Burns, Amputation, Internal Injuries, Wrongful Death, etc.)
+- Injury Description: free-text description of the client's injuries
+- Incident Location: where the accident/incident occurred
+- Incident Description: free-text description of what happened
+- Liability Assessment: Favorable, Neutral, Contested, or Unfavorable
+- Comparative Fault %: estimated client comparative fault percentage
+
+FLOATING VIEWER SYSTEM:
+- Documents and transcripts open in floating viewer windows that hover over the main application
+- Multiple viewers can be open at the same time — each is independently draggable and resizable
+- Viewers can be minimized to chips at the bottom of the screen (click chip to restore)
+- On mobile devices: viewers open full-screen instead of floating (no drag/resize/minimize)
+- Document Viewer has a Case Info Panel (briefcase icon) to quickly reference case details while reviewing a document
+
 KEYBOARD & TIPS:
 - Press Enter in search fields to filter immediately
 - Speech-to-text available in notes (click microphone icon)
 - Dark/Light mode toggle in sidebar footer
 - All modals can be closed by clicking outside them or pressing the X button
+- Advocate AI can be opened from any case (click the AI button in the case header) or globally from the sidebar
+- Advocate AI when opened from a case has full access to all case data for context-aware assistance
+- Multiple document/transcript viewers can be open simultaneously — minimize them to manage screen space
 `;
 
 router.post("/advocate", requireAuth, async (req, res) => {

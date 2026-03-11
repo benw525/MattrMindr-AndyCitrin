@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Minus, Download, MonitorPlay, Pencil, FileText, Printer, RefreshCw, LayoutGrid } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { X, Minus, Download, MonitorPlay, Pencil, FileText, Printer, RefreshCw, LayoutGrid, Briefcase, ChevronRight, User, MapPin, Scale, Calendar, DollarSign, Shield, AlertTriangle } from "lucide-react";
 
 function loadOOScript(url) {
   return new Promise((resolve, reject) => {
@@ -26,11 +26,116 @@ function loadOOScript(url) {
   });
 }
 
+function CaseInfoPanel({ caseData, onClose }) {
+  if (!caseData) return null;
+  const c = caseData;
+  const fmt = (v) => v || "—";
+  const fmtDate = (v) => v ? new Date(v).toLocaleDateString() : "—";
+  const fmtMoney = (v) => v != null && v !== "" ? `$${Number(v).toLocaleString()}` : "—";
+  const solDate = c.statute_of_limitations_date ? new Date(c.statute_of_limitations_date) : null;
+  const solDays = solDate ? Math.ceil((solDate - new Date()) / 86400000) : null;
+  const solUrgent = solDays !== null && solDays < 60;
+  const solWarn = solDays !== null && solDays < 180 && !solUrgent;
+
+  const Section = ({ icon: Icon, title, children }) => (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, paddingBottom: 4, borderBottom: "1px solid var(--c-border, #e2e8f0)" }}>
+        <Icon size={13} style={{ color: "#6366f1", flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--c-text3, #64748b)" }}>{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+  const Field = ({ label, value, highlight }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "3px 0", gap: 8 }}>
+      <span style={{ fontSize: 11, color: "var(--c-text3, #94a3b8)", flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 500, color: highlight || "var(--c-text, #334155)", textAlign: "right", wordBreak: "break-word" }}>{value}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ width: 280, flexShrink: 0, borderLeft: "1px solid var(--c-border, #e2e8f0)", background: "var(--c-bg, #fff)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--c-border, #e2e8f0)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Briefcase size={13} style={{ color: "#6366f1" }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--c-text-h, #0f172a)" }}>Case Info</span>
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3, #64748b)", display: "inline-flex" }}><X size={14} /></button>
+      </div>
+      <div style={{ flex: 1, overflow: "auto", padding: "12px 12px 20px" }}>
+        <div style={{ marginBottom: 12, padding: "8px 10px", background: "var(--c-bg-h, #f8fafc)", borderRadius: 6, border: "1px solid var(--c-border, #e2e8f0)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--c-text-h, #0f172a)", marginBottom: 2 }}>{fmt(c.title)}</div>
+          <div style={{ fontSize: 11, color: "var(--c-text3, #64748b)" }}>{fmt(c.case_num)}</div>
+        </div>
+
+        <Section icon={User} title="Client & Parties">
+          <Field label="Client" value={fmt(c.client_name)} />
+          <Field label="Case Type" value={fmt(c.case_type)} />
+          <Field label="Status" value={fmt(c.status)} />
+          <Field label="Stage" value={fmt(c.stage)} />
+          {c.confidential && <Field label="Confidential" value="Yes" highlight="#dc2626" />}
+        </Section>
+
+        <Section icon={Scale} title="Jurisdiction & Court">
+          <Field label="State" value={fmt(c.state_jurisdiction)} />
+          <Field label="Court" value={fmt(c.court)} />
+          <Field label="Judge" value={fmt(c.judge)} />
+        </Section>
+
+        <Section icon={Calendar} title="Key Dates">
+          <Field label="Accident Date" value={fmtDate(c.accident_date)} />
+          <Field label="SOL Date" value={
+            solDate ? (
+              <span style={{ color: solUrgent ? "#dc2626" : solWarn ? "#d97706" : "var(--c-text, #334155)" }}>
+                {fmtDate(c.statute_of_limitations_date)}
+                {solDays !== null && ` (${solDays}d)`}
+              </span>
+            ) : "—"
+          } />
+          <Field label="Trial Date" value={fmtDate(c.trial_date)} />
+          <Field label="Mediation" value={fmtDate(c.mediation_date)} />
+        </Section>
+
+        <Section icon={AlertTriangle} title="Injury & Incident">
+          <Field label="Injury Type" value={fmt(c.injury_type)} />
+          {c.injury_description && <div style={{ fontSize: 11, color: "var(--c-text, #334155)", padding: "4px 0", lineHeight: 1.5 }}>{c.injury_description}</div>}
+          <Field label="Location" value={fmt(c.incident_location)} />
+          {c.incident_description && <div style={{ fontSize: 11, color: "var(--c-text, #334155)", padding: "4px 0", lineHeight: 1.5 }}>{c.incident_description}</div>}
+          <Field label="Police Report #" value={fmt(c.police_report_number)} />
+        </Section>
+
+        <Section icon={DollarSign} title="Financials">
+          <Field label="Case Value" value={fmtMoney(c.case_value_estimate)} />
+          <Field label="Demand" value={fmtMoney(c.demand_amount)} />
+          <Field label="Settlement" value={fmtMoney(c.settlement_amount)} />
+          <Field label="Property Damage" value={fmtMoney(c.property_damage_amount)} />
+          {c.fee_structure && <Field label="Fee Structure" value={fmt(c.fee_structure)} />}
+          {c.contingency_fee != null && c.contingency_fee !== "" && <Field label="Contingency Fee" value={`${c.contingency_fee}%`} />}
+        </Section>
+
+        <Section icon={Shield} title="Liability">
+          <Field label="Assessment" value={fmt(c.liability_assessment)} />
+          <Field label="Comp. Fault" value={c.comparative_fault_pct != null && c.comparative_fault_pct !== "" ? `${c.comparative_fault_pct}%` : "—"} />
+        </Section>
+
+        <Section icon={User} title="Team">
+          <Field label="Lead Attorney" value={fmt(c.lead_attorney_name || c.lead_attorney)} />
+          <Field label="2nd Attorney" value={fmt(c.second_attorney_name || c.second_attorney)} />
+          <Field label="Paralegal" value={fmt(c.paralegal_name || c.paralegal)} />
+          <Field label="Case Manager" value={fmt(c.case_manager_name || c.case_manager)} />
+          <Field label="Investigator" value={fmt(c.investigator_name || c.investigator)} />
+        </Section>
+      </div>
+    </div>
+  );
+}
+
 export default function DocViewerWindow({
   viewer,
   zIndex,
   ooStatus,
   msStatus,
+  allCases,
   onClose,
   onMinimize,
   onBringToFront,
@@ -45,6 +150,12 @@ export default function DocViewerWindow({
   const [ooEditMode, setOoEditMode] = useState(false);
   const [ooEditData, setOoEditData] = useState(null);
   const [ooSyncing, setOoSyncing] = useState(false);
+  const [showCasePanel, setShowCasePanel] = useState(false);
+
+  const caseData = useMemo(() => {
+    if (viewer.caseId == null || !allCases) return null;
+    return allCases.find(c => String(c.id) === String(viewer.caseId)) || null;
+  }, [viewer.caseId, allCases]);
   const ooEditorRef = useRef(null);
   const ooContainerRef = useRef(null);
   const officeTimerRef = useRef(null);
@@ -536,6 +647,10 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
 
             <button onClick={(e) => { e.stopPropagation(); if (viewer.docId && onViewerUpdate) onViewerUpdate(viewer.docId); }} title="Reload content" style={btnStyle}><LayoutGrid size={14} /></button>
 
+            {caseData && !isMobile && (
+              <button onClick={(e) => { e.stopPropagation(); setShowCasePanel(p => !p); }} title={showCasePanel ? "Hide case info" : "Show case info"} style={{ ...btnStyle, background: showCasePanel ? "#eef2ff" : "transparent", color: showCasePanel ? "#6366f1" : "var(--c-text3, #64748b)", borderColor: showCasePanel ? "#a5b4fc" : "var(--c-border, #cbd5e1)" }}><Briefcase size={14} /></button>
+            )}
+
             <div style={{ width: 1, height: 18, background: "var(--c-border, #e2e8f0)", margin: "0 4px" }} />
 
             {!isMobile && <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} title="Minimize" style={btnStyle}><Minus size={14} /></button>}
@@ -558,10 +673,13 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
         )}
       </div>
 
-      <div style={{ flex: 1, overflow: "hidden" }}>
-        <div style={{ width: "100%", height: "100%", overflow: "auto", background: "#1F2428" }}>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+        <div style={{ flex: 1, overflow: "auto", background: "#1F2428" }}>
           {renderContent()}
         </div>
+        {showCasePanel && caseData && !isMobile && (
+          <CaseInfoPanel caseData={caseData} onClose={() => setShowCasePanel(false)} />
+        )}
       </div>
 
       {!isMobile && (

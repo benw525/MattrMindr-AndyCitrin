@@ -1309,7 +1309,7 @@ function FirmApp() {
     }
   }, [openDocViewers.length]);
 
-  const openAppDocViewer = async (docId, filename, contentType) => {
+  const openAppDocViewer = async (docId, filename, contentType, caseId) => {
     try {
       const ct = contentType || "application/pdf";
       const ext = (filename || "").split(".").pop().toLowerCase();
@@ -1334,7 +1334,7 @@ function FirmApp() {
       const id = ++nextViewerIdRef.current;
       const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
       topZIndexRef.current += 1;
-      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId, docxHtml, xlsxData, pptxSlides, blobUrl, annotations, officeViewUrl, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
+      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId, caseId: caseId || null, docxHtml, xlsxData, pptxSlides, blobUrl, annotations, officeViewUrl, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
     } catch (err) { alert("Failed to open document: " + err.message); }
   };
 
@@ -2761,6 +2761,7 @@ function FirmApp() {
           zIndex={viewer.zIndex}
           msStatus={appMsStatus}
           ooStatus={appOoStatus}
+          allCases={allCases}
           onClose={() => closeDocViewer(viewer.id)}
           onMinimize={() => minimizeDocViewer(viewer.id)}
           onBringToFront={() => bringDocViewerToFront(viewer.id)}
@@ -8873,7 +8874,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           ) : (
                             <>
                               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                <div style={{ fontSize: 13, fontWeight: 500, color: "#2563eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationColor: "transparent", transition: "text-decoration-color 0.15s" }} onClick={() => openAppDocViewer(doc.id, doc.filename, doc.contentType)} onMouseEnter={e => e.currentTarget.style.textDecorationColor = "#2563eb"} onMouseLeave={e => e.currentTarget.style.textDecorationColor = "transparent"} title="Click to view">{doc.filename}</div>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: "#2563eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationColor: "transparent", transition: "text-decoration-color 0.15s" }} onClick={() => openAppDocViewer(doc.id, doc.filename, doc.contentType, c.id)} onMouseEnter={e => e.currentTarget.style.textDecorationColor = "#2563eb"} onMouseLeave={e => e.currentTarget.style.textDecorationColor = "transparent"} title="Click to view">{doc.filename}</div>
                                 <button onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3)", display: "inline-flex", flexShrink: 0 }} title="Edit name/type"><Pencil size={11} /></button>
                               </div>
                               <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
@@ -8885,7 +8886,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         </div>
                         {!isDocEditing && !docSelectMode && (
                           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                            <button className="border border-blue-300 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors bg-transparent cursor-pointer" onClick={() => openAppDocViewer(doc.id, doc.filename, doc.contentType)}>
+                            <button className="border border-blue-300 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors bg-transparent cursor-pointer" onClick={() => openAppDocViewer(doc.id, doc.filename, doc.contentType, c.id)}>
                               <Eye size={12} className="inline mr-1" />View
                             </button>
                             <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors bg-transparent cursor-pointer" onClick={async () => { try { const blob = await apiDownloadDocument(doc.id); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url); } catch (err) { alert("Download failed: " + err.message); } }}>Download</button>
