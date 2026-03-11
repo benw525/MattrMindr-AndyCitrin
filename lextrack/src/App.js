@@ -587,7 +587,7 @@ label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; tex
 .case-overlay-tab { padding: 12px 20px; font-size: 13px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-weight: 500; font-family: 'Inter', sans-serif; }
 .case-overlay-tab:hover { color: #334155; }
 .case-overlay-tab.active { color: #0f172a; border-bottom-color: #1e293b; font-weight: 600; }
-.case-overlay-body { flex: 1; overflow-y: auto; padding: 28px 32px; background: #f8fafc; }
+.case-overlay-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 28px 32px; background: #f8fafc; }
 .case-overlay-body > * { max-width: 1100px; width: 100%; margin-left: auto; margin-right: auto; }
 .case-overlay-section { margin-bottom: 32px; }
 .case-overlay-section-title { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; font-family: 'Inter', sans-serif; }
