@@ -478,33 +478,46 @@ export default function DocViewerWindow({
             </>
           ) : (
             <>
-              {ooStatus && ooStatus.available && isOfficeType && viewer.docId && (
-                <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ padding: "4px 12px", background: "#059669", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }} title="Open in DocSpace" disabled={editLoading}>
-                  <Pencil size={12} /> DocSpace
-                </button>
-              )}
+              {canEdit && (() => {
+                const hasMsOffice = msStatus && msStatus.connected;
+                const hasDocSpace = ooStatus && ooStatus.available;
+                const hasBoth = hasMsOffice && hasDocSpace;
 
-              {canEdit && (
-                <div style={{ position: "relative" }}>
-                  <button onClick={(e) => { e.stopPropagation(); setEditMenuOpen(!editMenuOpen); }} title="Edit document" style={{ ...btnStyle, gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500, color: editLoading ? "#6366f1" : "var(--c-text, #334155)" }} disabled={editLoading}>
-                    <Pencil size={12} /> Edit
-                  </button>
-                  {editMenuOpen && (
-                    <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
-                      {msStatus && msStatus.connected && (
-                        <button onClick={(e) => { e.stopPropagation(); handleEditWith("microsoft"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
-                          Edit with Microsoft 365
-                        </button>
-                      )}
-                      {ooStatus && ooStatus.available && (
-                        <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
-                          Edit with ONLYOFFICE
-                        </button>
+                if (hasBoth) {
+                  return (
+                    <div style={{ position: "relative" }}>
+                      <button onClick={(e) => { e.stopPropagation(); setEditMenuOpen(!editMenuOpen); }} title="Edit document" style={{ ...btnStyle, gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500, color: editLoading ? "#6366f1" : "var(--c-text, #334155)" }} disabled={editLoading}>
+                        <Pencil size={12} /> Edit
+                      </button>
+                      {editMenuOpen && (
+                        <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
+                          <button onClick={(e) => { e.stopPropagation(); handleEditWith("microsoft"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
+                            Edit with Microsoft 365
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
+                            Edit with ONLYOFFICE DocSpace
+                          </button>
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              )}
+                  );
+                }
+                if (hasMsOffice) {
+                  return (
+                    <button onClick={(e) => { e.stopPropagation(); handleEditWith("microsoft"); }} style={{ padding: "4px 12px", background: "#059669", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }} title="Edit with Microsoft 365" disabled={editLoading}>
+                      <Pencil size={12} /> Office
+                    </button>
+                  );
+                }
+                if (hasDocSpace) {
+                  return (
+                    <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ padding: "4px 12px", background: "#059669", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }} title="Edit with DocSpace" disabled={editLoading}>
+                      <Pencil size={12} /> DocSpace
+                    </button>
+                  );
+                }
+                return null;
+              })()}
 
               <div style={{ width: 1, height: 18, background: "var(--c-border, #e2e8f0)", margin: "0 4px" }} />
 
