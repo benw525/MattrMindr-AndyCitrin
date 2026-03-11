@@ -37,10 +37,6 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-const whisperClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: "https://api.openai.com/v1",
-});
 
 const ALLOWED_AUDIO = [
   "audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav",
@@ -149,7 +145,7 @@ async function transcribeFile(filePath, offsetSec = 0) {
   const buffer = await readFile(filePath);
   const { toFile } = await import("openai");
   const file = await toFile(buffer, "audio.wav");
-  const response = await whisperClient.audio.transcriptions.create({
+  const response = await openai.audio.transcriptions.create({
     file,
     model: "whisper-1",
     response_format: "verbose_json",
