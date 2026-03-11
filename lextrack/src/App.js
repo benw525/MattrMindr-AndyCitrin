@@ -9141,23 +9141,49 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                       const title = t.filename || "Transcript";
                                       presentWindow.document.write(`<!DOCTYPE html><html><head><title>${title} — Present Mode</title><style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; padding: 40px; }
-.header { text-align: center; margin-bottom: 32px; border-bottom: 1px solid #334155; padding-bottom: 24px; }
-.title { font-size: 24px; font-weight: 700; color: #f8fafc; margin-bottom: 8px; }
-.meta { font-size: 14px; color: #94a3b8; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; padding: 40px; padding-top: 16px; transition: background 0.3s, color 0.3s; }
+body.dark { background: #0f172a; color: #e2e8f0; }
+body.light { background: #ffffff; color: #1e293b; }
+.theme-bar { display: flex; justify-content: flex-end; margin-bottom: 12px; gap: 4px; }
+.theme-btn { padding: 4px 14px; font-size: 12px; font-weight: 500; border: 1px solid #94a3b8; border-radius: 6px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+body.dark .theme-btn { background: transparent; color: #94a3b8; border-color: #475569; }
+body.dark .theme-btn.active { background: #334155; color: #f8fafc; border-color: #6366f1; }
+body.light .theme-btn { background: transparent; color: #64748b; border-color: #cbd5e1; }
+body.light .theme-btn.active { background: #e0e7ff; color: #3730a3; border-color: #6366f1; }
+.header { text-align: center; margin-bottom: 32px; padding-bottom: 24px; }
+body.dark .header { border-bottom: 1px solid #334155; }
+body.light .header { border-bottom: 1px solid #e2e8f0; }
+.title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+body.dark .title { color: #f8fafc; }
+body.light .title { color: #0f172a; }
+.meta { font-size: 14px; }
+body.dark .meta { color: #94a3b8; }
+body.light .meta { color: #64748b; }
 .legend { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cbd5e1; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+body.dark .legend-item { color: #cbd5e1; }
+body.light .legend-item { color: #475569; }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 .segments { max-width: 900px; margin: 0 auto; }
 .segment { display: flex; gap: 16px; padding: 12px 16px; border-radius: 8px; margin-bottom: 4px; align-items: flex-start; }
-.segment:nth-child(even) { background: rgba(30, 41, 59, 0.5); }
-.timestamp { flex-shrink: 0; width: 60px; font-size: 13px; color: #64748b; font-family: monospace; padding-top: 3px; }
+body.dark .segment:nth-child(even) { background: rgba(30, 41, 59, 0.5); }
+body.light .segment:nth-child(even) { background: #f8fafc; }
+.timestamp { flex-shrink: 0; width: 60px; font-size: 13px; font-family: monospace; padding-top: 3px; }
+body.dark .timestamp { color: #64748b; }
+body.light .timestamp { color: #94a3b8; }
 .speaker { flex-shrink: 0; width: 140px; font-size: 14px; font-weight: 600; padding-top: 2px; }
-.text { flex: 1; font-size: 18px; line-height: 1.7; color: #e2e8f0; }
-</style></head><body>
+.text { flex: 1; font-size: 18px; line-height: 1.7; }
+body.dark .text { color: #e2e8f0; }
+body.light .text { color: #1e293b; }
+</style></head><body class="dark">
+<div class="theme-bar"><button class="theme-btn active" id="darkBtn" onclick="setTheme('dark')">Dark</button><button class="theme-btn" id="lightBtn" onclick="setTheme('light')">Light</button></div>
 <div class="header"><div class="title">${title}</div><div class="meta">${transcriptEdits.length} segments${transcriptDetail.durationSeconds ? ' · ' + Math.floor(transcriptDetail.durationSeconds / 60) + 'm ' + Math.round(transcriptDetail.durationSeconds % 60) + 's' : ''}</div></div>
 <div class="legend">${speakers.map(sp => `<div class="legend-item"><div class="legend-dot" style="background:${speakerColorsMap[sp]}"></div>${sp}</div>`).join("")}</div>
 <div class="segments">${transcriptEdits.map(seg => `<div class="segment"><div class="timestamp">${fmtTime(seg.startTime)}</div><div class="speaker" style="color:${speakerColorsMap[seg.speaker] || '#94a3b8'}">${seg.speaker}</div><div class="text">${seg.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div></div>`).join("")}</div>
+<script>
+function setTheme(t){document.body.className=t;document.getElementById('darkBtn').className='theme-btn'+(t==='dark'?' active':'');document.getElementById('lightBtn').className='theme-btn'+(t==='light'?' active':'');}
+document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close();});
+<\/script>
 </body></html>`);
                                       presentWindow.document.close();
                                     }}

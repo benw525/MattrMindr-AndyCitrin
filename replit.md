@@ -300,6 +300,7 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - Present button (MonitorPlay icon) in DocViewerWindow toolbar
 - Opens new browser window (1280x720) with type-specific presentation content
 - Supports: Office iframe, PDF embed, images, videos, DOCX rendered HTML
+- Dark/Light mode toggle in all presenter windows (transcript, document, Trial Center)
 - Escape key closes presenter window
 
 ### Microsoft Office Editing (T004)

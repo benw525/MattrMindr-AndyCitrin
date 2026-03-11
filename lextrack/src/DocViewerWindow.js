@@ -188,22 +188,32 @@ export default function DocViewerWindow({
     const pw = window.open("", "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
     if (!pw) return;
 
+    const themeCSS = `
+.theme-bar{position:fixed;top:12px;right:16px;display:flex;gap:4px;z-index:9999;}
+.theme-btn{padding:4px 14px;font-size:12px;font-weight:500;border:1px solid #94a3b8;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.2s;}
+body.dark .theme-btn{background:transparent;color:#94a3b8;border-color:#475569;}
+body.dark .theme-btn.active{background:#334155;color:#f8fafc;border-color:#6366f1;}
+body.light .theme-btn{background:transparent;color:#64748b;border-color:#cbd5e1;}
+body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366f1;}`;
+    const themeBar = `<div class="theme-bar"><button class="theme-btn active" id="darkBtn" onclick="setTheme('dark')">Dark</button><button class="theme-btn" id="lightBtn" onclick="setTheme('light')">Light</button></div>`;
+    const themeScript = `<script>function setTheme(t){document.body.className=t;document.getElementById('darkBtn').className='theme-btn'+(t==='dark'?' active':'');document.getElementById('lightBtn').className='theme-btn'+(t==='light'?' active':'');}document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close();});<\/script>`;
+
     if (viewer.officeViewUrl && officeViewMode && (t === "docx" || t === "xlsx" || t === "pptx")) {
-      pw.document.write(`<!DOCTYPE html><html><head><title>Presenting: ${viewer.filename}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;flex-direction:column;height:100vh;overflow:hidden;}#viewer{flex:1;border:none;width:100%;height:100%;}</style></head><body><iframe id="viewer" src="${viewer.officeViewUrl}" allowfullscreen></iframe><script>document.addEventListener("keydown",e=>{if(e.key==="Escape")window.close();});<\/script></body></html>`);
+      pw.document.write(`<!DOCTYPE html><html><head><title>Presenting: ${viewer.filename}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{display:flex;flex-direction:column;height:100vh;overflow:hidden;transition:background 0.3s;}body.dark{background:#000;}body.light{background:#f1f5f9;}#viewer{flex:1;border:none;width:100%;height:100%;}${themeCSS}</style></head><body class="dark">${themeBar}<iframe id="viewer" src="${viewer.officeViewUrl}" allowfullscreen></iframe>${themeScript}</body></html>`);
       pw.document.close();
       return;
     }
 
     if (t === "pdf") {
-      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>*{margin:0;padding:0;}body{background:#000;height:100vh;display:flex;justify-content:center;align-items:center;}</style></head><body><embed src="${viewer.blobUrl}#toolbar=0&navpanes=0" type="application/pdf" width="100%" height="100%"/><script>document.addEventListener("keydown",e=>{if(e.key==="Escape")window.close();});<\/script></body></html>`);
+      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>*{margin:0;padding:0;}body{height:100vh;display:flex;justify-content:center;align-items:center;transition:background 0.3s;}body.dark{background:#000;}body.light{background:#f1f5f9;}${themeCSS}</style></head><body class="dark">${themeBar}<embed src="${viewer.blobUrl}#toolbar=0&navpanes=0" type="application/pdf" width="100%" height="100%"/>${themeScript}</body></html>`);
     } else if (t === "image") {
-      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>*{margin:0;}body{background:#000;height:100vh;display:flex;justify-content:center;align-items:center;}</style></head><body><img src="${viewer.blobUrl}" style="max-width:100%;max-height:100vh;object-fit:contain;"/><script>document.addEventListener("keydown",e=>{if(e.key==="Escape")window.close();});<\/script></body></html>`);
+      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>*{margin:0;}body{height:100vh;display:flex;justify-content:center;align-items:center;transition:background 0.3s;}body.dark{background:#000;}body.light{background:#f1f5f9;}${themeCSS}</style></head><body class="dark">${themeBar}<img src="${viewer.blobUrl}" style="max-width:100%;max-height:100vh;object-fit:contain;"/>${themeScript}</body></html>`);
     } else if (t === "video") {
-      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>*{margin:0;}body{background:#000;height:100vh;display:flex;justify-content:center;align-items:center;}</style></head><body><video src="${viewer.blobUrl}" controls autoplay style="max-width:100%;max-height:100vh;"/><script>document.addEventListener("keydown",e=>{if(e.key==="Escape")window.close();});<\/script></body></html>`);
+      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>*{margin:0;}body{height:100vh;display:flex;justify-content:center;align-items:center;transition:background 0.3s;}body.dark{background:#000;}body.light{background:#f1f5f9;}${themeCSS}</style></head><body class="dark">${themeBar}<video src="${viewer.blobUrl}" controls autoplay style="max-width:100%;max-height:100vh;"/>${themeScript}</body></html>`);
     } else if (t === "docx" && viewer.docxHtml) {
-      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>body{background:#1e293b;min-height:100vh;display:flex;justify-content:center;padding:40px 20px;}#doc{background:#fff;max-width:850px;width:100%;padding:64px 72px;font-family:'Times New Roman',Georgia,serif;font-size:15px;line-height:1.8;color:#1e293b;border-radius:8px;}</style></head><body><div id="doc">${viewer.docxHtml}</div><script>document.addEventListener("keydown",e=>{if(e.key==="Escape")window.close();});<\/script></body></html>`);
+      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>body{min-height:100vh;display:flex;justify-content:center;padding:40px 20px;transition:background 0.3s;}body.dark{background:#1e293b;}body.light{background:#f1f5f9;}#doc{background:#fff;max-width:850px;width:100%;padding:64px 72px;font-family:'Times New Roman',Georgia,serif;font-size:15px;line-height:1.8;color:#1e293b;border-radius:8px;}${themeCSS}</style></head><body class="dark">${themeBar}<div id="doc">${viewer.docxHtml}</div>${themeScript}</body></html>`);
     } else {
-      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>body{background:#1e293b;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;}</style></head><body><div>Preview not available for presentation.</div><script>document.addEventListener("keydown",e=>{if(e.key==="Escape")window.close();});<\/script></body></html>`);
+      pw.document.write(`<!DOCTYPE html><html><head><title>${viewer.filename}</title><style>body{display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;transition:background 0.3s,color 0.3s;}body.dark{background:#1e293b;color:#fff;}body.light{background:#f1f5f9;color:#1e293b;}${themeCSS}</style></head><body class="dark">${themeBar}<div>Preview not available for presentation.</div>${themeScript}</body></html>`);
     }
     pw.document.close();
   };

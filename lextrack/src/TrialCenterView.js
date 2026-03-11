@@ -627,13 +627,13 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
     } else if (viewerXlsxData && viewerXlsxData.length > 0) {
       bodyContent = viewerXlsxData.map(sheet => {
         const rows = sheet.data || [];
-        const tableRows = rows.map(row => "<tr>" + row.map(cell => `<td style="border:1px solid #334155;padding:8px 12px;font-size:16px;">${cell != null ? cell : ""}</td>`).join("") + "</tr>").join("");
-        return `<h2 style="color:#e2e8f0;margin:20px 0 10px;">${sheet.name || "Sheet"}</h2><table style="border-collapse:collapse;width:100%;color:#e2e8f0;">${tableRows}</table>`;
+        const tableRows = rows.map(row => "<tr>" + row.map(cell => `<td class="tc-cell">${cell != null ? cell : ""}</td>`).join("") + "</tr>").join("");
+        return `<h2 class="tc-sheet-title">${sheet.name || "Sheet"}</h2><table class="tc-table">${tableRows}</table>`;
       }).join("");
     } else if (viewerPptxSlides && viewerPptxSlides.length > 0) {
       bodyContent = viewerPptxSlides.map((slide, i) => {
         const texts = (slide.texts || []).map(t => `<p style="font-size:18px;margin:8px 0;">${t}</p>`).join("");
-        return `<div style="border:1px solid #334155;border-radius:12px;padding:32px;margin-bottom:24px;background:#1e293b;"><h3 style="color:#94a3b8;margin-bottom:12px;">Slide ${i + 1}</h3><div style="color:#e2e8f0;">${texts}</div></div>`;
+        return `<div class="tc-slide"><h3 class="tc-slide-title">Slide ${i + 1}</h3><div class="tc-slide-text">${texts}</div></div>`;
       }).join("");
     } else if (transcriptSegments.length > 0) {
       const speakerColors = ["#6366f1","#f59e0b","#10b981","#ef4444","#8b5cf6","#ec4899","#0ea5e9","#f97316"];
@@ -641,8 +641,8 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       const getSpeakerColor = (sp) => speakerColors[speakers.indexOf(sp) % speakerColors.length];
       const fmtTime = (sec) => { if (sec == null) return ""; const m = Math.floor(sec / 60); const s = Math.round(sec % 60); return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
       bodyContent = transcriptSegments.map(seg => {
-        const time = seg.startTime != null ? `<span style="color:#64748b;font-family:monospace;font-size:14px;margin-right:12px;">${fmtTime(seg.startTime)}</span>` : "";
-        return `<div style="display:flex;gap:12px;padding:8px 0;align-items:baseline;">${time}<span style="color:${getSpeakerColor(seg.speaker || "Speaker")};font-weight:600;font-size:15px;min-width:120px;">${seg.speaker || "Speaker"}</span><span style="color:#e2e8f0;font-size:18px;flex:1;">${seg.text || ""}</span></div>`;
+        const time = seg.startTime != null ? `<span class="tc-timestamp">${fmtTime(seg.startTime)}</span>` : "";
+        return `<div style="display:flex;gap:12px;padding:8px 0;align-items:baseline;">${time}<span style="color:${getSpeakerColor(seg.speaker || "Speaker")};font-weight:600;font-size:15px;min-width:120px;">${seg.speaker || "Speaker"}</span><span class="tc-seg-text">${seg.text || ""}</span></div>`;
       }).join("");
     } else if (docViewerUrl) {
       const ct = (docViewerUrl || "").toLowerCase();
@@ -650,7 +650,47 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
         bodyContent = `<iframe src="${docViewerUrl}" style="width:100%;height:calc(100vh - 60px);border:none;border-radius:8px;"></iframe>`;
       }
     }
-    w.document.write(`<!DOCTYPE html><html><head><title>${viewerTitle || "Present Mode"}</title><style>body{margin:0;padding:32px;background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;line-height:1.6;}h1{font-size:24px;margin-bottom:24px;color:#f8fafc;border-bottom:1px solid #334155;padding-bottom:12px;}</style></head><body><h1>${viewerTitle || "Document"}</h1>${bodyContent}</body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>${viewerTitle || "Present Mode"}</title><style>
+body{margin:0;padding:32px;padding-top:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;line-height:1.6;transition:background 0.3s,color 0.3s;}
+body.dark{background:#0f172a;color:#e2e8f0;}
+body.light{background:#ffffff;color:#1e293b;}
+h1{font-size:24px;margin-bottom:24px;padding-bottom:12px;}
+body.dark h1{color:#f8fafc;border-bottom:1px solid #334155;}
+body.light h1{color:#0f172a;border-bottom:1px solid #e2e8f0;}
+.theme-bar{display:flex;justify-content:flex-end;margin-bottom:12px;gap:4px;}
+.theme-btn{padding:4px 14px;font-size:12px;font-weight:500;border:1px solid #94a3b8;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.2s;}
+body.dark .theme-btn{background:transparent;color:#94a3b8;border-color:#475569;}
+body.dark .theme-btn.active{background:#334155;color:#f8fafc;border-color:#6366f1;}
+body.light .theme-btn{background:transparent;color:#64748b;border-color:#cbd5e1;}
+body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366f1;}
+.tc-table{border-collapse:collapse;width:100%;}
+.tc-cell{padding:8px 12px;font-size:16px;}
+body.dark .tc-table{color:#e2e8f0;}
+body.dark .tc-cell{border:1px solid #334155;}
+body.light .tc-table{color:#1e293b;}
+body.light .tc-cell{border:1px solid #e2e8f0;}
+.tc-sheet-title{margin:20px 0 10px;}
+body.dark .tc-sheet-title{color:#e2e8f0;}
+body.light .tc-sheet-title{color:#1e293b;}
+.tc-slide{border-radius:12px;padding:32px;margin-bottom:24px;}
+body.dark .tc-slide{border:1px solid #334155;background:#1e293b;}
+body.light .tc-slide{border:1px solid #e2e8f0;background:#f8fafc;}
+.tc-slide-title{margin-bottom:12px;}
+body.dark .tc-slide-title{color:#94a3b8;}
+body.light .tc-slide-title{color:#64748b;}
+body.dark .tc-slide-text{color:#e2e8f0;}
+body.light .tc-slide-text{color:#1e293b;}
+.tc-timestamp{font-family:monospace;font-size:14px;margin-right:12px;}
+body.dark .tc-timestamp{color:#64748b;}
+body.light .tc-timestamp{color:#94a3b8;}
+.tc-seg-text{font-size:18px;flex:1;}
+body.dark .tc-seg-text{color:#e2e8f0;}
+body.light .tc-seg-text{color:#1e293b;}
+</style></head><body class="dark">
+<div class="theme-bar"><button class="theme-btn active" id="darkBtn" onclick="setTheme('dark')">Dark</button><button class="theme-btn" id="lightBtn" onclick="setTheme('light')">Light</button></div>
+<h1>${viewerTitle || "Document"}</h1>${bodyContent}
+<script>function setTheme(t){document.body.className=t;document.getElementById('darkBtn').className='theme-btn'+(t==='dark'?' active':'');document.getElementById('lightBtn').className='theme-btn'+(t==='light'?' active':'');}document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close();});<\/script>
+</body></html>`);
     w.document.close();
   };
 
