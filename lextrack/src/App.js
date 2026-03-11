@@ -2814,18 +2814,19 @@ function FirmApp() {
         const CHIP_W = 222;
         const GAP = 8;
         const ARROW_W = 32;
-        const maxVisible = Math.max(1, Math.floor((window.innerWidth - 24 - ARROW_W * 2) / (CHIP_W + GAP)));
+        const SIDEBAR_W = window.innerWidth > 768 ? 240 : 0;
+        const maxVisible = Math.max(1, Math.floor((window.innerWidth - SIDEBAR_W - 24 - ARROW_W * 2) / (CHIP_W + GAP)));
         const needsScroll = allMin.length > maxVisible;
         const scrollIdx = Math.min(minChipScrollIdx, Math.max(0, allMin.length - maxVisible));
         const visible = needsScroll ? allMin.slice(scrollIdx, scrollIdx + maxVisible) : allMin;
         const canLeft = scrollIdx > 0;
         const canRight = scrollIdx + maxVisible < allMin.length;
         const arrowBtn = (dir, enabled, onClick) => (
-          <button onClick={onClick} disabled={!enabled} style={{ position: "fixed", bottom: 12, zIndex: 10001, [dir === "left" ? "left" : "right"]: 4, width: ARROW_W, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: enabled ? "var(--c-bg, #fff)" : "transparent", border: enabled ? "1px solid var(--c-border, #e2e8f0)" : "none", borderRadius: 8, cursor: enabled ? "pointer" : "default", boxShadow: enabled ? "0 2px 8px rgba(0,0,0,0.10)" : "none", opacity: enabled ? 1 : 0, pointerEvents: enabled ? "auto" : "none", transition: "opacity 0.15s" }}>
+          <button onClick={onClick} disabled={!enabled} style={{ position: "fixed", bottom: 12, zIndex: 10001, [dir === "left" ? "left" : "right"]: dir === "left" ? SIDEBAR_W + 4 : 4, width: ARROW_W, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: enabled ? "var(--c-bg, #fff)" : "transparent", border: enabled ? "1px solid var(--c-border, #e2e8f0)" : "none", borderRadius: 8, cursor: enabled ? "pointer" : "default", boxShadow: enabled ? "0 2px 8px rgba(0,0,0,0.10)" : "none", opacity: enabled ? 1 : 0, pointerEvents: enabled ? "auto" : "none", transition: "opacity 0.15s" }}>
             {dir === "left" ? <ChevronLeft size={16} style={{ color: "#64748b" }} /> : <ChevronRight size={16} style={{ color: "#64748b" }} />}
           </button>
         );
-        const chipLeft = (needsScroll && canLeft ? ARROW_W + 8 : 0) + 12;
+        const chipLeft = SIDEBAR_W + (needsScroll && canLeft ? ARROW_W + 8 : 0) + 12;
         return (
           <>
             {needsScroll && arrowBtn("left", canLeft, () => setMinChipScrollIdx(i => Math.max(0, i - 1)))}
