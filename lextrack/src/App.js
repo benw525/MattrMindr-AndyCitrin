@@ -3701,89 +3701,23 @@ function HelpFAQ({ Accordion }) {
 function HelpChangeLog() {
   const versions = [
     {
-      version: "1.5",
-      date: "April 2026",
-      title: "Floating Viewers, Scribe & Case Info Panel",
-      changes: [
-        { text: "Floating Document Viewer", sub: ["Open documents in draggable, resizable floating windows", "Support for PDF, Word documents, images, and text files", "Multiple viewers open simultaneously with independent controls", "Minimize viewers to compact chips at the bottom of the screen", "Download, print, and present mode buttons in title bar", "Edit Office documents with Microsoft 365 or ONLYOFFICE DocSpace integration"] },
-        { text: "Floating Transcript Viewer", sub: ["Open transcripts in floating windows with full audio playback controls", "Play/pause, skip ±5s, and playback speed adjustment", "Editable segments with inline speaker renaming", "Export transcripts as formatted text", "Minimize to chips alongside document viewers"] },
-        { text: "Case Info Panel in Document Viewer", sub: ["Briefcase toggle button in viewer title bar", "Side panel displays client details, key dates, SOL countdown with color coding", "Shows financials (case value, settlement, fees), liability assessment, and team", "Hidden on mobile to preserve viewing space"] },
-        { text: "MattrMindr Scribe Integration", sub: ["Connect to Scribe from Settings for professional AI transcription", "Send transcripts to Scribe and check processing status", "Import Scribe results back into case transcripts", "Scribe Summaries button (purple) fetches AI-generated summaries", "Summaries highlight key topics, decisions, and action items"] },
-        { text: "Document & Transcript Folders", sub: ["Create folders in both Documents and Transcripts tabs", "Drag and drop documents between folders for easy organization"] },
-        { text: "Document Type Categorization", sub: ["Categorize documents by type: Medical Records, Police Report, Demand Letter, and more", "Inline type editing with click-to-change labels"] },
-        { text: "Advocate AI Knowledge Base Expansion", sub: ["Advocate AI now understands floating viewers, case info panel, and Scribe features", "Context-aware help for document viewer, transcript viewer, and folder workflows"] },
-        { text: "Modal & Popup Behavior Update", sub: ["All pop-up windows now require clicking the close button or Cancel to dismiss", "Prevents accidental data loss from clicking outside a form or dialog"] },
-      ]
-    },
-    {
-      version: "1.4",
-      date: "March 2026",
-      title: "Audio Transcription & UI Modernization",
-      changes: [
-        { text: "Audio Transcription AI agent", sub: ["Upload custody statements, jail call recordings, and other audio files", "OpenAI Whisper-powered speech-to-text with timestamped segments", "Automatic speaker diarization (heuristic speaker switching)", "Large file support with automatic chunking for files over 24MB", "Transcript export as text and original audio download", "Available from Documents tab (Transcripts sub-tab) and AI Center"] },
-        { text: "Full UI redesign to Tailwind CSS", sub: ["Document action buttons restyled: Download (gray), Summarize (yellow), Delete (red)", "Filing action buttons updated: View (gray), Classify/Summarize (amber), Delete (red)", "Activity tab filter pills: blue active state with white/gray inactive", "Correspondence sub-tabs with clean border-bottom indicators", "All AI suggestion buttons (Deadlines, Tasks, Charges) use consistent amber styling", "View Summary links use amber color scheme across Documents and Filings"] },
-        { text: "Movable Advocate AI button", sub: ["Desktop: right-click to move or reset position", "Mobile: long-press and drag to reposition", "Position saved in user preferences", "Option to hide Advocate AI entirely via Settings"] },
-        { text: "Mobile experience improvements", sub: ["Case detail toolbar collapses behind menu toggle on small screens", "Case header badges collapse behind expandable toggle", "Tab bar locked to horizontal scroll only"] },
-      ]
-    },
-    {
-      version: "1.3",
-      date: "February 2026",
-      title: "SMS Notifications & Help Center",
-      changes: [
-        { text: "Twilio-based SMS auto-text reminder system", sub: ["Automated reminders for hearings, court dates, deadlines, and meetings", "Configurable recipient lists with phone number suggestions from case data", "Reminder intervals: day-of, 1, 3, 7, and 14 days before events", "AI-assisted message drafting for one-off text messages"] },
-        { text: "Correspondence tab split into Emails and Texts sub-tabs" },
-        { text: "Chat-style message bubbles for text message history" },
-        { text: "Settings popup consolidating appearance, password, and session controls" },
-        { text: "Help Center with Tutorials, FAQ, Change Log, and Contact Support" },
-      ]
-    },
-    {
-      version: "1.2",
-      date: "February 2026",
-      title: "Advocate AI & Advanced Training",
-      changes: [
-        { text: "Global Advocate AI assistant", sub: ["Floating button accessible from every screen", "Screen-aware context (knows your current view and visible data)", "Case-specific mode with full case file context", "Actionable task suggestions with one-click add", "Per-screen starter chips for common questions"] },
-        { text: "AI Agent Trainer", sub: ["Personal and office-wide training entries", "Target specific agents or apply to all", "Document upload support (PDF, DOCX, TXT) with OCR", "Categories: Local Rules, Office Policy, Defense Strategy, Court Preferences"] },
-        { text: "Batch Case Manager for bulk operations (staff reassignment, status changes, stage advancement)" },
-        { text: "Calendar feed imports (iCal) with auto case/defendant detection" },
-        { text: "Charge Class Lookup agent with auto-trigger on charge entry" },
-      ]
-    },
-    {
-      version: "1.1",
-      date: "January 2026",
-      title: "Probation, Linked Cases & Custody",
-      changes: [
-        { text: "Probation module", sub: ["Probation details: type, officer, dates, conditions, fees", "Violation tracking with hearing dates, attorneys, judges, outcomes", "Violation hearing dates auto-sync to calendar"] },
-        { text: "Linked Cases tab", sub: ["Link PD-represented or external cases", "Relationship types: At-Fault Party, Related Charges, Prior Case, Appeal, etc.", "Searchable case linking with collapsible detail cards"] },
-        { text: "Custody tracking with bond/release/transport status and pending action badges" },
-        { text: "Death penalty case flag with capital-specific AI analysis" },
-        { text: "Pinned contacts in Contacts view" },
-      ]
-    },
-    {
       version: "1.0",
-      date: "January 2026",
-      title: "Initial Release",
+      date: "April 2026",
+      title: "MattrMindr — Personal Injury Case Management",
       changes: [
-        { text: "Core case management system", sub: ["Personal injury case tracking with multi-state jurisdiction support", "Insurance, medical treatment, liens, damages, and negotiations tracking", "Multi-role staff assignments (lead attorney, co-counsel, case manager, investigator, paralegal)"] },
-        { text: "Eleven AI-powered agents", sub: ["Liability Analysis, Deadline Generator, Case Valuation & Strategy, Document Drafting", "Case Triage, Client Communication Summary, Medical Record Summarizer", "Task Suggestions, Filing Classifier, Advocate AI, Batch Case Manager"] },
-        { text: "Document management with AI summarization and OCR for scanned PDFs" },
-        { text: "Court filing management with AI auto-classification" },
-        { text: "Calendar with deadline tracking, court rules calculator, and task due dates" },
-        { text: "Task system with priorities, recurrence, and AI suggestions" },
-        { text: "Contact management with conflict checking" },
-        { text: "Staff directory with multi-role support and admin controls" },
-        { text: "Template-based document generation with placeholder auto-fill" },
-        { text: "Time log tracking from tasks, notes, and manual entries" },
-        { text: "Reports with CSV export and print functionality" },
-        { text: "Email correspondence via SendGrid inbound parse" },
-        { text: "Dark mode with per-user preference persistence" },
-        { text: "Full mobile responsive design with touch-optimized controls" },
-        { text: "Customizable dashboard with drag-and-drop widget system" },
-        { text: "Pinned cases across all views and dropdowns" },
-        { text: "Speech-to-text dictation for case notes" },
+        { text: "Case Management", sub: ["Personal injury case tracking with multi-state jurisdiction support", "Case stages: Intake, Investigation, Treatment, Pre-Litigation Demand, Negotiation, Litigation Filed, Discovery, Mediation, Trial Preparation, Trial, Settlement/Verdict, Closed", "Insurance policies: liability, UM/UIM, MedPay, PIP with carrier details, policy limits, adjuster info, and claim numbers", "Medical treatment tracking with providers, visit dates, billing totals, and treatment status", "Liens, damages, and negotiations tracking with timeline view of demands, offers, and counteroffers", "Multi-role staff assignments: lead attorney, co-counsel, case manager, investigator, paralegal", "Linked cases: companion cases, prior claims, appeals, or external cases from other jurisdictions", "Confidential case flagging and conflict checking on case creation", "Pinned cases across all views and dropdowns"] },
+        { text: "Documents & Filings", sub: ["Upload PDF, DOCX, DOC, and TXT case documents with secure storage", "Document type categorization: Medical Records, Police Report, Demand Letter, Settlement Agreement, Expert Report, and more", "Folder organization with drag-and-drop between folders", "AI-powered document summarization with key facts, timeline, people, and liability issues", "OCR for scanned PDFs to extract text for AI analysis", "Court filing management with AI auto-classification of filing type, party, date, and summary", "Template-based document generation with placeholder auto-fill and AI Draft"] },
+        { text: "Floating Document Viewer", sub: ["Open documents in draggable, resizable floating windows", "Support for PDF, Word documents, images, and text files", "Multiple viewers open simultaneously with independent controls", "Minimize viewers to compact chips at the bottom of the screen", "Download, print, and present mode buttons in title bar", "Edit Office documents with Microsoft 365 or ONLYOFFICE DocSpace integration", "Case Info Panel: briefcase toggle in title bar reveals client details, key dates, SOL countdown, financials, liability, and team"] },
+        { text: "Audio Transcription & Transcript Viewer", sub: ["Upload audio/video files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB)", "OpenAI Whisper-powered speech-to-text with timestamped segments and speaker diarization", "Large file support with automatic chunking for files over 24MB", "Floating Transcript Viewer with audio playback controls (play/pause, skip ±5s, speed adjustment)", "Editable segments with inline speaker renaming and Export Text button", "Transcript folders for organizing recordings by category", "Available from Documents tab (Transcripts sub-tab) and AI Center"] },
+        { text: "MattrMindr Scribe Integration", sub: ["Connect to Scribe from Settings for professional AI-powered transcription", "Send transcripts to Scribe and check processing status", "Import Scribe results back into case transcripts", "Scribe Summaries button (purple) fetches AI-generated summaries", "Summaries highlight key topics, decisions, and action items from recordings"] },
+        { text: "AI-Powered Agents", sub: ["Advocate AI: global assistant with floating button on every screen, screen-aware context, and case-specific mode", "Advocate AI Trainer: personal and office-wide training entries with local rules, office policies, defense strategies, and court preferences", "Liability Analysis, Case Valuation & Strategy, Case Triage", "Deadline Generator with jurisdiction-aware rules", "Document Drafting with AI-assisted content creation", "Client Communication Summary and Medical Record Summarizer", "Task Suggestions with one-click add from AI recommendations", "Filing Classifier with auto-detection of filing type, party, and date", "Audio Transcription with Whisper-powered speech-to-text", "Batch Case Manager for bulk operations: staff reassignment, status changes, stage advancement", "Charge Class Lookup with auto-trigger on charge entry", "All AI calls use store: false — case data is never retained by the AI provider"] },
+        { text: "Calendar & Deadlines", sub: ["Calendar with deadline tracking, court rules calculator, and task due dates", "SOL calculator by state and case type with accident date input", "iCal feed imports (Outlook, Google Calendar, court systems) with auto case/defendant detection", "Toggle visibility for deadlines, tasks, court dates, and imported events", "Day detail view with full event breakdown"] },
+        { text: "Tasks", sub: ["Task creation with priority, due date, case, and team member assignment", "AI task suggestions from case analysis with bulk or individual add", "Recurring tasks: daily, weekly, biweekly, or monthly with auto-creation on completion", "Time logging on task completion with optional follow-up task creation"] },
+        { text: "Correspondence & SMS", sub: ["Email correspondence via SendGrid inbound parse with thread and attachment support", "Twilio-based SMS auto-text reminder system for hearings, court dates, deadlines, and meetings", "Configurable recipients with reminder intervals: day-of, 1, 3, 7, and 14 days before events", "AI-assisted message drafting for one-off text messages", "Chat-style message bubbles for text message history", "Emails and Texts organized in separate sub-tabs"] },
+        { text: "Contacts & Staff", sub: ["Contact management for judges, adjusters, providers, attorneys, witnesses, and experts", "Contact-case associations and pinned contacts for quick access", "Conflict checking on case creation with name matching", "Staff directory with multi-role support and admin controls", "Temporary password management via email for new and existing staff"] },
+        { text: "Reports & Time Log", sub: ["Pre-built reports: caseload analysis, deadline compliance, task completion, SOL tracking, settlement reports, case value pipeline", "Filter by attorney, state, or case type with CSV export and print", "Time log consolidation from task completions, case notes, and correspondence", "Manual time entries with day, week, or custom date range views"] },
+        { text: "Dashboard & Interface", sub: ["Customizable dashboard with drag-and-drop widget system and Quick Notes", "Full Tailwind CSS design with consistent button styling and color schemes", "Dark mode with per-user preference persistence", "Full mobile responsive design with touch-optimized controls", "Case detail toolbar and header badges collapse on small screens", "Movable Advocate AI button: right-click (desktop) or long-press (mobile) to reposition", "All pop-up windows require explicit close button or Cancel to dismiss", "Speech-to-text dictation for case notes"] },
+        { text: "Help Center & Settings", sub: ["Help Center with Tutorials, FAQ, Advocate AI, Change Log, and Contact Support", "Settings popup with appearance, password, session controls, and integrations", "Option to hide Advocate AI button via Settings"] },
       ]
     },
   ];
