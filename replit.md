@@ -44,12 +44,12 @@ server/
     links.js        — GET/POST/DELETE /api/links
     activity.js     — GET/POST /api/activity
     contacts.js     — CRUD /api/contacts (soft-delete/restore)
-    insurance.js    — CRUD /api/insurance (case insurance policies)
-    medical-treatments.js — CRUD /api/medical-treatments
-    liens.js        — CRUD /api/liens (with reduction_value/reduction_is_percent fields)
-    damages.js      — CRUD /api/damages (with billed/owed/reduction/client_paid/firm_paid fields)
-    negotiations.js — CRUD /api/negotiations (with policy_id linking to insurance policies)
-    expenses.js     — CRUD /api/expenses
+    insurance.js    — CRUD /api/insurance (case insurance policies, partial-update PUT)
+    medical-treatments.js — CRUD /api/medical-treatments (partial-update PUT)
+    liens.js        — CRUD /api/liens (with reduction_value/reduction_is_percent, partial-update PUT)
+    damages.js      — CRUD /api/damages (with billed/owed/reduction/client_paid/firm_paid, partial-update PUT)
+    negotiations.js — CRUD /api/negotiations (with policy_id linking, partial-update PUT)
+    expenses.js     — CRUD /api/expenses (partial-update PUT)
     voicemails.js   — CRUD /api/voicemails
     ai-agents.js    — All AI agent endpoints (with AI search enhancement)
     trial-center.js — Trial Center CRUD (with Daubert challenge)

@@ -16,6 +16,17 @@ const toFrontend = (r) => ({
   createdAt: r.created_at,
 });
 
+const fieldMap = {
+  date: "date",
+  direction: "direction",
+  amount: "amount",
+  fromParty: "from_party",
+  notes: "notes",
+  policyId: "policy_id",
+};
+
+const orNull = (v) => (v && String(v).trim()) ? v : null;
+
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -31,7 +42,6 @@ router.get("/:caseId", requireAuth, async (req, res) => {
 
 router.post("/:caseId", requireAuth, async (req, res) => {
   const d = req.body;
-  const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
     const { rows } = await pool.query(
       `INSERT INTO case_negotiations (case_id, date, direction, amount, from_party, notes, policy_id)
@@ -48,14 +58,29 @@ router.post("/:caseId", requireAuth, async (req, res) => {
 
 router.put("/:caseId/:id", requireAuth, async (req, res) => {
   const d = req.body;
-  const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    for (const [camel, col] of Object.entries(fieldMap)) {
+      if (d[camel] !== undefined) {
+        const val = (camel === "date" || camel === "amount" || camel === "policyId") ? orNull(d[camel]) : d[camel];
+        sets.push(`${col}=$${idx++}`);
+        vals.push(val);
+      }
+    }
+    if (!sets.length) {
+      const { rows } = await pool.query(
+        "SELECT * FROM case_negotiations WHERE id=$1 AND case_id=$2 AND deleted_at IS NULL",
+        [req.params.id, req.params.caseId]
+      );
+      if (!rows.length) return res.status(404).json({ error: "Not found" });
+      return res.json(toFrontend(rows[0]));
+    }
+    vals.push(req.params.id, req.params.caseId);
     const { rows } = await pool.query(
-      `UPDATE case_negotiations SET date=$1, direction=$2, amount=$3, from_party=$4, notes=$5, policy_id=$6
-       WHERE id=$7 AND case_id=$8 RETURNING *`,
-      [orNull(d.date), d.direction || "Demand", orNull(d.amount),
-       d.fromParty || "", d.notes || "", orNull(d.policyId),
-       req.params.id, req.params.caseId]
+      `UPDATE case_negotiations SET ${sets.join(", ")} WHERE id=$${idx++} AND case_id=$${idx} AND deleted_at IS NULL RETURNING *`,
+      vals
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     res.json(toFrontend(rows[0]));

@@ -60,17 +60,44 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
   const d = req.body;
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
+    const dmgFieldMap = {
+      category: "category",
+      description: "description",
+      amount: "amount",
+      documentationStatus: "documentation_status",
+      notes: "notes",
+      billed: "billed",
+      owed: "owed",
+      reductionValue: "reduction_value",
+      reductionIsPercent: "reduction_is_percent",
+      clientPaid: "client_paid",
+      firmPaid: "firm_paid",
+      insurancePaid: "insurance_paid",
+      writeOff: "write_off",
+    };
+    const nullableFields = new Set(["amount", "billed", "owed", "reductionValue", "clientPaid", "firmPaid", "insurancePaid", "writeOff"]);
+    const boolFields = new Set(["reductionIsPercent"]);
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    for (const [camel, col] of Object.entries(dmgFieldMap)) {
+      if (d[camel] !== undefined) {
+        sets.push(`${col}=$${idx++}`);
+        vals.push(boolFields.has(camel) ? !!d[camel] : (nullableFields.has(camel) ? orNull(d[camel]) : d[camel]));
+      }
+    }
+    if (!sets.length) {
+      const { rows } = await pool.query(
+        "SELECT * FROM case_damages WHERE id=$1 AND case_id=$2 AND deleted_at IS NULL",
+        [req.params.id, req.params.caseId]
+      );
+      if (!rows.length) return res.status(404).json({ error: "Not found" });
+      return res.json(toFrontend(rows[0]));
+    }
+    vals.push(req.params.id, req.params.caseId);
     const { rows } = await pool.query(
-      `UPDATE case_damages SET category=$1, description=$2, amount=$3, documentation_status=$4, notes=$5,
-       billed=$6, owed=$7, reduction_value=$8, reduction_is_percent=$9, client_paid=$10, firm_paid=$11,
-       insurance_paid=$12, write_off=$13
-       WHERE id=$14 AND case_id=$15 RETURNING *`,
-      [d.category || "Medical Bills", d.description || "", orNull(d.amount),
-       d.documentationStatus || "Pending", d.notes || "",
-       orNull(d.billed), orNull(d.owed), orNull(d.reductionValue),
-       !!d.reductionIsPercent, orNull(d.clientPaid), orNull(d.firmPaid),
-       orNull(d.insurancePaid), orNull(d.writeOff),
-       req.params.id, req.params.caseId]
+      `UPDATE case_damages SET ${sets.join(", ")} WHERE id=$${idx++} AND case_id=$${idx} AND deleted_at IS NULL RETURNING *`,
+      vals
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     res.json(toFrontend(rows[0]));

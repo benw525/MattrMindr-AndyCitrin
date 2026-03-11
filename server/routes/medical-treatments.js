@@ -68,15 +68,39 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
   const d = req.body;
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
+    const treatmentFieldMap = {
+      providerName: "provider_name",
+      providerType: "provider_type",
+      firstVisitDate: "first_visit_date",
+      lastVisitDate: "last_visit_date",
+      stillTreating: "still_treating",
+      totalBilled: "total_billed",
+      totalPaid: "total_paid",
+      description: "description",
+      notes: "notes",
+    };
+    const nullableFields = new Set(["firstVisitDate", "lastVisitDate", "totalBilled", "totalPaid"]);
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    for (const [camel, col] of Object.entries(treatmentFieldMap)) {
+      if (d[camel] !== undefined) {
+        sets.push(`${col}=$${idx++}`);
+        vals.push(nullableFields.has(camel) ? orNull(d[camel]) : (camel === "stillTreating" ? !!d[camel] : d[camel]));
+      }
+    }
+    if (!sets.length) {
+      const { rows } = await pool.query(
+        "SELECT * FROM case_medical_treatments WHERE id=$1 AND case_id=$2 AND deleted_at IS NULL",
+        [req.params.id, req.params.caseId]
+      );
+      if (!rows.length) return res.status(404).json({ error: "Not found" });
+      return res.json(toFrontend(rows[0]));
+    }
+    vals.push(req.params.id, req.params.caseId);
     const { rows } = await pool.query(
-      `UPDATE case_medical_treatments SET
-        provider_name=$1, provider_type=$2, first_visit_date=$3, last_visit_date=$4,
-        still_treating=$5, total_billed=$6, total_paid=$7, description=$8, notes=$9
-       WHERE id=$10 AND case_id=$11 RETURNING *`,
-      [d.providerName || "", d.providerType || "Other",
-       orNull(d.firstVisitDate), orNull(d.lastVisitDate),
-       !!d.stillTreating, orNull(d.totalBilled), orNull(d.totalPaid),
-       d.description || "", d.notes || "", req.params.id, req.params.caseId]
+      `UPDATE case_medical_treatments SET ${sets.join(", ")} WHERE id=$${idx++} AND case_id=$${idx} AND deleted_at IS NULL RETURNING *`,
+      vals
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     res.json(toFrontend(rows[0]));
@@ -339,15 +363,34 @@ router.put("/:caseId/records/:treatmentId/:id", requireAuth, async (req, res) =>
   const d = req.body;
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
+    const recFieldMap = {
+      providerName: "provider_name",
+      dateOfService: "date_of_service",
+      description: "description",
+      sourcePages: "source_pages",
+      summary: "summary",
+    };
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    for (const [camel, col] of Object.entries(recFieldMap)) {
+      if (d[camel] !== undefined) {
+        sets.push(`${col}=$${idx++}`);
+        vals.push(camel === "dateOfService" ? orNull(d[camel]) : d[camel]);
+      }
+    }
+    if (!sets.length) {
+      const { rows } = await pool.query(
+        "SELECT * FROM medical_records WHERE id=$1 AND treatment_id=$2 AND case_id=$3 AND deleted_at IS NULL",
+        [req.params.id, req.params.treatmentId, req.params.caseId]
+      );
+      if (!rows.length) return res.status(404).json({ error: "Not found" });
+      return res.json(recordToFrontend(rows[0]));
+    }
+    vals.push(req.params.id, req.params.treatmentId, req.params.caseId);
     const { rows } = await pool.query(
-      `UPDATE medical_records SET
-        provider_name=$1, date_of_service=$2, description=$3, source_pages=$4, summary=$5
-       WHERE id=$6 AND treatment_id=$7 AND case_id=$8 AND deleted_at IS NULL RETURNING *`,
-      [
-        d.providerName || "", orNull(d.dateOfService),
-        d.description || "", d.sourcePages || "", d.summary || "",
-        req.params.id, req.params.treatmentId, req.params.caseId
-      ]
+      `UPDATE medical_records SET ${sets.join(", ")} WHERE id=$${idx++} AND treatment_id=$${idx++} AND case_id=$${idx} AND deleted_at IS NULL RETURNING *`,
+      vals
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     res.json(recordToFrontend(rows[0]));

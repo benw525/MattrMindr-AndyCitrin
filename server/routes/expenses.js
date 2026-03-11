@@ -51,12 +51,37 @@ router.put("/:caseId/:id", requireAuth, async (req, res) => {
   const d = req.body;
   const orNull = (v) => (v && String(v).trim()) ? v : null;
   try {
+    const expFieldMap = {
+      category: "category",
+      description: "description",
+      amount: "amount",
+      date: "date",
+      vendor: "vendor",
+      status: "status",
+      notes: "notes",
+    };
+    const nullableFields = new Set(["amount", "date"]);
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    for (const [camel, col] of Object.entries(expFieldMap)) {
+      if (d[camel] !== undefined) {
+        sets.push(`${col}=$${idx++}`);
+        vals.push(nullableFields.has(camel) ? orNull(d[camel]) : d[camel]);
+      }
+    }
+    if (!sets.length) {
+      const { rows } = await pool.query(
+        "SELECT * FROM case_expenses WHERE id=$1 AND case_id=$2 AND deleted_at IS NULL",
+        [req.params.id, req.params.caseId]
+      );
+      if (!rows.length) return res.status(404).json({ error: "Not found" });
+      return res.json(toFrontend(rows[0]));
+    }
+    vals.push(req.params.id, req.params.caseId);
     const { rows } = await pool.query(
-      `UPDATE case_expenses SET category=$1, description=$2, amount=$3, date=$4, vendor=$5, status=$6, notes=$7
-       WHERE id=$8 AND case_id=$9 RETURNING *`,
-      [d.category || "Other", d.description || "", orNull(d.amount),
-       orNull(d.date), d.vendor || "", d.status || "Pending", d.notes || "",
-       req.params.id, req.params.caseId]
+      `UPDATE case_expenses SET ${sets.join(", ")} WHERE id=$${idx++} AND case_id=$${idx} AND deleted_at IS NULL RETURNING *`,
+      vals
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     res.json(toFrontend(rows[0]));
