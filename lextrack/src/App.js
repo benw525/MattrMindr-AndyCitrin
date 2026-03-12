@@ -8335,6 +8335,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           {policyNegs.length === 0 && <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic", marginBottom: 8 }}>No negotiations for this policy yet.</div>}
                           {policyNegs.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
                             const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
+                            const updateNegLocal = (field, val) => setNegotiations(prev => prev.map(x => x.id === n.id ? { ...x, [field]: val } : x));
+                            const saveNeg = (updates) => apiUpdateNegotiation(c.id, n.id, updates).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(err => console.error("Negotiation save failed:", err));
                             const gross = Number(n.amount) || 0;
                             const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
                             const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
@@ -8344,18 +8346,18 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 12px", flex: 1 }}>
                                     <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Date</label>
                                       <input type="date" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                        defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, date: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                        value={n.date || ""} onChange={e => updateNegLocal("date", e.target.value)} onBlur={e => saveNeg({ date: e.target.value })} /></div>
                                     <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Direction</label>
                                       <select style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
-                                        defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(c.id, n.id, { ...n, direction: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})}>
+                                        value={n.direction || "Demand"} onChange={e => { updateNegLocal("direction", e.target.value); saveNeg({ direction: e.target.value }); }}>
                                         {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
                                       </select></div>
                                     <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Amount</label>
                                       <input type="number" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                        defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, amount: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                        value={n.amount || ""} onChange={e => updateNegLocal("amount", e.target.value)} onBlur={e => saveNeg({ amount: e.target.value })} /></div>
                                     <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>From Party</label>
                                       <input style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                        defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, fromParty: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                        value={n.fromParty || n.from_party || ""} onChange={e => updateNegLocal("fromParty", e.target.value)} onBlur={e => saveNeg({ fromParty: e.target.value })} /></div>
                                   </div>
                                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
                                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
@@ -8408,6 +8410,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       {generalNegs.length === 0 && <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic", marginBottom: 8 }}>No general negotiations yet.</div>}
                       {generalNegs.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
                         const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
+                        const updateNegLocal = (field, val) => setNegotiations(prev => prev.map(x => x.id === n.id ? { ...x, [field]: val } : x));
+                        const saveNeg = (updates) => apiUpdateNegotiation(c.id, n.id, updates).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(err => console.error("Negotiation save failed:", err));
                         const gross = Number(n.amount) || 0;
                         const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
                         const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
@@ -8417,18 +8421,18 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 12px", flex: 1 }}>
                                 <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Date</label>
                                   <input type="date" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                    defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, date: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                    value={n.date || ""} onChange={e => updateNegLocal("date", e.target.value)} onBlur={e => saveNeg({ date: e.target.value })} /></div>
                                 <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Direction</label>
                                   <select style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
-                                    defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(c.id, n.id, { ...n, direction: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})}>
+                                    value={n.direction || "Demand"} onChange={e => { updateNegLocal("direction", e.target.value); saveNeg({ direction: e.target.value }); }}>
                                     {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
                                   </select></div>
                                 <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Amount</label>
                                   <input type="number" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                    defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, amount: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                    value={n.amount || ""} onChange={e => updateNegLocal("amount", e.target.value)} onBlur={e => saveNeg({ amount: e.target.value })} /></div>
                                 <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>From Party</label>
                                   <input style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                    defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, fromParty: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                    value={n.fromParty || n.from_party || ""} onChange={e => updateNegLocal("fromParty", e.target.value)} onBlur={e => saveNeg({ fromParty: e.target.value })} /></div>
                               </div>
                               <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
                                 onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
@@ -8600,6 +8604,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               })
               .map(t => {
               const isCollapsed = collapsedProviders[t.id];
+              const updateTxLocal = (field, val) => setMedicalTreatments(prev => prev.map(x => x.id === t.id ? { ...x, [field]: val } : x));
+              const saveTx = (updates) => apiUpdateMedicalTreatment(c.id, t.id, updates).then(u => setMedicalTreatments(prev => prev.map(x => x.id === t.id ? u : x))).catch(err => console.error("Treatment save failed:", err));
               const provName = t.providerName || t.provider_name || "(No Name)";
               const provType = t.providerType || t.provider_type || "Other";
               const firstDate = t.firstVisitDate || t.first_visit_date || "";
@@ -8634,26 +8640,26 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Provider Name</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={t.providerName || t.provider_name || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { providerName: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                          value={t.providerName || t.provider_name || ""} onChange={e => updateTxLocal("providerName", e.target.value)} onBlur={e => saveTx({ providerName: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Type</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                          defaultValue={t.providerType || t.provider_type || "Other"} onChange={e => apiUpdateMedicalTreatment(c.id, t.id, { providerType: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})}>
+                          value={t.providerType || t.provider_type || "Other"} onChange={e => { updateTxLocal("providerType", e.target.value); saveTx({ providerType: e.target.value }); }}>
                           {["ER", "Hospital", "Orthopedic", "Chiropractor", "PT", "Neurologist", "Pain Mgmt", "PCP", "Surgeon", "Dentist", "Psychologist", "Other"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>First Visit</label>
                         <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={t.firstVisitDate || t.first_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { firstVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                          value={t.firstVisitDate || t.first_visit_date || ""} onChange={e => updateTxLocal("firstVisitDate", e.target.value)} onBlur={e => saveTx({ firstVisitDate: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Last Visit</label>
                         <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={t.lastVisitDate || t.last_visit_date || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { lastVisitDate: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                          value={t.lastVisitDate || t.last_visit_date || ""} onChange={e => updateTxLocal("lastVisitDate", e.target.value)} onBlur={e => saveTx({ lastVisitDate: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Billed</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={t.totalBilled || t.total_billed || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { totalBilled: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                          value={t.totalBilled || t.total_billed || ""} onChange={e => updateTxLocal("totalBilled", e.target.value)} onBlur={e => saveTx({ totalBilled: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Total Paid</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={t.totalPaid || t.total_paid || ""} onBlur={e => apiUpdateMedicalTreatment(c.id, t.id, { totalPaid: e.target.value }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /></div>
+                          value={t.totalPaid || t.total_paid || ""} onChange={e => updateTxLocal("totalPaid", e.target.value)} onBlur={e => saveTx({ totalPaid: e.target.value })} /></div>
                       <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--c-text2)", cursor: "pointer", gridColumn: "1 / -1" }}>
-                        <input type="checkbox" defaultChecked={!!(t.stillTreating || t.still_treating)} onChange={e => apiUpdateMedicalTreatment(c.id, t.id, { stillTreating: e.target.checked }).then(u => setMedicalTreatments(p => p.map(x => x.id === t.id ? u : x))).catch(() => {})} /> Still Treating
+                        <input type="checkbox" checked={!!(t.stillTreating || t.still_treating)} onChange={e => { updateTxLocal("stillTreating", e.target.checked); saveTx({ stillTreating: e.target.checked }); }} /> Still Treating
                       </label>
                     </div>
                     <div style={{ marginTop: 16, borderTop: "1px solid var(--c-border)", paddingTop: 12 }}>
@@ -8783,6 +8789,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             <div style={{ fontSize: 11, color: "var(--c-text3)", marginBottom: 6 }}>{filteredRecs.length} {filteredRecs.length === 1 ? "entry" : "entries"} found</div>
                             {filteredRecs.map(rec => {
                               const isExpanded = expandedRecordId === rec.id;
+                              const updateRecLocal = (field, val) => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? { ...r, [field]: val } : r) }));
+                              const saveRec = (updates) => apiUpdateMedicalRecord(c.id, t.id, rec.id, updates).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(err => console.error("Record save failed:", err));
                               return (
                                 <div key={rec.id} style={{ border: "1px solid var(--c-border2)", borderRadius: 6, marginBottom: 4, background: isExpanded ? "var(--c-bg2)" : "var(--c-bg)", overflow: "hidden" }}>
                                   <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", cursor: "pointer", gap: 12 }}
@@ -8812,29 +8820,29 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                         <div>
                                           <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Provider</label>
                                           <input style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                            defaultValue={rec.providerName || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { providerName: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                            value={rec.providerName || ""} onChange={e => updateRecLocal("providerName", e.target.value)} onBlur={e => saveRec({ providerName: e.target.value })} />
                                         </div>
                                         <div>
                                           <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date of Service</label>
                                           <input type="date" style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                                            defaultValue={rec.dateOfService || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { dateOfService: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                            value={rec.dateOfService || ""} onChange={e => updateRecLocal("dateOfService", e.target.value)} onBlur={e => saveRec({ dateOfService: e.target.value })} />
                                         </div>
                                         <div>
                                           <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Body Part</label>
                                           <input style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                            placeholder="e.g. Cervical Spine" defaultValue={rec.bodyPart || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { bodyPart: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                            placeholder="e.g. Cervical Spine" value={rec.bodyPart || ""} onChange={e => updateRecLocal("bodyPart", e.target.value)} onBlur={e => saveRec({ bodyPart: e.target.value })} />
                                         </div>
                                       </div>
                                       <div style={{ marginBottom: 10 }}>
                                         <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
                                         <input style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                          placeholder="Brief description" defaultValue={rec.description || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { description: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                          placeholder="Brief description" value={rec.description || ""} onChange={e => updateRecLocal("description", e.target.value)} onBlur={e => saveRec({ description: e.target.value })} />
                                       </div>
                                       {rec.sourcePages && <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>Source Page: {rec.sourcePages}</div>}
                                       <div>
                                         <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Summary</label>
                                         <textarea style={{ width: "100%", fontSize: 12, padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", minHeight: 80, resize: "vertical", boxSizing: "border-box", lineHeight: 1.5 }}
-                                          defaultValue={rec.summary || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { summary: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                          value={rec.summary || ""} onChange={e => updateRecLocal("summary", e.target.value)} onBlur={e => saveRec({ summary: e.target.value })} />
                                       </div>
                                     </div>
                                   )}
@@ -9004,35 +9012,38 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               );
             })()}
             {liens.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No liens recorded yet.</div>}
-            {liens.map(l => (
+            {liens.map(l => {
+              const updateLienLocal = (field, val) => setLiens(prev => prev.map(x => x.id === l.id ? { ...x, [field]: val } : x));
+              const saveLien = (updates) => apiUpdateLien(c.id, l.id, updates).then(u => setLiens(prev => prev.map(x => x.id === l.id ? u : x))).catch(err => console.error("Lien save failed:", err));
+              return (
               <div key={`${l.id}-${l.reductionIsPercent}`} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Lien Type</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={l.lienType || l.lien_type || "Medical"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, lienType: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                        value={l.lienType || l.lien_type || "Medical"} onChange={e => { updateLienLocal("lienType", e.target.value); saveLien({ lienType: e.target.value }); }}>
                         {["Medical", "Medicare", "Medicaid", "Health Insurance", "ERISA", "VA", "Child Support", "Workers Comp", "Attorney", "Other"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Lienholder</label>
                       <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={l.lienholderName || l.lienholder_name || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, lienholderName: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                        value={l.lienholderName || l.lienholder_name || ""} onChange={e => updateLienLocal("lienholderName", e.target.value)} onBlur={e => saveLien({ lienholderName: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={l.amount || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, amount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                        value={l.amount || ""} onChange={e => updateLienLocal("amount", e.target.value)} onBlur={e => saveLien({ amount: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Negotiated Amount</label>
                       <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={l.negotiatedAmount || l.negotiated_amount || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, negotiatedAmount: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} /></div>
+                        value={l.negotiatedAmount || l.negotiated_amount || ""} onChange={e => updateLienLocal("negotiatedAmount", e.target.value)} onBlur={e => saveLien({ negotiatedAmount: e.target.value })} /></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
                       <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={l.status || "Pending"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, status: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                        value={l.status || "Pending"} onChange={e => { updateLienLocal("status", e.target.value); saveLien({ status: e.target.value }); }}>
                         {["Pending", "Confirmed", "Negotiated", "Satisfied", "Disputed"].map(o => <option key={o}>{o}</option>)}
                       </select></div>
                     <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {l.reductionIsPercent ? "(%)" : "($)"}</label>
                       <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
                         <input type="number" placeholder={l.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
-                          defaultValue={l.reductionValue || ""} onBlur={e => apiUpdateLien(c.id, l.id, { ...l, reductionValue: e.target.value }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})} />
+                          value={l.reductionValue || ""} onChange={e => updateLienLocal("reductionValue", e.target.value)} onBlur={e => saveLien({ reductionValue: e.target.value })} />
                         <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
-                          defaultValue={l.reductionIsPercent ? "%" : "$"} onChange={e => apiUpdateLien(c.id, l.id, { ...l, reductionIsPercent: e.target.value === "%" }).then(u => setLiens(p => p.map(x => x.id === l.id ? u : x))).catch(() => {})}>
+                          value={l.reductionIsPercent ? "%" : "$"} onChange={e => { updateLienLocal("reductionIsPercent", e.target.value === "%"); saveLien({ reductionIsPercent: e.target.value === "%" }); }}>
                           <option value="$">$</option><option value="%">%</option>
                         </select>
                       </div>
@@ -9043,7 +9054,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
 
@@ -9072,7 +9084,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
             {(expenses || []).map(exp => {
               const isExpExpanded = expandedExpenseId === exp.id;
               const expAmt = Number(exp.amount) || 0;
-              const saveExp = (updates) => apiUpdateExpense(c.id, exp.id, updates).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {});
+              const updateExpLocal = (field, val) => setExpenses(prev => prev.map(x => x.id === exp.id ? { ...x, [field]: val } : x));
+              const saveExp = (updates) => apiUpdateExpense(c.id, exp.id, updates).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(err => console.error("Expense save failed:", err));
               return (
               <div key={exp.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 12, background: isExpExpanded ? "var(--c-bg2)" : "var(--c-bg)" }}
@@ -9094,26 +9107,26 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", marginTop: 10 }}>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                          defaultValue={exp.category || "Other"} onChange={e => saveExp({ category: e.target.value })}>
+                          value={exp.category || "Other"} onChange={e => { updateExpLocal("category", e.target.value); saveExp({ category: e.target.value }); }}>
                           {["Filing Fees", "Expert Fees", "Court Reporter", "Medical Records", "Process Server", "Travel", "Postage", "Copies", "Investigation", "Deposition", "Other"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={exp.amount || ""} onBlur={e => saveExp({ amount: e.target.value })} /></div>
+                          value={exp.amount || ""} onChange={e => updateExpLocal("amount", e.target.value)} onBlur={e => saveExp({ amount: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date</label>
                         <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={exp.date || ""} onChange={e => saveExp({ date: e.target.value })} /></div>
+                          value={exp.date || ""} onChange={e => updateExpLocal("date", e.target.value)} onBlur={e => saveExp({ date: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Vendor</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={exp.vendor || ""} onBlur={e => saveExp({ vendor: e.target.value })} /></div>
+                          value={exp.vendor || ""} onChange={e => updateExpLocal("vendor", e.target.value)} onBlur={e => saveExp({ vendor: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                          defaultValue={exp.status || "Pending"} onChange={e => saveExp({ status: e.target.value })}>
+                          value={exp.status || "Pending"} onChange={e => { updateExpLocal("status", e.target.value); saveExp({ status: e.target.value }); }}>
                           {["Pending", "Paid", "Reimbursed", "Waived"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={exp.description || ""} onBlur={e => saveExp({ description: e.target.value })} /></div>
+                          value={exp.description || ""} onChange={e => updateExpLocal("description", e.target.value)} onBlur={e => saveExp({ description: e.target.value })} /></div>
                     </div>
                   </div>
                 )}
