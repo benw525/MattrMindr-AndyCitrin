@@ -337,12 +337,13 @@ async function extractTextWithPages(buffer, contentType, filename) {
     if (pageTexts.length > 0) {
       const totalChars = pageTexts.reduce((s, p) => s + p.trim().length, 0);
       const totalWords = pageTexts.join(" ").split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
+      const charsPerPage = pageTexts.length > 0 ? totalChars / pageTexts.length : 0;
 
-      if (totalChars >= OCR_MIN_TEXT_LENGTH && totalWords >= 20) {
+      if (totalChars >= OCR_MIN_TEXT_LENGTH && totalWords >= 20 && charsPerPage >= 100) {
         const tagged = pageTexts.map((pt, i) => `[PAGE ${i + 1}]\n${pt.trim()}`).join("\n\n");
         return { text: tagged, hasPages: true };
       }
-      console.log(`pdf-parse page extraction yielded ${totalChars} chars / ${totalWords} words for "${filename}", attempting OCR with page tags...`);
+      console.log(`pdf-parse page extraction yielded ${totalChars} chars / ${totalWords} words / ${Math.round(charsPerPage)} chars/page for "${filename}", attempting OCR with page tags...`);
     }
 
     const ocrResult = await ocrPdfBufferWithPages(buffer, filename);
@@ -510,15 +511,17 @@ async function extractText(buffer, contentType, filename) {
     const pdfParse = require("pdf-parse");
     const data = await pdfParse(buffer);
     const text = (data.text || "").trim();
+    const numPages = data.numpages || 1;
 
     const wordCount = text.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
-    const hasUsefulText = text.length >= OCR_MIN_TEXT_LENGTH && wordCount >= 20;
+    const charsPerPage = text.length / numPages;
+    const hasUsefulText = text.length >= OCR_MIN_TEXT_LENGTH && wordCount >= 20 && charsPerPage >= 100;
 
     if (hasUsefulText) {
       return text;
     }
 
-    console.log(`PDF text extraction yielded ${text.length} chars / ${wordCount} words for "${filename}", attempting OCR...`);
+    console.log(`PDF text extraction yielded ${text.length} chars / ${wordCount} words / ${Math.round(charsPerPage)} chars/page (${numPages} pages) for "${filename}", attempting OCR...`);
     try {
       const ocrText = await ocrPdfBuffer(buffer, filename);
       if (ocrText.length > text.length) {
