@@ -45,6 +45,34 @@ async function verifyCaseAccess(req, caseId) {
   return rows.length > 0;
 }
 
+router.get("/:caseId/folders", requireAuth, async (req, res) => {
+  try {
+    if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
+    const { rows } = await pool.query(
+      "SELECT * FROM document_folders WHERE case_id = $1 ORDER BY sort_order, created_at",
+      [req.params.caseId]
+    );
+    return res.json(rows);
+  } catch (err) {
+    console.error("Document folders fetch error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/:caseId/reorder-folders", requireAuth, async (req, res) => {
+  try {
+    const { folders } = req.body;
+    if (!Array.isArray(folders)) return res.status(400).json({ error: "folders array required" });
+    for (const f of folders) {
+      await pool.query("UPDATE document_folders SET sort_order = $1 WHERE id = $2", [f.sortOrder, f.id]);
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Reorder document folders error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
@@ -399,19 +427,6 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/folders/:caseId", requireAuth, async (req, res) => {
-  try {
-    if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
-    const { rows } = await pool.query(
-      "SELECT * FROM document_folders WHERE case_id = $1 ORDER BY sort_order, created_at",
-      [req.params.caseId]
-    );
-    return res.json(rows);
-  } catch (err) {
-    console.error("Document folders fetch error:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
 
 router.post("/folders", requireAuth, async (req, res) => {
   try {
@@ -463,19 +478,6 @@ router.delete("/folders/:id", requireAuth, async (req, res) => {
   }
 });
 
-router.put("/reorder-folders", requireAuth, async (req, res) => {
-  try {
-    const { folders } = req.body;
-    if (!Array.isArray(folders)) return res.status(400).json({ error: "folders array required" });
-    for (const f of folders) {
-      await pool.query("UPDATE document_folders SET sort_order = $1 WHERE id = $2", [f.sortOrder, f.id]);
-    }
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error("Reorder document folders error:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
 
 router.put("/:docId/move", requireAuth, async (req, res) => {
   try {
