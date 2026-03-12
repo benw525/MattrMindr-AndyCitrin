@@ -259,6 +259,7 @@ async function ensureColumns() {
     `ALTER TABLE case_correspondence ADD COLUMN IF NOT EXISTS is_voicemail BOOLEAN DEFAULT false`,
     `ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS annotations JSONB DEFAULT '[]'`,
     `ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS content_html TEXT`,
+    `ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'complete'`,
     `ALTER TABLE jury_analyses ADD COLUMN IF NOT EXISTS daubert_challenge TEXT`,
     `ALTER TABLE sms_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_access_token TEXT`,

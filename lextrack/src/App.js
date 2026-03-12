@@ -21,7 +21,7 @@ import {
   apiGetContactCaseLinks, apiAddContactCaseLink, apiDeleteContactCaseLink,
   apiAiSearch,
   apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary, apiTaskSuggestions, apiAdvocateChat,
-  apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiReExtractDocument, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
+  apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiReExtractDocument, apiGetDocOcrStatus, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
   apiGetFilings, apiUploadFiling, apiDeleteFiling, apiSummarizeFiling, apiUpdateFiling, apiClassifyFiling,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
   apiGetVoicemails, apiCreateVoicemail, apiUpdateVoicemail, apiDeleteVoicemail, apiTranscribeVoicemail,
@@ -6293,7 +6293,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     setVoicemailsLoading(true);
     apiGetVoicemails(c.id).then(setVoicemails).catch(() => {}).finally(() => setVoicemailsLoading(false));
     setDocsLoading(true);
-    apiGetCaseDocuments(c.id).then(setCaseDocuments).catch(() => {}).finally(() => setDocsLoading(false));
+    apiGetCaseDocuments(c.id).then(docs => { setCaseDocuments(docs); }).catch(() => {}).finally(() => setDocsLoading(false));
     apiGetDocFolders(c.id).then(setDocFolders).catch(() => setDocFolders([]));
     setTranscriptsLoading(true);
     apiGetTranscripts(c.id).then(setTranscripts).catch(() => {}).finally(() => setTranscriptsLoading(false));
@@ -6380,6 +6380,35 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     }
     return () => { if (transcriptPollRef.current) clearInterval(transcriptPollRef.current); };
   }, [transcripts, activeTab, docsSubTab, c.id]);
+
+  useEffect(() => {
+    const processingDocs = caseDocuments.filter(d => d.ocrStatus === "processing");
+    if (processingDocs.length === 0) return;
+    let polling = true;
+    let inFlight = false;
+    let attempts = 0;
+    const maxAttempts = 90;
+    const interval = setInterval(async () => {
+      if (!polling || inFlight) return;
+      attempts++;
+      if (attempts > maxAttempts) {
+        setCaseDocuments(prev => prev.map(d => d.ocrStatus === "processing" ? { ...d, ocrStatus: "failed", hasText: false } : d));
+        return;
+      }
+      inFlight = true;
+      try {
+        for (const doc of processingDocs) {
+          if (!polling) break;
+          const status = await apiGetDocOcrStatus(doc.id);
+          if (status.ocrStatus !== "processing") {
+            setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, ocrStatus: status.ocrStatus, hasText: status.hasText } : d));
+          }
+        }
+      } catch {}
+      inFlight = false;
+    }, 4000);
+    return () => { polling = false; clearInterval(interval); };
+  }, [caseDocuments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activeTab === "files" && docsSubTab === "transcripts") {
@@ -8961,12 +8990,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           )}
                         </div>
                         {!isDocEditing && !docSelectMode && (
-                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                            {doc.ocrStatus === "processing" && (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "#7c3aed", fontWeight: 500, padding: "4px 10px", borderRadius: 6, background: "#f5f3ff", border: "1px solid #ddd6fe" }}>
+                                <Loader2 size={12} className="animate-spin" style={{ color: "#7c3aed" }} /> Reading Document...
+                              </span>
+                            )}
                             <button className="border border-blue-300 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors bg-transparent cursor-pointer" onClick={() => openAppDocViewer(doc.id, doc.filename, doc.contentType, c.id)}>
                               <Eye size={12} className="inline mr-1" />View
                             </button>
                             <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors bg-transparent cursor-pointer" onClick={async () => { try { const blob = await apiDownloadDocument(doc.id); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = doc.filename; a.click(); URL.revokeObjectURL(url); } catch (err) { alert("Download failed: " + err.message); } }}>Download</button>
-                            <button className="border border-yellow-300 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors bg-transparent cursor-pointer" disabled={docSummarizing === doc.id} onClick={async () => { setDocSummarizing(doc.id); try { const { summary } = await apiSummarizeDocument(doc.id); setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, summary } : d)); setExpandedDocId(doc.id); } catch (err) { if (err.message && err.message.includes("No text could be extracted")) { if (window.confirm("No text was extracted from this document. Would you like to re-extract the text using OCR and try again?")) { try { await apiReExtractDocument(doc.id); const { summary: s2 } = await apiSummarizeDocument(doc.id); setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, summary: s2 } : d)); setExpandedDocId(doc.id); } catch (err2) { alert("Re-extract & summarize failed: " + err2.message); } } } else { alert("Summarize failed: " + err.message); } } setDocSummarizing(null); }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : <><Sparkles size={10} className="inline mr-0.5" /> Summarize</>)}</button>
+                            {doc.ocrStatus === "complete" && doc.hasText && (
+                              <button className="border border-yellow-300 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors bg-transparent cursor-pointer" disabled={docSummarizing === doc.id} onClick={async () => { setDocSummarizing(doc.id); try { const { summary } = await apiSummarizeDocument(doc.id); setCaseDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, summary } : d)); setExpandedDocId(doc.id); } catch (err) { alert("Summarize failed: " + err.message); } setDocSummarizing(null); }}>{docSummarizing === doc.id ? "Summarizing..." : (doc.summary ? "Re-summarize" : <><Sparkles size={10} className="inline mr-0.5" /> Summarize</>)}</button>
+                            )}
                             <button className="border border-red-300 dark:border-red-800/50 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors bg-transparent cursor-pointer" onClick={async () => { if (!await confirmDelete()) return; try { await apiDeleteCaseDocument(doc.id); setCaseDocuments(prev => prev.filter(d => d.id !== doc.id)); log("Document Deleted", doc.filename); } catch (err) { alert("Delete failed: " + err.message); } }}>Delete</button>
                           </div>
                         )}

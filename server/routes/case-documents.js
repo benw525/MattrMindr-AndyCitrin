@@ -32,6 +32,8 @@ const toFrontend = (row) => ({
   createdAt: row.created_at,
   folderId: row.folder_id || null,
   sortOrder: row.sort_order || 0,
+  ocrStatus: row.ocr_status || "complete",
+  hasText: !!(row.extracted_text && row.extracted_text.trim().length > 0),
 });
 
 async function verifyCaseAccess(req, caseId) {
@@ -77,7 +79,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, content_type, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order FROM case_documents WHERE case_id = $1 AND deleted_at IS NULL ORDER BY sort_order, created_at DESC",
+      "SELECT id, case_id, filename, content_type, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status, CASE WHEN extracted_text IS NOT NULL AND LENGTH(TRIM(extracted_text)) > 0 THEN extracted_text ELSE NULL END as extracted_text FROM case_documents WHERE case_id = $1 AND deleted_at IS NULL ORDER BY sort_order, created_at DESC",
       [req.params.caseId]
     );
     return res.json(rows.map(toFrontend));
@@ -86,6 +88,26 @@ router.get("/:caseId", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 });
+
+function needsOcr(contentType) {
+  return contentType === "application/pdf";
+}
+
+async function runOcrBackground(docId, buffer, contentType, filename) {
+  try {
+    console.log(`Background OCR started for doc ${docId}: "${filename}"`);
+    const extractedText = await extractText(buffer, contentType, filename);
+    const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
+    await pool.query(
+      "UPDATE case_documents SET extracted_text = $1, ocr_status = $2 WHERE id = $3",
+      [extractedText || "", ocrStatus, docId]
+    );
+    console.log(`Background OCR ${ocrStatus} for doc ${docId}: "${filename}" (${(extractedText || "").length} chars)`);
+  } catch (err) {
+    console.error(`Background OCR error for doc ${docId}:`, err.message);
+    await pool.query("UPDATE case_documents SET ocr_status = 'failed' WHERE id = $1", [docId]).catch(() => {});
+  }
+}
 
 router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
   try {
@@ -99,6 +121,19 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "File type not supported. Upload PDF, DOCX, DOC, or TXT files." });
     }
 
+    const userName = req.session.userName || "";
+
+    if (needsOcr(ct)) {
+      const { rows } = await pool.query(
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
+         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing') RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+        [caseId, req.file.originalname, ct, req.file.buffer, docType || "Other", req.session.userId, userName, req.file.size]
+      );
+      const saved = rows[0];
+      runOcrBackground(saved.id, req.file.buffer, ct, req.file.originalname);
+      return res.status(201).json(toFrontend(saved));
+    }
+
     let extractedText = "";
     try {
       extractedText = await extractText(req.file.buffer, ct, req.file.originalname);
@@ -106,11 +141,11 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
       console.error("Text extraction error:", extractErr);
     }
 
-    const userName = req.session.userName || "";
+    const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
     const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at`,
-      [caseId, req.file.originalname, ct, req.file.buffer, extractedText, docType || "Other", req.session.userId, userName, req.file.size]
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+      [caseId, req.file.originalname, ct, req.file.buffer, extractedText, docType || "Other", req.session.userId, userName, req.file.size, ocrStatus]
     );
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
@@ -148,6 +183,21 @@ router.get("/:id/text", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/:id/ocr-status", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT case_id, ocr_status, CASE WHEN extracted_text IS NOT NULL AND LENGTH(TRIM(extracted_text)) > 0 THEN true ELSE false END as has_text FROM case_documents WHERE id = $1",
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
+    return res.json({ ocrStatus: rows[0].ocr_status || "complete", hasText: rows[0].has_text });
+  } catch (err) {
+    console.error("OCR status check error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/:id/re-extract", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -158,8 +208,9 @@ router.post("/:id/re-extract", requireAuth, async (req, res) => {
     const doc = rows[0];
     if (!doc.file_data) return res.status(400).json({ error: "No file data available for re-extraction" });
     const newText = await extractText(doc.file_data, doc.content_type, doc.filename);
-    await pool.query("UPDATE case_documents SET extracted_text = $1 WHERE id = $2", [newText || "", req.params.id]);
-    return res.json({ text: newText || "", length: (newText || "").length });
+    const newStatus = (newText && newText.trim().length > 0) ? "complete" : "failed";
+    await pool.query("UPDATE case_documents SET extracted_text = $1, ocr_status = $2 WHERE id = $3", [newText || "", newStatus, req.params.id]);
+    return res.json({ text: newText || "", length: (newText || "").length, ocrStatus: newStatus, hasText: newStatus === "complete" });
   } catch (err) {
     console.error("Re-extract text error:", err);
     return res.status(500).json({ error: "Failed to re-extract text" });
@@ -563,14 +614,26 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     if (missing !== -1) return res.status(400).json({ error: `Missing chunk ${missing}` });
     const fullBuffer = Buffer.concat(pending.chunks);
     pendingDocChunks.delete(uploadId);
-    let extractedText = "";
-    try { extractedText = await extractText(fullBuffer, pending.contentType, pending.filename); } catch (e) { console.error("Chunk text extraction error:", e); }
     const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [pending.userId]);
     const uploaderName = userRows.length ? userRows[0].name : "";
+
+    if (needsOcr(pending.contentType)) {
+      const { rows } = await pool.query(
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
+         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing') RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+        [pending.caseId, pending.filename, pending.contentType, fullBuffer, pending.docType, pending.userId, uploaderName, fullBuffer.length]
+      );
+      runOcrBackground(rows[0].id, fullBuffer, pending.contentType, pending.filename);
+      return res.json(toFrontend(rows[0]));
+    }
+
+    let extractedText = "";
+    try { extractedText = await extractText(fullBuffer, pending.contentType, pending.filename); } catch (e) { console.error("Chunk text extraction error:", e); }
+    const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
     const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order`,
-      [pending.caseId, pending.filename, pending.contentType, fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length]
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+      [pending.caseId, pending.filename, pending.contentType, fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length, ocrStatus]
     );
     res.json(toFrontend(rows[0]));
   } catch (err) {
