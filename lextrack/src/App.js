@@ -6097,6 +6097,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const miscContactTimers = useRef({});
   const miscContactPendingData = useRef({});
   const [insurancePolicies, setInsurancePolicies] = useState([]);
+  const [expandedPolicyId, setExpandedPolicyId] = useState(null);
   const [medicalTreatments, setMedicalTreatments] = useState([]);
   const [medicalRecords, setMedicalRecords] = useState({});
   const [collapsedProviders, setCollapsedProviders] = useState({});
@@ -8236,6 +8237,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
                 try {
                   const saved = await apiCreateInsurancePolicy(c.id, { policyType: "Liability", carrierName: "", policyNumber: "", policyLimits: "", adjusterName: "", adjusterPhone: "", adjusterEmail: "", claimNumber: "", insuredName: "", notes: "" });
+                  setExpandedPolicyId(saved.id);
                   setInsurancePolicies(p => [...p, saved]);
                 } catch (err) { alert("Failed: " + err.message); }
               }}>+ Add Policy</button>
@@ -8255,98 +8257,118 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               }, 0);
               const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
               const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              const isPolExpanded = expandedPolicyId === p.id;
+              const polType = p.policyType || p.policy_type || "Liability";
+              const polCarrier = p.carrierName || p.carrier_name || "";
+              const polLimits = p.policyLimits || p.policy_limits || "";
+              const polClaim = p.claimNumber || p.claim_number || "";
               return (
-              <div key={p.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 12, padding: "12px 14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Type</label>
-                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={p.policyType || p.policy_type || "Liability"} onChange={e => apiUpdateInsurancePolicy(c.id, p.id, { policyType: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})}>
-                        {["Liability", "UM", "UIM", "MedPay", "PIP", "Homeowner", "Commercial", "Umbrella", "Health Insurance"].map(o => <option key={o}>{o}</option>)}
-                      </select></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Carrier</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.carrierName || p.carrier_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { carrierName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy #</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.policyNumber || p.policy_number || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { policyNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Limits</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.policyLimits || p.policy_limits || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { policyLimits: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Claim #</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.claimNumber || p.claim_number || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { claimNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.adjusterName || p.adjuster_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Phone</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.adjusterPhone || p.adjuster_phone || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterPhone: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Email</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.adjusterEmail || p.adjuster_email || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterEmail: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insured Name</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={p.insuredName || p.insured_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { insuredName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+              <div key={p.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 12, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 12, background: isPolExpanded ? "var(--c-bg2)" : "var(--c-bg)" }}
+                  onClick={() => setExpandedPolicyId(isPolExpanded ? null : p.id)}>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{polType}</span>
+                    {polCarrier && <span style={{ fontSize: 12, color: "var(--c-text3)" }}>{polCarrier}</span>}
+                    {polLimits && <span style={{ fontSize: 12, color: "var(--c-text3)" }}>Limits: <span style={{ fontWeight: 600 }}>{polLimits}</span></span>}
+                    {polClaim && <span style={{ fontSize: 12, color: "var(--c-text3)" }}>Claim: {polClaim}</span>}
+                    {policyNegs.length > 0 && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#dbeafe", color: "#1e40af" }}>{policyNegs.length} neg{policyNegs.length !== 1 ? "s" : ""}</span>}
                   </div>
-                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteInsurancePolicy(c.id, p.id).then(() => setInsurancePolicies(prev => prev.filter(x => x.id !== p.id))).catch(e => alert(e.message)); }}>✕</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
+                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteInsurancePolicy(c.id, p.id).then(() => { setInsurancePolicies(prev => prev.filter(x => x.id !== p.id)); if (expandedPolicyId === p.id) setExpandedPolicyId(null); }).catch(e2 => alert(e2.message)); }}>✕</button>
+                    {isPolExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
+                  </div>
                 </div>
-
-                <div style={{ borderTop: "1px solid var(--c-border)", marginTop: 12, paddingTop: 8 }}>
-                  <div onClick={() => setExpandedPolicyNeg(prev => ({ ...prev, [p.id]: !prev[p.id] }))} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", padding: "4px 0" }}>
-                    {isNegOpen ? <ChevronDown size={14} style={{ color: "#64748b" }} /> : <ChevronRight size={14} style={{ color: "#64748b" }} />}
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text-h)" }}>Negotiations ({policyNegs.length})</span>
-                    {!isNegOpen && <button onClick={e => { e.stopPropagation(); (async () => { try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: p.id }); setNegotiations(prev => [...prev, saved]); setExpandedPolicyNeg(prev => ({ ...prev, [p.id]: true })); } catch (err) { alert("Failed: " + err.message); } })(); }} style={{ marginLeft: "auto", fontSize: 10, padding: "1px 8px", background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>+ Add</button>}
-                  </div>
-                  {isNegOpen && (
-                    <div style={{ paddingTop: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                        <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 10, padding: "1px 8px" }} onClick={async () => {
-                          try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: p.id }); setNegotiations(prev => [...prev, saved]); } catch (err) { alert("Failed: " + err.message); }
-                        }}>+ Add Entry</button>
-                      </div>
-                      {policyNegs.length === 0 && <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic", marginBottom: 8 }}>No negotiations for this policy yet.</div>}
-                      {policyNegs.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
-                        const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
-                        const gross = Number(n.amount) || 0;
-                        const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
-                        const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
-                        return (
-                          <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 6, padding: "8px 10px", background: "var(--c-bg)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 12px", flex: 1 }}>
-                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Date</label>
-                                  <input type="date" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                    defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, date: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
-                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Direction</label>
-                                  <select style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
-                                    defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(c.id, n.id, { ...n, direction: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})}>
-                                    {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
-                                  </select></div>
-                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Amount</label>
-                                  <input type="number" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                    defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, amount: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
-                                <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>From Party</label>
-                                  <input style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                    defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, fromParty: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
-                              </div>
-                              <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
-                                onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
-                            </div>
-                            {gross > 0 && (
-                              <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)" }}>
-                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
-                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
-                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Net:</span> <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? "#16a34a" : "#dc2626" }}>${net.toLocaleString()}</span></div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                {isPolExpanded && (
+                  <div style={{ padding: "0 14px 14px", borderTop: "1px solid var(--c-border2)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", marginTop: 10 }}>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Type</label>
+                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                          defaultValue={polType} onChange={e => apiUpdateInsurancePolicy(c.id, p.id, { policyType: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})}>
+                          {["Liability", "UM", "UIM", "MedPay", "PIP", "Homeowner", "Commercial", "Umbrella", "Health Insurance"].map(o => <option key={o}>{o}</option>)}
+                        </select></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Carrier</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={polCarrier} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { carrierName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy #</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={p.policyNumber || p.policy_number || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { policyNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Limits</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={polLimits} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { policyLimits: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Claim #</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={polClaim} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { claimNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={p.adjusterName || p.adjuster_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Phone</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={p.adjusterPhone || p.adjuster_phone || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterPhone: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Email</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={p.adjusterEmail || p.adjuster_email || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterEmail: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insured Name</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={p.insuredName || p.insured_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { insuredName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
                     </div>
-                  )}
-                </div>
+
+                    <div style={{ borderTop: "1px solid var(--c-border)", marginTop: 12, paddingTop: 8 }}>
+                      <div onClick={() => setExpandedPolicyNeg(prev => ({ ...prev, [p.id]: !prev[p.id] }))} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", padding: "4px 0" }}>
+                        {isNegOpen ? <ChevronDown size={14} style={{ color: "#64748b" }} /> : <ChevronRight size={14} style={{ color: "#64748b" }} />}
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text-h)" }}>Negotiations ({policyNegs.length})</span>
+                        {!isNegOpen && <button onClick={e => { e.stopPropagation(); (async () => { try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: p.id }); setNegotiations(prev => [...prev, saved]); setExpandedPolicyNeg(prev => ({ ...prev, [p.id]: true })); } catch (err) { alert("Failed: " + err.message); } })(); }} style={{ marginLeft: "auto", fontSize: 10, padding: "1px 8px", background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>+ Add</button>}
+                      </div>
+                      {isNegOpen && (
+                        <div style={{ paddingTop: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                            <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 10, padding: "1px 8px" }} onClick={async () => {
+                              try { const saved = await apiCreateNegotiation(c.id, { date: new Date().toISOString().slice(0, 10), direction: "Demand", amount: "", fromParty: "", notes: "", policyId: p.id }); setNegotiations(prev => [...prev, saved]); } catch (err) { alert("Failed: " + err.message); }
+                            }}>+ Add Entry</button>
+                          </div>
+                          {policyNegs.length === 0 && <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic", marginBottom: 8 }}>No negotiations for this policy yet.</div>}
+                          {policyNegs.sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(n => {
+                            const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
+                            const gross = Number(n.amount) || 0;
+                            const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
+                            const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
+                            return (
+                              <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 6, padding: "8px 10px", background: "var(--c-bg)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 12px", flex: 1 }}>
+                                    <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Date</label>
+                                      <input type="date" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                        defaultValue={n.date || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, date: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                    <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Direction</label>
+                                      <select style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: `1px solid ${dirColors[n.direction] || "var(--c-border)"}`, background: "var(--c-bg)", color: dirColors[n.direction] || "var(--c-text)", fontWeight: 600 }}
+                                        defaultValue={n.direction || "Demand"} onChange={e => apiUpdateNegotiation(c.id, n.id, { ...n, direction: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})}>
+                                        {["Demand", "Offer", "Counter-Demand", "Counter-Offer"].map(o => <option key={o}>{o}</option>)}
+                                      </select></div>
+                                    <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Amount</label>
+                                      <input type="number" style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                        defaultValue={n.amount || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, amount: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                    <div><label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 1 }}>From Party</label>
+                                      <input style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                        defaultValue={n.fromParty || n.from_party || ""} onBlur={e => apiUpdateNegotiation(c.id, n.id, { ...n, fromParty: e.target.value }).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(() => {})} /></div>
+                                  </div>
+                                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
+                                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
+                                </div>
+                                {gross > 0 && (
+                                  <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)" }}>
+                                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
+                                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
+                                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Net:</span> <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? "#16a34a" : "#dc2626" }}>${net.toLocaleString()}</span></div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ); })}
 
