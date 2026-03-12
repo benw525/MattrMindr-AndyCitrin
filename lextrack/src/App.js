@@ -8898,7 +8898,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const insPaid = Number(d.insurancePaid) || 0;
               const wo = Number(d.writeOff) || 0;
               const calcOwed = Math.max(0, billed - reductionAmt - insPaid - wo);
-              const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, updates).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {});
+              const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, updates).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(err => console.error("Damage save failed:", err));
+              const updateLocal = (field, val) => setDamages(p => p.map(x => x.id === d.id ? { ...x, [field]: val } : x));
               const isDmgExpanded = expandedDamageId === d.id;
               const dmgCategory = d.category === "Medical Bills" ? "Medical Bill" : d.category;
               const dmgLabel = d.name || dmgCategory || "Untitled Damage";
@@ -8923,29 +8924,29 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", marginTop: 10 }}>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Name</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          placeholder="e.g. ER Visit, Lost Wages" defaultValue={d.name || ""} onBlur={e => saveDmg({ name: e.target.value })} /></div>
+                          placeholder="e.g. ER Visit, Lost Wages" value={d.name || ""} onChange={e => updateLocal("name", e.target.value)} onBlur={e => saveDmg({ name: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                          defaultValue={d.category === "Medical Bills" ? "Medical Bill" : (d.category || "Other")} onChange={e => saveDmg({ category: e.target.value })}>
+                          value={dmgCategory || "Other"} onChange={e => { updateLocal("category", e.target.value); saveDmg({ category: e.target.value }); }}>
                           {["Medical Bill", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                          defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => saveDmg({ documentationStatus: e.target.value })}>
+                          value={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => { updateLocal("documentationStatus", e.target.value); saveDmg({ documentationStatus: e.target.value }); }}>
                           {["Documented", "Pending", "Estimated"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.amount || ""} onBlur={e => saveDmg({ amount: e.target.value })} /></div>
+                          value={d.amount ?? ""} onChange={e => updateLocal("amount", e.target.value)} onBlur={e => saveDmg({ amount: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Billed</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.billed || ""} onBlur={e => saveDmg({ billed: e.target.value })} /></div>
+                          value={d.billed ?? ""} onChange={e => updateLocal("billed", e.target.value)} onBlur={e => saveDmg({ billed: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {d.reductionIsPercent ? "(%)" : "($)"}</label>
                         <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
                           <input type="number" placeholder={d.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
-                            defaultValue={d.reductionValue || ""} onBlur={e => saveDmg({ reductionValue: e.target.value })} />
+                            value={d.reductionValue ?? ""} onChange={e => updateLocal("reductionValue", e.target.value)} onBlur={e => saveDmg({ reductionValue: e.target.value })} />
                           <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
-                            defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => saveDmg({ reductionIsPercent: e.target.value === "%" })}>
+                            value={d.reductionIsPercent ? "%" : "$"} onChange={e => saveDmg({ reductionIsPercent: e.target.value === "%" })}>
                             <option value="$">$</option><option value="%">%</option>
                           </select>
                         </div>
@@ -8953,19 +8954,19 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       </div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insurance Paid</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.insurancePaid || ""} onBlur={e => saveDmg({ insurancePaid: e.target.value })} /></div>
+                          value={d.insurancePaid ?? ""} onChange={e => updateLocal("insurancePaid", e.target.value)} onBlur={e => saveDmg({ insurancePaid: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Write-off</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.writeOff || ""} onBlur={e => saveDmg({ writeOff: e.target.value })} /></div>
+                          value={d.writeOff ?? ""} onChange={e => updateLocal("writeOff", e.target.value)} onBlur={e => saveDmg({ writeOff: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Client Paid</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.clientPaid || ""} onBlur={e => saveDmg({ clientPaid: e.target.value })} /></div>
+                          value={d.clientPaid ?? ""} onChange={e => updateLocal("clientPaid", e.target.value)} onBlur={e => saveDmg({ clientPaid: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Firm Paid</label>
                         <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.firmPaid || ""} onBlur={e => saveDmg({ firmPaid: e.target.value })} /></div>
+                          value={d.firmPaid ?? ""} onChange={e => updateLocal("firmPaid", e.target.value)} onBlur={e => saveDmg({ firmPaid: e.target.value })} /></div>
                       <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={d.description || ""} onBlur={e => saveDmg({ description: e.target.value })} /></div>
+                          value={d.description || ""} onChange={e => updateLocal("description", e.target.value)} onBlur={e => saveDmg({ description: e.target.value })} /></div>
                     </div>
                   </div>
                 )}
