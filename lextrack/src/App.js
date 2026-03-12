@@ -77,7 +77,7 @@ import TrialCenterView from "./TrialCenterView.js";
 const FONTS = ``;
 
 
-const STAFF_ROLES = ["Managing Partner","Senior Partner","Partner","Associate Attorney","Of Counsel","Paralegal","Legal Assistant","Case Manager","Medical Records Coordinator","Intake Specialist","Office Administrator","IT Specialist","Investigator","App Admin"];
+const STAFF_ROLES = ["Managing Partner","Senior Partner","Partner","Associate Attorney","Of Counsel","Trial Attorney","Paralegal","Legal Assistant","Case Manager","Medical Records Coordinator","Intake Specialist","Office Administrator","IT Specialist","Investigator","Trial Coordinator Supervisor","Trial Coordinator","Chief Social Worker","Social Worker","Client Advocate","Administrative Assistant","App Admin"];
 const hasRole = (user, role) => (user?.roles || (user?.role ? [user.role] : [])).includes(role);
 const isAppAdmin = (user) => hasRole(user, "App Admin");
 const AVATAR_PALETTE = ["#C9A84C","#4C7AC9","#4CAE72","#C94C4C","#9B4CC9","#4CC9C9","#C97B4C","#4C9BC9","#7BC94C","#C94C8C","#884CC9","#4CC96A","#C9C94C","#4C6AC9","#C94C6A","#4CAEC9","#6AC94C","#C9844C","#4CC9A8","#5884C9"];
@@ -1112,6 +1112,7 @@ export default function App() {
 
 function FirmApp() {
   const [currentUser, setCurrentUser] = useState(null);
+  const [userPerms, setUserPerms] = useState({});
   const [sessionChecked, setSessionChecked] = useState(false);
   const [view, setViewRaw] = useState(() => localStorage.getItem("lextrack-last-view") || "dashboard");
   const setView = useCallback((v) => { localStorage.setItem("lextrack-last-view", v); setViewRaw(v); }, []);
@@ -1433,6 +1434,13 @@ function FirmApp() {
       if (prefs.darkMode !== undefined) {
         setDarkMode(prefs.darkMode);
       }
+      apiCheckPermissions().then(data => {
+        if (data.isAdmin) {
+          setUserPerms({ _isAdmin: true });
+        } else {
+          setUserPerms(data.permissions || {});
+        }
+      }).catch(() => setUserPerms({}));
     }).catch(() => {}).finally(() => setSessionChecked(true));
   }, []);
 
@@ -2395,8 +2403,8 @@ function FirmApp() {
             { id: "contacts", icon: Users, label: "Contacts" },
             { id: "unmatched", icon: Inbox, label: "Unmatched" },
             { id: "staff", icon: UserCog, label: "Staff" },
-            ...(isAppAdmin(currentUser) ? [{ id: "customization", icon: SlidersHorizontal, label: "Customization" }] : []),
-            ...(isAppAdmin(currentUser) ? [{ id: "deleted", icon: Trash2, label: "Deleted Data" }] : []),
+            ...((isAppAdmin(currentUser) || userPerms._isAdmin || userPerms.access_customization) ? [{ id: "customization", icon: SlidersHorizontal, label: "Customization" }] : []),
+            ...((isAppAdmin(currentUser) || userPerms._isAdmin || userPerms.view_deleted_data) ? [{ id: "deleted", icon: Trash2, label: "Deleted Data" }] : []),
           ].map(item => {
             const Icon = item.icon;
             const isActive = view === item.id;
@@ -2441,8 +2449,8 @@ function FirmApp() {
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "unmatched" && <UnmatchedView allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
-        {view === "customization" && isAppAdmin(currentUser) && <CustomizationView currentUser={currentUser} allCases={allCases} allUsers={allUsers} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
-        {view === "deleted" && isAppAdmin(currentUser) && <DeletedDataView onMenuToggle={() => setSidebarOpen(true)} />}
+        {view === "customization" && (isAppAdmin(currentUser) || userPerms._isAdmin || userPerms.access_customization) && <CustomizationView currentUser={currentUser} allCases={allCases} allUsers={allUsers} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
+        {view === "deleted" && (isAppAdmin(currentUser) || userPerms._isAdmin || userPerms.view_deleted_data) && <DeletedDataView onMenuToggle={() => setSidebarOpen(true)} />}
       </div>
       <FollowUpPromptModal
         key={followUpPrompt ? `${followUpPrompt.target.id}-${followUpPrompt.completedDate}` : "none"}
