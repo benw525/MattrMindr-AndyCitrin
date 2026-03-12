@@ -5,7 +5,111 @@ const path = require("path");
 const os = require("os");
 
 const OCR_MIN_TEXT_LENGTH = 200;
-const OCR_MAX_PAGES = 10;
+const GEMINI_MAX_BATCH_BYTES = 45 * 1024 * 1024;
+const GEMINI_MAX_SINGLE_IMAGE_BYTES = 20 * 1024 * 1024;
+
+function numericSort(a, b) {
+  const numA = parseInt(a.match(/(\d+)/)?.[1] || "0", 10);
+  const numB = parseInt(b.match(/(\d+)/)?.[1] || "0", 10);
+  return numA - numB;
+}
+
+function cleanupTmpDir(tmpDir) {
+  try {
+    const files = fs.readdirSync(tmpDir);
+    for (const f of files) fs.unlinkSync(path.join(tmpDir, f));
+    fs.rmdirSync(tmpDir);
+  } catch (cleanupErr) {
+    console.error("OCR temp cleanup error:", cleanupErr.message);
+  }
+}
+
+async function convertPdfToImages(pdfPath, tmpDir, dpi, maxPages) {
+  const imgPrefix = path.join(tmpDir, "page");
+  const args = ["-jpeg", "-r", String(dpi)];
+  if (maxPages) {
+    args.push("-l", String(maxPages));
+  }
+  args.push(pdfPath, imgPrefix);
+
+  await new Promise((resolve, reject) => {
+    execFile("pdftoppm", args, { timeout: 300000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+  return fs.readdirSync(tmpDir)
+    .filter(f => f.startsWith("page") && f.endsWith(".jpg"))
+    .sort(numericSort);
+}
+
+async function compressImage(imgPath, targetBytes) {
+  const sharp = (() => { try { return require("sharp"); } catch { return null; } })();
+  if (!sharp) {
+    console.warn("sharp not available, cannot compress image");
+    return false;
+  }
+
+  const stats = fs.statSync(imgPath);
+  if (stats.size <= targetBytes) return true;
+
+  const tmpOut = imgPath + ".tmp.jpg";
+  const steps = [
+    { quality: 60 },
+    { quality: 45 },
+    { quality: 30 },
+    { quality: 20 },
+    { quality: 20, width: 2000 },
+    { quality: 15, width: 1600 },
+    { quality: 10, width: 1200 },
+  ];
+
+  for (const step of steps) {
+    let pipeline = sharp(imgPath);
+    if (step.width) pipeline = pipeline.resize({ width: step.width });
+    await pipeline.jpeg({ quality: step.quality }).toFile(tmpOut);
+    const newSize = fs.statSync(tmpOut).size;
+    if (newSize <= targetBytes) {
+      fs.renameSync(tmpOut, imgPath);
+      return true;
+    }
+  }
+
+  fs.renameSync(tmpOut, imgPath);
+  const finalSize = fs.statSync(imgPath).size;
+  if (finalSize > targetBytes) {
+    console.warn(`Could not compress ${path.basename(imgPath)} below ${(targetBytes / (1024 * 1024)).toFixed(0)} MB (final: ${(finalSize / (1024 * 1024)).toFixed(1)} MB)`);
+    return false;
+  }
+  return true;
+}
+
+function buildSizeBatches(tmpDir, imageFiles) {
+  const batches = [];
+  let currentBatch = [];
+  let currentSize = 0;
+
+  for (const imgFile of imageFiles) {
+    const imgPath = path.join(tmpDir, imgFile);
+    const fileSize = fs.statSync(imgPath).size;
+
+    if (currentBatch.length > 0 && currentSize + fileSize > GEMINI_MAX_BATCH_BYTES) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentSize = 0;
+    }
+
+    currentBatch.push(imgFile);
+    currentSize += fileSize;
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
+}
 
 async function ocrPdfBuffer(buffer, filename) {
   const geminiKey = process.env.GEMINI_API_KEY;
@@ -14,57 +118,73 @@ async function ocrPdfBuffer(buffer, filename) {
     return ocrPdfBufferTesseract(buffer, filename);
   }
 
+  const pdfSizeMB = (buffer.length / (1024 * 1024)).toFixed(1);
+  console.log(`Gemini OCR: starting for "${filename}" (${pdfSizeMB} MB)`);
+
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-"));
   const pdfPath = path.join(tmpDir, "input.pdf");
   fs.writeFileSync(pdfPath, buffer);
 
   try {
-    const imgPrefix = path.join(tmpDir, "page");
-    await new Promise((resolve, reject) => {
-      execFile("pdftoppm", [
-        "-png", "-r", "300",
-        "-l", String(OCR_MAX_PAGES),
-        pdfPath, imgPrefix
-      ], { timeout: 60000 }, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    let dpi = 300;
+    if (buffer.length > 100 * 1024 * 1024) {
+      dpi = 150;
+    } else if (buffer.length > 50 * 1024 * 1024) {
+      dpi = 200;
+    }
 
-    const imageFiles = fs.readdirSync(tmpDir)
-      .filter(f => f.startsWith("page") && f.endsWith(".png"))
-      .sort((a, b) => {
-        const numA = parseInt(a.match(/(\d+)/)?.[1] || "0", 10);
-        const numB = parseInt(b.match(/(\d+)/)?.[1] || "0", 10);
-        return numA - numB;
-      })
-      .slice(0, OCR_MAX_PAGES);
+    const imageFiles = await convertPdfToImages(pdfPath, tmpDir, dpi, null);
 
     if (imageFiles.length === 0) {
       console.log(`Gemini OCR: no page images generated for "${filename}"`);
       return "";
     }
 
-    console.log(`Gemini OCR: processing ${imageFiles.length} pages for "${filename}"`);
+    console.log(`Gemini OCR: converted ${imageFiles.length} pages at ${dpi} DPI for "${filename}"`);
+
+    const validImageFiles = [];
+    for (const imgFile of imageFiles) {
+      const imgPath = path.join(tmpDir, imgFile);
+      const fileSize = fs.statSync(imgPath).size;
+      if (fileSize > GEMINI_MAX_SINGLE_IMAGE_BYTES) {
+        console.log(`Gemini OCR: compressing ${imgFile} (${(fileSize / (1024 * 1024)).toFixed(1)} MB)`);
+        const compressed = await compressImage(imgPath, GEMINI_MAX_SINGLE_IMAGE_BYTES);
+        if (!compressed) {
+          console.warn(`Gemini OCR: skipping ${imgFile} — could not compress below size limit`);
+          continue;
+        }
+      }
+      validImageFiles.push(imgFile);
+    }
+
+    if (validImageFiles.length === 0) {
+      console.log(`Gemini OCR: all page images exceeded size limits for "${filename}"`);
+      return ocrPdfBufferTesseract(buffer, filename);
+    }
+
+    const batches = buildSizeBatches(tmpDir, validImageFiles);
+    console.log(`Gemini OCR: split ${validImageFiles.length} pages into ${batches.length} batch(es) for "${filename}"`);
 
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview" });
 
     let fullText = "";
-    const batchSize = 5;
-    for (let i = 0; i < imageFiles.length; i += batchSize) {
-      const batch = imageFiles.slice(i, i + batchSize);
+    for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+      const batch = batches[bIdx];
       const imageParts = batch.map(imgFile => {
         const imgPath = path.join(tmpDir, imgFile);
         const imgData = fs.readFileSync(imgPath);
         return {
           inlineData: {
             data: imgData.toString("base64"),
-            mimeType: "image/png"
+            mimeType: "image/jpeg"
           }
         };
       });
+
+      const batchTotalMB = imageParts.reduce((sum, p) => sum + Buffer.from(p.inlineData.data, "base64").length, 0) / (1024 * 1024);
+      console.log(`Gemini OCR: sending batch ${bIdx + 1}/${batches.length} (${batch.length} pages, ${batchTotalMB.toFixed(1)} MB)`);
 
       const prompt = batch.length > 1
         ? `Extract ALL text from these ${batch.length} document page images. Return the complete text content exactly as it appears, preserving the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase — output the raw text only, with no commentary.`
@@ -77,7 +197,7 @@ async function ocrPdfBuffer(buffer, filename) {
     }
 
     const geminiWordCount = fullText.trim().split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
-    console.log(`Gemini OCR complete: extracted ${fullText.trim().length} chars / ${geminiWordCount} words from ${imageFiles.length} pages`);
+    console.log(`Gemini OCR complete: extracted ${fullText.trim().length} chars / ${geminiWordCount} words from ${validImageFiles.length} pages`);
 
     if (geminiWordCount < 5) {
       console.log("Gemini OCR returned very little text, falling back to tesseract...");
@@ -102,13 +222,7 @@ async function ocrPdfBuffer(buffer, filename) {
       return "";
     }
   } finally {
-    try {
-      const files = fs.readdirSync(tmpDir);
-      for (const f of files) fs.unlinkSync(path.join(tmpDir, f));
-      fs.rmdirSync(tmpDir);
-    } catch (cleanupErr) {
-      console.error("OCR temp cleanup error:", cleanupErr.message);
-    }
+    cleanupTmpDir(tmpDir);
   }
 }
 
@@ -118,26 +232,7 @@ async function ocrPdfBufferTesseract(buffer, filename) {
   fs.writeFileSync(pdfPath, buffer);
 
   try {
-    const imgPrefix = path.join(tmpDir, "page");
-    await new Promise((resolve, reject) => {
-      execFile("pdftoppm", [
-        "-png", "-r", "300",
-        "-l", String(OCR_MAX_PAGES),
-        pdfPath, imgPrefix
-      ], { timeout: 60000 }, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-
-    const imageFiles = fs.readdirSync(tmpDir)
-      .filter(f => f.startsWith("page") && f.endsWith(".png"))
-      .sort((a, b) => {
-        const numA = parseInt(a.match(/(\d+)/)?.[1] || "0", 10);
-        const numB = parseInt(b.match(/(\d+)/)?.[1] || "0", 10);
-        return numA - numB;
-      })
-      .slice(0, OCR_MAX_PAGES);
+    const imageFiles = await convertPdfToImages(pdfPath, tmpDir, 300, 10);
 
     if (imageFiles.length === 0) {
       console.log(`Tesseract OCR: no page images generated for "${filename}"`);
@@ -150,23 +245,19 @@ async function ocrPdfBufferTesseract(buffer, filename) {
     const worker = await Tesseract.createWorker("eng");
 
     let fullText = "";
-    for (const imgFile of imageFiles) {
-      const imgPath = path.join(tmpDir, imgFile);
-      const { data: { text } } = await worker.recognize(imgPath);
-      fullText += text + "\n";
+    try {
+      for (const imgFile of imageFiles) {
+        const imgPath = path.join(tmpDir, imgFile);
+        const { data: { text } } = await worker.recognize(imgPath);
+        fullText += text + "\n";
+      }
+    } finally {
+      await worker.terminate().catch(e => console.error("Tesseract worker terminate error:", e.message));
     }
-
-    await worker.terminate();
     console.log(`Tesseract OCR complete: extracted ${fullText.trim().length} chars from ${imageFiles.length} pages`);
     return fullText.trim();
   } finally {
-    try {
-      const files = fs.readdirSync(tmpDir);
-      for (const f of files) fs.unlinkSync(path.join(tmpDir, f));
-      fs.rmdirSync(tmpDir);
-    } catch (cleanupErr) {
-      console.error("Tesseract OCR temp cleanup error:", cleanupErr.message);
-    }
+    cleanupTmpDir(tmpDir);
   }
 }
 
