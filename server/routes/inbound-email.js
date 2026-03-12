@@ -126,12 +126,18 @@ router.post("/", upload.any(), async (req, res) => {
       console.log(`Filings email: matched to case ID ${caseId}`);
 
       if (!attachments || attachments.length === 0) {
-        await pool.query(
-          `INSERT INTO case_correspondence (case_id, from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, is_voicemail)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)`,
-          [caseId, fromEmail, fromName, to, cc, subject, text, html, JSON.stringify(attachments)]
-        );
-        console.log(`Filings email: no attachments, saved to correspondence for case ${caseId}`);
+        const hasAttachmentInfo = !!req.body["attachment-info"];
+        if (hasAttachmentInfo) {
+          console.warn(`Filings email: attachment-info present but no files received — possible parse failure. Storing as unmatched for case ${caseId}`);
+          await pool.query(
+            `INSERT INTO unmatched_filings_emails (from_email, from_name, to_emails, cc_emails, subject, body_text, body_html, attachments, court_case_number, attachment_count)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [fromEmail, fromName, to, cc, subject, text, html, JSON.stringify([]), courtCaseNumber, 0]
+          );
+        } else {
+          console.log(`Filings email: no attachments, skipping (filings emails are attachment-only) for case ${caseId}`);
+        }
+        return res.status(200).send("OK");
       }
 
       const pdfAttachments = attachments.filter(a => a.contentType === "application/pdf");
