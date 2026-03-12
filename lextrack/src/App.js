@@ -6113,7 +6113,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [medRecFilters, setMedRecFilters] = useState({});
   const [liens, setLiens] = useState([]);
   const [damages, setDamages] = useState([]);
+  const [expandedDamageId, setExpandedDamageId] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [expandedExpenseId, setExpandedExpenseId] = useState(null);
   const [negotiations, setNegotiations] = useState([]);
   const [expandedPolicyNeg, setExpandedPolicyNeg] = useState({});
   const [piDataLoading, setPiDataLoading] = useState(false);
@@ -6300,7 +6302,14 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
 
   useEffect(() => {
     setCorrLoading(true);
-    apiGetCorrespondence(c.id).then(setCorrespondence).catch(() => {}).finally(() => setCorrLoading(false));
+    apiGetCorrespondence(c.id).then(data => {
+      setCorrespondence(data);
+      const regularEmails = (data || []).filter(e => !e.isVoicemail);
+      const vmEmails = (data || []).filter(e => e.isVoicemail);
+      if (regularEmails.length === 0 && vmEmails.length > 0) {
+        setCorrSubTab("voicemails");
+      }
+    }).catch(() => {}).finally(() => setCorrLoading(false));
     setVoicemailsLoading(true);
     apiGetVoicemails(c.id).then(setVoicemails).catch(() => {}).finally(() => setVoicemailsLoading(false));
     setDocsLoading(true);
@@ -8823,7 +8832,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Damages ({damages.length})</div>
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
                 try {
-                  const saved = await apiCreateDamage(c.id, { category: "Medical Bills", description: "", amount: "", documentationStatus: "Pending", notes: "" });
+                  const saved = await apiCreateDamage(c.id, { name: "", category: "Medical Bills", description: "", amount: "", documentationStatus: "Pending", notes: "" });
+                  setExpandedDamageId(saved.id);
                   setDamages(p => [...p, saved]);
                 } catch (err) { alert("Failed: " + err.message); }
               }}>+ Add Damage</button>
@@ -8863,63 +8873,73 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const wo = Number(d.writeOff) || 0;
               const calcOwed = Math.max(0, billed - reductionAmt - insPaid - wo);
               const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, { ...d, ...updates }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {});
+              const isDmgExpanded = expandedDamageId === d.id;
+              const dmgLabel = d.name || d.category || "Untitled Damage";
               return (
-              <div key={`${d.id}-${d.reductionIsPercent}`} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
-                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={d.category || "Other"} onChange={e => saveDmg({ category: e.target.value })}>
-                        {["Medical Bills", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
-                      </select></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.amount || ""} onBlur={e => saveDmg({ amount: e.target.value })} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
-                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => saveDmg({ documentationStatus: e.target.value })}>
-                        {["Documented", "Pending", "Estimated"].map(o => <option key={o}>{o}</option>)}
-                      </select></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Billed</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.billed || ""} onBlur={e => saveDmg({ billed: e.target.value })} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {d.reductionIsPercent ? "(%)" : "($)"}</label>
-                      <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-                        <input type="number" placeholder={d.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
-                          defaultValue={d.reductionValue || ""} onBlur={e => saveDmg({ reductionValue: e.target.value })} />
-                        <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
-                          defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => saveDmg({ reductionIsPercent: e.target.value === "%" })}>
-                          <option value="$">$</option><option value="%">%</option>
-                        </select>
-                      </div>
-                      {d.reductionIsPercent && rv > 0 && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>= ${reductionAmt.toLocaleString()}</div>}
-                    </div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insurance Paid</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.insurancePaid || ""} onBlur={e => saveDmg({ insurancePaid: e.target.value })} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Write-off</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.writeOff || ""} onBlur={e => saveDmg({ writeOff: e.target.value })} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Client Paid</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.clientPaid || ""} onBlur={e => saveDmg({ clientPaid: e.target.value })} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Firm Paid</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.firmPaid || ""} onBlur={e => saveDmg({ firmPaid: e.target.value })} /></div>
-                    <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={d.description || ""} onBlur={e => saveDmg({ description: e.target.value })} /></div>
+              <div key={`${d.id}-${d.reductionIsPercent}`} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 12, background: isDmgExpanded ? "var(--c-bg2)" : "var(--c-bg)" }}
+                  onClick={() => setExpandedDamageId(isDmgExpanded ? null : d.id)}>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{dmgLabel}</span>
+                    <span style={{ fontSize: 12, color: "var(--c-text3)" }}>Owed: <span style={{ fontWeight: 600, color: calcOwed > 0 ? "#dc2626" : "#16a34a" }}>${calcOwed.toLocaleString()}</span></span>
+                    <span style={{ fontSize: 12, color: "var(--c-text3)" }}>Billed: <span style={{ fontWeight: 600 }}>${billed.toLocaleString()}</span></span>
+                    {reductionAmt > 0 && <span style={{ fontSize: 12, color: "#7c3aed" }}>Reduction: −${reductionAmt.toLocaleString()}</span>}
                   </div>
-                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e => alert(e.message)); }}>✕</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
+                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e2 => alert(e2.message)); }}>✕</button>
+                    {isDmgExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
+                  </div>
                 </div>
-                {billed > 0 && (
-                  <div style={{ borderTop: "1px dashed var(--c-border)", marginTop: 8, paddingTop: 6, display: "flex", gap: 16, flexWrap: "wrap" }}>
-                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Billed:</span> <span style={{ fontSize: 12, fontWeight: 600 }}>${billed.toLocaleString()}</span></div>
-                    {reductionAmt > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Reduction:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${reductionAmt.toLocaleString()}</span></div>}
-                    {insPaid > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Ins. Paid:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#0369a1" }}>−${insPaid.toLocaleString()}</span></div>}
-                    {wo > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Write-off:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>−${wo.toLocaleString()}</span></div>}
-                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Owed:</span> <span style={{ fontSize: 12, fontWeight: 700, color: calcOwed > 0 ? "#dc2626" : "#16a34a" }}>${calcOwed.toLocaleString()}</span></div>
+                {isDmgExpanded && (
+                  <div style={{ padding: "0 14px 14px", borderTop: "1px solid var(--c-border2)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", marginTop: 10 }}>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Name</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          placeholder="e.g. ER Visit, Lost Wages" defaultValue={d.name || ""} onBlur={e => saveDmg({ name: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
+                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                          defaultValue={d.category || "Other"} onChange={e => saveDmg({ category: e.target.value })}>
+                          {["Medical Bills", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
+                        </select></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
+                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                          defaultValue={d.documentationStatus || d.documentation_status || "Pending"} onChange={e => saveDmg({ documentationStatus: e.target.value })}>
+                          {["Documented", "Pending", "Estimated"].map(o => <option key={o}>{o}</option>)}
+                        </select></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.amount || ""} onBlur={e => saveDmg({ amount: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Billed</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.billed || ""} onBlur={e => saveDmg({ billed: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Reduction {d.reductionIsPercent ? "(%)" : "($)"}</label>
+                        <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
+                          <input type="number" placeholder={d.reductionIsPercent ? "e.g. 25" : "0.00"} style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: "4px 0 0 4px", border: "1px solid var(--c-border)", borderRight: "none", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box", minWidth: 60, width: "100%" }}
+                            defaultValue={d.reductionValue || ""} onBlur={e => saveDmg({ reductionValue: e.target.value })} />
+                          <select style={{ fontSize: 12, padding: "4px 6px", borderRadius: "0 4px 4px 0", border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
+                            defaultValue={d.reductionIsPercent ? "%" : "$"} onChange={e => saveDmg({ reductionIsPercent: e.target.value === "%" })}>
+                            <option value="$">$</option><option value="%">%</option>
+                          </select>
+                        </div>
+                        {d.reductionIsPercent && rv > 0 && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>= ${reductionAmt.toLocaleString()}</div>}
+                      </div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insurance Paid</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.insurancePaid || ""} onBlur={e => saveDmg({ insurancePaid: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Write-off</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.writeOff || ""} onBlur={e => saveDmg({ writeOff: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Client Paid</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.clientPaid || ""} onBlur={e => saveDmg({ clientPaid: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Firm Paid</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.firmPaid || ""} onBlur={e => saveDmg({ firmPaid: e.target.value })} /></div>
+                      <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={d.description || ""} onBlur={e => saveDmg({ description: e.target.value })} /></div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -9005,6 +9025,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
                 try {
                   const saved = await apiCreateExpense(c.id, { category: "Filing Fees", description: "", amount: "", date: new Date().toISOString().slice(0, 10), vendor: "", status: "Pending", notes: "" });
+                  setExpandedExpenseId(saved.id);
                   setExpenses(p => [...(p || []), saved]);
                 } catch (err) { alert("Failed: " + err.message); }
               }}>+ Add Expense</button>
@@ -9018,38 +9039,56 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               );
             })()}
             {(expenses || []).length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No expenses recorded yet.</div>}
-            {(expenses || []).map(exp => (
-              <div key={exp.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, padding: "12px 14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", flex: 1 }}>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
-                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={exp.category || "Other"} onChange={e => apiUpdateExpense(c.id, exp.id, { category: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})}>
-                        {["Filing Fees", "Expert Fees", "Court Reporter", "Medical Records", "Process Server", "Travel", "Postage", "Copies", "Investigation", "Deposition", "Other"].map(o => <option key={o}>{o}</option>)}
-                      </select></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
-                      <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={exp.amount || ""} onBlur={e => apiUpdateExpense(c.id, exp.id, { amount: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date</label>
-                      <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={exp.date || ""} onChange={e => apiUpdateExpense(c.id, exp.id, { date: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Vendor</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={exp.vendor || ""} onBlur={e => apiUpdateExpense(c.id, exp.id, { vendor: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
-                    <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
-                      <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                        defaultValue={exp.status || "Pending"} onChange={e => apiUpdateExpense(c.id, exp.id, { status: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})}>
-                        {["Pending", "Paid", "Reimbursed", "Waived"].map(o => <option key={o}>{o}</option>)}
-                      </select></div>
-                    <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
-                      <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                        defaultValue={exp.description || ""} onBlur={e => apiUpdateExpense(c.id, exp.id, { description: e.target.value }).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {})} /></div>
+            {(expenses || []).map(exp => {
+              const isExpExpanded = expandedExpenseId === exp.id;
+              const expAmt = Number(exp.amount) || 0;
+              const saveExp = (updates) => apiUpdateExpense(c.id, exp.id, updates).then(u => setExpenses(p => p.map(x => x.id === exp.id ? u : x))).catch(() => {});
+              return (
+              <div key={exp.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 12, background: isExpExpanded ? "var(--c-bg2)" : "var(--c-bg)" }}
+                  onClick={() => setExpandedExpenseId(isExpExpanded ? null : exp.id)}>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{exp.category || "Other"}</span>
+                    {exp.vendor && <span style={{ fontSize: 12, color: "var(--c-text3)" }}>{exp.vendor}</span>}
+                    <span style={{ fontSize: 12, color: "var(--c-text3)" }}>${expAmt.toLocaleString()}</span>
+                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: exp.status === "Paid" ? "#dcfce7" : exp.status === "Reimbursed" ? "#dbeafe" : exp.status === "Waived" ? "#f1f5f9" : "#fef3c7", color: exp.status === "Paid" ? "#16a34a" : exp.status === "Reimbursed" ? "#1e40af" : exp.status === "Waived" ? "#64748b" : "#a16207" }}>{exp.status || "Pending"}</span>
                   </div>
-                  <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteExpense(c.id, exp.id).then(() => setExpenses(p => p.filter(x => x.id !== exp.id))).catch(e => alert(e.message)); }}>✕</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
+                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteExpense(c.id, exp.id).then(() => setExpenses(p => p.filter(x => x.id !== exp.id))).catch(e2 => alert(e2.message)); }}>✕</button>
+                    {isExpExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
+                  </div>
                 </div>
+                {isExpExpanded && (
+                  <div style={{ padding: "0 14px 14px", borderTop: "1px solid var(--c-border2)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", marginTop: 10 }}>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
+                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                          defaultValue={exp.category || "Other"} onChange={e => saveExp({ category: e.target.value })}>
+                          {["Filing Fees", "Expert Fees", "Court Reporter", "Medical Records", "Process Server", "Travel", "Postage", "Copies", "Investigation", "Deposition", "Other"].map(o => <option key={o}>{o}</option>)}
+                        </select></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Amount</label>
+                        <input type="number" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={exp.amount || ""} onBlur={e => saveExp({ amount: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date</label>
+                        <input type="date" style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={exp.date || ""} onChange={e => saveExp({ date: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Vendor</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={exp.vendor || ""} onBlur={e => saveExp({ vendor: e.target.value })} /></div>
+                      <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
+                        <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                          defaultValue={exp.status || "Pending"} onChange={e => saveExp({ status: e.target.value })}>
+                          {["Pending", "Paid", "Reimbursed", "Waived"].map(o => <option key={o}>{o}</option>)}
+                        </select></div>
+                      <div style={{ gridColumn: "1 / -1" }}><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
+                        <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                          defaultValue={exp.description || ""} onBlur={e => saveExp({ description: e.target.value })} /></div>
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+            ); })}
           </div>
         )}
 
