@@ -1,0 +1,89 @@
+Medical Record PDF Summarize Feature — Implementation Guide
+Overview
+This feature allows users to upload a medical record PDF from a case's Medical Summary tab. The backend extracts text page-by-page using pdf-parse, tags each page with [PAGE N] markers, and sends the text to OpenAI to parse it into structured treatment entries (provider, date, summary, page numbers). The user reviews the parsed entries in a preview panel and can accept or discard individual entries before merging them into the case's medical_summary JSONB column.
+
+Database
+The cases table has a JSONB column:
+
+medical_summary JSONB NOT NULL DEFAULT '[]'
+Each entry in the array is an object like:
+
+{
+  "provider": "Dr. Smith / ABC Hospital",
+  "dateOfService": "2025-06-15",
+  "summary": "X-ray of lumbar spine, diagnosed herniated disc L4-L5",
+  "pageNumbers": [3, 4]
+}
+Backend Endpoint
+POST /api/ai/parse-medical-pdf (in server/routes/ai-center.js, mounted at /api/ai)
+
+Auth: Requires authenticated session (requireAuth middleware)
+Upload: Uses multer with memory storage, 50MB file size limit, PDF-only filter
+Multer error handling: Wraps upload.single("file") in a custom middleware so LIMIT_FILE_SIZE errors return a 413 with a clear message instead of a generic 500
+How it works:
+
+Receives the PDF as a multipart file upload (field name: file)
+Uses pdf-parse with a custom pagerender function that extracts text content page-by-page, tracking Y-position changes to insert line breaks
+Tags each page's text with [PAGE N] markers: [PAGE 1]\n<text>\n\n[PAGE 2]\n<text>...
+If no text extracted via page renderer, falls back to pdf.text
+Sends up to 16,000 characters of tagged text to OpenAI via the callAI helper
+AI returns structured JSON with treatment entries
+parseJSON helper extracts the JSON from the AI response
+System prompt sent to AI:
+
+You extract structured medical treatment data from medical records. The text is labeled with [PAGE N] markers indicating which page each section comes from. Return JSON:
+{
+  "entries": [
+    {
+      "provider": "Provider/Facility Name",
+      "dateOfService": "YYYY-MM-DD",
+      "summary": "Brief summary of treatment, diagnosis, findings",
+      "pageNumbers": [1]
+    }
+  ]
+}
+For each entry, include a "pageNumbers" array listing every page number where data for that entry was found (a single entry may span multiple pages). Extract every distinct visit/treatment entry you can identify. Each date of service should be a separate entry. Use ISO date format. If a date is ambiguous, use your best interpretation. Return ONLY valid JSON.
+Critical rule: The callAI helper enforces store: false on all OpenAI API calls — this is mandatory for attorney-client privilege data protection.
+
+Response format:
+
+{
+  "entries": [
+    {
+      "provider": "ABC Medical",
+      "dateOfService": "2025-03-10",
+      "summary": "MRI of right knee showing ACL tear",
+      "pageNumbers": [2, 3]
+    }
+  ]
+}
+If no text can be extracted: { "entries": [], "message": "No text could be extracted from this PDF" }
+
+Frontend API Function
+In api.js:
+
+export async function apiAiParseMedicalPdf(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/ai/parse-medical-pdf", { method: "POST", credentials: "include", body: form });
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Upload error ${res.status}`); }
+  return res.json();
+}
+Frontend Component: MedPdfUpload
+Props: { partyId, onEntriesParsed }
+
+partyId — the case party this upload relates to
+onEntriesParsed(entries) — callback when user clicks "Add All" to accept parsed entries
+Behavior:
+
+Renders a hidden <input type="file" accept=".pdf"> and a styled "⚡ Upload PDF" button (gold/amber AI style: border #D4A853, text #B8860B)
+On file select, calls apiAiParseMedicalPdf(file), shows "⚡ Parsing PDF..." loading state
+On success with entries, renders a review panel showing each entry with provider, date, page numbers, and truncated summary
+User can remove individual entries (× button) or accept all visible entries ("Add All" button)
+"Add All" calls onEntriesParsed(visibleEntries) — the parent component handles merging into medical_summary
+Error messages display inline next to the button
+File input resets after each upload attempt
+Dependencies
+pdf-parse — must stay at v1.1.1 (newer versions have issues)
+multer — for file upload handling
+OpenAI integration via callAI from server/ai-helpers.js (model: gpt-5-mini, store: false enforced)
