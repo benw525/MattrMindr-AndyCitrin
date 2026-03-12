@@ -47,7 +47,7 @@ import {
   apiGetPortalMessages, apiSendPortalMessage, apiMarkPortalMsgRead,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
-  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail,
+  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail, apiReprocessUnmatchedEmails,
   apiGetPermissionKeys, apiGetPermissions, apiCreatePermission, apiCreatePermissionsBulk, apiDeletePermission, apiDeletePermissionsBulk, apiCheckPermissions,
   apiSendSupport,
   apiGetCollabUnreadCount,
@@ -17881,6 +17881,17 @@ function UnmatchedView({ allCases, onMenuToggle }) {
           )}
           {emails.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                <button onClick={async () => {
+                  try {
+                    const result = await apiReprocessUnmatchedEmails();
+                    alert(`Reprocessed: ${result.matched} email(s) matched to cases. ${result.remaining} still unmatched.`);
+                    refresh();
+                  } catch (err) { alert("Reprocess failed: " + err.message); }
+                }} className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "none", fontSize: 11, padding: "4px 12px", borderRadius: 5, cursor: "pointer" }}>
+                  Re-match All
+                </button>
+              </div>
               {emails.map(email => {
                 const isOpen = selectedEmail === email.id;
                 const itemKey = `e-${email.id}`;

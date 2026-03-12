@@ -99,15 +99,16 @@ router.post("/", upload.any(), async (req, res) => {
 
       if (courtMatch) {
         courtCaseNumber = courtMatch[1].trim().toUpperCase();
-        console.log(`Filings email: extracted court case number "${courtCaseNumber}" from subject`);
+        const courtCaseNumberBase = courtCaseNumber.replace(/\.\d+$/, "");
+        console.log(`Filings email: extracted court case number "${courtCaseNumber}" (base: "${courtCaseNumberBase}") from subject`);
         const { rows: matchedCases } = await pool.query(
-          "SELECT id FROM cases WHERE UPPER(TRIM(court_case_number)) = $1 AND deleted_at IS NULL LIMIT 1",
-          [courtCaseNumber]
+          "SELECT id FROM cases WHERE (UPPER(TRIM(court_case_number)) = $1 OR UPPER(TRIM(court_case_number)) = $2) AND deleted_at IS NULL LIMIT 1",
+          [courtCaseNumber, courtCaseNumberBase]
         );
         if (matchedCases.length > 0) {
           caseId = matchedCases[0].id;
         } else {
-          console.log(`Filings email: no case found with court_case_number="${courtCaseNumber}"`);
+          console.log(`Filings email: no case found with court_case_number="${courtCaseNumber}" or "${courtCaseNumberBase}"`);
         }
       } else {
         console.log("Filings email: no court case number found in subject:", subject);

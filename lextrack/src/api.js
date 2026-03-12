@@ -463,6 +463,7 @@ export const apiGetUnmatchedSms          = ()                 => apiFetch("/api/
 export const apiAssignSms                = (messageId, caseId) => apiFetch(`/api/sms/assign/${messageId}`, { method: "PUT", body: { caseId } });
 export const apiGetUnmatchedEmails       = ()                 => apiFetch("/api/unmatched-emails");
 export const apiAssignUnmatchedEmail     = (id, caseId)       => apiFetch(`/api/unmatched-emails/assign/${id}`, { method: "PUT", body: { caseId } });
+export const apiReprocessUnmatchedEmails = ()                 => apiFetch("/api/unmatched-emails/reprocess", { method: "POST" });
 
 // Permissions
 export const apiGetPermissionKeys       = ()                 => apiFetch("/api/permissions/keys");
