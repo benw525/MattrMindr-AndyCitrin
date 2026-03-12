@@ -130,6 +130,7 @@ const recordToFrontend = (r) => ({
   caseId: r.case_id,
   providerName: r.provider_name,
   dateOfService: r.date_of_service ? r.date_of_service.toISOString().split("T")[0] : "",
+  bodyPart: r.body_part || "",
   description: r.description,
   sourcePages: r.source_pages,
   summary: r.summary,
@@ -160,18 +161,31 @@ const parseMedicalText = async (text) => {
     messages: [
       {
         role: "system",
-        content: `You extract structured medical treatment data from medical records. The text may be labeled with [PAGE N] markers indicating which page each section comes from. Return JSON:
+        content: `You extract structured medical treatment data from medical records for a personal injury law firm. The text may be labeled with [PAGE N] markers indicating which page each section comes from. Return JSON:
 {
   "entries": [
     {
       "provider": "Provider/Facility Name (include doctor name and credentials if mentioned)",
       "dateOfService": "YYYY-MM-DD",
-      "summary": "Brief summary of treatment, diagnosis, findings",
+      "bodyPart": "Body area treated (e.g. Cervical Spine, Lumbar Spine, Right Shoulder, Left Knee)",
+      "summary": "Clinical summary for this visit",
       "pageNumbers": [1]
     }
   ]
 }
-For each entry, include a "pageNumbers" array listing every page number where data for that entry was found (a single entry may span multiple pages). Extract every distinct visit/treatment entry you can identify. Each date of service should be a separate entry. Use ISO date format. If a date is ambiguous, use your best interpretation. Return ONLY valid JSON.`
+
+SUMMARY INSTRUCTIONS — for each date of service, the summary should include ALL of the following that are documented:
+- Procedures/treatments performed (e.g. spinal adjustment, manual therapy, electrical stimulation, therapeutic exercises, ultrasound, traction, injection)
+- Patient-reported pain level (e.g. "Pain 7/10" or "VAS 5")
+- Progress notes and functional status (improving, unchanged, worsening)
+- Diagnoses and ICD codes if listed
+- Objective findings (ROM measurements, tenderness, spasm, swelling, imaging results)
+- Referrals, recommendations, or plan of care changes
+- If NO meaningful clinical detail is found for a date of service, do NOT create an entry for it
+
+BODY PART — identify the primary body region treated. Use standard terms: Cervical Spine, Thoracic Spine, Lumbar Spine, Left/Right Shoulder, Left/Right Knee, Left/Right Hip, Left/Right Wrist, Left/Right Ankle, Head/Neck, Full Body, Multiple Regions, etc.
+
+Each date of service should be a separate entry. Include a "pageNumbers" array listing every page where data for that entry was found. Use ISO date format (YYYY-MM-DD). Return ONLY valid JSON.`
       },
       {
         role: "user",
@@ -193,6 +207,7 @@ For each entry, include a "pageNumbers" array listing every page number where da
         return parsed.entries.map(e => ({
           provider_name: e.provider || "",
           date_of_service: e.dateOfService || null,
+          body_part: e.bodyPart || e.body_part || "",
           description: e.summary || "",
           source_pages: Array.isArray(e.pageNumbers) ? e.pageNumbers.join(", ") : (e.pageNumbers || ""),
           summary: e.summary || "",
@@ -208,6 +223,7 @@ For each entry, include a "pageNumbers" array listing every page number where da
       return arr.map(e => ({
         provider_name: e.provider || e.provider_name || "",
         date_of_service: e.dateOfService || e.date_of_service || null,
+        body_part: e.bodyPart || e.body_part || "",
         description: e.summary || e.description || "",
         source_pages: Array.isArray(e.pageNumbers) ? e.pageNumbers.join(", ") : (e.source_pages || e.pageNumbers || ""),
         summary: e.summary || "",
@@ -261,6 +277,7 @@ router.post("/:caseId/records/:treatmentId/upload", requireAuth, upload.single("
       _stagingId: `upload-${Date.now()}-${i}`,
       provider_name: v.provider_name || "",
       date_of_service: v.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(v.date_of_service) ? v.date_of_service : null,
+      body_part: v.body_part || "",
       description: v.description || "",
       source_pages: v.source_pages || "",
       summary: v.summary || "",
@@ -336,6 +353,7 @@ router.post("/:caseId/records/:treatmentId/from-document", requireAuth, async (r
       _stagingId: `doc-${Date.now()}-${i}`,
       provider_name: v.provider_name || "",
       date_of_service: v.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(v.date_of_service) ? v.date_of_service : null,
+      body_part: v.body_part || "",
       description: v.description || "",
       source_pages: v.source_pages || "",
       summary: v.summary || "",
@@ -387,6 +405,7 @@ router.post("/:caseId/records/:treatmentId/commit", requireAuth, upload.single("
         treatmentId, caseId,
         visit.provider_name || "",
         dateVal,
+        visit.body_part || "",
         visit.description || "",
         visit.source_pages || "",
         visit.summary || "",
@@ -399,18 +418,18 @@ router.post("/:caseId/records/:treatmentId/commit", requireAuth, upload.single("
       let sql;
       if (documentId) {
         sql = `INSERT INTO medical_records
-          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_size, filename, mime_type, uploaded_by, source_document_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`;
+          (treatment_id, case_id, provider_name, date_of_service, body_part, description, source_pages, summary, file_size, filename, mime_type, uploaded_by, source_document_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`;
         params.push(documentId);
       } else if (buffer) {
         sql = `INSERT INTO medical_records
-          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_data, file_size, filename, mime_type, uploaded_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`;
-        params.splice(7, 0, buffer);
+          (treatment_id, case_id, provider_name, date_of_service, body_part, description, source_pages, summary, file_data, file_size, filename, mime_type, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`;
+        params.splice(8, 0, buffer);
       } else {
         sql = `INSERT INTO medical_records
-          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_size, filename, mime_type, uploaded_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`;
+          (treatment_id, case_id, provider_name, date_of_service, body_part, description, source_pages, summary, file_size, filename, mime_type, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`;
       }
 
       const { rows } = await pool.query(sql, params);
@@ -453,6 +472,7 @@ router.put("/:caseId/records/:treatmentId/:id", requireAuth, async (req, res) =>
     const recFieldMap = {
       providerName: "provider_name",
       dateOfService: "date_of_service",
+      bodyPart: "body_part",
       description: "description",
       sourcePages: "source_pages",
       summary: "summary",

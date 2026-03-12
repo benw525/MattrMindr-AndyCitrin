@@ -8520,6 +8520,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                           <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{entry.provider_name || "(No Provider)"}</span>
                           {entry.date_of_service && <span style={{ fontSize: 11, color: "#64748b" }}>{entry.date_of_service}</span>}
+                          {entry.body_part && <span style={{ fontSize: 10, color: "#1e40af", background: "#dbeafe", padding: "1px 6px", borderRadius: 3 }}>{entry.body_part}</span>}
                           {entry.source_pages && <span style={{ fontSize: 10, color: "#a16207", background: "#fef3c7", padding: "1px 6px", borderRadius: 3 }}>p. {entry.source_pages}</span>}
                         </div>
                         <div style={{ fontSize: 12, color: "#475569", marginTop: 2, lineHeight: 1.4 }}>{(entry.description || entry.summary || "").substring(0, 200)}{(entry.description || entry.summary || "").length > 200 ? "..." : ""}</div>
@@ -8752,6 +8753,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                                       <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>{rec.providerName || "(No Provider)"}</span>
                                       <span style={{ fontSize: 12, color: "var(--c-text3)", flexShrink: 0 }}>{rec.dateOfService ? new Date(rec.dateOfService + "T00:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : ""}</span>
+                                      {rec.bodyPart && <span style={{ fontSize: 10, color: "#1e40af", background: "#dbeafe", padding: "1px 6px", borderRadius: 3, flexShrink: 0 }}>{rec.bodyPart}</span>}
                                       {rec.sourcePages && <span style={{ fontSize: 11, color: "#64748b", flexShrink: 0 }}>p. {rec.sourcePages}</span>}
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -8781,10 +8783,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                             defaultValue={rec.dateOfService || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { dateOfService: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
                                         </div>
                                         <div>
-                                          <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
+                                          <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Body Part</label>
                                           <input style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                                            placeholder="Brief description" defaultValue={rec.description || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { description: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                            placeholder="e.g. Cervical Spine" defaultValue={rec.bodyPart || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { bodyPart: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
                                         </div>
+                                      </div>
+                                      <div style={{ marginBottom: 10 }}>
+                                        <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
+                                        <input style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                          placeholder="Brief description" defaultValue={rec.description || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { description: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
                                       </div>
                                       {rec.sourcePages && <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>Source Page: {rec.sourcePages}</div>}
                                       <div>

@@ -15,6 +15,7 @@ A case management system for personal injury law firms. Tracks PI cases, manages
 - **Page-tagged OCR**: `extractTextWithPages()` in `server/utils/extract-text.js` returns text with `[PAGE N]` markers. Uses `pdf-parse` pagerender first (for digital PDFs), falls back to Gemini/Tesseract with per-page tagging. Used by medical record parsing for accurate page references.
 - **OpenAI Privacy**: All `openai.chat.completions.create()` calls include `store: false` to prevent training on attorney-client privileged data
 - **Medical Record Staging**: Upload/from-document routes return staged entries for preview; user reviews with Add All/Discard/per-entry remove; commit endpoint saves selected entries
+- **Medical Record Parsing**: AI extracts per-visit: provider, date, body part treated, procedures/treatments, pain levels, progress notes, diagnoses/ICD codes, objective findings, referrals. Entries with no meaningful clinical detail are omitted. `body_part` column in `medical_records` table.
 - **System Dependencies**: ffmpeg (Nix package, required for audio transcription), pdftoppm (for PDF-to-image conversion during OCR)
 - **Design Packages**: tailwindcss@3.4.19, postcss, autoprefixer, lucide-react (in lextrack/package.json devDependencies)
 
