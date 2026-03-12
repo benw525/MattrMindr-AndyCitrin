@@ -1,18 +1,31 @@
 const BASE = "";
 
 async function apiFetch(path, opts = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  if (!res.ok) {
-    let msg = `API error ${res.status}`;
-    try { const j = await res.json(); msg = j.error || msg; } catch {}
-    throw new Error(msg);
+  const maxRetries = opts.noRetry ? 0 : 1;
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1500));
+      const res = await fetch(`${BASE}${path}`, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+        ...opts,
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+      });
+      if (!res.ok) {
+        let msg = `API error ${res.status}`;
+        try { const j = await res.json(); msg = j.error || msg; } catch {}
+        throw new Error(msg);
+      }
+      return res.json();
+    } catch (err) {
+      lastErr = err;
+      const isNetworkErr = err.message === "Load failed" || err.message === "Failed to fetch" || err.name === "TypeError";
+      if (!isNetworkErr || attempt >= maxRetries) throw err;
+      console.warn(`apiFetch retry ${attempt + 1} for ${path}: ${err.message}`);
+    }
   }
-  return res.json();
+  throw lastErr;
 }
 
 // Auth
