@@ -88,9 +88,16 @@ const PERMISSION_KEYS = [
   { key: "view_staff", category: "Staff & Administration", label: "View Staff List" },
   { key: "manage_client_portal", category: "Staff & Administration", label: "Manage Client Portal" },
   { key: "batch_operations", category: "Staff & Administration", label: "Perform Batch Case Operations" },
-  { key: "view_deleted_data", category: "Staff & Administration", label: "View Deleted Data" },
-  { key: "restore_deleted_data", category: "Staff & Administration", label: "Restore Deleted Data" },
-  { key: "purge_deleted_data", category: "Staff & Administration", label: "Permanently Purge Deleted Data" },
+
+  { key: "access_customization", category: "Customization", label: "Access Customization Section" },
+  { key: "manage_task_flows", category: "Customization", label: "Create/Edit Task Flows" },
+  { key: "manage_dashboard_widgets", category: "Customization", label: "Create/Edit Dashboard Widgets" },
+  { key: "manage_custom_reports", category: "Customization", label: "Create/Edit Custom Reports" },
+  { key: "manage_permissions", category: "Customization", label: "Manage Permissions" },
+
+  { key: "view_deleted_data", category: "Deleted Data", label: "View Deleted Data" },
+  { key: "restore_deleted_data", category: "Deleted Data", label: "Restore Deleted Data" },
+  { key: "purge_deleted_data", category: "Deleted Data", label: "Permanently Purge Deleted Data" },
 ];
 
 router.get("/keys", requireAuth, async (req, res) => {

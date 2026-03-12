@@ -13722,13 +13722,23 @@ function PermissionsTab({ currentUser, allUsers }) {
   const [permissions, setPermissions] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState("role");
-  const [selectedTarget, setSelectedTarget] = useState("");
+  const [selectedTargets, setSelectedTargets] = useState([]);
   const [searchFilter, setSearchFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [saving, setSaving] = useState(false);
   const [pendingChanges, setPendingChanges] = useState({});
   const [expiryMap, setExpiryMap] = useState({});
   const [showExpiry, setShowExpiry] = useState({});
+
+  const toggleTarget = (target) => {
+    setSelectedTargets(prev => {
+      if (prev.includes(target)) return prev.filter(t => t !== target);
+      return [...prev, target];
+    });
+    setPendingChanges({});
+    setExpiryMap({});
+  };
+  const selectedTarget = selectedTargets.length === 1 ? selectedTargets[0] : "";
 
   useEffect(() => {
     if (!loaded) {
@@ -13769,10 +13779,11 @@ function PermissionsTab({ currentUser, allUsers }) {
   const activeUsers = useMemo(() => (allUsers || []).filter(u => !u.deleted), [allUsers]);
 
   const getCurrentValue = (permKey) => {
-    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
+    const primary = selectedTargets[0] || "";
+    const changeKey = `${mode}:${primary}:${permKey}`;
     if (changeKey in pendingChanges) return pendingChanges[changeKey];
     const existing = permissions.find(p =>
-      p.permission_key === permKey && p.target_type === mode && p.target_value === selectedTarget
+      p.permission_key === permKey && p.target_type === mode && p.target_value === primary
     );
     if (existing) {
       if (existing.expires_at && new Date(existing.expires_at) < new Date()) return null;
@@ -13782,10 +13793,11 @@ function PermissionsTab({ currentUser, allUsers }) {
   };
 
   const getCurrentExpiry = (permKey) => {
-    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
+    const primary = selectedTargets[0] || "";
+    const changeKey = `${mode}:${primary}:${permKey}`;
     if (changeKey in expiryMap) return expiryMap[changeKey];
     const existing = permissions.find(p =>
-      p.permission_key === permKey && p.target_type === mode && p.target_value === selectedTarget
+      p.permission_key === permKey && p.target_type === mode && p.target_value === primary
     );
     if (!existing?.expires_at) return "";
     const d = new Date(existing.expires_at);
@@ -13794,18 +13806,24 @@ function PermissionsTab({ currentUser, allUsers }) {
   };
 
   const togglePermission = (permKey) => {
-    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
     const current = getCurrentValue(permKey);
     let next;
     if (current === null) next = true;
     else if (current === true) next = false;
     else next = null;
-    setPendingChanges(p => ({ ...p, [changeKey]: next }));
+    const updates = {};
+    for (const t of selectedTargets) {
+      updates[`${mode}:${t}:${permKey}`] = next;
+    }
+    setPendingChanges(p => ({ ...p, ...updates }));
   };
 
   const setExpiry = (permKey, val) => {
-    const changeKey = `${mode}:${selectedTarget}:${permKey}`;
-    setExpiryMap(p => ({ ...p, [changeKey]: val }));
+    const updates = {};
+    for (const t of selectedTargets) {
+      updates[`${mode}:${t}:${permKey}`] = val;
+    }
+    setExpiryMap(p => ({ ...p, ...updates }));
   };
 
   const hasChanges = Object.keys(pendingChanges).length > 0 || Object.keys(expiryMap).length > 0;
@@ -13865,11 +13883,16 @@ function PermissionsTab({ currentUser, allUsers }) {
   };
 
   const handleClearAll = async () => {
-    if (!selectedTarget) return;
-    if (!window.confirm(`Remove all permissions for this ${mode === "role" ? "role" : "user"}? This will reset to default behavior.`)) return;
+    if (selectedTargets.length === 0) return;
+    const label = selectedTargets.length === 1
+      ? `this ${mode === "role" ? "role" : "user"}`
+      : `these ${selectedTargets.length} ${mode === "role" ? "roles" : "users"}`;
+    if (!window.confirm(`Remove all permissions for ${label}? This will reset to default behavior.`)) return;
     setSaving(true);
     try {
-      await apiDeletePermissionsBulk(mode, selectedTarget);
+      for (const target of selectedTargets) {
+        await apiDeletePermissionsBulk(mode, target);
+      }
       const perms = await apiGetPermissions();
       setPermissions(perms);
       setPendingChanges({});
@@ -13881,10 +13904,10 @@ function PermissionsTab({ currentUser, allUsers }) {
   };
 
   const targetPermCount = useMemo(() => {
-    if (!selectedTarget) return 0;
+    if (selectedTargets.length === 0) return 0;
     const now = new Date();
-    return permissions.filter(p => p.target_type === mode && p.target_value === selectedTarget && (!p.expires_at || new Date(p.expires_at) >= now)).length;
-  }, [permissions, mode, selectedTarget]);
+    return permissions.filter(p => p.target_type === mode && selectedTargets.includes(p.target_value) && (!p.expires_at || new Date(p.expires_at) >= now)).length;
+  }, [permissions, mode, selectedTargets]);
 
   if (!loaded) return <div className="text-center py-10 text-slate-500"><Loader2 size={24} className="animate-spin mx-auto mb-2" />Loading permissions...</div>;
 
@@ -13900,11 +13923,11 @@ function PermissionsTab({ currentUser, allUsers }) {
       <div className="flex gap-6">
         <div className="w-64 flex-shrink-0">
           <div className="flex gap-0 mb-3 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-            <button onClick={() => { setMode("role"); setSelectedTarget(""); setPendingChanges({}); setExpiryMap({}); }}
+            <button onClick={() => { setMode("role"); setSelectedTargets([]); setPendingChanges({}); setExpiryMap({}); }}
               className={`flex-1 py-2 text-xs font-semibold border-0 cursor-pointer transition-colors ${mode === "role" ? "bg-amber-500 text-white" : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
               By Role
             </button>
-            <button onClick={() => { setMode("user"); setSelectedTarget(""); setPendingChanges({}); setExpiryMap({}); }}
+            <button onClick={() => { setMode("user"); setSelectedTargets([]); setPendingChanges({}); setExpiryMap({}); }}
               className={`flex-1 py-2 text-xs font-semibold border-0 cursor-pointer transition-colors ${mode === "user" ? "bg-amber-500 text-white" : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
               By User
             </button>
@@ -13914,11 +13937,15 @@ function PermissionsTab({ currentUser, allUsers }) {
             {mode === "role" && STAFF_ROLES.filter(r => r !== "App Admin").map(role => {
               const now = new Date();
               const count = permissions.filter(p => p.target_type === "role" && p.target_value === role && (!p.expires_at || new Date(p.expires_at) >= now)).length;
+              const isSelected = selectedTargets.includes(role);
               return (
-                <div key={role} onClick={() => { setSelectedTarget(role); setPendingChanges({}); setExpiryMap({}); }}
-                  className={`px-3 py-2.5 cursor-pointer text-sm border-b border-slate-100 dark:border-slate-700 transition-colors flex justify-between items-center ${selectedTarget === role ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
+                <div key={role} onClick={() => toggleTarget(role)}
+                  className={`px-3 py-2.5 cursor-pointer text-sm border-b border-slate-100 dark:border-slate-700 transition-colors flex justify-between items-center ${isSelected ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
                   <span>{role}</span>
-                  {count > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedTarget === role ? "bg-amber-500 text-white" : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"}`}>{count}</span>}
+                  <div className="flex items-center gap-1.5">
+                    {count > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isSelected ? "bg-amber-500 text-white" : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"}`}>{count}</span>}
+                    {isSelected && <Check size={12} className="text-amber-500" />}
+                  </div>
                 </div>
               );
             })}
@@ -13926,14 +13953,18 @@ function PermissionsTab({ currentUser, allUsers }) {
               const now = new Date();
               const count = permissions.filter(p => p.target_type === "user" && p.target_value === u.id.toString() && (!p.expires_at || new Date(p.expires_at) >= now)).length;
               const isAdmin = (u.roles || [u.role]).includes("App Admin");
+              const isSelected = selectedTargets.includes(u.id.toString());
               return (
-                <div key={u.id} onClick={() => { if (!isAdmin) { setSelectedTarget(u.id.toString()); setPendingChanges({}); setExpiryMap({}); } }}
-                  className={`px-3 py-2.5 text-sm border-b border-slate-100 dark:border-slate-700 transition-colors flex justify-between items-center ${isAdmin ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${selectedTarget === u.id.toString() ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
+                <div key={u.id} onClick={() => { if (!isAdmin) toggleTarget(u.id.toString()); }}
+                  className={`px-3 py-2.5 text-sm border-b border-slate-100 dark:border-slate-700 transition-colors flex justify-between items-center ${isAdmin ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${isSelected ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
                   <div>
                     <div className="font-medium">{u.name}</div>
                     <div className="text-[10px] text-slate-500 dark:text-slate-400">{(u.roles || [u.role]).join(", ")}{isAdmin ? " (Admin)" : ""}</div>
                   </div>
-                  {count > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedTarget === u.id.toString() ? "bg-amber-500 text-white" : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"}`}>{count}</span>}
+                  <div className="flex items-center gap-1.5">
+                    {count > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isSelected ? "bg-amber-500 text-white" : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"}`}>{count}</span>}
+                    {isSelected && <Check size={12} className="text-amber-500" />}
+                  </div>
                 </div>
               );
             })}
@@ -13941,23 +13972,27 @@ function PermissionsTab({ currentUser, allUsers }) {
         </div>
 
         <div className="flex-1 min-w-0">
-          {!selectedTarget && (
+          {selectedTargets.length === 0 && (
             <div className="text-center py-16 text-slate-400">
               <Shield size={48} className="mx-auto mb-3 opacity-30" />
               <div className="text-sm font-medium">Select a {mode === "role" ? "role" : "user"} to manage permissions</div>
-              <div className="text-xs mt-1">Permissions that are not explicitly set will follow the system's default access rules.</div>
+              <div className="text-xs mt-1">Click to select. Click multiple to batch-set permissions across all selected.</div>
             </div>
           )}
 
-          {selectedTarget && (
+          {selectedTargets.length > 0 && (
             <>
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div>
                   <h4 className="text-base font-bold text-slate-800 dark:text-white">
-                    {mode === "role" ? selectedTarget : activeUsers.find(u => u.id.toString() === selectedTarget)?.name || "User"}
+                    {selectedTargets.length === 1
+                      ? (mode === "role" ? selectedTargets[0] : activeUsers.find(u => u.id.toString() === selectedTargets[0])?.name || "User")
+                      : `${selectedTargets.length} ${mode === "role" ? "roles" : "users"} selected`}
                   </h4>
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {targetPermCount} permission{targetPermCount !== 1 ? "s" : ""} configured
+                    {selectedTargets.length === 1
+                      ? <>{targetPermCount} permission{targetPermCount !== 1 ? "s" : ""} configured</>
+                      : <>Changes will apply to all selected {mode === "role" ? "roles" : "users"}</>}
                     {mode === "user" && <span className="ml-2">· User-level overrides role-level</span>}
                   </div>
                 </div>
