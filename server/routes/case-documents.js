@@ -198,7 +198,7 @@ Be concise but thorough. Flag anything that could help the plaintiff's case.`;
     const userPrompt = `Summarize this ${doc.doc_type} for the case "${doc.case_title}" (Client: ${doc.client_name || "Unknown"}):\n\n${textSnippet}`;
 
     const resp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

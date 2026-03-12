@@ -171,7 +171,7 @@ router.post("/:caseId/records/:treatmentId/upload", requireAuth, upload.single("
     let visits = [];
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5-mini",
         messages: [
           {
             role: "system",
@@ -282,7 +282,7 @@ router.post("/:caseId/records/:treatmentId/from-document", requireAuth, async (r
     try {
       if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5-mini",
         messages: [
           {
             role: "system",

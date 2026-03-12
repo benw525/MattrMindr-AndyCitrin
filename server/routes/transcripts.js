@@ -787,7 +787,7 @@ router.get("/:id/suggest-name", requireAuth, async (req, res) => {
     if (!segments.length) return res.status(400).json({ error: "No transcript content available to suggest a name" });
     const textContent = segments.map(s => `${s.speaker}: ${s.text}`).join("\n").slice(0, 2000);
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: [
         {
           role: "system",
@@ -1005,7 +1005,7 @@ Be concise but thorough. Flag anything that could help or hurt the case.
 Do not use markdown formatting like headers with # or bold with **. Use plain text with section names in ALL CAPS followed by a colon.`;
 
     const resp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Summarize this transcript from "${row.filename}" for the case "${row.case_title || "Unknown"}" (Client: ${row.client_name || "Unknown"}):\n\n${textSnippet}` },

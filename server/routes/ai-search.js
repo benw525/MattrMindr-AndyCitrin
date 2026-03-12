@@ -244,7 +244,7 @@ Case data (${caseSummaries.length} cases):
 ${caseDataText}`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

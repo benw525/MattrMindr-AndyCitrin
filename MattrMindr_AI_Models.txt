@@ -10,7 +10,7 @@ Advocate AI (general chat assistant)
   File: server/routes/ai-agents.js
 
 AI Search (global case search)
-  Model: gpt-5-mini
+  Model: gpt-4o
   File: server/routes/ai-search.js
 
 Conflict Check (case conflict analysis)
@@ -18,19 +18,19 @@ Conflict Check (case conflict analysis)
   File: server/routes/cases.js
 
 Medical Treatment Extraction (from documents)
-  Model: gpt-4o
+  Model: gpt-5-mini
   File: server/routes/medical-treatments.js
 
 Document Summarize
-  Model: gpt-4o-mini
+  Model: gpt-5-mini
   File: server/routes/case-documents.js
 
 Filing Summarize & Classify
-  Model: gpt-4o-mini
+  Model: gpt-5-mini
   File: server/routes/filings.js
 
 Transcript Summarize & Speaker Label
-  Model: gpt-4o-mini
+  Model: gpt-5-mini
   File: server/routes/transcripts.js
 
 Audio Transcription (speech-to-text)

@@ -188,7 +188,7 @@ Be concise but thorough. Flag anything that requires immediate action by the pla
     const userPrompt = `Summarize this court filing for the case "${filing.case_title}" (Client: ${filing.client_name || "Unknown"}):\n\nFiled by: ${filing.filed_by || "Unknown"}\nDocument type: ${filing.doc_type || "Unknown"}\n\n${textSnippet}`;
 
     const resp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -204,7 +204,7 @@ Be concise but thorough. Flag anything that requires immediate action by the pla
     let createdDeadlines = [];
     try {
       const dateResp = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         messages: [
           { role: "system", content: `Extract any hearing dates, court dates, or scheduled appearances from this filing summary. Return ONLY valid JSON with a single field:\n- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion Hearing", "Status Conference", "Mediation", "Deposition", "Trial Date"). Return empty array [] if none found.)` },
           { role: "user", content: summary },
