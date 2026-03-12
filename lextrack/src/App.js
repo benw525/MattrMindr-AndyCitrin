@@ -8855,7 +8855,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Damages ({damages.length})</div>
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={async () => {
                 try {
-                  const saved = await apiCreateDamage(c.id, { name: "", category: "Medical Bills", description: "", amount: "", documentationStatus: "Pending", notes: "" });
+                  const saved = await apiCreateDamage(c.id, { name: "", category: "Medical Bill", description: "", amount: "", documentationStatus: "Pending", notes: "" });
                   setExpandedDamageId(saved.id);
                   setDamages(p => [...p, saved]);
                 } catch (err) { alert("Failed: " + err.message); }
@@ -8895,7 +8895,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const insPaid = Number(d.insurancePaid) || 0;
               const wo = Number(d.writeOff) || 0;
               const calcOwed = Math.max(0, billed - reductionAmt - insPaid - wo);
-              const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, { ...d, ...updates }).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {});
+              const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, updates).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {});
               const isDmgExpanded = expandedDamageId === d.id;
               const dmgLabel = d.name || d.category || "Untitled Damage";
               return (
@@ -8923,7 +8923,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
                           defaultValue={d.category || "Other"} onChange={e => saveDmg({ category: e.target.value })}>
-                          {["Medical Bills", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
+                          {["Medical Bill", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}

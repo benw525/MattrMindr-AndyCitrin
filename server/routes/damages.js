@@ -44,7 +44,7 @@ router.post("/:caseId", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO case_damages (case_id, name, category, description, amount, documentation_status, notes, billed, owed, reduction_value, reduction_is_percent, client_paid, firm_paid, insurance_paid, write_off)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-      [req.params.caseId, d.name || "", d.category || "Medical Bills", d.description || "",
+      [req.params.caseId, d.name || "", d.category || "Medical Bill", d.description || "",
        orNull(d.amount), d.documentationStatus || "Pending", d.notes || "",
        orNull(d.billed), orNull(d.owed), orNull(d.reductionValue),
        !!d.reductionIsPercent, orNull(d.clientPaid), orNull(d.firmPaid),
