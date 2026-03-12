@@ -153,6 +153,39 @@ router.get("/:caseId/records/:treatmentId", requireAuth, async (req, res) => {
   }
 });
 
+const parseMedicalText = async (text) => {
+  if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      {
+        role: "system",
+        content: `You are a medical record parser for personal injury cases. Given extracted text from a medical document, parse it into individual visit/treatment entries sorted by date. Return a JSON array of objects, each with:
+- provider_name: the healthcare provider or facility name (include doctor name and credentials if mentioned, e.g. "MIMC Outpatient Physical Therapy Saraland (Jarrod Cain, PT; referring Tim S Revels, MD)")
+- date_of_service: date in YYYY-MM-DD format (or null if unknown)
+- description: brief description of the visit/treatment type (e.g. "Outpatient physical therapy visit", "Evaluation", "Treatment", "Appointment", "Episode created", "Episode resolved")
+- source_pages: which pages this entry appears on (e.g., "2, 3, 4, 5" or "16")
+- summary: a concise clinical summary of the visit including symptoms, treatments performed, diagnoses, and any referrals
+
+Return ONLY valid JSON array, no other text. Each distinct date of service should be a separate entry.`
+      },
+      {
+        role: "user",
+        content: `Parse this medical document into individual visit records:\n\n${text.substring(0, 15000)}`
+      }
+    ],
+    temperature: 0.1,
+    max_completion_tokens: 4000,
+  });
+
+  const content = completion.choices[0].message.content.trim();
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  if (jsonMatch) {
+    return JSON.parse(jsonMatch[0]);
+  }
+  return [];
+};
+
 router.post("/:caseId/records/:treatmentId/upload", requireAuth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
@@ -170,34 +203,7 @@ router.post("/:caseId/records/:treatmentId/upload", requireAuth, upload.single("
 
     let visits = [];
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical record parser. Given extracted text from a medical document, parse it into individual visit entries. Return a JSON array of objects, each with:
-- provider_name: the healthcare provider or facility name
-- date_of_service: date in YYYY-MM-DD format (or null if unknown)
-- description: brief description of the visit/treatment
-- source_pages: which pages this visit appears on (e.g., "1-2" or "3")
-- summary: a concise clinical summary of the visit
-
-Return ONLY valid JSON array, no other text.`
-          },
-          {
-            role: "user",
-            content: `Parse this medical document into individual visit records:\n\n${text.substring(0, 15000)}`
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 4000,
-      });
-
-      const content = completion.choices[0].message.content.trim();
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        visits = JSON.parse(jsonMatch[0]);
-      }
+      visits = await parseMedicalText(text);
     } catch (aiErr) {
       console.error("OpenAI medical record parse error:", aiErr.message);
       visits = [{
@@ -243,7 +249,29 @@ Return ONLY valid JSON array, no other text.`
       inserted.push(recordToFrontend(rows[0]));
     }
 
-    res.status(201).json(inserted);
+    const providerName = visits[0]?.provider_name || "";
+    const dates = visits.filter(v => v.date_of_service).map(v => v.date_of_service).sort();
+    let treatmentUpdates = {};
+    const { rows: tRows } = await pool.query("SELECT provider_name, first_visit_date, last_visit_date FROM case_medical_treatments WHERE id=$1 AND case_id=$2", [treatmentId, caseId]);
+    if (tRows.length) {
+      const t = tRows[0];
+      if (providerName && (!t.provider_name || t.provider_name.trim() === "")) treatmentUpdates.provider_name = providerName;
+      if (!t.first_visit_date && dates.length) treatmentUpdates.first_visit_date = dates[0];
+      if (!t.last_visit_date && dates.length) treatmentUpdates.last_visit_date = dates[dates.length - 1];
+    }
+    if (Object.keys(treatmentUpdates).length) {
+      const sets = [];
+      const vals = [];
+      let idx = 1;
+      for (const [col, val] of Object.entries(treatmentUpdates)) {
+        sets.push(`${col}=$${idx++}`);
+        vals.push(val);
+      }
+      vals.push(treatmentId, caseId);
+      await pool.query(`UPDATE case_medical_treatments SET ${sets.join(", ")} WHERE id=$${idx++} AND case_id=$${idx}`, vals);
+    }
+
+    res.status(201).json({ records: inserted, treatmentUpdates: Object.keys(treatmentUpdates).length ? treatmentUpdates : null });
   } catch (err) {
     console.error("Medical record upload error:", err);
     res.status(500).json({ error: "Server error" });
@@ -263,7 +291,7 @@ router.post("/:caseId/records/:treatmentId/from-document", requireAuth, async (r
     if (!treatmentRows.length) return res.status(404).json({ error: "Treatment not found for this case" });
 
     const { rows: docRows } = await pool.query(
-      "SELECT file_data, content_type, filename FROM case_documents WHERE id = $1 AND case_id = $2 AND deleted_at IS NULL",
+      "SELECT file_data, content_type, filename, extracted_text FROM case_documents WHERE id = $1 AND case_id = $2 AND deleted_at IS NULL",
       [documentId, caseId]
     );
     if (!docRows.length) return res.status(404).json({ error: "Document not found" });
@@ -273,40 +301,17 @@ router.post("/:caseId/records/:treatmentId/from-document", requireAuth, async (r
     const filename = doc.filename;
     const mimeType = doc.content_type;
 
-    const text = await extractText(buffer, mimeType, filename);
+    let text = doc.extracted_text && doc.extracted_text.trim().length > 10 ? doc.extracted_text : null;
+    if (!text) {
+      text = await extractText(buffer, mimeType, filename);
+    }
     if (!text || text.trim().length < 10) {
-      return res.status(400).json({ error: "Could not extract text from document" });
+      return res.status(400).json({ error: "Could not extract text from document. The document may still be processing — try again in a moment." });
     }
 
     let visits = [];
     try {
-      if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical record parser. Given extracted text from a medical document, parse it into individual visit entries. Return a JSON array of objects, each with:
-- provider_name: the healthcare provider or facility name
-- date_of_service: date in YYYY-MM-DD format (or null if unknown)
-- description: brief description of the visit/treatment
-- source_pages: which pages this visit appears on (e.g., "1-2" or "3")
-- summary: a concise clinical summary of the visit
-
-Return ONLY valid JSON array, no other text.`
-          },
-          {
-            role: "user",
-            content: `Parse this medical document into individual visit records:\n\n${text.substring(0, 15000)}`
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 4000,
-      });
-
-      const content = completion.choices[0].message.content.trim();
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) visits = JSON.parse(jsonMatch[0]);
+      visits = await parseMedicalText(text);
     } catch (aiErr) {
       console.error("OpenAI medical record parse error:", aiErr.message);
       visits = [{
@@ -342,7 +347,7 @@ Return ONLY valid JSON array, no other text.`
           visit.description || "",
           visit.source_pages || "",
           visit.summary || "",
-          buffer.length,
+          buffer ? buffer.length : 0,
           filename,
           mimeType,
           req.user?.id || null,
@@ -352,7 +357,29 @@ Return ONLY valid JSON array, no other text.`
       inserted.push(recordToFrontend(rows[0]));
     }
 
-    res.status(201).json(inserted);
+    const providerName = visits[0]?.provider_name || "";
+    const dates = visits.filter(v => v.date_of_service).map(v => v.date_of_service).sort();
+    let treatmentUpdates = {};
+    const { rows: tRows2 } = await pool.query("SELECT provider_name, first_visit_date, last_visit_date FROM case_medical_treatments WHERE id=$1 AND case_id=$2", [treatmentId, caseId]);
+    if (tRows2.length) {
+      const t = tRows2[0];
+      if (providerName && (!t.provider_name || t.provider_name.trim() === "")) treatmentUpdates.provider_name = providerName;
+      if (!t.first_visit_date && dates.length) treatmentUpdates.first_visit_date = dates[0];
+      if (!t.last_visit_date && dates.length) treatmentUpdates.last_visit_date = dates[dates.length - 1];
+    }
+    if (Object.keys(treatmentUpdates).length) {
+      const sets = [];
+      const vals = [];
+      let idx = 1;
+      for (const [col, val] of Object.entries(treatmentUpdates)) {
+        sets.push(`${col}=$${idx++}`);
+        vals.push(val);
+      }
+      vals.push(treatmentId, caseId);
+      await pool.query(`UPDATE case_medical_treatments SET ${sets.join(", ")} WHERE id=$${idx++} AND case_id=$${idx}`, vals);
+    }
+
+    res.status(201).json({ records: inserted, treatmentUpdates: Object.keys(treatmentUpdates).length ? treatmentUpdates : null });
   } catch (err) {
     console.error("Medical record from-document error:", err);
     res.status(500).json({ error: "Server error" });

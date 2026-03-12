@@ -4,7 +4,7 @@ import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
 import TranscriptViewerWindow from "./TranscriptViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -100,6 +100,13 @@ const fmt = (dateStr) => {
   if (!dateStr) return "—";
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+const fmtFileSize = (bytes) => {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + " GB";
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+  return (bytes / 1024).toFixed(0) + " KB";
 };
 
 const daysUntil = (dateStr) => {
@@ -6100,6 +6107,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [medicalSortBy, setMedicalSortBy] = useState("providerName");
   const [medicalFilterType, setMedicalFilterType] = useState("All");
   const medRecFileRef = useRef(null);
+  const [expandedRecordId, setExpandedRecordId] = useState(null);
+  const [medRecFilters, setMedRecFilters] = useState({});
   const [liens, setLiens] = useState([]);
   const [damages, setDamages] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -8414,8 +8423,20 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               setMedicalUploadingFor(null);
               setMedicalRecordsLoading(p => ({ ...p, [tid]: true }));
               try {
-                const recs = await apiUploadMedicalRecord(c.id, tid, file);
-                setMedicalRecords(p => ({ ...p, [tid]: [...(p[tid] || []), ...(Array.isArray(recs) ? recs : [recs])] }));
+                const result = await apiUploadMedicalRecord(c.id, tid, file);
+                const recs = result.records || (Array.isArray(result) ? result : [result]);
+                setMedicalRecords(p => ({ ...p, [tid]: [...(p[tid] || []), ...recs] }));
+                if (result.treatmentUpdates) {
+                  const u = result.treatmentUpdates;
+                  setMedicalTreatments(p => p.map(x => {
+                    if (x.id !== tid) return x;
+                    const updated = { ...x };
+                    if (u.provider_name) updated.providerName = u.provider_name;
+                    if (u.first_visit_date) updated.firstVisitDate = u.first_visit_date;
+                    if (u.last_visit_date) updated.lastVisitDate = u.last_visit_date;
+                    return updated;
+                  }));
+                }
               } catch (err) { alert("Upload failed: " + err.message); }
               setMedicalRecordsLoading(p => ({ ...p, [tid]: false }));
               e.target.value = "";
@@ -8569,8 +8590,20 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     if (docPickerLoading) return;
                                     setDocPickerLoading(t.id);
                                     try {
-                                      const recs = await apiMedicalRecordFromDocument(c.id, t.id, doc.id);
-                                      setMedicalRecords(p => ({ ...p, [t.id]: [...(p[t.id] || []), ...(Array.isArray(recs) ? recs : [recs])] }));
+                                      const result = await apiMedicalRecordFromDocument(c.id, t.id, doc.id);
+                                      const recs = result.records || (Array.isArray(result) ? result : [result]);
+                                      setMedicalRecords(p => ({ ...p, [t.id]: [...(p[t.id] || []), ...recs] }));
+                                      if (result.treatmentUpdates) {
+                                        const u = result.treatmentUpdates;
+                                        setMedicalTreatments(p => p.map(x => {
+                                          if (x.id !== t.id) return x;
+                                          const updated = { ...x };
+                                          if (u.provider_name) updated.providerName = u.provider_name;
+                                          if (u.first_visit_date) updated.firstVisitDate = u.first_visit_date;
+                                          if (u.last_visit_date) updated.lastVisitDate = u.last_visit_date;
+                                          return updated;
+                                        }));
+                                      }
                                       setDocPickerForTreatment(null);
                                     } catch (err) { alert("Failed to import: " + err.message); }
                                     setDocPickerLoading(null);
@@ -8592,27 +8625,103 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           </div>
                         );
                       })()}
-                      {recsLoading && <div style={{ fontSize: 12, color: "#64748b" }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block", verticalAlign: "middle", marginRight: 4 }} />Loading records...</div>}
+                      {recsLoading && <div style={{ fontSize: 12, color: "#64748b" }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block", verticalAlign: "middle", marginRight: 4 }} />Analyzing records...</div>}
                       {!recsLoading && recs.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No records uploaded yet.</div>}
-                      {recs.map(rec => (
-                        <div key={rec.id} style={{ border: "1px solid var(--c-border2)", borderRadius: 6, padding: "8px 10px", marginBottom: 6, background: "var(--c-bg)" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-                                {rec.providerName && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{rec.providerName}</span>}
-                                {rec.dateOfService && <span style={{ fontSize: 11, color: "var(--c-text3)" }}>{fmt(rec.dateOfService)}</span>}
-                                {rec.sourcePages && <span style={{ fontSize: 10, color: "#64748b", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4 }}>pp. {rec.sourcePages}</span>}
+                      {recs.length > 0 && (() => {
+                        const tf = medRecFilters[t.id] || {};
+                        const tProvFilter = tf.provider || "All Providers";
+                        const tDateFrom = tf.dateFrom || "";
+                        const tDateTo = tf.dateTo || "";
+                        const setTf = (updates) => setMedRecFilters(p => ({ ...p, [t.id]: { ...tf, ...updates } }));
+                        const uniqueProviders = [...new Set(recs.map(r => r.providerName).filter(Boolean))];
+                        const filteredRecs = recs.filter(rec => {
+                          if (tProvFilter !== "All Providers" && rec.providerName !== tProvFilter) return false;
+                          if (tDateFrom && rec.dateOfService && rec.dateOfService < tDateFrom) return false;
+                          if (tDateTo && rec.dateOfService && rec.dateOfService > tDateTo) return false;
+                          return true;
+                        }).sort((a, b) => (a.dateOfService || "").localeCompare(b.dateOfService || ""));
+                        return (
+                          <>
+                            {recs.length > 1 && (
+                              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 8, flexWrap: "wrap" }}>
+                                <div>
+                                  <div style={{ fontSize: 10, color: "var(--c-text3)", marginBottom: 2 }}>Provider</div>
+                                  <select style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", minWidth: 140 }}
+                                    value={tProvFilter} onChange={e => setTf({ provider: e.target.value })}>
+                                    <option>All Providers</option>
+                                    {uniqueProviders.map(p => <option key={p} value={p}>{p}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 10, color: "var(--c-text3)", marginBottom: 2 }}>From</div>
+                                  <input type="date" style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                                    value={tDateFrom} onChange={e => setTf({ dateFrom: e.target.value })} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 10, color: "var(--c-text3)", marginBottom: 2 }}>To</div>
+                                  <input type="date" style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                                    value={tDateTo} onChange={e => setTf({ dateTo: e.target.value })} />
+                                </div>
                               </div>
-                              {rec.description && <div style={{ fontSize: 12, color: "var(--c-text2)", marginBottom: 2 }}>{rec.description}</div>}
-                              {rec.summary && <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{rec.summary.length > 200 ? rec.summary.substring(0, 200) + "..." : rec.summary}</div>}
-                            </div>
-                            <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, marginLeft: 8, flexShrink: 0 }}
-                              onClick={async () => { if (!await confirmDelete()) return; try { await apiDeleteMedicalRecord(c.id, t.id, rec.id); setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).filter(r => r.id !== rec.id) })); } catch (err) { alert(err.message); } }}>
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                            )}
+                            <div style={{ fontSize: 11, color: "var(--c-text3)", marginBottom: 6 }}>{filteredRecs.length} {filteredRecs.length === 1 ? "entry" : "entries"} found</div>
+                            {filteredRecs.map(rec => {
+                              const isExpanded = expandedRecordId === rec.id;
+                              return (
+                                <div key={rec.id} style={{ border: "1px solid var(--c-border2)", borderRadius: 6, marginBottom: 4, background: isExpanded ? "var(--c-bg2)" : "var(--c-bg)", overflow: "hidden" }}>
+                                  <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", cursor: "pointer", gap: 12 }}
+                                    onClick={() => setExpandedRecordId(isExpanded ? null : rec.id)}>
+                                    <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>{rec.providerName || "(No Provider)"}</span>
+                                      <span style={{ fontSize: 12, color: "var(--c-text3)", flexShrink: 0 }}>{rec.dateOfService ? new Date(rec.dateOfService + "T00:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : ""}</span>
+                                      {rec.sourcePages && <span style={{ fontSize: 11, color: "#64748b", flexShrink: 0 }}>p. {rec.sourcePages}</span>}
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                                      <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
+                                        onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; try { await apiDeleteMedicalRecord(c.id, t.id, rec.id); setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).filter(r => r.id !== rec.id) })); } catch (err) { alert(err.message); } }}>
+                                        ✕
+                                      </button>
+                                      {isExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
+                                    </div>
+                                  </div>
+                                  {!isExpanded && rec.description && (
+                                    <div style={{ padding: "0 10px 6px", fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {rec.description}
+                                    </div>
+                                  )}
+                                  {isExpanded && (
+                                    <div style={{ padding: "0 10px 12px", borderTop: "1px solid var(--c-border2)" }}>
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "8px 16px", marginTop: 10, marginBottom: 10 }}>
+                                        <div>
+                                          <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Provider</label>
+                                          <input style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                            defaultValue={rec.providerName || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { providerName: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                        </div>
+                                        <div>
+                                          <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Date of Service</label>
+                                          <input type="date" style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
+                                            defaultValue={rec.dateOfService || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { dateOfService: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                        </div>
+                                        <div>
+                                          <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Description</label>
+                                          <input style={{ width: "100%", fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
+                                            placeholder="Brief description" defaultValue={rec.description || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { description: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                        </div>
+                                      </div>
+                                      {rec.sourcePages && <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>Source Page: {rec.sourcePages}</div>}
+                                      <div>
+                                        <label style={{ fontSize: 10, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Summary</label>
+                                        <textarea style={{ width: "100%", fontSize: 12, padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", minHeight: 80, resize: "vertical", boxSizing: "border-box", lineHeight: 1.5 }}
+                                          defaultValue={rec.summary || ""} onBlur={e => apiUpdateMedicalRecord(c.id, t.id, rec.id, { summary: e.target.value }).then(u => setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).map(r => r.id === rec.id ? u : r) }))).catch(() => {})} />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -8984,7 +9093,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               </div>
                               <div style={{ fontSize: 11, color: "var(--c-text2)", marginTop: 2 }}>
                                 {doc.source === "client" && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600, marginRight: 6 }}>Client Upload</span>}
-                                <span style={{ cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.docType}</span> · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
+                                <span style={{ cursor: "pointer" }} onClick={() => { setEditingDocId(doc.id); setEditingDocData({ filename: doc.filename, docType: doc.docType }); }} title="Click to edit">{doc.docType}</span> · {fmtFileSize(doc.fileSize)} · {new Date(doc.createdAt).toLocaleDateString()}{doc.uploadedByName ? ` · ${doc.uploadedByName}` : ""}
                               </div>
                             </>
                           )}
@@ -9876,7 +9985,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                         }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 14px", background: "var(--c-bg2)", borderRadius: 6, border: "1px solid var(--c-border)", cursor: "pointer", minWidth: 90, textAlign: "center" }} title="Click to view">
                                           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text2)", textTransform: "uppercase" }}>{icon}</span>
                                           <span style={{ fontSize: 11, color: "var(--c-text)", fontWeight: 600, wordBreak: "break-all", maxWidth: 120 }}>{att.filename}</span>
-                                          <span style={{ fontSize: 10, color: "#64748b" }}>{(att.size / 1024).toFixed(0)} KB</span>
+                                          <span style={{ fontSize: 10, color: "#64748b" }}>{fmtFileSize(att.size)}</span>
                                         </button>
                                       </div>
                                     );
@@ -10601,7 +10710,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                                 openBlobInViewer(typedBlob, att.filename, att.contentType);
                                               } catch (err) { alert("Failed to load attachment: " + err.message); }
                                             }} style={{ fontSize: 11, padding: "4px 10px", background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 4, cursor: "pointer", color: "var(--c-text)" }}>
-                                              📎 {att.filename} ({(att.size / 1024).toFixed(0)} KB)
+                                              📎 {att.filename} ({fmtFileSize(att.size)})
                                             </button>
                                           )}
                                         </div>
@@ -10927,7 +11036,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 10, color: "#64748b" }}>{f.fileSize ? (f.fileSize / 1024).toFixed(0) + " KB" : ""}</span>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>{f.fileSize ? fmtFileSize(f.fileSize) : ""}</span>
                         <span style={{ fontSize: 10, color: "#64748b" }}>{f.uploadedByName ? `by ${f.uploadedByName}` : ""}{f.sourceEmailFrom ? `from ${f.sourceEmailFrom}` : ""}</span>
                         <span style={{ fontSize: 10, color: "#64748b" }}>{new Date(f.createdAt).toLocaleDateString()}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>

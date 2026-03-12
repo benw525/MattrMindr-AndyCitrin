@@ -438,8 +438,14 @@ Initial Client Interview → Send Preservation Letters → Obtain Police Report 
 - Endpoint `POST /api/cases/parse-intake` uses OCR + OpenAI to extract case fields from PDF intake forms
 
 ### Medical Record Upload & AI Parsing
-- Upload PDFs per medical treatment → OCR → OpenAI parses into individual visit records
+- Upload PDFs per medical treatment → OCR → OpenAI (gpt-5-mini) parses into individual visit records
 - Each record: provider, date of service, source pages, AI summary
+- Defense-app-style UI: expandable rows showing Provider | Date | Page refs; expand for editable Provider, Date of Service, Description, Source Page, Summary fields
+- Per-treatment filters: Provider dropdown, From/To date range
+- "Select from Documents" option imports existing case documents → uses already-extracted text when available
+- Auto-fills treatment fields (provider name, first/last visit dates) from parsed records when empty
+- File sizes display in KB/MB/GB as appropriate throughout the app
+- All gpt-5-mini calls use `max_completion_tokens` (not `max_tokens`)
 
 ### Client Provided Documents
 - Documents tab splits into "Client Provided" and "Firm Documents" sections based on document source

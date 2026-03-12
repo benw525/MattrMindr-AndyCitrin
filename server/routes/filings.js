@@ -194,7 +194,7 @@ Be concise but thorough. Flag anything that requires immediate action by the pla
         { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
-      max_tokens: 4000,
+      max_completion_tokens: 4000,
       store: false,
     });
 
@@ -210,7 +210,7 @@ Be concise but thorough. Flag anything that requires immediate action by the pla
           { role: "user", content: summary },
         ],
         temperature: 0.1,
-        max_tokens: 500,
+        max_completion_tokens: 500,
         store: false,
         response_format: { type: "json_object" },
       });

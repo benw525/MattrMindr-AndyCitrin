@@ -255,7 +255,7 @@ Be concise but thorough. Flag anything that could help the plaintiff's case.`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
-      max_tokens: 4000,
+      max_completion_tokens: 4000,
       store: false,
     });
 
