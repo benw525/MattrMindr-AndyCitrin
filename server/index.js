@@ -49,6 +49,7 @@ const externalRoutes         = require("./routes/external");
 const microsoftRoutes        = require("./routes/microsoft");
 const onlyofficeRoutes       = require("./routes/onlyoffice");
 const scribeRoutes           = require("./routes/scribe");
+const voirdireRoutes         = require("./routes/voirdire");
 const voicemailsRoutes       = require("./routes/voicemails");
 const deletedDataRoutes      = require("./routes/deleted-data");
 const customReportsRoutes    = require("./routes/custom-reports");
@@ -144,6 +145,7 @@ app.use("/api/permissions", permissionsRoutes);
 app.use("/api/microsoft", microsoftRoutes);
 app.use("/api/onlyoffice", onlyofficeRoutes);
 app.use("/api/scribe", scribeRoutes);
+app.use("/api/voirdire", voirdireRoutes);
 
 const externalCorsOrigins = process.env.EXTERNAL_CORS_ORIGINS ? process.env.EXTERNAL_CORS_ORIGINS.split(",") : null;
 app.use("/api/external", cors({
@@ -266,6 +268,10 @@ async function ensureColumns() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS scribe_url TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS scribe_token TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS scribe_user_email TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS voirdire_url TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS voirdire_token TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS voirdire_user_email TEXT`,
+    `ALTER TABLE trial_jurors ADD COLUMN IF NOT EXISTS voirdire_juror_id TEXT`,
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS scribe_transcript_id TEXT`,
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS scribe_status TEXT`,
     `ALTER TABLE case_transcripts ADD COLUMN IF NOT EXISTS transcript_versions JSONB`,

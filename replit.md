@@ -225,7 +225,7 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 ### Runtime Migrations
 - `ensureColumns()` in server/index.js runs before app.listen()
 - Auto-creates tables: transcript_history, custom_reports, custom_agents, custom_task_flows, custom_task_flow_steps, task_flow_executions, custom_dashboard_widgets, unmatched_filings_emails
-- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status, tasks.source_flow_id, cases.court_case_number
+- Auto-adds columns: is_voicemail, annotations, content_html, is_video, r2 keys, daubert_challenge, ms_access_token, ms_refresh_token, ms_token_expiry, ms_account_email, scribe_url, scribe_token, scribe_user_email, scribe_transcript_id, scribe_status, tasks.source_flow_id, cases.court_case_number, voirdire_url, voirdire_token, voirdire_user_email, trial_jurors.voirdire_juror_id
 
 ### Contact Categories
 Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorney, Judge, Court, Witness, Expert, Lienholder, Family Member, Miscellaneous
@@ -342,6 +342,16 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - AI Summaries: collapsible section in transcript detail view showing Scribe-generated summaries (from `summaries` JSONB column)
 - Refresh syncs latest segments + summaries from Scribe back to MattrMindr
 - API functions: `apiListScribeTranscripts()`, `apiImportNewFromScribe(scribeTranscriptId, caseId)` in `lextrack/src/api.js`
+
+### Voir Dire Analyst Integration
+- Backend: `server/routes/voirdire.js` — `/status`, `/connect`, `/disconnect`, `/list-jurors`, `/import-jurors`
+- DB columns: `users.voirdire_url`, `users.voirdire_token`, `users.voirdire_user_email`; `trial_jurors.voirdire_juror_id`
+- External API: `https://voirdire.mattrmindr.com/app` — auth at `/api/external/auth`, jurors at `/api/external/jurors`
+- Imports jurors with full metadata (name, seat, demographics, notes, analysis, questionnaire, bias rating, occupation)
+- Upserts via `voirdire_juror_id` to avoid duplicates on re-import
+- Settings UI: Voir Dire Analyst connection card in Integrations section (violet/purple theme)
+- Trial Center Jury tab: "Import from VDA" button opens modal listing jurors from VDA to select and import
+- API functions: `apiGetVoirdireStatus()`, `apiConnectVoirdire()`, `apiDisconnectVoirdire()`, `apiListVoirdireJurors()`, `apiImportVoirdireJurors()` in `lextrack/src/api.js`
 
 ### Auto-Transcription of Audio Email Attachments
 - `server/routes/inbound-email.js` detects audio MIME types (MP3/WAV/M4A/OGG/WebM/MP4/AAC/FLAC)

@@ -20,6 +20,7 @@ import {
   apiExtractOutlineFile,
   apiSavePreferences,
   apiGetJuryAnalysis, apiUpdateJurorStrike, apiDeleteJuryAnalysis,
+  apiGetVoirdireStatus, apiListVoirdireJurors, apiImportVoirdireJurors,
 } from "./api.js";
 
 const DragDropZone = ({ onFileSelect, accept, multiple, children, style: extraStyle, className: extraClassName }) => {
@@ -145,6 +146,11 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
   const [showJurorForm, setShowJurorForm] = useState(false);
   const [editJuror, setEditJuror] = useState(null);
   const [jForm, setJForm] = useState({ seat_number: 1, name: "", notes: "", demographics: "", strike_type: "none", is_selected: false });
+  const [showVdaImport, setShowVdaImport] = useState(false);
+  const [vdaJurors, setVdaJurors] = useState([]);
+  const [vdaSelected, setVdaSelected] = useState(new Set());
+  const [vdaLoading, setVdaLoading] = useState(false);
+  const [vdaConnected, setVdaConnected] = useState(false);
   const [juryAnalysis, setJuryAnalysis] = useState(null);
   const [juryAnalysisLoading, setJuryAnalysisLoading] = useState(false);
   const [juryAnalysisCollapsed, setJuryAnalysisCollapsed] = useState({ jurorList: false, strikes: false, suggestedOrder: false, causeStrikes: false });
@@ -1493,7 +1499,24 @@ body.light .tc-seg-text{color:#1e293b;}
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Jury Panel</h3>
                     <span className="text-xs text-slate-500 dark:text-slate-400">{jurisdictionStr ? `(${jurisdictionStr})` : ""} Civil jury — typically 6 or 12 jurors depending on jurisdiction</span>
                   </div>
-                  <button onClick={() => { setEditJuror(null); setJForm({ seat_number: jurors.length + 1, name: "", notes: "", demographics: "", strike_type: "none", is_selected: false }); setShowJurorForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Juror</button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={async () => {
+                      setVdaLoading(true);
+                      try {
+                        const st = await apiGetVoirdireStatus();
+                        if (!st.connected) { alert("Please connect your Voir Dire Analyst account in Settings → Integrations first."); setVdaLoading(false); return; }
+                        setVdaConnected(true);
+                        const res = await apiListVoirdireJurors();
+                        setVdaJurors(res.jurors || []);
+                        setVdaSelected(new Set());
+                        setShowVdaImport(true);
+                      } catch (err) { alert(err.message || "Failed to load Voir Dire Analyst jurors"); }
+                      setVdaLoading(false);
+                    }} disabled={vdaLoading} className={BTN_CLS + " flex items-center gap-1.5"} style={{ background: "#7c3aed", color: "#fff", borderColor: "#7c3aed" }}>
+                      {vdaLoading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Import from VDA
+                    </button>
+                    <button onClick={() => { setEditJuror(null); setJForm({ seat_number: jurors.length + 1, name: "", notes: "", demographics: "", strike_type: "none", is_selected: false }); setShowJurorForm(true); }} className={BTN_CLS + " flex items-center gap-1.5"}><Plus size={14} /> Add Juror</button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className={CARD_CLS + " p-3 text-center"}><p className="text-xs text-slate-500 dark:text-slate-400">Total</p><p className="text-xl font-bold text-slate-900 dark:text-slate-100">{jurorSummary.total}</p></div>
@@ -1521,6 +1544,70 @@ body.light .tc-seg-text{color:#1e293b;}
                     </div>
                   </div>
                 )}
+
+                {showVdaImport && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowVdaImport(false)}>
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-2">
+                          <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg, #7c3aed, #a855f7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <Users size={14} color="white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Import from Voir Dire Analyst</h3>
+                        </div>
+                        <button onClick={() => setShowVdaImport(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-4">
+                        {vdaJurors.length === 0 ? (
+                          <p className="text-sm text-slate-500 text-center py-8">No jurors found in Voir Dire Analyst.</p>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-xs text-slate-500">{vdaJurors.length} juror{vdaJurors.length !== 1 ? "s" : ""} available</span>
+                              <button onClick={() => { if (vdaSelected.size === vdaJurors.length) setVdaSelected(new Set()); else setVdaSelected(new Set(vdaJurors.map(j => j.id))); }} className="text-xs text-violet-600 hover:text-violet-800 font-medium cursor-pointer bg-transparent border-none">
+                                {vdaSelected.size === vdaJurors.length ? "Deselect All" : "Select All"}
+                              </button>
+                            </div>
+                            <div className="space-y-2">
+                              {vdaJurors.map(j => (
+                                <label key={j.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${vdaSelected.has(j.id) ? "bg-violet-50 dark:bg-violet-900/20 border-violet-300 dark:border-violet-700" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
+                                  <input type="checkbox" checked={vdaSelected.has(j.id)} onChange={() => { const s = new Set(vdaSelected); if (s.has(j.id)) s.delete(j.id); else s.add(j.id); setVdaSelected(s); }} className="mt-0.5 rounded" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{j.name}</span>
+                                      {j.seat_number && <span className="text-xs font-mono text-slate-400">Seat {j.seat_number}</span>}
+                                    </div>
+                                    {j.occupation && <p className="text-xs text-slate-500 mt-0.5">{j.occupation}</p>}
+                                    {j.demographics && <p className="text-xs text-slate-400 mt-0.5">{j.demographics}</p>}
+                                    {j.bias_rating && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 mt-1 inline-block">Bias: {j.bias_rating}</span>}
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-700">
+                        <span className="text-xs text-slate-500">{vdaSelected.size} selected</span>
+                        <div className="flex gap-2">
+                          <button onClick={() => setShowVdaImport(false)} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2">Cancel</button>
+                          <button disabled={vdaSelected.size === 0 || vdaLoading} onClick={async () => {
+                            setVdaLoading(true);
+                            try {
+                              await apiImportVoirdireJurors(Array.from(vdaSelected), session?.id);
+                              setShowVdaImport(false);
+                              refreshTab("Jury");
+                            } catch (err) { alert(err.message || "Import failed"); }
+                            setVdaLoading(false);
+                          }} className={BTN_CLS} style={{ background: "#7c3aed", color: "#fff", borderColor: "#7c3aed", opacity: vdaSelected.size === 0 ? 0.5 : 1 }}>
+                            {vdaLoading ? "Importing..." : `Import ${vdaSelected.size} Juror${vdaSelected.size !== 1 ? "s" : ""}`}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {jurors.map(j => (
                     <div key={j.id} className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm p-3 border-2 ${j.is_selected ? "border-emerald-500" : j.strike_type === "peremptory" ? "border-red-500" : j.strike_type === "cause" ? "border-amber-500" : "border-slate-200 dark:border-slate-700"}`}>

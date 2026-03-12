@@ -66,6 +66,7 @@ import {
   apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiMsUploadForEdit, apiMsSyncBack, apiMsCleanup,
   apiGetOnlyofficeStatus, apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup,
   apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSummarizeTranscript, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
+  apiGetVoirdireStatus, apiConnectVoirdire, apiDisconnectVoirdire,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
   apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
   apiGetTaskFlows, apiGetTaskFlow, apiCreateTaskFlow, apiUpdateTaskFlow, apiDeleteTaskFlow,
@@ -3300,12 +3301,16 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
   const [scribeStatus, setScribeStatus] = useState(null);
   const [scribeForm, setScribeForm] = useState({ email: "", password: "" });
   const [showScribeForm, setShowScribeForm] = useState(false);
+  const [voirdireStatus, setVoirdireStatus] = useState(null);
+  const [voirdireForm, setVoirdireForm] = useState({ email: "", password: "" });
+  const [showVoirdireForm, setShowVoirdireForm] = useState(false);
   const [busy, setBusy] = useState("");
 
   useEffect(() => {
     apiGetMsConfigured().then(r => { if (r.configured) apiGetMsStatus().then(setMsStatus).catch(() => {}); else setMsStatus({ connected: false, configured: false }); }).catch(() => setMsStatus({ connected: false, configured: false }));
     apiGetOnlyofficeStatus().then(setOoStatus).catch(() => setOoStatus({ configured: false }));
     apiGetScribeStatus().then(setScribeStatus).catch(() => setScribeStatus({ connected: false }));
+    apiGetVoirdireStatus().then(setVoirdireStatus).catch(() => setVoirdireStatus({ connected: false }));
   }, []);
 
   const connectMs = async () => {
@@ -3342,6 +3347,24 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
   const disconnectScribe = async () => {
     setBusy("scribe");
     try { await apiDisconnectScribe(); setScribeStatus({ connected: false }); } catch {}
+    setBusy("");
+  };
+
+  const connectVoirdire = async () => {
+    if (!voirdireForm.email || !voirdireForm.password) return;
+    setBusy("voirdire");
+    try {
+      await apiConnectVoirdire(voirdireForm);
+      setVoirdireStatus({ connected: true, url: "https://voirdire.mattrmindr.com/app", email: voirdireForm.email });
+      setShowVoirdireForm(false);
+      setVoirdireForm({ email: "", password: "" });
+    } catch (err) { alert(err.message); }
+    setBusy("");
+  };
+
+  const disconnectVoirdire = async () => {
+    setBusy("voirdire");
+    try { await apiDisconnectVoirdire(); setVoirdireStatus({ connected: false }); } catch {}
     setBusy("");
   };
 
@@ -3412,6 +3435,35 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
           <div className="flex gap-2">
             <button className="flex-1 py-2 text-sm font-medium bg-red-500 text-white rounded-lg border-none cursor-pointer hover:bg-red-600" onClick={connectScribe} disabled={busy === "scribe"}>{busy === "scribe" ? "Signing in..." : "Sign In"}</button>
             <button className="py-2 px-4 text-sm text-slate-500 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer" onClick={() => setShowScribeForm(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className={`${cardStyle} ${voirdireStatus?.connected ? "bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #7c3aed, #a855f7)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">Voir Dire Analyst</div>
+          <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+            {voirdireStatus?.connected ? `Connected — ${voirdireStatus.email || "Voir Dire Analyst"}` : "Connect to import juror data from Voir Dire Analyst"}
+          </div>
+        </div>
+        {voirdireStatus?.connected ? (
+          <button onClick={disconnectVoirdire} disabled={busy === "voirdire"} className="text-xs font-semibold px-3 py-1.5 rounded-lg border-none cursor-pointer bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100">Disconnect</button>
+        ) : (
+          <button onClick={() => setShowVoirdireForm(true)} disabled={busy === "voirdire"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Connect</button>
+        )}
+      </div>
+
+      {showVoirdireForm && !voirdireStatus?.connected && (
+        <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700" style={{ marginTop: -8 }}>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Sign in with your Voir Dire Analyst account</div>
+          <input type="email" placeholder="Email" value={voirdireForm.email} onChange={e => setVoirdireForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+          <input type="password" placeholder="Password" value={voirdireForm.password} onChange={e => setVoirdireForm(f => ({ ...f, password: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 mb-2" />
+          <div className="flex gap-2">
+            <button className="flex-1 py-2 text-sm font-medium bg-violet-600 text-white rounded-lg border-none cursor-pointer hover:bg-violet-700" onClick={connectVoirdire} disabled={busy === "voirdire"}>{busy === "voirdire" ? "Signing in..." : "Sign In"}</button>
+            <button className="py-2 px-4 text-sm text-slate-500 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer" onClick={() => setShowVoirdireForm(false)}>Cancel</button>
           </div>
         </div>
       )}

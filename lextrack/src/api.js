@@ -731,6 +731,13 @@ export const apiImportFromScribe   = (transcriptId)   => apiFetch(`/api/scribe/i
 export const apiListScribeTranscripts = ()            => apiFetch("/api/scribe/list-transcripts");
 export const apiImportNewFromScribe = (scribeTranscriptId, caseId) => apiFetch("/api/scribe/import-new", { method: "POST", body: { scribeTranscriptId, caseId } });
 
+// Voir Dire Analyst
+export const apiGetVoirdireStatus     = ()               => apiFetch("/api/voirdire/status");
+export const apiConnectVoirdire       = (data)           => apiFetch("/api/voirdire/connect", { method: "POST", body: data });
+export const apiDisconnectVoirdire    = ()               => apiFetch("/api/voirdire/disconnect", { method: "POST" });
+export const apiListVoirdireJurors    = ()               => apiFetch("/api/voirdire/list-jurors");
+export const apiImportVoirdireJurors  = (jurorIds, sessionId) => apiFetch("/api/voirdire/import-jurors", { method: "POST", body: { jurorIds, sessionId } });
+
 // Jury Analysis
 export const apiGetJuryAnalysis    = (caseId)        => apiFetch(`/api/trial-center/jury-analysis/${caseId}`);
 export const apiUpdateJurorStrike  = (caseId, data)  => apiFetch(`/api/trial-center/jury-analysis/${caseId}/juror-strike`, { method: "PATCH", body: data });
