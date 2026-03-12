@@ -5708,7 +5708,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
                             {c.inLitigation && <span title="In Litigation" style={{ fontSize: 9, fontWeight: 700, background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>LIT</span>}
-                            {(() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
+                            {!c.inLitigation && (() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
                           </div>
                           {c.clientName && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.clientName}</div>}
                         </td>
@@ -5796,7 +5796,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">{c.title}</span>
                             {c.inLitigation && <span title="In Litigation" style={{ fontSize: 9, fontWeight: 700, background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>LIT</span>}
-                            {(() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
+                            {!c.inLitigation && (() => { const solDate = c.statuteOfLimitationsDate ? new Date(c.statuteOfLimitationsDate) : null; const solDays = solDate ? Math.ceil((solDate - new Date()) / (1000*60*60*24)) : null; return solDays !== null && solDays <= 60 ? <span title="SOL approaching" style={{ fontSize: 9, fontWeight: 700, background: solDays <= 0 ? "#dc2626" : "#d97706", color: "#fff", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{solDays <= 0 ? "SOL EXPIRED" : `SOL ${solDays}d`}</span> : null; })()}
                           </div>
                           {c.clientName && <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.clientName}</div>}
                         </td>
@@ -7559,7 +7559,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   const solColor = solDays !== null ? (solDays <= 60 ? "#dc2626" : solDays <= 180 ? "#d97706" : "#16a34a") : "#64748b";
                   return (
                     <>
-                      {solDays !== null && solDays <= 180 && (
+                      {!draft.inLitigation && solDays !== null && solDays <= 180 && (
                         <div style={{ background: solDays <= 60 ? "#fef2f2" : "#fffbeb", border: `1px solid ${solDays <= 60 ? "#fca5a5" : "#fcd34d"}`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
                           <span style={{ fontSize: 20 }}>{solDays <= 60 ? "⚠️" : "⏳"}</span>
                           <div>
