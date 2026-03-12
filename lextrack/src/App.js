@@ -8897,7 +8897,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const calcOwed = Math.max(0, billed - reductionAmt - insPaid - wo);
               const saveDmg = (updates) => apiUpdateDamage(c.id, d.id, updates).then(u => setDamages(p => p.map(x => x.id === d.id ? u : x))).catch(() => {});
               const isDmgExpanded = expandedDamageId === d.id;
-              const dmgLabel = d.name || d.category || "Untitled Damage";
+              const dmgCategory = d.category === "Medical Bills" ? "Medical Bill" : d.category;
+              const dmgLabel = d.name || dmgCategory || "Untitled Damage";
               return (
               <div key={`${d.id}-${d.reductionIsPercent}`} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 12, background: isDmgExpanded ? "var(--c-bg2)" : "var(--c-bg)" }}
@@ -8922,7 +8923,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           placeholder="e.g. ER Visit, Lost Wages" defaultValue={d.name || ""} onBlur={e => saveDmg({ name: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Category</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                          defaultValue={d.category || "Other"} onChange={e => saveDmg({ category: e.target.value })}>
+                          defaultValue={d.category === "Medical Bills" ? "Medical Bill" : (d.category || "Other")} onChange={e => saveDmg({ category: e.target.value })}>
                           {["Medical Bill", "Lost Wages", "Future Medical", "Future Lost Earnings", "Property Damage", "Pain & Suffering", "Loss of Consortium", "Punitive", "Other"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Status</label>
