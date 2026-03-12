@@ -115,7 +115,7 @@ function fmtDate(d) {
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function TrialCenterView({ currentUser, users, cases, onMenuToggle, pinnedCaseIds = [] }) {
+export default function TrialCenterView({ currentUser, users, cases, onMenuToggle, pinnedCaseIds = [], onTrialCenterCaseChange }) {
   const [caseSearch, setCaseSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -294,11 +294,12 @@ export default function TrialCenterView({ currentUser, users, cases, onMenuToggl
       setSession(sess);
       await loadAllData(sess.id);
       apiSavePreferences({ trialCenterCaseId: c.id }).catch(() => {});
+      if (onTrialCenterCaseChange) onTrialCenterCaseChange(c.id);
     } catch (err) {
       console.error("Load session error:", err);
     }
     setLoading(false);
-  }, [loadAllData]);
+  }, [loadAllData, onTrialCenterCaseChange]);
 
   const refreshTab = useCallback(async (tab) => {
     if (!session) return;

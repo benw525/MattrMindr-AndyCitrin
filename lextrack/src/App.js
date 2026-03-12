@@ -1666,6 +1666,30 @@ function FirmApp() {
       } else {
         lines.push(`Contact directory for insurance adjusters, medical providers, defense attorneys, judges, courts, witnesses, experts, clients, and more.`);
       }
+    } else if (v === "trialcenter") {
+      lines.push(`Screen: Trial Center`);
+      lines.push(`The Trial Center is used to prepare and manage active trials. It includes tabs for Witnesses, Exhibits, Jury, Motions, Outlines (Opening/Closing/Cross), Jury Instructions, Timeline, Pinned Docs, Trial Log, and AI Agents.`);
+      const tcCaseId = currentUser?.preferences?.trialCenterCaseId;
+      if (tcCaseId) {
+        const tcCase = allCases.find(c => c.id === tcCaseId);
+        if (tcCase) {
+          lines.push(`\nCurrently loaded case: ${tcCase.case_num || ""} — ${tcCase.title || ""}`);
+          lines.push(`Client: ${tcCase.client_name || "Unknown"}`);
+          lines.push(`Case Type: ${tcCase.case_type || "Unknown"} | State: ${tcCase.state_jurisdiction || "Unknown"}`);
+          lines.push(`Stage: ${tcCase.stage || "Unknown"} | Status: ${tcCase.status || "Unknown"}`);
+          lines.push(`Court: ${tcCase.court || "Not specified"} | Judge: ${tcCase.judge || "Not assigned"}`);
+          lines.push(`Injury Type: ${tcCase.injury_type || "Unknown"}`);
+          lines.push(`Trial Date: ${tcCase.trial_date || "Not set"}`);
+          lines.push(`Incident: ${tcCase.incident_description || "Not provided"}`);
+          lines.push(`Liability: ${tcCase.liability_assessment || "Not assessed"}`);
+          lines.push(`Comparative Fault: ${tcCase.comparative_fault_pct ? tcCase.comparative_fault_pct + "%" : "Unknown"}`);
+        } else {
+          lines.push(`A case was previously loaded but may no longer be available.`);
+        }
+      } else {
+        lines.push(`No case is currently loaded in the Trial Center. The user needs to search and select a case first.`);
+      }
+      lines.push(`\nAvailable AI Trial Agents: Witness Prep, Jury Selection (Voir Dire analysis), Objection Coach, Opening Statement Builder, Closing Argument Builder, Jury Instructions, Case Law Research.`);
     } else if (v === "customization") {
       lines.push(`Screen: Customization`);
       lines.push(`This is the admin-only Customization hub with 4 sub-tabs:`);
@@ -1775,6 +1799,7 @@ function FirmApp() {
     contacts: ["How do I add a new contact?", "How do I merge duplicate contacts?", "How do I pin a contact?"],
     staff: ["Show me the team workload", "How do I manage staff roles?", "Who has the most cases?"],
     collaborate: ["How do I start a group chat?", "How do I message someone privately?", "How do I use case discussions?"],
+    trialcenter: ["Help me prepare voir dire questions", "Analyze jury composition for bias", "Draft an opening statement outline"],
     customization: ["How do I create a task flow?", "How do I build a custom dashboard widget?", "How do I create a custom report?"],
     helpcenter: ["How do I get started with MattrMindr?", "What features are available?", "How do I manage my cases?"],
   };
@@ -1791,6 +1816,7 @@ function FirmApp() {
     collaborate: { icon: "💬", label: "Collaborate" },
     contacts: { icon: "📇", label: "Contacts" },
     staff: { icon: "👥", label: "Staff" },
+    trialcenter: { icon: "⚖️", label: "Trial Center" },
     customization: { icon: "⚙️", label: "Customization" },
     helpcenter: { icon: "❓", label: "Help Center" },
   };
@@ -2443,7 +2469,7 @@ function FirmApp() {
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
         {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} confirmDelete={confirmDelete} />}
-        {view === "trialcenter" && <TrialCenterView currentUser={currentUser} users={allUsers} cases={allCases} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
+        {view === "trialcenter" && <TrialCenterView currentUser={currentUser} users={allUsers} cases={allCases} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTrialCenterCaseChange={(caseId) => setCurrentUser(prev => prev ? { ...prev, preferences: { ...(prev.preferences || {}), trialCenterCaseId: caseId } } : prev)} />}
         {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
