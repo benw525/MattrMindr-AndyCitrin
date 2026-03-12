@@ -111,15 +111,40 @@ function buildSizeBatches(tmpDir, imageFiles) {
   return batches;
 }
 
-async function ocrPdfBuffer(buffer, filename) {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) {
-    console.log("GEMINI_API_KEY not set, falling back to tesseract OCR");
-    return ocrPdfBufferTesseract(buffer, filename);
+async function ocrPdfDirect31(buffer, filename, geminiKey) {
+  const pdfSizeMB = (buffer.length / (1024 * 1024)).toFixed(1);
+  console.log(`Gemini 3.1 direct PDF OCR: starting for "${filename}" (${pdfSizeMB} MB)`);
+
+  const { GoogleGenerativeAI } = require("@google/generative-ai");
+  const genAI = new GoogleGenerativeAI(geminiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+
+  const pdfPart = {
+    inlineData: {
+      data: buffer.toString("base64"),
+      mimeType: "application/pdf"
+    }
+  };
+
+  const prompt = "Extract ALL text from this PDF document. Return the complete text content exactly as it appears, preserving the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase — output the raw text only, with no commentary.";
+
+  const result = await model.generateContent([prompt, pdfPart]);
+  const response = await result.response;
+  const fullText = response.text();
+
+  const wordCount = fullText.trim().split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
+  console.log(`Gemini 3.1 direct PDF OCR complete: extracted ${fullText.trim().length} chars / ${wordCount} words for "${filename}"`);
+
+  if (wordCount < 5) {
+    throw new Error("Gemini 3.1 returned very little text");
   }
 
+  return fullText.trim();
+}
+
+async function ocrPdfImageBased20(buffer, filename, geminiKey) {
   const pdfSizeMB = (buffer.length / (1024 * 1024)).toFixed(1);
-  console.log(`Gemini OCR: starting for "${filename}" (${pdfSizeMB} MB)`);
+  console.log(`Gemini 2.0 image-based OCR: starting for "${filename}" (${pdfSizeMB} MB)`);
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-"));
   const pdfPath = path.join(tmpDir, "input.pdf");
@@ -136,21 +161,21 @@ async function ocrPdfBuffer(buffer, filename) {
     const imageFiles = await convertPdfToImages(pdfPath, tmpDir, dpi, null);
 
     if (imageFiles.length === 0) {
-      console.log(`Gemini OCR: no page images generated for "${filename}"`);
+      console.log(`Gemini 2.0 OCR: no page images generated for "${filename}"`);
       return "";
     }
 
-    console.log(`Gemini OCR: converted ${imageFiles.length} pages at ${dpi} DPI for "${filename}"`);
+    console.log(`Gemini 2.0 OCR: converted ${imageFiles.length} pages at ${dpi} DPI for "${filename}"`);
 
     const validImageFiles = [];
     for (const imgFile of imageFiles) {
       const imgPath = path.join(tmpDir, imgFile);
       const fileSize = fs.statSync(imgPath).size;
       if (fileSize > GEMINI_MAX_SINGLE_IMAGE_BYTES) {
-        console.log(`Gemini OCR: compressing ${imgFile} (${(fileSize / (1024 * 1024)).toFixed(1)} MB)`);
+        console.log(`Gemini 2.0 OCR: compressing ${imgFile} (${(fileSize / (1024 * 1024)).toFixed(1)} MB)`);
         const compressed = await compressImage(imgPath, GEMINI_MAX_SINGLE_IMAGE_BYTES);
         if (!compressed) {
-          console.warn(`Gemini OCR: skipping ${imgFile} — could not compress below size limit`);
+          console.warn(`Gemini 2.0 OCR: skipping ${imgFile} — could not compress below size limit`);
           continue;
         }
       }
@@ -158,12 +183,12 @@ async function ocrPdfBuffer(buffer, filename) {
     }
 
     if (validImageFiles.length === 0) {
-      console.log(`Gemini OCR: all page images exceeded size limits for "${filename}"`);
-      return ocrPdfBufferTesseract(buffer, filename);
+      console.log(`Gemini 2.0 OCR: all page images exceeded size limits for "${filename}"`);
+      throw new Error("All page images exceeded size limits");
     }
 
     const batches = buildSizeBatches(tmpDir, validImageFiles);
-    console.log(`Gemini OCR: split ${validImageFiles.length} pages into ${batches.length} batch(es) for "${filename}"`);
+    console.log(`Gemini 2.0 OCR: split ${validImageFiles.length} pages into ${batches.length} batch(es) for "${filename}"`);
 
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(geminiKey);
@@ -184,7 +209,7 @@ async function ocrPdfBuffer(buffer, filename) {
       });
 
       const batchTotalMB = imageParts.reduce((sum, p) => sum + Buffer.from(p.inlineData.data, "base64").length, 0) / (1024 * 1024);
-      console.log(`Gemini OCR: sending batch ${bIdx + 1}/${batches.length} (${batch.length} pages, ${batchTotalMB.toFixed(1)} MB)`);
+      console.log(`Gemini 2.0 OCR: sending batch ${bIdx + 1}/${batches.length} (${batch.length} pages, ${batchTotalMB.toFixed(1)} MB)`);
 
       const prompt = batch.length > 1
         ? `Extract ALL text from these ${batch.length} document page images. Return the complete text content exactly as it appears, preserving the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase — output the raw text only, with no commentary.`
@@ -196,33 +221,45 @@ async function ocrPdfBuffer(buffer, filename) {
       fullText += pageText + "\n";
     }
 
-    const geminiWordCount = fullText.trim().split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
-    console.log(`Gemini OCR complete: extracted ${fullText.trim().length} chars / ${geminiWordCount} words from ${validImageFiles.length} pages`);
+    const wordCount = fullText.trim().split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
+    console.log(`Gemini 2.0 OCR complete: extracted ${fullText.trim().length} chars / ${wordCount} words from ${validImageFiles.length} pages`);
 
-    if (geminiWordCount < 5) {
-      console.log("Gemini OCR returned very little text, falling back to tesseract...");
-      try {
-        const tesseractText = await ocrPdfBufferTesseract(buffer, filename);
-        if (tesseractText.length > fullText.trim().length) {
-          return tesseractText;
-        }
-      } catch (fallbackErr) {
-        console.error("Tesseract fallback after Gemini quality check failed:", fallbackErr.message);
-      }
+    if (wordCount < 5) {
+      throw new Error("Gemini 2.0 returned very little text");
     }
 
     return fullText.trim();
-  } catch (geminiErr) {
-    console.error("Gemini OCR error:", geminiErr.message);
-    console.log("Falling back to tesseract OCR...");
-    try {
-      return await ocrPdfBufferTesseract(buffer, filename);
-    } catch (fallbackErr) {
-      console.error("Tesseract fallback also failed:", fallbackErr.message);
-      return "";
-    }
   } finally {
     cleanupTmpDir(tmpDir);
+  }
+}
+
+async function ocrPdfBuffer(buffer, filename) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    console.log("GEMINI_API_KEY not set, falling back to tesseract OCR");
+    return ocrPdfBufferTesseract(buffer, filename);
+  }
+
+  try {
+    return await ocrPdfDirect31(buffer, filename, geminiKey);
+  } catch (err31) {
+    console.error(`Gemini 3.1 direct PDF failed for "${filename}":`, err31.message);
+    console.log("Falling back to Gemini 2.0 image-based OCR...");
+
+    try {
+      return await ocrPdfImageBased20(buffer, filename, geminiKey);
+    } catch (err20) {
+      console.error(`Gemini 2.0 image-based OCR failed for "${filename}":`, err20.message);
+      console.log("Falling back to tesseract OCR...");
+
+      try {
+        return await ocrPdfBufferTesseract(buffer, filename);
+      } catch (fallbackErr) {
+        console.error("Tesseract fallback also failed:", fallbackErr.message);
+        return "";
+      }
+    }
   }
 }
 
