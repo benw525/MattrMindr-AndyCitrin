@@ -5,7 +5,6 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 
 const VOIRDIRE_BASE_URL = "https://voirdire.mattrmindr.com";
-const VOIRDIRE_API_KEY = process.env.VOIRDIRE_API_KEY || "";
 
 async function verifyCaseAccess(caseId, req) {
   const { rows } = await pool.query("SELECT * FROM cases WHERE id = $1 AND deleted_at IS NULL", [caseId]);
@@ -55,12 +54,9 @@ router.post("/connect", requireAuth, async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
     try {
-      const loginRes = await fetch(`${VOIRDIRE_BASE_URL}/api/external/auth`, {
+      const loginRes = await fetch(`${VOIRDIRE_BASE_URL}/api/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(VOIRDIRE_API_KEY ? { "X-API-Key": VOIRDIRE_API_KEY } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
       if (!loginRes.ok) {
@@ -106,10 +102,10 @@ router.get("/list-jurors", requireAuth, async (req, res) => {
     const creds = await getVoirdireCredentials(req.session.userId);
     if (!creds) return res.status(400).json({ error: "Voir Dire Analyst not connected" });
 
-    const listRes = await fetch(`${creds.voirdire_url}/api/external/jurors`, {
+    const listRes = await fetch(`${creds.voirdire_url}/api/jurors`, {
       headers: {
         Authorization: `Bearer ${creds.voirdire_token}`,
-        ...(VOIRDIRE_API_KEY ? { "X-API-Key": VOIRDIRE_API_KEY } : {}),
+        "Content-Type": "application/json",
       },
     });
     if (!listRes.ok) {
@@ -163,10 +159,10 @@ router.post("/import-jurors", requireAuth, async (req, res) => {
     const creds = await getVoirdireCredentials(req.session.userId);
     if (!creds) return res.status(400).json({ error: "Voir Dire Analyst not connected" });
 
-    const listRes = await fetch(`${creds.voirdire_url}/api/external/jurors`, {
+    const listRes = await fetch(`${creds.voirdire_url}/api/jurors`, {
       headers: {
         Authorization: `Bearer ${creds.voirdire_token}`,
-        ...(VOIRDIRE_API_KEY ? { "X-API-Key": VOIRDIRE_API_KEY } : {}),
+        "Content-Type": "application/json",
       },
     });
     if (!listRes.ok) {
