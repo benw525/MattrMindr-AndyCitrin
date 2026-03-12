@@ -800,6 +800,7 @@ router.get("/:id/suggest-name", requireAuth, async (req, res) => {
       ],
       max_completion_tokens: 100,
       temperature: 0.3,
+      store: false,
     });
     const suggestedName = (completion.choices[0]?.message?.content || "").trim();
     if (!suggestedName) return res.status(500).json({ error: "AI did not return a suggestion" });

@@ -100,6 +100,7 @@ export function registerAudioRoutes(app: Express): void {
         audio: { voice, format: "pcm16" },
         messages: chatHistory,
         stream: true,
+        store: false,
       });
 
       let assistantTranscript = "";

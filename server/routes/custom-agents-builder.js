@@ -159,6 +159,7 @@ router.post("/:id/run", requireAuth, async (req, res) => {
       ],
       temperature: 0.3,
       max_tokens: 4000,
+      store: false,
     });
 
     res.json({ response: completion.choices[0].message.content, model });
@@ -194,6 +195,7 @@ router.post("/:id/chat", requireAuth, async (req, res) => {
       messages: [{ role: "system", content: systemContent }, ...messages],
       temperature: 0.3,
       max_tokens: 4000,
+      store: false,
     });
 
     res.json({ response: completion.choices[0].message.content, model });
@@ -225,6 +227,7 @@ router.post("/preview", requireAuth, async (req, res) => {
       ],
       temperature: 0.3,
       max_tokens: 2000,
+      store: false,
     });
 
     res.json({ response: completion.choices[0].message.content, model });

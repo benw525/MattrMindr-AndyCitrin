@@ -86,6 +86,7 @@ export function registerChatRoutes(app: Express): void {
         messages: chatMessages,
         stream: true,
         max_completion_tokens: 8192,
+        store: false,
       });
 
       let fullResponse = "";

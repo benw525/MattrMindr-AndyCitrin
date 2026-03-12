@@ -244,6 +244,7 @@ router.post("/ai-assist", requireAuth, async (req, res) => {
       ],
       temperature: 0.1,
       max_tokens: 1000,
+      store: false,
     });
 
     const content = completion.choices[0].message.content.trim();

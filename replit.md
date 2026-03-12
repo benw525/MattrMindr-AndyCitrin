@@ -11,7 +11,10 @@ A case management system for personal injury law firms. Tracks PI cases, manages
 - **Email**: SendGrid (Replit integration) for auth emails; SendGrid Inbound Parse for case correspondence
 - **Styling**: Tailwind CSS v3 + CSS-in-JS template literal; Inter font, slate/amber color palette, lucide-react icons
 - **Icons**: All AI Center agent cards and Reports page cards use lucide-react Icon components with colored rounded-lg background containers
-- **OCR**: Tiered Gemini OCR pipeline via `@google/generative-ai`: 1) `gemini-3.1-flash-lite-preview` sends PDF directly (fastest), 2) falls back to `gemini-2.0-flash` with image-based extraction (converts pages to JPEG, auto-splits into size-based batches under 45MB, compresses oversized images with `sharp`, reduces DPI for PDFs >50MB), 3) falls back to tesseract.js; no page limit
+- **OCR**: Tiered Gemini OCR pipeline via `@google/generative-ai`: 1) `gemini-3.1-flash-lite-preview` sends PDF directly (fastest), 2) falls back to `gemini-2.0-flash` with image-based extraction (converts pages to JPEG, compresses oversized images with `sharp`, reduces DPI for PDFs >50MB), 3) falls back to tesseract.js; no page limit
+- **Page-tagged OCR**: `extractTextWithPages()` in `server/utils/extract-text.js` returns text with `[PAGE N]` markers. Uses `pdf-parse` pagerender first (for digital PDFs), falls back to Gemini/Tesseract with per-page tagging. Used by medical record parsing for accurate page references.
+- **OpenAI Privacy**: All `openai.chat.completions.create()` calls include `store: false` to prevent training on attorney-client privileged data
+- **Medical Record Staging**: Upload/from-document routes return staged entries for preview; user reviews with Add All/Discard/per-entry remove; commit endpoint saves selected entries
 - **System Dependencies**: ffmpeg (Nix package, required for audio transcription), pdftoppm (for PDF-to-image conversion during OCR)
 - **Design Packages**: tailwindcss@3.4.19, postcss, autoprefixer, lucide-react (in lextrack/package.json devDependencies)
 

@@ -3,7 +3,7 @@ const pool = require("../db");
 const multer = require("multer");
 const OpenAI = require("openai");
 const { requireAuth } = require("../middleware/auth");
-const { extractText } = require("../utils/extract-text");
+const { extractText, extractTextWithPages } = require("../utils/extract-text");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -160,29 +160,62 @@ const parseMedicalText = async (text) => {
     messages: [
       {
         role: "system",
-        content: `You are a medical record parser for personal injury cases. Given extracted text from a medical document, parse it into individual visit/treatment entries sorted by date. Return a JSON array of objects, each with:
-- provider_name: the healthcare provider or facility name (include doctor name and credentials if mentioned, e.g. "MIMC Outpatient Physical Therapy Saraland (Jarrod Cain, PT; referring Tim S Revels, MD)")
-- date_of_service: date in YYYY-MM-DD format (or null if unknown)
-- description: brief description of the visit/treatment type (e.g. "Outpatient physical therapy visit", "Evaluation", "Treatment", "Appointment", "Episode created", "Episode resolved")
-- source_pages: which pages this entry appears on (e.g., "2, 3, 4, 5" or "16")
-- summary: a concise clinical summary of the visit including symptoms, treatments performed, diagnoses, and any referrals
-
-Return ONLY valid JSON array, no other text. Each distinct date of service should be a separate entry.`
+        content: `You extract structured medical treatment data from medical records. The text may be labeled with [PAGE N] markers indicating which page each section comes from. Return JSON:
+{
+  "entries": [
+    {
+      "provider": "Provider/Facility Name (include doctor name and credentials if mentioned)",
+      "dateOfService": "YYYY-MM-DD",
+      "summary": "Brief summary of treatment, diagnosis, findings",
+      "pageNumbers": [1]
+    }
+  ]
+}
+For each entry, include a "pageNumbers" array listing every page number where data for that entry was found (a single entry may span multiple pages). Extract every distinct visit/treatment entry you can identify. Each date of service should be a separate entry. Use ISO date format. If a date is ambiguous, use your best interpretation. Return ONLY valid JSON.`
       },
       {
         role: "user",
-        content: `Parse this medical document into individual visit records:\n\n${text.substring(0, 15000)}`
+        content: `Parse this medical document into individual visit records:\n\n${text.substring(0, 16000)}`
       }
     ],
     temperature: 0.1,
     max_completion_tokens: 4000,
+    store: false,
   });
 
   const content = completion.choices[0].message.content.trim();
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
-  if (jsonMatch) {
-    return JSON.parse(jsonMatch[0]);
+  let parsed = null;
+
+  const objMatch = content.match(/\{[\s\S]*\}/);
+  if (objMatch) {
+    try {
+      parsed = JSON.parse(objMatch[0]);
+      if (parsed.entries && Array.isArray(parsed.entries)) {
+        return parsed.entries.map(e => ({
+          provider_name: e.provider || "",
+          date_of_service: e.dateOfService || null,
+          description: e.summary || "",
+          source_pages: Array.isArray(e.pageNumbers) ? e.pageNumbers.join(", ") : (e.pageNumbers || ""),
+          summary: e.summary || "",
+        }));
+      }
+    } catch (e) {}
   }
+
+  const arrMatch = content.match(/\[[\s\S]*\]/);
+  if (arrMatch) {
+    try {
+      const arr = JSON.parse(arrMatch[0]);
+      return arr.map(e => ({
+        provider_name: e.provider || e.provider_name || "",
+        date_of_service: e.dateOfService || e.date_of_service || null,
+        description: e.summary || e.description || "",
+        source_pages: Array.isArray(e.pageNumbers) ? e.pageNumbers.join(", ") : (e.source_pages || e.pageNumbers || ""),
+        summary: e.summary || "",
+      }));
+    } catch (e) {}
+  }
+
   return [];
 };
 
@@ -195,7 +228,7 @@ router.post("/:caseId/records/:treatmentId/upload", requireAuth, upload.single("
     const filename = req.file.originalname;
     const mimeType = req.file.mimetype;
 
-    const text = await extractText(buffer, mimeType, filename);
+    const { text } = await extractTextWithPages(buffer, mimeType, filename);
 
     if (!text || text.trim().length < 10) {
       return res.status(400).json({ error: "Could not extract text from document" });
@@ -225,53 +258,16 @@ router.post("/:caseId/records/:treatmentId/upload", requireAuth, upload.single("
       }];
     }
 
-    const inserted = [];
-    for (const visit of visits) {
-      const dateVal = visit.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(visit.date_of_service) ? visit.date_of_service : null;
-      const { rows } = await pool.query(
-        `INSERT INTO medical_records
-          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_data, file_size, filename, mime_type, uploaded_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-        [
-          treatmentId, caseId,
-          visit.provider_name || "",
-          dateVal,
-          visit.description || "",
-          visit.source_pages || "",
-          visit.summary || "",
-          buffer,
-          buffer.length,
-          filename,
-          mimeType,
-          req.user?.id || null
-        ]
-      );
-      inserted.push(recordToFrontend(rows[0]));
-    }
+    const staged = visits.map((v, i) => ({
+      _stagingId: `upload-${Date.now()}-${i}`,
+      provider_name: v.provider_name || "",
+      date_of_service: v.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(v.date_of_service) ? v.date_of_service : null,
+      description: v.description || "",
+      source_pages: v.source_pages || "",
+      summary: v.summary || "",
+    }));
 
-    const providerName = visits[0]?.provider_name || "";
-    const dates = visits.filter(v => v.date_of_service).map(v => v.date_of_service).sort();
-    let treatmentUpdates = {};
-    const { rows: tRows } = await pool.query("SELECT provider_name, first_visit_date, last_visit_date FROM case_medical_treatments WHERE id=$1 AND case_id=$2", [treatmentId, caseId]);
-    if (tRows.length) {
-      const t = tRows[0];
-      if (providerName && (!t.provider_name || t.provider_name.trim() === "")) treatmentUpdates.provider_name = providerName;
-      if (!t.first_visit_date && dates.length) treatmentUpdates.first_visit_date = dates[0];
-      if (!t.last_visit_date && dates.length) treatmentUpdates.last_visit_date = dates[dates.length - 1];
-    }
-    if (Object.keys(treatmentUpdates).length) {
-      const sets = [];
-      const vals = [];
-      let idx = 1;
-      for (const [col, val] of Object.entries(treatmentUpdates)) {
-        sets.push(`${col}=$${idx++}`);
-        vals.push(val);
-      }
-      vals.push(treatmentId, caseId);
-      await pool.query(`UPDATE case_medical_treatments SET ${sets.join(", ")} WHERE id=$${idx++} AND case_id=$${idx}`, vals);
-    }
-
-    res.status(201).json({ records: inserted, treatmentUpdates: Object.keys(treatmentUpdates).length ? treatmentUpdates : null });
+    res.status(200).json({ staged, filename, fileSize: buffer.length, mimeType });
   } catch (err) {
     console.error("Medical record upload error:", err);
     res.status(500).json({ error: "Server error" });
@@ -301,9 +297,13 @@ router.post("/:caseId/records/:treatmentId/from-document", requireAuth, async (r
     const filename = doc.filename;
     const mimeType = doc.content_type;
 
-    let text = doc.extracted_text && doc.extracted_text.trim().length > 10 ? doc.extracted_text : null;
+    let text = null;
+    if (doc.extracted_text && doc.extracted_text.trim().length > 10 && /\[PAGE \d+\]/.test(doc.extracted_text)) {
+      text = doc.extracted_text;
+    }
     if (!text) {
-      text = await extractText(buffer, mimeType, filename);
+      const result = await extractTextWithPages(buffer, mimeType, filename);
+      text = result.text;
     }
     if (!text || text.trim().length < 10) {
       return res.status(400).json({ error: "Could not extract text from document. The document may still be processing — try again in a moment." });
@@ -333,36 +333,97 @@ router.post("/:caseId/records/:treatmentId/from-document", requireAuth, async (r
       }];
     }
 
-    const inserted = [];
-    for (const visit of visits) {
-      const dateVal = visit.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(visit.date_of_service) ? visit.date_of_service : null;
-      const { rows } = await pool.query(
-        `INSERT INTO medical_records
-          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_size, filename, mime_type, uploaded_by, source_document_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-        [
-          treatmentId, caseId,
-          visit.provider_name || "",
-          dateVal,
-          visit.description || "",
-          visit.source_pages || "",
-          visit.summary || "",
-          buffer ? buffer.length : 0,
-          filename,
-          mimeType,
-          req.user?.id || null,
-          documentId
-        ]
+    const staged = visits.map((v, i) => ({
+      _stagingId: `doc-${Date.now()}-${i}`,
+      provider_name: v.provider_name || "",
+      date_of_service: v.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(v.date_of_service) ? v.date_of_service : null,
+      description: v.description || "",
+      source_pages: v.source_pages || "",
+      summary: v.summary || "",
+    }));
+
+    res.status(200).json({ staged, filename, documentId, mimeType });
+  } catch (err) {
+    console.error("Medical record from-document error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/:caseId/records/:treatmentId/commit", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    const { caseId, treatmentId } = req.params;
+
+    const { rows: treatmentCheck } = await pool.query(
+      "SELECT id FROM case_medical_treatments WHERE id = $1 AND case_id = $2",
+      [treatmentId, caseId]
+    );
+    if (!treatmentCheck.length) return res.status(404).json({ error: "Treatment not found for this case" });
+
+    let entries, documentId, filename, mimeType;
+    try {
+      entries = JSON.parse(req.body.entries || "[]");
+      documentId = req.body.documentId || null;
+      filename = req.body.filename || "unknown";
+      mimeType = req.body.mimeType || "application/octet-stream";
+    } catch (parseErr) {
+      return res.status(400).json({ error: "Invalid entries data" });
+    }
+
+    if (!entries.length) return res.status(400).json({ error: "No entries to commit" });
+
+    if (documentId) {
+      const { rows: docCheck } = await pool.query(
+        "SELECT id FROM case_documents WHERE id = $1 AND case_id = $2 AND deleted_at IS NULL",
+        [documentId, caseId]
       );
+      if (!docCheck.length) return res.status(404).json({ error: "Document not found for this case" });
+    }
+
+    const buffer = req.file ? req.file.buffer : null;
+
+    const inserted = [];
+    for (const visit of entries) {
+      const dateVal = visit.date_of_service && /^\d{4}-\d{2}-\d{2}$/.test(visit.date_of_service) ? visit.date_of_service : null;
+      const params = [
+        treatmentId, caseId,
+        visit.provider_name || "",
+        dateVal,
+        visit.description || "",
+        visit.source_pages || "",
+        visit.summary || "",
+        buffer ? buffer.length : 0,
+        filename,
+        mimeType,
+        req.user?.id || null,
+      ];
+
+      let sql;
+      if (documentId) {
+        sql = `INSERT INTO medical_records
+          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_size, filename, mime_type, uploaded_by, source_document_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`;
+        params.push(documentId);
+      } else if (buffer) {
+        sql = `INSERT INTO medical_records
+          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_data, file_size, filename, mime_type, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`;
+        params.splice(7, 0, buffer);
+      } else {
+        sql = `INSERT INTO medical_records
+          (treatment_id, case_id, provider_name, date_of_service, description, source_pages, summary, file_size, filename, mime_type, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`;
+      }
+
+      const { rows } = await pool.query(sql, params);
       inserted.push(recordToFrontend(rows[0]));
     }
 
-    const providerName = visits[0]?.provider_name || "";
-    const dates = visits.filter(v => v.date_of_service).map(v => v.date_of_service).sort();
+    const providerName = entries[0]?.provider_name || "";
+    const dates = entries.filter(v => v.date_of_service).map(v => v.date_of_service).sort();
     let treatmentUpdates = {};
-    const { rows: tRows2 } = await pool.query("SELECT provider_name, first_visit_date, last_visit_date FROM case_medical_treatments WHERE id=$1 AND case_id=$2", [treatmentId, caseId]);
-    if (tRows2.length) {
-      const t = tRows2[0];
+    const { rows: tRows } = await pool.query("SELECT provider_name, first_visit_date, last_visit_date FROM case_medical_treatments WHERE id=$1 AND case_id=$2", [treatmentId, caseId]);
+    if (tRows.length) {
+      const t = tRows[0];
       if (providerName && (!t.provider_name || t.provider_name.trim() === "")) treatmentUpdates.provider_name = providerName;
       if (!t.first_visit_date && dates.length) treatmentUpdates.first_visit_date = dates[0];
       if (!t.last_visit_date && dates.length) treatmentUpdates.last_visit_date = dates[dates.length - 1];
@@ -381,7 +442,7 @@ router.post("/:caseId/records/:treatmentId/from-document", requireAuth, async (r
 
     res.status(201).json({ records: inserted, treatmentUpdates: Object.keys(treatmentUpdates).length ? treatmentUpdates : null });
   } catch (err) {
-    console.error("Medical record from-document error:", err);
+    console.error("Medical record commit error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

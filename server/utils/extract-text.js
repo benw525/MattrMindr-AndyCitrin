@@ -298,6 +298,206 @@ async function ocrPdfBufferTesseract(buffer, filename) {
   }
 }
 
+async function extractTextWithPages(buffer, contentType, filename) {
+  if (contentType === "text/plain") {
+    return { text: buffer.toString("utf-8"), hasPages: false };
+  }
+  if (contentType === "application/msword" || contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const result = await mammoth.extractRawText({ buffer });
+    return { text: result.value || "", hasPages: false };
+  }
+  if (contentType === "application/pdf") {
+    const pdfParse = require("pdf-parse");
+
+    const pageTexts = [];
+    const opts = {
+      pagerender: function (pageData) {
+        return pageData.getTextContent().then(function (textContent) {
+          let lastY = null;
+          let pageText = "";
+          for (const item of textContent.items) {
+            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+              pageText += "\n";
+            }
+            pageText += item.str;
+            lastY = item.transform[5];
+          }
+          pageTexts.push(pageText);
+          return pageText;
+        });
+      }
+    };
+
+    try {
+      await pdfParse(buffer, opts);
+    } catch (parseErr) {
+      console.error(`pdf-parse error for "${filename}":`, parseErr.message);
+    }
+
+    if (pageTexts.length > 0) {
+      const totalChars = pageTexts.reduce((s, p) => s + p.trim().length, 0);
+      const totalWords = pageTexts.join(" ").split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
+
+      if (totalChars >= OCR_MIN_TEXT_LENGTH && totalWords >= 20) {
+        const tagged = pageTexts.map((pt, i) => `[PAGE ${i + 1}]\n${pt.trim()}`).join("\n\n");
+        return { text: tagged, hasPages: true };
+      }
+      console.log(`pdf-parse page extraction yielded ${totalChars} chars / ${totalWords} words for "${filename}", attempting OCR with page tags...`);
+    }
+
+    const ocrResult = await ocrPdfBufferWithPages(buffer, filename);
+    if (ocrResult.text.length > 0) return ocrResult;
+
+    return { text: "", hasPages: false };
+  }
+  return { text: "", hasPages: false };
+}
+
+async function ocrPdfBufferWithPages(buffer, filename) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    console.log("GEMINI_API_KEY not set, falling back to tesseract OCR with pages");
+    return ocrPdfBufferTesseractWithPages(buffer, filename);
+  }
+
+  try {
+    const text = await ocrPdfDirect31WithPages(buffer, filename, geminiKey);
+    return text;
+  } catch (err31) {
+    console.error(`Gemini 3.1 direct PDF with pages failed for "${filename}":`, err31.message);
+    try {
+      return await ocrPdfImageBased20WithPages(buffer, filename, geminiKey);
+    } catch (err20) {
+      console.error(`Gemini 2.0 image-based OCR with pages failed for "${filename}":`, err20.message);
+      try {
+        return await ocrPdfBufferTesseractWithPages(buffer, filename);
+      } catch (fallbackErr) {
+        console.error("Tesseract fallback also failed:", fallbackErr.message);
+        return { text: "", hasPages: false };
+      }
+    }
+  }
+}
+
+async function ocrPdfDirect31WithPages(buffer, filename, geminiKey) {
+  console.log(`Gemini 3.1 direct PDF OCR (with pages): starting for "${filename}"`);
+
+  const { GoogleGenerativeAI } = require("@google/generative-ai");
+  const genAI = new GoogleGenerativeAI(geminiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+
+  const pdfPart = {
+    inlineData: {
+      data: buffer.toString("base64"),
+      mimeType: "application/pdf"
+    }
+  };
+
+  const prompt = "Extract ALL text from this PDF document page by page. For each page, output a marker [PAGE N] followed by the text content of that page. Preserve the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase. Example format:\n[PAGE 1]\n<text from page 1>\n\n[PAGE 2]\n<text from page 2>";
+
+  const result = await model.generateContent([prompt, pdfPart]);
+  const response = await result.response;
+  const fullText = response.text().trim();
+
+  const wordCount = fullText.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
+  console.log(`Gemini 3.1 direct PDF OCR (with pages) complete: ${fullText.length} chars / ${wordCount} words for "${filename}"`);
+
+  if (wordCount < 5) throw new Error("Gemini 3.1 returned very little text");
+
+  const hasPageMarkers = /\[PAGE \d+\]/.test(fullText);
+  return { text: fullText, hasPages: hasPageMarkers };
+}
+
+async function ocrPdfImageBased20WithPages(buffer, filename, geminiKey) {
+  console.log(`Gemini 2.0 image-based OCR (with pages): starting for "${filename}"`);
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-"));
+  const pdfPath = path.join(tmpDir, "input.pdf");
+  fs.writeFileSync(pdfPath, buffer);
+
+  try {
+    let dpi = 300;
+    if (buffer.length > 100 * 1024 * 1024) dpi = 150;
+    else if (buffer.length > 50 * 1024 * 1024) dpi = 200;
+
+    const imageFiles = await convertPdfToImages(pdfPath, tmpDir, dpi, null);
+    if (imageFiles.length === 0) return { text: "", hasPages: false };
+
+    const validImageFiles = [];
+    for (const imgFile of imageFiles) {
+      const imgPath = path.join(tmpDir, imgFile);
+      const fileSize = fs.statSync(imgPath).size;
+      if (fileSize > GEMINI_MAX_SINGLE_IMAGE_BYTES) {
+        const compressed = await compressImage(imgPath, GEMINI_MAX_SINGLE_IMAGE_BYTES);
+        if (!compressed) continue;
+      }
+      validImageFiles.push(imgFile);
+    }
+    if (validImageFiles.length === 0) return { text: "", hasPages: false };
+
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const pageResults = [];
+
+    for (let i = 0; i < validImageFiles.length; i++) {
+      const imgFile = validImageFiles[i];
+      const imgPath = path.join(tmpDir, imgFile);
+      const imgData = fs.readFileSync(imgPath);
+      const imagePart = {
+        inlineData: {
+          data: imgData.toString("base64"),
+          mimeType: "image/jpeg"
+        }
+      };
+
+      const prompt = "Extract ALL text from this document page image. Return the complete text content exactly as it appears.";
+      const result = await model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      const pageText = response.text().trim();
+      pageResults.push(`[PAGE ${i + 1}]\n${pageText}`);
+    }
+
+    const fullText = pageResults.join("\n\n");
+    console.log(`Gemini 2.0 OCR (with pages) complete: ${fullText.length} chars from ${validImageFiles.length} pages`);
+    return { text: fullText, hasPages: true };
+  } finally {
+    cleanupTmpDir(tmpDir);
+  }
+}
+
+async function ocrPdfBufferTesseractWithPages(buffer, filename) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ocr-"));
+  const pdfPath = path.join(tmpDir, "input.pdf");
+  fs.writeFileSync(pdfPath, buffer);
+
+  try {
+    const imageFiles = await convertPdfToImages(pdfPath, tmpDir, 300, 10);
+    if (imageFiles.length === 0) return { text: "", hasPages: false };
+
+    const Tesseract = require("tesseract.js");
+    const worker = await Tesseract.createWorker("eng");
+
+    const pageResults = [];
+    try {
+      for (let i = 0; i < imageFiles.length; i++) {
+        const imgPath = path.join(tmpDir, imageFiles[i]);
+        const { data: { text } } = await worker.recognize(imgPath);
+        pageResults.push(`[PAGE ${i + 1}]\n${text.trim()}`);
+      }
+    } finally {
+      await worker.terminate().catch(e => console.error("Tesseract terminate error:", e.message));
+    }
+
+    const fullText = pageResults.join("\n\n");
+    console.log(`Tesseract OCR (with pages) complete: ${fullText.length} chars from ${imageFiles.length} pages`);
+    return { text: fullText, hasPages: true };
+  } finally {
+    cleanupTmpDir(tmpDir);
+  }
+}
+
 async function extractText(buffer, contentType, filename) {
   if (contentType === "text/plain") {
     return buffer.toString("utf-8");
@@ -332,4 +532,4 @@ async function extractText(buffer, contentType, filename) {
   return "";
 }
 
-module.exports = { extractText };
+module.exports = { extractText, extractTextWithPages };

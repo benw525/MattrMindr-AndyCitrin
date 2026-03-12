@@ -410,6 +410,7 @@ Return ONLY valid JSON, no markdown or extra text.`
           content: text.substring(0, 15000)
         }
       ],
+      store: false,
     });
 
     let parsed = {};

@@ -166,6 +166,17 @@ export async function apiUploadMedicalRecord(caseId, treatmentId, file) {
 export const apiUpdateMedicalRecord = (caseId, treatmentId, id, data) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/${id}`, { method: "PUT", body: data });
 export const apiDeleteMedicalRecord = (caseId, treatmentId, id) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/${id}`, { method: "DELETE" });
 export const apiMedicalRecordFromDocument = (caseId, treatmentId, documentId) => apiFetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/from-document`, { method: "POST", body: { documentId } });
+export async function apiCommitMedicalRecords(caseId, treatmentId, entries, file, documentId, filename, mimeType) {
+  const form = new FormData();
+  form.append("entries", JSON.stringify(entries));
+  if (file) form.append("file", file);
+  if (documentId) form.append("documentId", documentId);
+  if (filename) form.append("filename", filename);
+  if (mimeType) form.append("mimeType", mimeType);
+  const res = await fetch(`/api/medical-treatments/${caseId}/records/${treatmentId}/commit`, { method: "POST", credentials: "include", body: form });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
 
 // Liens
 export const apiGetLiens = (caseId) => apiFetch(`/api/liens/${caseId}`);

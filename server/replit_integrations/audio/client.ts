@@ -127,6 +127,7 @@ export async function voiceChat(
         { type: "input_audio", input_audio: { data: audioBase64, format: inputFormat } },
       ],
     }],
+    store: false,
   });
   const message = response.choices[0]?.message as any;
   const transcript = message?.audio?.transcript || message?.content || "";
@@ -164,6 +165,7 @@ export async function voiceChatStream(
       ],
     }],
     stream: true,
+    store: false,
   });
 
   return (async function* () {
@@ -197,6 +199,7 @@ export async function textToSpeech(
       { role: "system", content: "You are an assistant that performs text-to-speech." },
       { role: "user", content: `Repeat the following text verbatim: ${text}` },
     ],
+    store: false,
   });
   const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
   return Buffer.from(audioData, "base64");
@@ -220,6 +223,7 @@ export async function textToSpeechStream(
       { role: "user", content: `Repeat the following text verbatim: ${text}` },
     ],
     stream: true,
+    store: false,
   });
 
   return (async function* () {

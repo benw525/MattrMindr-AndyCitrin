@@ -37,7 +37,7 @@ import {
   apiGetCalendarFeeds, apiCreateCalendarFeed, apiUpdateCalendarFeed, apiDeleteCalendarFeed,
   apiGetInsurancePolicies, apiCreateInsurancePolicy, apiUpdateInsurancePolicy, apiDeleteInsurancePolicy,
   apiGetMedicalTreatments, apiCreateMedicalTreatment, apiUpdateMedicalTreatment, apiDeleteMedicalTreatment,
-  apiUploadMedicalRecord, apiGetMedicalRecords, apiDeleteMedicalRecord, apiUpdateMedicalRecord, apiMedicalRecordFromDocument,
+  apiUploadMedicalRecord, apiGetMedicalRecords, apiDeleteMedicalRecord, apiUpdateMedicalRecord, apiMedicalRecordFromDocument, apiCommitMedicalRecords,
   apiGetLiens, apiCreateLien, apiUpdateLien, apiDeleteLien,
   apiGetDamages, apiCreateDamage, apiUpdateDamage, apiDeleteDamage,
   apiGetExpenses, apiCreateExpense, apiUpdateExpense, apiDeleteExpense,
@@ -6108,6 +6108,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [medicalFilterType, setMedicalFilterType] = useState("All");
   const medRecFileRef = useRef(null);
   const [expandedRecordId, setExpandedRecordId] = useState(null);
+  const [stagedMedRecords, setStagedMedRecords] = useState(null);
+  const stagedMedFileRef = useRef(null);
   const [medRecFilters, setMedRecFilters] = useState({});
   const [liens, setLiens] = useState([]);
   const [damages, setDamages] = useState([]);
@@ -8422,20 +8424,25 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const tid = medicalUploadingFor;
               setMedicalUploadingFor(null);
               setMedicalRecordsLoading(p => ({ ...p, [tid]: true }));
+              stagedMedFileRef.current = file;
               try {
                 const result = await apiUploadMedicalRecord(c.id, tid, file);
-                const recs = result.records || (Array.isArray(result) ? result : [result]);
-                setMedicalRecords(p => ({ ...p, [tid]: [...(p[tid] || []), ...recs] }));
-                if (result.treatmentUpdates) {
-                  const u = result.treatmentUpdates;
-                  setMedicalTreatments(p => p.map(x => {
-                    if (x.id !== tid) return x;
-                    const updated = { ...x };
-                    if (u.provider_name) updated.providerName = u.provider_name;
-                    if (u.first_visit_date) updated.firstVisitDate = u.first_visit_date;
-                    if (u.last_visit_date) updated.lastVisitDate = u.last_visit_date;
-                    return updated;
-                  }));
+                if (result.staged) {
+                  setStagedMedRecords({ treatmentId: tid, entries: result.staged, filename: result.filename, mimeType: result.mimeType, source: "upload" });
+                } else {
+                  const recs = result.records || (Array.isArray(result) ? result : [result]);
+                  setMedicalRecords(p => ({ ...p, [tid]: [...(p[tid] || []), ...recs] }));
+                  if (result.treatmentUpdates) {
+                    const u = result.treatmentUpdates;
+                    setMedicalTreatments(p => p.map(x => {
+                      if (x.id !== tid) return x;
+                      const updated = { ...x };
+                      if (u.provider_name) updated.providerName = u.provider_name;
+                      if (u.first_visit_date) updated.firstVisitDate = u.first_visit_date;
+                      if (u.last_visit_date) updated.lastVisitDate = u.last_visit_date;
+                      return updated;
+                    }));
+                  }
                 }
               } catch (err) { alert("Upload failed: " + err.message); }
               setMedicalRecordsLoading(p => ({ ...p, [tid]: false }));
@@ -8465,6 +8472,73 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
             </div>
             {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
+            {stagedMedRecords && (
+              <div style={{ border: "2px solid #f59e0b", borderRadius: 8, marginBottom: 16, background: "#fffbeb", overflow: "hidden" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fef3c7", borderBottom: "1px solid #fde68a" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#92400e" }}>Parsed {stagedMedRecords.entries.length} Record{stagedMedRecords.entries.length !== 1 ? "s" : ""}</span>
+                    <span style={{ fontSize: 11, color: "#a16207" }}>from {stagedMedRecords.filename}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-sm" style={{ background: "#16a34a", color: "#fff", border: "none", fontSize: 11, padding: "4px 14px", fontWeight: 600 }}
+                      onClick={async () => {
+                        const s = stagedMedRecords;
+                        setMedicalRecordsLoading(p => ({ ...p, [s.treatmentId]: true }));
+                        try {
+                          const result = await apiCommitMedicalRecords(
+                            c.id, s.treatmentId, s.entries,
+                            s.source === "upload" ? stagedMedFileRef.current : null,
+                            s.documentId || null,
+                            s.filename, s.mimeType
+                          );
+                          const recs = result.records || [];
+                          setMedicalRecords(p => ({ ...p, [s.treatmentId]: [...(p[s.treatmentId] || []), ...recs] }));
+                          if (result.treatmentUpdates) {
+                            const u = result.treatmentUpdates;
+                            setMedicalTreatments(p => p.map(x => {
+                              if (x.id !== s.treatmentId) return x;
+                              const updated = { ...x };
+                              if (u.provider_name) updated.providerName = u.provider_name;
+                              if (u.first_visit_date) updated.firstVisitDate = u.first_visit_date;
+                              if (u.last_visit_date) updated.lastVisitDate = u.last_visit_date;
+                              return updated;
+                            }));
+                          }
+                          setStagedMedRecords(null);
+                          stagedMedFileRef.current = null;
+                        } catch (err) { alert("Failed to save: " + err.message); }
+                        setMedicalRecordsLoading(p => ({ ...p, [s.treatmentId]: false }));
+                      }}>Add All</button>
+                    <button className="btn btn-sm" style={{ background: "#dc2626", color: "#fff", border: "none", fontSize: 11, padding: "4px 14px", fontWeight: 600 }}
+                      onClick={() => { setStagedMedRecords(null); stagedMedFileRef.current = null; }}>Discard</button>
+                  </div>
+                </div>
+                <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                  {stagedMedRecords.entries.map((entry, idx) => (
+                    <div key={entry._stagingId || idx} style={{ padding: "8px 14px", borderBottom: "1px solid #fde68a", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{entry.provider_name || "(No Provider)"}</span>
+                          {entry.date_of_service && <span style={{ fontSize: 11, color: "#64748b" }}>{entry.date_of_service}</span>}
+                          {entry.source_pages && <span style={{ fontSize: 10, color: "#a16207", background: "#fef3c7", padding: "1px 6px", borderRadius: 3 }}>p. {entry.source_pages}</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#475569", marginTop: 2, lineHeight: 1.4 }}>{(entry.description || entry.summary || "").substring(0, 200)}{(entry.description || entry.summary || "").length > 200 ? "..." : ""}</div>
+                      </div>
+                      <button style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0, lineHeight: 1 }}
+                        title="Remove this entry"
+                        onClick={() => {
+                          setStagedMedRecords(prev => {
+                            if (!prev) return null;
+                            const remaining = prev.entries.filter((_, i) => i !== idx);
+                            if (remaining.length === 0) { stagedMedFileRef.current = null; return null; }
+                            return { ...prev, entries: remaining };
+                          });
+                        }}>&times;</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {!piDataLoading && medicalTreatments.length === 0 && <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>No medical treatments recorded yet.</div>}
             {(() => {
               const totalBilled = medicalTreatments.reduce((s, t) => s + (Number(t.totalBilled || t.total_billed) || 0), 0);
@@ -8591,18 +8665,22 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     setDocPickerLoading(t.id);
                                     try {
                                       const result = await apiMedicalRecordFromDocument(c.id, t.id, doc.id);
-                                      const recs = result.records || (Array.isArray(result) ? result : [result]);
-                                      setMedicalRecords(p => ({ ...p, [t.id]: [...(p[t.id] || []), ...recs] }));
-                                      if (result.treatmentUpdates) {
-                                        const u = result.treatmentUpdates;
-                                        setMedicalTreatments(p => p.map(x => {
-                                          if (x.id !== t.id) return x;
-                                          const updated = { ...x };
-                                          if (u.provider_name) updated.providerName = u.provider_name;
-                                          if (u.first_visit_date) updated.firstVisitDate = u.first_visit_date;
-                                          if (u.last_visit_date) updated.lastVisitDate = u.last_visit_date;
-                                          return updated;
-                                        }));
+                                      if (result.staged) {
+                                        setStagedMedRecords({ treatmentId: t.id, entries: result.staged, filename: result.filename, documentId: result.documentId, mimeType: result.mimeType, source: "document" });
+                                      } else {
+                                        const recs = result.records || (Array.isArray(result) ? result : [result]);
+                                        setMedicalRecords(p => ({ ...p, [t.id]: [...(p[t.id] || []), ...recs] }));
+                                        if (result.treatmentUpdates) {
+                                          const u = result.treatmentUpdates;
+                                          setMedicalTreatments(p => p.map(x => {
+                                            if (x.id !== t.id) return x;
+                                            const updated = { ...x };
+                                            if (u.provider_name) updated.providerName = u.provider_name;
+                                            if (u.first_visit_date) updated.firstVisitDate = u.first_visit_date;
+                                            if (u.last_visit_date) updated.lastVisitDate = u.last_visit_date;
+                                            return updated;
+                                          }));
+                                        }
                                       }
                                       setDocPickerForTreatment(null);
                                     } catch (err) { alert("Failed to import: " + err.message); }
