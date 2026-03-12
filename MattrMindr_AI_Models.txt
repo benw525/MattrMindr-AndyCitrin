@@ -1,0 +1,74 @@
+MattrMindr — AI Models by Agent/Feature
+========================================
+
+AI Center Agents (Liability, Deadline, Valuation, Drafting, Triage, Client Summary, Medical Summarizer, Task Suggestions, Filing Classifier)
+  Model: gpt-4o-mini
+  File: server/routes/ai-agents.js
+
+Advocate AI (general chat assistant)
+  Model: gpt-4o-mini
+  File: server/routes/ai-agents.js
+
+AI Search (global case search)
+  Model: gpt-5-mini
+  File: server/routes/ai-search.js
+
+Conflict Check (case conflict analysis)
+  Model: gpt-4o
+  File: server/routes/cases.js
+
+Medical Treatment Extraction (from documents)
+  Model: gpt-4o
+  File: server/routes/medical-treatments.js
+
+Document Summarize
+  Model: gpt-4o-mini
+  File: server/routes/case-documents.js
+
+Filing Summarize & Classify
+  Model: gpt-4o-mini
+  File: server/routes/filings.js
+
+Transcript Summarize & Speaker Label
+  Model: gpt-4o-mini
+  File: server/routes/transcripts.js
+
+Audio Transcription (speech-to-text)
+  Model: whisper-1
+  File: server/routes/transcripts.js
+
+Voicemail Transcription
+  Model: whisper-1
+  File: server/routes/voicemails.js
+
+SMS Auto-Reply
+  Model: gpt-4o-mini
+  File: server/routes/sms.js
+
+Inbound Email Processing (case matching, classification)
+  Model: gpt-4o-mini
+  File: server/routes/inbound-email.js
+
+Unmatched Email Classification
+  Model: gpt-4o-mini
+  File: server/routes/unmatched-emails.js
+
+Custom Reports
+  Model: gpt-4o-mini
+  File: server/routes/custom-reports.js
+
+Custom Agent Builder
+  Model: User-selectable (default gpt-4o-mini)
+  File: server/routes/custom-agents-builder.js
+
+Trial Center AI
+  Model: gpt-4o-mini
+  File: server/routes/trial-center-ai.js
+
+OCR (primary — direct PDF)
+  Model: gemini-3.1-flash-lite-preview
+  File: server/utils/extract-text.js
+
+OCR (fallback — image-based)
+  Model: gemini-2.0-flash
+  File: server/utils/extract-text.js
