@@ -8262,6 +8262,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
               const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
               const isPolExpanded = expandedPolicyId === p.id;
+              const updatePolLocal = (field, val) => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? { ...x, [field]: val } : x));
+              const savePol = (updates) => apiUpdateInsurancePolicy(c.id, p.id, updates).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(err => console.error("Policy save failed:", err));
               const polType = p.policyType || p.policy_type || "Liability";
               const polCarrier = p.carrierName || p.carrier_name || "";
               const polLimits = p.policyLimits || p.policy_limits || "";
@@ -8288,33 +8290,33 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", marginTop: 10 }}>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Type</label>
                         <select style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}
-                          defaultValue={polType} onChange={e => apiUpdateInsurancePolicy(c.id, p.id, { policyType: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})}>
+                          value={polType} onChange={e => { updatePolLocal("policyType", e.target.value); savePol({ policyType: e.target.value }); }}>
                           {["Liability", "UM", "UIM", "MedPay", "PIP", "Homeowner", "Commercial", "Umbrella", "Health Insurance"].map(o => <option key={o}>{o}</option>)}
                         </select></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Carrier</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={polCarrier} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { carrierName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={polCarrier} onChange={e => updatePolLocal("carrierName", e.target.value)} onBlur={e => savePol({ carrierName: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy #</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={p.policyNumber || p.policy_number || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { policyNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={p.policyNumber || p.policy_number || ""} onChange={e => updatePolLocal("policyNumber", e.target.value)} onBlur={e => savePol({ policyNumber: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Policy Limits</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={polLimits} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { policyLimits: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={polLimits} onChange={e => updatePolLocal("policyLimits", e.target.value)} onBlur={e => savePol({ policyLimits: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Claim #</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={polClaim} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { claimNumber: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={polClaim} onChange={e => updatePolLocal("claimNumber", e.target.value)} onBlur={e => savePol({ claimNumber: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={p.adjusterName || p.adjuster_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={p.adjusterName || p.adjuster_name || ""} onChange={e => updatePolLocal("adjusterName", e.target.value)} onBlur={e => savePol({ adjusterName: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Phone</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={p.adjusterPhone || p.adjuster_phone || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterPhone: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={p.adjusterPhone || p.adjuster_phone || ""} onChange={e => updatePolLocal("adjusterPhone", e.target.value)} onBlur={e => savePol({ adjusterPhone: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Adjuster Email</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={p.adjusterEmail || p.adjuster_email || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { adjusterEmail: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={p.adjusterEmail || p.adjuster_email || ""} onChange={e => updatePolLocal("adjusterEmail", e.target.value)} onBlur={e => savePol({ adjusterEmail: e.target.value })} /></div>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", display: "block", marginBottom: 2 }}>Insured Name</label>
                         <input style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", boxSizing: "border-box" }}
-                          defaultValue={p.insuredName || p.insured_name || ""} onBlur={e => apiUpdateInsurancePolicy(c.id, p.id, { insuredName: e.target.value }).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(() => {})} /></div>
+                          value={p.insuredName || p.insured_name || ""} onChange={e => updatePolLocal("insuredName", e.target.value)} onBlur={e => savePol({ insuredName: e.target.value })} /></div>
                     </div>
 
                     <div style={{ borderTop: "1px solid var(--c-border)", marginTop: 12, paddingTop: 8 }}>
