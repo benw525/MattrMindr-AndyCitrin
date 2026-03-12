@@ -628,6 +628,7 @@ export const apiBatchDeleteDocuments      = (ids) => apiFetch("/api/case-documen
 export const apiBatchDeleteTranscripts    = (ids) => apiFetch("/api/transcripts/batch-delete",     { method: "POST", body: { ids } });
 export const apiBatchDeleteCorrespondence = (ids) => apiFetch("/api/correspondence/batch-delete",  { method: "POST", body: { ids } });
 export const apiBatchDeleteSmsMessages    = (ids) => apiFetch("/api/sms/messages/batch-delete",    { method: "POST", body: { ids } });
+export const apiBatchDeleteFilings        = (ids) => apiFetch("/api/filings/batch-delete",         { method: "POST", body: { ids } });
 
 // Chunked Upload for Documents
 const DOC_CHUNK_SIZE = 20 * 1024 * 1024;

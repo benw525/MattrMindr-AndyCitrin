@@ -56,7 +56,7 @@ import {
   apiUploadProfilePicture, apiDeleteProfilePicture,
   apiGetDocFolders, apiCreateDocFolder, apiUpdateDocFolder, apiDeleteDocFolder, apiMoveDocument, apiReorderDocFolders,
   apiGetTranscriptFolders, apiCreateTranscriptFolder, apiUpdateTranscriptFolder, apiDeleteTranscriptFolder, apiMoveTranscript, apiReorderTranscriptFolders,
-  apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence, apiBatchDeleteSmsMessages,
+  apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence, apiBatchDeleteSmsMessages, apiBatchDeleteFilings,
   apiUploadCaseDocumentChunked, apiUploadFilingChunked,
   apiDownloadFiling,
   apiGetUnreadClientComm,
@@ -6151,6 +6151,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [expandedFilingId, setExpandedFilingId] = useState(null);
   const [editingFilingId, setEditingFilingId] = useState(null);
   const [editingFilingData, setEditingFilingData] = useState({});
+  const [filingSelectMode, setFilingSelectMode] = useState(false);
+  const [selectedFilingIds, setSelectedFilingIds] = useState(new Set());
+  const [reassigningFilingId, setReassigningFilingId] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingDocData, setEditingDocData] = useState({});
   const [editingTranscriptId, setEditingTranscriptId] = useState(null);
@@ -11162,7 +11165,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
               </div>
             )}
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280" }}>Filter by party:</label>
               <select value={filingFilterBy} onChange={e => setFilingFilterBy(e.target.value)} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #D1D5DB" }}>
                 <option value="All">All</option>
@@ -11171,7 +11174,33 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
               <span style={{ fontSize: 11, color: "#64748b" }}>
                 {filings.length} filing{filings.length !== 1 ? "s" : ""}
               </span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+                {canRemove && <button onClick={() => { setFilingSelectMode(!filingSelectMode); setSelectedFilingIds(new Set()); }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: filingSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: filingSelectMode ? "#fef2f2" : "var(--c-bg)", color: filingSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{filingSelectMode ? "Cancel" : "Select"}</button>}
+              </div>
             </div>
+            {filingSelectMode && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fca5a5" }}>
+                <span style={{ fontSize: 11, color: "#64748b" }}>{selectedFilingIds.size} selected</span>
+                {selectedFilingIds.size > 0 && (
+                  <button onClick={async () => {
+                    if (!await confirmDelete()) return;
+                    try {
+                      await apiBatchDeleteFilings([...selectedFilingIds]);
+                      setFilings(prev => prev.filter(f => !selectedFilingIds.has(f.id)));
+                      log("Batch Deleted", `${selectedFilingIds.size} filings`);
+                      setSelectedFilingIds(new Set());
+                    } catch (err) { alert("Batch delete failed: " + err.message); }
+                  }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Delete Selected ({selectedFilingIds.size})</button>
+                )}
+                <button onClick={() => {
+                  const filtered = filings.filter(f => filingFilterBy === "All" || f.filedBy === filingFilterBy);
+                  if (selectedFilingIds.size === filtered.length) setSelectedFilingIds(new Set());
+                  else setSelectedFilingIds(new Set(filtered.map(f => f.id)));
+                }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer" }}>
+                  {selectedFilingIds.size === filings.filter(f => filingFilterBy === "All" || f.filedBy === filingFilterBy).length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+            )}
 
             {filingsLoading ? <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}>Loading filings...</div> : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -11183,6 +11212,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   return (
                     <div key={f.id} style={{ border: "1px solid #E5E7EB", borderRadius: 8, padding: "10px 14px", background: "#FAFBFC" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        {filingSelectMode && <input type="checkbox" checked={selectedFilingIds.has(f.id)} onChange={e => { const next = new Set(selectedFilingIds); if (e.target.checked) next.add(f.id); else next.delete(f.id); setSelectedFilingIds(next); }} style={{ width: 16, height: 16, flexShrink: 0 }} />}
                         {isEditing ? (
                           <input value={editingFilingData.filename || ""} onChange={e => setEditingFilingData(d => ({ ...d, filename: e.target.value }))} style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 150, padding: "3px 6px", borderRadius: 4, border: "1px solid #3B82F6" }} />
                         ) : (
@@ -11196,8 +11226,22 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                             <option value="">— None —</option>
                             <option>Plaintiff</option><option>Defendant</option><option>Court</option><option>Other</option>
                           </select>
+                        ) : reassigningFilingId === f.id ? (
+                          <select autoFocus value={f.filedBy || ""} onChange={async e => {
+                            const newParty = e.target.value;
+                            try {
+                              await apiUpdateFiling(f.id, { filedBy: newParty });
+                              setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filedBy: newParty } : x));
+                              log("Filing reassigned", `${f.filename} → ${newParty}`);
+                            } catch (err) { alert("Reassign failed: " + err.message); }
+                            setReassigningFilingId(null);
+                          }} onBlur={() => setReassigningFilingId(null)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
+                            <option value="">— None —</option>
+                            <option>Plaintiff</option><option>Defendant</option><option>Court</option><option>Other</option>
+                          </select>
                         ) : (
-                          f.filedBy && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: partyColor, borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.filedBy}</span>
+                          f.filedBy ? <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: partyColor, borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", cursor: "pointer" }} onClick={() => setReassigningFilingId(f.id)} title="Click to reassign party">{f.filedBy}</span>
+                          : <span style={{ fontSize: 10, fontWeight: 500, color: "#9CA3AF", background: "#F3F4F6", borderRadius: 4, padding: "2px 7px", cursor: "pointer", fontStyle: "italic" }} onClick={() => setReassigningFilingId(f.id)} title="Click to assign party">No party</span>
                         )}
                         {isEditing ? (
                           <input value={editingFilingData.docType || ""} onChange={e => setEditingFilingData(d => ({ ...d, docType: e.target.value }))} placeholder="Doc type" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6", width: 120 }} />

@@ -110,6 +110,28 @@ router.get("/:id/download", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/batch-delete", requireAuth, async (req, res) => {
+  try {
+    const attorneyRoles = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "App Admin"];
+    const userRoles = req.session.userRoles || [req.session.userRole];
+    if (!userRoles.some(r => attorneyRoles.includes(r))) return res.status(403).json({ error: "Only attorneys may delete filings" });
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No ids provided" });
+    const { rows: filings } = await pool.query("SELECT id, case_id FROM case_filings WHERE id = ANY($1) AND deleted_at IS NULL", [ids]);
+    const caseIds = [...new Set(filings.map(f => f.case_id))];
+    for (const caseId of caseIds) {
+      if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied to one or more cases" });
+    }
+    const validIds = filings.map(f => f.id);
+    if (validIds.length === 0) return res.json({ ok: true, deleted: 0 });
+    const { rowCount } = await pool.query("UPDATE case_filings SET deleted_at = NOW() WHERE id = ANY($1) AND deleted_at IS NULL", [validIds]);
+    return res.json({ ok: true, deleted: rowCount });
+  } catch (err) {
+    console.error("Filing batch delete error:", err);
+    return res.status(500).json({ error: "Batch delete failed" });
+  }
+});
+
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const attorneyRoles = ["Managing Partner", "Senior Partner", "Partner", "Associate Attorney", "Of Counsel", "App Admin"];
