@@ -1921,7 +1921,7 @@ function FirmApp() {
       })
       .catch(err => setDataError(err.message))
       .finally(() => setLoading(false));
-  }, [currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -1964,7 +1964,7 @@ function FirmApp() {
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   if (!sessionChecked) return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
