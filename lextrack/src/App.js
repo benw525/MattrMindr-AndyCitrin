@@ -7731,11 +7731,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 const labelStyle = { fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 3 };
                 const fieldGroup = { marginBottom: 10 };
 
-                const partyOptions = parties.map(p => {
-                  const pd = p.data || {};
-                  const pName = p.entityKind === "corporation" ? (pd.entityName || "Unnamed Entity") : [pd.firstName, pd.lastName].filter(Boolean).join(" ") || "Unnamed Party";
-                  return { value: `${p.partyType}: ${pName}`, label: `${p.partyType}: ${pName}` };
-                });
+                const clientName = draft.clientName || "Client";
+                const partyOptions = [
+                  { value: `Client: ${clientName}`, label: `Client: ${clientName}` },
+                  ...parties.map(p => {
+                    const pd = p.data || {};
+                    const pName = p.entityKind === "corporation" ? (pd.entityName || "Unnamed Entity") : [pd.firstName, pd.lastName].filter(Boolean).join(" ") || "Unnamed Party";
+                    const pType = (p.partyType === "At-Fault Party") ? "Defendant" : p.partyType;
+                    return { value: `${pType}: ${pName}`, label: `${pType}: ${pName}` };
+                  })
+                ];
 
                 return (
                   <div key={exp.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
@@ -7856,16 +7861,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               </div>
 
 
-              {/* At-Fault Partys Section */}
+              {/* Defendants Section */}
               <div style={{ marginTop: 32, borderTop: "2px solid var(--c-border)", paddingTop: 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  {(() => { const coDefs = parties.filter(p => (p.party_type || p.partyType) === "At-Fault Party"); return <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>At-Fault Party(s) ({coDefs.length})</div>; })()}
-                  <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={() => { setAddingParty(true); setNewCoDefFirst(""); setNewCoDefMiddle(""); setNewCoDefLast(""); }}>+ Add At-Fault Party</button>
+                  {(() => { const defs = parties.filter(p => (p.party_type || p.partyType) === "At-Fault Party" || (p.party_type || p.partyType) === "Defendant"); return <div className="case-overlay-section-title" style={{ marginBottom: 0 }}>Defendants ({defs.length})</div>; })()}
+                  <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", fontSize: 11, padding: "2px 10px" }} onClick={() => { setAddingParty(true); setNewCoDefFirst(""); setNewCoDefMiddle(""); setNewCoDefLast(""); }}>+ Add Defendant</button>
                 </div>
 
                 {addingParty && (
                   <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>New At-Fault Party</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>New Defendant</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
                       <div><label style={{ fontSize: 11, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 }}>First Name</label>
                         <input type="text" placeholder="First name" value={newCoDefFirst} onChange={e => setNewCoDefFirst(e.target.value)} style={{ width: "100%", fontSize: 13, padding: "6px 8px" }} /></div>
@@ -7879,36 +7884,34 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A" }} onClick={async () => {
                         const fullName = [newCoDefFirst, newCoDefMiddle, newCoDefLast].filter(Boolean).join(" ") || "Unnamed";
                         try {
-                          const saved = await apiCreateParty({ caseId: c.id, partyType: "At-Fault Party", entityKind: "individual", data: { firstName: newCoDefFirst, middleName: newCoDefMiddle, lastName: newCoDefLast } });
+                          const saved = await apiCreateParty({ caseId: c.id, partyType: "Defendant", entityKind: "individual", data: { firstName: newCoDefFirst, middleName: newCoDefMiddle, lastName: newCoDefLast } });
                           setParties(p => [...p, saved]);
                           setAddingParty(false);
                           setNewCoDefFirst(""); setNewCoDefMiddle(""); setNewCoDefLast("");
                           setExpandedParty(saved.id);
-                          log("At-Fault Party Added", fullName);
+                          log("Defendant Added", fullName);
                         } catch (err) { alert("Failed to add co-defendant: " + err.message); }
                       }}>Add</button>
                     </div>
                   </div>
                 )}
 
-                {partiesLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "12px 0" }}>Loading co-defendants...</div>}
-                {!partiesLoading && parties.filter(p => (p.party_type || p.partyType) === "At-Fault Party").length === 0 && !addingParty && (
-                  <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "12px 0" }}>No co-defendants added yet.</div>
+                {partiesLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "12px 0" }}>Loading defendants...</div>}
+                {!partiesLoading && parties.filter(p => ["At-Fault Party", "Defendant"].includes(p.party_type || p.partyType)).length === 0 && !addingParty && (
+                  <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "12px 0" }}>No defendants added yet.</div>
                 )}
 
-                {!partiesLoading && parties.filter(p => (p.party_type || p.partyType) === "At-Fault Party").map(party => {
+                {!partiesLoading && parties.filter(p => ["At-Fault Party", "Defendant"].includes(p.party_type || p.partyType)).map(party => {
                   const isExp = expandedParty === party.id;
                   const d = party.data || {};
-                  const displayName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || "Unnamed At-Fault Party";
+                  const displayName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || "Unnamed Defendant";
 
                   const STATUS_COLORS = {
-                    "Pre-Trial": { bg: "#FDF0E6", text: "#8A5A1E" },
-                    "Pled Out": { bg: "#EAF5EA", text: "#2F6A3A" },
-                    "Convicted": { bg: "#FDECEA", text: "#9A3030" },
-                    "Acquitted": { bg: "#E8F4FD", text: "#1A6FA0" },
-                    "Charges Dismissed": { bg: "#E8F4FD", text: "#1A6FA0" },
-                    "Cooperating Witness": { bg: "#FFF3CD", text: "#856404" },
-                    "Fugitive": { bg: "#FDECEA", text: "#9A3030" },
+                    "Active": { bg: "#FDF0E6", text: "#8A5A1E" },
+                    "Settled": { bg: "#EAF5EA", text: "#2F6A3A" },
+                    "Dismissed": { bg: "#E8F4FD", text: "#1A6FA0" },
+                    "Default Judgment": { bg: "#FDECEA", text: "#9A3030" },
+                    "Bankrupt": { bg: "#FFF3CD", text: "#856404" },
                   };
                   const statusColor = STATUS_COLORS[d.status] || { bg: "#EDEFF2", text: "#5D6268" };
 
@@ -7941,7 +7944,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{displayName}</div>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                               {d.status && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: statusColor.bg, color: "#1e293b", letterSpacing: "0.02em" }}>{d.status}</span>}
-                              {d.jointSevered && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: "#f1f5f9", color: "#475569" }}>{d.jointSevered}</span>}
+                              {d.liabilityPct && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: "#f1f5f9", color: "#475569" }}>{d.liabilityPct}% liable</span>}
                               {d.attorney && <span style={{ fontSize: 11, color: "#64748b" }}>· Atty: {d.attorney}</span>}
                             </div>
                           </div>
@@ -7956,33 +7959,31 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             <div style={fieldGroup}><label style={labelStyle}>Middle Name</label><input style={inputStyle} value={d.middleName || ""} onChange={e => updateField("middleName", e.target.value)} /></div>
                             <div style={fieldGroup}><label style={labelStyle}>Last Name</label><input style={inputStyle} value={d.lastName || ""} onChange={e => updateField("lastName", e.target.value)} /></div>
                           </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, marginBottom: 10 }}>
-                            <div style={fieldGroup}><label style={labelStyle}>Date of Birth</label><input type="date" style={inputStyle} value={d.dob || ""} onChange={e => updateField("dob", e.target.value)} /></div>
-                            <div style={fieldGroup}><label style={labelStyle}>Case Number</label><input style={inputStyle} value={d.caseNumber || ""} placeholder="Their case number, if known" onChange={e => updateField("caseNumber", e.target.value)} /></div>
-                          </div>
-                          <div style={fieldGroup}><label style={labelStyle}>Charges</label><input style={inputStyle} value={d.charges || ""} placeholder="What they are charged with" onChange={e => updateField("charges", e.target.value)} /></div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                            <div style={fieldGroup}><label style={labelStyle}>Attorney / Represented By</label><input style={inputStyle} value={d.attorney || ""} placeholder="Attorney name" onChange={e => updateField("attorney", e.target.value)} /></div>
+                            <div style={fieldGroup}><label style={labelStyle}>Attorney / Represented By</label><input style={inputStyle} value={d.attorney || ""} placeholder="Defense attorney name" onChange={e => updateField("attorney", e.target.value)} /></div>
                             <div style={fieldGroup}>
                               <label style={labelStyle}>Status</label>
                               <select style={inputStyle} value={d.status || ""} onChange={e => updateField("status", e.target.value)}>
-                                <option value="">— Unknown —</option>
-                                {["Pre-Trial", "Pled Out", "Convicted", "Acquitted", "Charges Dismissed", "Cooperating Witness", "Fugitive"].map(s => <option key={s} value={s}>{s}</option>)}
+                                <option value="">— Select —</option>
+                                {["Active", "Settled", "Dismissed", "Default Judgment", "Bankrupt"].map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                             </div>
                           </div>
-                          <div style={fieldGroup}>
-                            <label style={labelStyle}>Joint / Severed</label>
-                            <select style={inputStyle} value={d.jointSevered || ""} onChange={e => updateField("jointSevered", e.target.value)}>
-                              <option value="">— Select —</option>
-                              {["Joint", "Severed", "Pending Severance Motion"].map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                            <div style={fieldGroup}><label style={labelStyle}>Insurance Carrier</label><input style={inputStyle} value={d.insuranceCarrier || ""} placeholder="Defendant's insurer" onChange={e => updateField("insuranceCarrier", e.target.value)} /></div>
+                            <div style={fieldGroup}><label style={labelStyle}>Policy Limits</label><input style={inputStyle} value={d.policyLimits || ""} placeholder="e.g. $100,000 / $300,000" onChange={e => updateField("policyLimits", e.target.value)} /></div>
                           </div>
-                          <div style={fieldGroup}><label style={labelStyle}>Cooperation Notes</label>
-                            <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical", fontFamily: "inherit" }} value={d.cooperationNotes || ""} placeholder="Is this person cooperating with the state? Potential witness against our client?" onChange={e => updateField("cooperationNotes", e.target.value)} />
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                            <div style={fieldGroup}><label style={labelStyle}>Liability %</label><input type="number" min="0" max="100" style={inputStyle} value={d.liabilityPct || ""} placeholder="Estimated %" onChange={e => updateField("liabilityPct", e.target.value)} /></div>
+                            <div style={fieldGroup}><label style={labelStyle}>Relationship to Plaintiff</label><input style={inputStyle} value={d.relationship || ""} placeholder="e.g. Other driver, Property owner" onChange={e => updateField("relationship", e.target.value)} /></div>
+                          </div>
+                          <div style={fieldGroup}><label style={labelStyle}>Address</label><input style={inputStyle} value={d.address || ""} placeholder="Defendant's address" onChange={e => updateField("address", e.target.value)} /></div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                            <div style={fieldGroup}><label style={labelStyle}>Phone</label><input style={inputStyle} value={d.phone || ""} placeholder="Phone number" onChange={e => updateField("phone", e.target.value)} /></div>
+                            <div style={fieldGroup}><label style={labelStyle}>Email</label><input style={inputStyle} value={d.email || ""} placeholder="Email address" onChange={e => updateField("email", e.target.value)} /></div>
                           </div>
                           <div style={fieldGroup}><label style={labelStyle}>Notes</label>
-                            <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical", fontFamily: "inherit" }} value={d.notes || ""} placeholder="General notes about this co-defendant..." onChange={e => updateField("notes", e.target.value)} />
+                            <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical", fontFamily: "inherit" }} value={d.notes || ""} placeholder="General notes about this defendant..." onChange={e => updateField("notes", e.target.value)} />
                           </div>
                           <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 10, display: "flex", justifyContent: "flex-end" }}>
                             <button className="btn btn-outline btn-sm" style={{ fontSize: 11, color: "#e05252", borderColor: "#e05252" }} onClick={async () => {
@@ -7991,9 +7992,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 await apiDeleteParty(party.id);
                                 setParties(p => p.filter(x => x.id !== party.id));
                                 setExpandedParty(null);
-                                log("At-Fault Party Removed", displayName);
+                                log("Defendant Removed", displayName);
                               } catch (err) { alert("Failed: " + err.message); }
-                            }}>Remove At-Fault Party</button>
+                            }}>Remove Defendant</button>
                           </div>
                         </div>
                       )}
@@ -11139,7 +11140,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Filed By</label>
                 <select value={filingUploadFiledBy} onChange={e => setFilingUploadFiledBy(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB" }}>
                   <option value="">— Auto-detect —</option>
-                  <option>Plaintiff</option><option>Defendant</option><option>At-Fault Party</option><option>Court</option><option>Other</option>
+                  <option>Plaintiff</option><option>Defendant</option><option>Court</option><option>Other</option>
                 </select>
               </div>
               <div>
@@ -11164,7 +11165,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
               <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280" }}>Filter by party:</label>
               <select value={filingFilterBy} onChange={e => setFilingFilterBy(e.target.value)} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #D1D5DB" }}>
                 <option value="All">All</option>
-                <option>State</option><option>Defendant</option><option>At-Fault Party</option><option>Court</option><option>Other</option>
+                <option>Plaintiff</option><option>Defendant</option><option>Court</option><option>Other</option>
               </select>
               <span style={{ fontSize: 11, color: "#64748b" }}>
                 {filings.length} filing{filings.length !== 1 ? "s" : ""}
@@ -11175,7 +11176,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 
                 {filings.filter(f => filingFilterBy === "All" || f.filedBy === filingFilterBy).map(f => {
-                  const partyColors = { State: "#DC2626", Defendant: "#2563EB", "At-Fault Party": "#7C3AED", Court: "#059669", Other: "#6B7280" };
+                  const partyColors = { Plaintiff: "#DC2626", Defendant: "#2563EB", Court: "#059669", Other: "#6B7280" };
                   const partyColor = partyColors[f.filedBy] || "#6B7280";
                   const isEditing = editingFilingId === f.id;
                   return (
@@ -11192,7 +11193,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         {isEditing ? (
                           <select value={editingFilingData.filedBy || ""} onChange={e => setEditingFilingData(d => ({ ...d, filedBy: e.target.value }))} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6" }}>
                             <option value="">— None —</option>
-                            <option>Plaintiff</option><option>Defendant</option><option>At-Fault Party</option><option>Court</option><option>Other</option>
+                            <option>Plaintiff</option><option>Defendant</option><option>Court</option><option>Other</option>
                           </select>
                         ) : (
                           f.filedBy && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: partyColor, borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.filedBy}</span>
@@ -11300,7 +11301,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                           <label>Relationship</label>
                           <select value={linkRelationship} onChange={e => setLinkRelationship(e.target.value)}>
                             <option value="">Select relationship...</option>
-                            <option>At-Fault Party</option>
+                            <option>Defendant</option>
                             <option>Related Claim</option>
                             <option>Prior Case</option>
                             <option>Companion Case</option>
@@ -11355,7 +11356,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         <div className="form-group"><label>Relationship</label>
                           <select value={linkExternalForm.relationship} onChange={e => setLinkExternalForm(p => ({ ...p, relationship: e.target.value }))}>
                             <option value="">Select relationship...</option>
-                            <option>At-Fault Party</option><option>Related Claim</option><option>Prior Case</option><option>Companion Case</option><option>Appeal</option><option>Other</option>
+                            <option>Defendant</option><option>Related Claim</option><option>Prior Case</option><option>Companion Case</option><option>Appeal</option><option>Other</option>
                           </select>
                         </div>
                         <div className="form-group"><label>Notes</label><input value={linkExternalForm.externalNotes} onChange={e => setLinkExternalForm(p => ({ ...p, externalNotes: e.target.value }))} placeholder="Optional notes" /></div>
@@ -16302,7 +16303,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                     {aiCenterFilingResult.filedBy && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Filed By:</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: { State: "#DC2626", Defendant: "#2563EB", "At-Fault Party": "#7C3AED", Court: "#059669", Other: "#6B7280" }[aiCenterFilingResult.filedBy] || "#6B7280", borderRadius: 4, padding: "2px 7px", textTransform: "uppercase" }}>{aiCenterFilingResult.filedBy}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: { Plaintiff: "#DC2626", Defendant: "#2563EB", Court: "#059669", Other: "#6B7280" }[aiCenterFilingResult.filedBy] || "#6B7280", borderRadius: 4, padding: "2px 7px", textTransform: "uppercase" }}>{aiCenterFilingResult.filedBy}</span>
                       </div>
                     )}
                     {aiCenterFilingResult.docType && (
