@@ -47,7 +47,7 @@ import {
   apiGetPortalMessages, apiSendPortalMessage, apiMarkPortalMsgRead,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
-  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail, apiReprocessUnmatchedEmails,
+  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail, apiReprocessUnmatchedEmails, apiReprocessStatus,
   apiGetPermissionKeys, apiGetPermissions, apiCreatePermission, apiCreatePermissionsBulk, apiDeletePermission, apiDeletePermissionsBulk, apiCheckPermissions,
   apiSendSupport,
   apiGetCollabUnreadCount,
@@ -17762,6 +17762,8 @@ function UnmatchedView({ allCases, onMenuToggle }) {
   const [searchMap, setSearchMap] = useState({});
   const [assigningId, setAssigningId] = useState(null);
   const [selectedEmail, setSelectedEmail] = useState(null);
+  const [reprocessing, setReprocessing] = useState(null);
+  const pollRef = useRef(null);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -17776,6 +17778,57 @@ function UnmatchedView({ allCases, onMenuToggle }) {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  const startPolling = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    let failCount = 0;
+    pollRef.current = setInterval(async () => {
+      try {
+        const s = await apiReprocessStatus();
+        failCount = 0;
+        setReprocessing({ total: s.total, processed: s.processed, matched: s.matched, errors: s.errors });
+        if (s.done) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setTimeout(() => { setReprocessing(null); refresh(); }, 1500);
+        }
+      } catch (_) {
+        failCount++;
+        if (failCount >= 5) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setReprocessing(null);
+          refresh();
+        }
+      }
+    }, 2000);
+  }, [refresh]);
+
+  const startReprocess = async () => {
+    if (reprocessing) return;
+    try {
+      const result = await apiReprocessUnmatchedEmails();
+      if (result.status === "complete") {
+        refresh();
+        return;
+      }
+      if (result.status === "started") {
+        setReprocessing({ total: result.total, processed: 0, matched: 0, errors: 0 });
+        startPolling();
+      }
+    } catch (err) {
+      if (err.message && err.message.includes("already in progress")) {
+        setReprocessing({ total: 0, processed: 0, matched: 0, errors: 0 });
+        startPolling();
+      } else {
+        alert("Reprocess failed: " + err.message);
+      }
+    }
+  };
 
   const doAssignEmail = async (emailId, caseId) => {
     setAssigningId(emailId);
@@ -17843,15 +17896,15 @@ function UnmatchedView({ allCases, onMenuToggle }) {
   const totalCount = emails.length + texts.length;
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+    <div style={{ padding: "24px 32px", maxWidth: 900, margin: "0 auto", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexShrink: 0 }}>
         <button className="md:hidden" onClick={onMenuToggle} style={{ background: "none", border: "none", color: "var(--c-text)", cursor: "pointer" }}><Menu size={22} /></button>
         <Inbox size={22} style={{ color: "#f59e0b" }} />
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--c-text)", margin: 0 }}>Unmatched</h1>
         {totalCount > 0 && <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>{totalCount} item{totalCount !== 1 ? "s" : ""} need attention</span>}
       </div>
 
-      <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid var(--c-border)" }}>
+      <div style={{ display: "flex", gap: 0, marginBottom: 0, borderBottom: "2px solid var(--c-border)", flexShrink: 0 }}>
         {[
           { id: "emails", label: "Emails", icon: Mail, count: emails.length },
           { id: "texts", label: "Texts", icon: MessageCircle, count: texts.length },
@@ -17868,6 +17921,7 @@ function UnmatchedView({ allCases, onMenuToggle }) {
         ))}
       </div>
 
+      <div style={{ flex: 1, overflow: "auto", paddingTop: 20 }}>
       {loading && <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}><Loader2 size={24} className="animate-spin" style={{ margin: "0 auto 8px" }} />Loading...</div>}
 
       {!loading && tab === "emails" && (
@@ -17879,17 +17933,27 @@ function UnmatchedView({ allCases, onMenuToggle }) {
               <div style={{ fontSize: 12, marginTop: 4 }}>All filings emails have been matched to cases.</div>
             </div>
           )}
+          {reprocessing && (
+            <div style={{ background: "var(--c-bg2)", border: "1px solid #f59e0b33", borderRadius: 8, padding: "12px 16px", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <Loader2 size={16} className="animate-spin" style={{ color: "#f59e0b" }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>Re-matching emails...</span>
+                <span style={{ fontSize: 12, color: "#64748b", marginLeft: "auto" }}>{reprocessing.processed} / {reprocessing.total}</span>
+              </div>
+              <div style={{ height: 6, background: "var(--c-border)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: "#f59e0b", borderRadius: 3, transition: "width 0.3s ease", width: `${reprocessing.total > 0 ? (reprocessing.processed / reprocessing.total) * 100 : 0}%` }} />
+              </div>
+              <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 11, color: "#64748b" }}>
+                <span>{reprocessing.matched} matched</span>
+                {reprocessing.errors > 0 && <span style={{ color: "#ef4444" }}>{reprocessing.errors} error{reprocessing.errors !== 1 ? "s" : ""}</span>}
+              </div>
+            </div>
+          )}
           {emails.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-                <button onClick={async () => {
-                  try {
-                    const result = await apiReprocessUnmatchedEmails();
-                    alert(`Reprocessed: ${result.matched} email(s) matched to cases. ${result.remaining} still unmatched.`);
-                    refresh();
-                  } catch (err) { alert("Reprocess failed: " + err.message); }
-                }} className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", border: "none", fontSize: 11, padding: "4px 12px", borderRadius: 5, cursor: "pointer" }}>
-                  Re-match All
+                <button onClick={startReprocess} disabled={!!reprocessing} className="btn btn-sm" style={{ background: reprocessing ? "#64748b" : "#f59e0b", color: "#fff", border: "none", fontSize: 11, padding: "4px 12px", borderRadius: 5, cursor: reprocessing ? "not-allowed" : "pointer", opacity: reprocessing ? 0.6 : 1 }}>
+                  {reprocessing ? "Processing..." : "Re-match All"}
                 </button>
               </div>
               {emails.map(email => {
@@ -17981,6 +18045,7 @@ function UnmatchedView({ allCases, onMenuToggle }) {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
