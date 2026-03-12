@@ -167,7 +167,7 @@ async function ocrPdfBuffer(buffer, filename) {
 
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     let fullText = "";
     for (let bIdx = 0; bIdx < batches.length; bIdx++) {
