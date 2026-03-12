@@ -193,7 +193,6 @@ Be concise but thorough. Flag anything that requires immediate action by the pla
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.3,
       max_completion_tokens: 4000,
       store: false,
     });
@@ -209,7 +208,6 @@ Be concise but thorough. Flag anything that requires immediate action by the pla
           { role: "system", content: `Extract any hearing dates, court dates, or scheduled appearances from this filing summary. Return ONLY valid JSON with a single field:\n- "hearingDates" (array of objects with "date" (YYYY-MM-DD) and "description" (string — e.g., "Motion Hearing", "Status Conference", "Mediation", "Deposition", "Trial Date"). Return empty array [] if none found.)` },
           { role: "user", content: summary },
         ],
-        temperature: 0.1,
         max_completion_tokens: 500,
         store: false,
         response_format: { type: "json_object" },

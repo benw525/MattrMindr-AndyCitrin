@@ -178,7 +178,6 @@ For each entry, include a "pageNumbers" array listing every page number where da
         content: `Parse this medical document into individual visit records:\n\n${text.substring(0, 16000)}`
       }
     ],
-    temperature: 0.1,
     max_completion_tokens: 4000,
     store: false,
   });

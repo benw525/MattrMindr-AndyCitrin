@@ -799,7 +799,6 @@ router.get("/:id/suggest-name", requireAuth, async (req, res) => {
         }
       ],
       max_completion_tokens: 100,
-      temperature: 0.3,
       store: false,
     });
     const suggestedName = (completion.choices[0]?.message?.content || "").trim();
@@ -1011,7 +1010,6 @@ Do not use markdown formatting like headers with # or bold with **. Use plain te
         { role: "system", content: systemPrompt },
         { role: "user", content: `Summarize this transcript from "${row.filename}" for the case "${row.case_title || "Unknown"}" (Client: ${row.client_name || "Unknown"}):\n\n${textSnippet}` },
       ],
-      temperature: 0.3,
       max_completion_tokens: 4000,
       store: false,
     });
