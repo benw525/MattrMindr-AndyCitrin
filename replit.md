@@ -346,7 +346,7 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 ### Voir Dire Analyst Integration
 - Backend: `server/routes/voirdire.js` — `/status`, `/connect`, `/disconnect`, `/list-jurors`, `/import-jurors`
 - DB columns: `users.voirdire_url`, `users.voirdire_token`, `users.voirdire_user_email`; `trial_jurors.voirdire_juror_id`
-- External API: `https://voirdire.mattrmindr.com/app` — auth at `/api/external/auth`, jurors at `/api/external/jurors`
+- External API: `https://voirdire.mattrmindr.com` — auth at `/api/external/auth`, jurors at `/api/external/jurors`
 - Imports jurors with full metadata (name, seat, demographics, notes, analysis, questionnaire, bias rating, occupation)
 - Upserts via `voirdire_juror_id` to avoid duplicates on re-import
 - Settings UI: Voir Dire Analyst connection card in Integrations section (violet/purple theme)

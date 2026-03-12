@@ -4,7 +4,7 @@ const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-const VOIRDIRE_BASE_URL = "https://voirdire.mattrmindr.com/app";
+const VOIRDIRE_BASE_URL = "https://voirdire.mattrmindr.com";
 const VOIRDIRE_API_KEY = process.env.VOIRDIRE_API_KEY || "";
 
 async function verifyCaseAccess(caseId, req) {

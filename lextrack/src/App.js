@@ -3355,7 +3355,7 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
     setBusy("voirdire");
     try {
       await apiConnectVoirdire(voirdireForm);
-      setVoirdireStatus({ connected: true, url: "https://voirdire.mattrmindr.com/app", email: voirdireForm.email });
+      setVoirdireStatus({ connected: true, url: "https://voirdire.mattrmindr.com", email: voirdireForm.email });
       setShowVoirdireForm(false);
       setVoirdireForm({ email: "", password: "" });
     } catch (err) { alert(err.message); }
