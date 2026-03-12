@@ -629,12 +629,14 @@ export const apiBatchDeleteSmsMessages    = (ids) => apiFetch("/api/sms/messages
 
 // Chunked Upload for Documents
 const DOC_CHUNK_SIZE = 20 * 1024 * 1024;
-export async function apiUploadCaseDocumentChunked(file, caseId, docType, onProgress) {
+export async function apiUploadCaseDocumentChunked(file, caseId, docType, onProgress, folderId) {
   const totalChunks = Math.ceil(file.size / DOC_CHUNK_SIZE);
+  const initBody = { caseId, filename: file.name, fileSize: file.size, totalChunks, docType: docType || "" };
+  if (folderId) initBody.folderId = folderId;
   const initRes = await fetch("/api/case-documents/upload/init", {
     method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ caseId, filename: file.name, fileSize: file.size, totalChunks, docType: docType || "" }),
+    body: JSON.stringify(initBody),
   });
   if (!initRes.ok) { let msg = `Init error ${initRes.status}`; try { const j = await initRes.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
   const { uploadId } = await initRes.json();

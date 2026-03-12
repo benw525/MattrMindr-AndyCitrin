@@ -9112,6 +9112,47 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </select>
                 </div>
                 <button type="submit" className="btn btn-gold btn-sm" disabled={docUploadProgress !== null}>{docUploadProgress !== null ? `${docUploadProgress}%` : "Upload"}</button>
+                <div style={{ position: "relative" }}>
+                  <input id="doc-folder-upload-input" type="file" multiple webkitdirectory="" directory="" style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      e.target.value = "";
+                      if (!files.length) return;
+                      const validExts = [".pdf", ".docx", ".doc", ".txt"];
+                      const validFiles = files.filter(f => validExts.some(ext => f.name.toLowerCase().endsWith(ext)));
+                      if (!validFiles.length) { alert("No supported files found in folder (PDF, DOCX, DOC, TXT)."); return; }
+                      const firstPath = (files[0].webkitRelativePath || "");
+                      const folderName = firstPath.split("/")[0] || "Uploaded Folder";
+                      try {
+                        const folder = await apiCreateDocFolder(c.id, folderName);
+                        setDocFolders(prev => [...prev, folder]);
+                        for (const file of validFiles) {
+                          const bg = startBackgroundUpload(file.name);
+                          try {
+                            let saved;
+                            if (file.size > 20 * 1024 * 1024) {
+                              saved = await apiUploadCaseDocumentChunked(file, c.id, docUploadType, (pct) => bg.updateProgress(pct), folder.id);
+                            } else {
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              formData.append("caseId", c.id);
+                              formData.append("docType", docUploadType);
+                              formData.append("folderId", folder.id);
+                              saved = await apiUploadCaseDocument(formData);
+                            }
+                            setCaseDocuments(prev => [saved, ...prev]);
+                            log("Document Uploaded", `${saved.filename} → ${folderName}`);
+                            bg.markDone();
+                          } catch (err) { bg.markError(err.message); }
+                        }
+                      } catch (err) { alert("Failed to create folder: " + err.message); }
+                    }}
+                  />
+                  <button type="button" className="btn btn-sm" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)", color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, padding: "5px 10px", borderRadius: 5 }}
+                    onClick={() => document.getElementById("doc-folder-upload-input")?.click()}>
+                    <FolderPlus size={13} /> Upload Folder
+                  </button>
+                </div>
               </form>
               </DragDropZone>
             </div>

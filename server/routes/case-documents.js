@@ -112,7 +112,7 @@ async function runOcrBackground(docId, buffer, contentType, filename) {
 router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    const { caseId, docType } = req.body;
+    const { caseId, docType, folderId } = req.body;
     if (!caseId) return res.status(400).json({ error: "caseId required" });
     if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
 
@@ -122,12 +122,19 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     }
 
     const userName = req.session.userName || "";
+    let folderVal = null;
+    if (folderId) {
+      folderVal = parseInt(folderId);
+      if (isNaN(folderVal)) return res.status(400).json({ error: "Invalid folderId" });
+      const { rows: folderRows } = await pool.query("SELECT id FROM document_folders WHERE id = $1 AND case_id = $2", [folderVal, caseId]);
+      if (!folderRows.length) return res.status(400).json({ error: "Folder not found for this case" });
+    }
 
     if (needsOcr(ct)) {
       const { rows } = await pool.query(
-        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
-         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing') RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-        [caseId, req.file.originalname, ct, req.file.buffer, docType || "Other", req.session.userId, userName, req.file.size]
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
+         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing', $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+        [caseId, req.file.originalname, ct, req.file.buffer, docType || "Other", req.session.userId, userName, req.file.size, folderVal]
       );
       const saved = rows[0];
       runOcrBackground(saved.id, req.file.buffer, ct, req.file.originalname);
@@ -143,9 +150,9 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
     const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
     const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-      [caseId, req.file.originalname, ct, req.file.buffer, extractedText, docType || "Other", req.session.userId, userName, req.file.size, ocrStatus]
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+      [caseId, req.file.originalname, ct, req.file.buffer, extractedText, docType || "Other", req.session.userId, userName, req.file.size, ocrStatus, folderVal]
     );
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
@@ -562,14 +569,22 @@ router.post("/batch-delete", requireAuth, async (req, res) => {
 
 router.post("/upload/init", requireAuth, express.json(), async (req, res) => {
   try {
-    const { caseId, filename, contentType, fileSize, totalChunks, docType } = req.body;
+    const { caseId, filename, contentType, fileSize, totalChunks, docType, folderId } = req.body;
     if (!caseId || !filename || !totalChunks) return res.status(400).json({ error: "Missing required fields" });
     if (fileSize > 100 * 1024 * 1024) return res.status(400).json({ error: "File too large (max 100MB)" });
     if (totalChunks > 10) return res.status(400).json({ error: "Too many chunks" });
     if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
+    let folderVal = null;
+    if (folderId) {
+      folderVal = parseInt(folderId);
+      if (isNaN(folderVal)) return res.status(400).json({ error: "Invalid folderId" });
+      const { rows: folderRows } = await pool.query("SELECT id FROM document_folders WHERE id = $1 AND case_id = $2", [folderVal, caseId]);
+      if (!folderRows.length) return res.status(400).json({ error: "Folder not found for this case" });
+    }
     const uploadId = randomUUID();
     pendingDocChunks.set(uploadId, {
       caseId, filename, contentType, fileSize, totalChunks, docType: docType || "Other",
+      folderId: folderVal,
       userId: req.session.userId,
       chunks: new Array(parseInt(totalChunks)).fill(null),
       received: 0, createdAt: Date.now(),
@@ -618,9 +633,9 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
 
     if (needsOcr(pending.contentType)) {
       const { rows } = await pool.query(
-        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
-         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing') RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-        [pending.caseId, pending.filename, pending.contentType, fullBuffer, pending.docType, pending.userId, uploaderName, fullBuffer.length]
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
+         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing', $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+        [pending.caseId, pending.filename, pending.contentType, fullBuffer, pending.docType, pending.userId, uploaderName, fullBuffer.length, pending.folderId || null]
       );
       runOcrBackground(rows[0].id, fullBuffer, pending.contentType, pending.filename);
       return res.json(toFrontend(rows[0]));
@@ -630,9 +645,9 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     try { extractedText = await extractText(fullBuffer, pending.contentType, pending.filename); } catch (e) { console.error("Chunk text extraction error:", e); }
     const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
     const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-      [pending.caseId, pending.filename, pending.contentType, fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length, ocrStatus]
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+      [pending.caseId, pending.filename, pending.contentType, fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length, ocrStatus, pending.folderId || null]
     );
     res.json(toFrontend(rows[0]));
   } catch (err) {
