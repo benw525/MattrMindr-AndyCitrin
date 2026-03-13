@@ -8920,9 +8920,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 12, background: isDmgExpanded ? "var(--c-bg2)" : "var(--c-bg)" }}
                   onClick={() => setExpandedDamageId(isDmgExpanded ? null : d.id)}>
                   <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{dmgLabel}</span>
-                    <span style={{ fontSize: 12, color: "var(--c-text3)" }}>Owed: <span style={{ fontWeight: 600, color: calcOwed > 0 ? "#dc2626" : "#16a34a" }}>${calcOwed.toLocaleString()}</span></span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{d.name || "Untitled"}</span>
+                    <span style={{ fontSize: 12, color: "var(--c-text3)" }}>{dmgCategory || "Other"}</span>
                     <span style={{ fontSize: 12, color: "var(--c-text3)" }}>Billed: <span style={{ fontWeight: 600 }}>${billed.toLocaleString()}</span></span>
+                    <span style={{ fontSize: 12, color: "var(--c-text3)" }}>Owed: <span style={{ fontWeight: 600, color: calcOwed > 0 ? "#dc2626" : "#16a34a" }}>${calcOwed.toLocaleString()}</span></span>
                     {reductionAmt > 0 && <span style={{ fontSize: 12, color: "#7c3aed" }}>Reduction: −${reductionAmt.toLocaleString()}</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
