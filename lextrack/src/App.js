@@ -2472,7 +2472,7 @@ function FirmApp() {
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
-        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { alert("Failed to remove deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} confirmDelete={confirmDelete} />}
+        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { alert("Failed to remove deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} confirmDelete={confirmDelete} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
@@ -12986,7 +12986,21 @@ function ICalManager({ externalEvents, setExternalEvents, allCases }) {
 }
 
 // ─── Calendar View ────────────────────────────────────────────────────────────
-function DeadlinesView({ deadlines, tasks, onAddDeadline, onDeleteDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds, onSelectCase, confirmDelete }) {
+const PI_DEADLINE_TYPES = [
+  "Filing", "Discovery", "Motion", "Expert", "Pleading", "Hearing", "Trial", "Deposition", "Mediation",
+  "Statute of Limitations", "Demand Letter", "Complaint", "Answer", "Service of Process",
+  "Initial Disclosures", "Interrogatories", "Requests for Production", "Requests for Admission",
+  "Independent Medical Exam", "Case Management Conference", "Pretrial Conference",
+  "Settlement Conference", "Arbitration", "Court Appearance", "Status Conference",
+  "Scheduling Order", "Motion to Compel", "Summary Judgment", "Motions in Limine",
+  "Jury Selection", "Client Meeting", "Medical Records Request", "Medical Records Follow-Up",
+  "Insurance Claim", "PIP/MedPay Deadline", "UM/UIM Claim", "Lien Resolution",
+  "Demand Package", "Policy Limits Demand", "Offer Response", "Treatment Completion",
+  "Maximum Medical Improvement", "Letter of Protection", "Subpoena",
+  "Appeal Deadline", "Post-Trial Motion", "Case Review", "Follow-Up", "Other"
+];
+
+function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDeleteDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds, onSelectCase, confirmDelete }) {
   const canDeleteDeadline = ["Case Manager", "Paralegal", "Attorney", "App Admin"].some(r => (currentUser.roles || [currentUser.role]).includes(r));
   const [tab, setTab] = useState("calendar");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -12995,13 +13009,17 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onDeleteDeadline, allC
   const [sortCol, setSortCol] = useState("date");
   const [sortDir, setSortDir] = useState("asc");
   const [externalEvents, setExternalEvents] = useState([]);
+  const [editingDlId, setEditingDlId] = useState(null);
+  const [editingDlTitle, setEditingDlTitle] = useState("");
   const [newDl, setNewDl] = useState({ caseId: allCases.find(c => c.status === "Active")?.id || 1, title: "", date: today, type: "Filing", rule: "", assigned: currentUser.id });
   const [dlCaseSearch, setDlCaseSearch] = useState("");
   const [dlCaseDropOpen, setDlCaseDropOpen] = useState(false);
 
   const handleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
 
-  const types = ["All", ...Array.from(new Set(deadlines.map(d => d.type))).sort()];
+  const existingTypes = Array.from(new Set(deadlines.map(d => d.type).filter(Boolean)));
+  const allTypes = Array.from(new Set([...PI_DEADLINE_TYPES, ...existingTypes]));
+  const types = ["All", ...allTypes.sort()];
   const sorted = useMemo(() => {
     let list = deadlines.filter(d => {
       if (typeFilter !== "All" && d.type !== typeFilter) return false;
@@ -13067,12 +13085,28 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onDeleteDeadline, allC
                   {paged.map(d => {
                     const days = daysUntil(d.date); const col = urgencyColor(days);
                     const cs = allCases.find(c => c.id === d.caseId);
+                    const isEditing = editingDlId === d.id;
                     return (
                       <tr key={d.id}>
                         <td className="mobile-hide"><div style={{ width: 10, height: 10, borderRadius: "50%", background: col }} /></td>
-                        <td data-label="Deadline"><div style={{ color: "var(--c-text)", fontWeight: 600 }}>{d.title}</div>{d.rule && <div style={{ fontSize: 11, color: "#0f172a", fontFamily: "monospace" }}>{d.rule}</div>}</td>
+                        <td data-label="Deadline">
+                          {isEditing ? (
+                            <input autoFocus value={editingDlTitle} onChange={e => setEditingDlTitle(e.target.value)}
+                              onBlur={() => { if (editingDlTitle.trim() && editingDlTitle !== d.title) onUpdateDeadline(d.id, { title: editingDlTitle.trim() }); setEditingDlId(null); }}
+                              onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setEditingDlId(null); } }}
+                              style={{ fontSize: 13, fontWeight: 600, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", width: "100%", boxSizing: "border-box" }} />
+                          ) : (
+                            <div style={{ color: "var(--c-text)", fontWeight: 600, cursor: "pointer" }} onClick={() => { setEditingDlId(d.id); setEditingDlTitle(d.title); }} title="Click to edit title">{d.title}</div>
+                          )}
+                          {d.rule && <div style={{ fontSize: 11, color: "#0f172a", fontFamily: "monospace" }}>{d.rule}</div>}
+                        </td>
                         <td data-label="Case" style={{ fontSize: 12, color: "var(--c-text2)" }}>{cs?.title?.slice(0, 40) || `#${d.caseId}`}<div style={{ fontSize: 10, color: "#64748b" }}>{cs?.caseNum}</div></td>
-                        <td data-label="Type"><Badge label={d.type} /></td>
+                        <td data-label="Type">
+                          <select value={d.type || "Filing"} onChange={e => onUpdateDeadline(d.id, { type: e.target.value })}
+                            style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer", maxWidth: 160 }}>
+                            {[...new Set([...PI_DEADLINE_TYPES, d.type].filter(Boolean))].sort().map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </td>
                         <td data-label="Due" style={{ color: col, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(d.date)}</td>
                         <td data-label="Days" style={{ color: col, fontWeight: 700 }}>{days < 0 ? <span style={{ color: "#e05252" }}>{Math.abs(days)}d over</span> : days === 0 ? "Today" : `${days}d`}</td>
                         <td data-label="Assigned"><Avatar userId={d.assigned} size={26} /></td>
@@ -13156,7 +13190,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onDeleteDeadline, allC
                 <div className="form-group"><label>Due Date</label><input type="date" value={newDl.date} onChange={e => setNewDl(p => ({ ...p, date: e.target.value }))} /></div>
                 <div className="form-group"><label>Type</label>
                   <select value={newDl.type} onChange={e => setNewDl(p => ({ ...p, type: e.target.value }))}>
-                    {["Filing", "Discovery", "Motion", "Expert", "Pleading", "Hearing", "Trial", "Deposition", "Mediation"].map(t => <option key={t}>{t}</option>)}
+                    {PI_DEADLINE_TYPES.map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
               </div>
