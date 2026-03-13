@@ -189,6 +189,14 @@ export const apiGetDamages = (caseId) => apiFetch(`/api/damages/${caseId}`);
 export const apiCreateDamage = (caseId, data) => apiFetch(`/api/damages/${caseId}`, { method: "POST", body: data });
 export const apiUpdateDamage = (caseId, id, data) => apiFetch(`/api/damages/${caseId}/${id}`, { method: "PUT", body: data });
 export const apiDeleteDamage = (caseId, id) => apiFetch(`/api/damages/${caseId}/${id}`, { method: "DELETE" });
+export const apiDamageFromDocument = (caseId, documentId) => apiFetch(`/api/damages/${caseId}/from-document`, { method: "POST", body: { documentId } });
+export async function apiUploadDamageBill(caseId, file) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/damages/${caseId}/upload-bill`, { method: "POST", credentials: "include", body: form });
+  if (!res.ok) { let msg = `API error ${res.status}`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
+  return res.json();
+}
 
 // Expenses
 export const apiGetExpenses = (caseId) => apiFetch(`/api/expenses/${caseId}`);

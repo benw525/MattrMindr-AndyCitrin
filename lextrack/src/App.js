@@ -39,7 +39,7 @@ import {
   apiGetMedicalTreatments, apiCreateMedicalTreatment, apiUpdateMedicalTreatment, apiDeleteMedicalTreatment,
   apiUploadMedicalRecord, apiGetMedicalRecords, apiDeleteMedicalRecord, apiUpdateMedicalRecord, apiMedicalRecordFromDocument, apiCommitMedicalRecords,
   apiGetLiens, apiCreateLien, apiUpdateLien, apiDeleteLien,
-  apiGetDamages, apiCreateDamage, apiUpdateDamage, apiDeleteDamage,
+  apiGetDamages, apiCreateDamage, apiUpdateDamage, apiDeleteDamage, apiDamageFromDocument, apiUploadDamageBill,
   apiGetExpenses, apiCreateExpense, apiUpdateExpense, apiDeleteExpense,
   apiGetNegotiations, apiCreateNegotiation, apiUpdateNegotiation, apiDeleteNegotiation,
   apiGetLinkedCases, apiCreateLinkedCase, apiDeleteLinkedCase,
@@ -6115,6 +6115,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [liens, setLiens] = useState([]);
   const [damages, setDamages] = useState([]);
   const [expandedDamageId, setExpandedDamageId] = useState(null);
+  const [damageDocPicker, setDamageDocPicker] = useState(false);
+  const [damageDocLoading, setDamageDocLoading] = useState(false);
   const [expenses, setExpenses] = useState([]);
   const [expandedExpenseId, setExpandedExpenseId] = useState(null);
   const [negotiations, setNegotiations] = useState([]);
@@ -8687,18 +8689,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       </div>
                       {docPickerForTreatment === t.id && (() => {
                         const medicalKeywords = /medical|health|hospital|clinic|doctor|physician|treatment|diagnosis|radiology|imaging|lab|pathology|surgical|operative|discharge|ER|emergency|orthopedic|chiro|therapy|nursing|pharmacy|prescription/i;
-                        const sortedDocs = [...caseDocuments].sort((a, b) => {
-                          const aFolder = docFolders.find(f => f.id === (a.folderId || a.folder_id));
-                          const bFolder = docFolders.find(f => f.id === (b.folderId || b.folder_id));
-                          const aFolderMatch = aFolder && medicalKeywords.test(aFolder.name) ? 1 : 0;
-                          const bFolderMatch = bFolder && medicalKeywords.test(bFolder.name) ? 1 : 0;
-                          const aDocMatch = medicalKeywords.test(a.filename || "") || medicalKeywords.test(a.description || "") || medicalKeywords.test(a.docType || "") ? 1 : 0;
-                          const bDocMatch = medicalKeywords.test(b.filename || "") || medicalKeywords.test(b.description || "") || medicalKeywords.test(b.docType || "") ? 1 : 0;
-                          const aScore = aFolderMatch + aDocMatch;
-                          const bScore = bFolderMatch + bDocMatch;
-                          if (bScore !== aScore) return bScore - aScore;
-                          return (a.filename || "").localeCompare(b.filename || "");
-                        });
+                        const isMedDoc = (doc) => {
+                          const folder = docFolders.find(f => f.id === (doc.folderId || doc.folder_id));
+                          return medicalKeywords.test(doc.filename || "") || medicalKeywords.test(doc.description || "") || (doc.docType === "Medical Records") || (folder && medicalKeywords.test(folder.name));
+                        };
+                        const medDocs = caseDocuments.filter(d => isMedDoc(d)).sort((a, b) => (a.filename || "").localeCompare(b.filename || ""));
+                        const otherDocs = caseDocuments.filter(d => !isMedDoc(d)).sort((a, b) => (a.filename || "").localeCompare(b.filename || ""));
+                        const sortedDocs = [...medDocs, ...otherDocs];
                         return (
                           <div style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 8, background: "var(--c-bg)", maxHeight: 240, overflowY: "auto" }}>
                             <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--c-bg)", zIndex: 1 }}>
@@ -8708,7 +8705,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             {sortedDocs.length === 0 && <div style={{ padding: "12px 10px", fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No documents in this case.</div>}
                             {sortedDocs.map(doc => {
                               const folder = docFolders.find(f => f.id === (doc.folderId || doc.folder_id));
-                              const isMedical = medicalKeywords.test(doc.filename || "") || medicalKeywords.test(doc.description || "") || medicalKeywords.test(doc.docType || "") || (folder && medicalKeywords.test(folder.name));
+                              const isMedical = isMedDoc(doc);
                               return (
                                 <div key={doc.id} style={{ padding: "6px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: docPickerLoading === t.id ? "wait" : "pointer", opacity: docPickerLoading === t.id ? 0.5 : 1, background: isMedical ? "var(--c-bg2)" : "transparent", pointerEvents: docPickerLoading === t.id ? "none" : "auto" }}
                                   onClick={async () => {
@@ -8881,6 +8878,87 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 } catch (err) { alert("Failed: " + err.message); }
               }}>+ Add Damage</button>
             </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "4px 10px", borderRadius: 4, border: "1px solid var(--c-border)", color: "var(--c-text2)", cursor: damageDocLoading ? "wait" : "pointer", background: "var(--c-bg)", opacity: damageDocLoading ? 0.5 : 1 }}>
+                <Upload size={12} /> Upload Bill
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.doc,.docx" style={{ display: "none" }} disabled={damageDocLoading}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    e.target.value = "";
+                    setDamageDocLoading(true);
+                    try {
+                      const result = await apiUploadDamageBill(c.id, file);
+                      if (result.entries?.length) {
+                        setDamages(p => [...p, ...result.entries]);
+                        setExpandedDamageId(result.entries[0].id);
+                      } else {
+                        alert(result.message || "No billing items found in this file.");
+                      }
+                    } catch (err) { alert("Failed: " + err.message); }
+                    setDamageDocLoading(false);
+                  }} />
+              </label>
+              <button style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "4px 10px", borderRadius: 4, border: "1px solid var(--c-border)", color: "var(--c-text2)", cursor: damageDocLoading ? "wait" : "pointer", background: damageDocPicker ? "var(--c-bg2)" : "var(--c-bg)", opacity: damageDocLoading ? 0.5 : 1 }}
+                disabled={damageDocLoading}
+                onClick={() => setDamageDocPicker(!damageDocPicker)}>
+                <FileText size={12} /> Select from Documents
+              </button>
+              {damageDocLoading && <span style={{ fontSize: 11, color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4 }}><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />Analyzing billing...</span>}
+            </div>
+            {damageDocPicker && (() => {
+              const billingKeywords = /billing|bill|invoice|statement|itemized|charges|account|balance|payment|receipt|EOB|explanation.*benefit/i;
+              const isBillingDoc = (doc) => {
+                const folder = docFolders.find(f => f.id === (doc.folderId || doc.folder_id));
+                return (doc.docType === "Billing Records") || billingKeywords.test(doc.filename || "") || billingKeywords.test(doc.description || "") || (folder && billingKeywords.test(folder.name));
+              };
+              const billingDocs = caseDocuments.filter(d => isBillingDoc(d)).sort((a, b) => (a.filename || "").localeCompare(b.filename || ""));
+              const otherDocs = caseDocuments.filter(d => !isBillingDoc(d)).sort((a, b) => (a.filename || "").localeCompare(b.filename || ""));
+              const sortedDocs = [...billingDocs, ...otherDocs];
+              return (
+                <div style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 12, background: "var(--c-bg)", maxHeight: 240, overflowY: "auto" }}>
+                  <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--c-bg)", zIndex: 1 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Select a document to analyze for billing</span>
+                    <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)", fontSize: 14 }} onClick={() => setDamageDocPicker(false)}>✕</button>
+                  </div>
+                  {sortedDocs.length === 0 && <div style={{ padding: "12px 10px", fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No documents in this case.</div>}
+                  {sortedDocs.map(doc => {
+                    const folder = docFolders.find(f => f.id === (doc.folderId || doc.folder_id));
+                    const isBilling = isBillingDoc(doc);
+                    return (
+                      <div key={doc.id} style={{ padding: "6px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: damageDocLoading ? "wait" : "pointer", opacity: damageDocLoading ? 0.5 : 1, background: isBilling ? "var(--c-bg2)" : "transparent", pointerEvents: damageDocLoading ? "none" : "auto" }}
+                        onClick={async () => {
+                          if (damageDocLoading) return;
+                          setDamageDocLoading(true);
+                          try {
+                            const result = await apiDamageFromDocument(c.id, doc.id);
+                            if (result.entries?.length) {
+                              setDamages(p => [...p, ...result.entries]);
+                              setExpandedDamageId(result.entries[0].id);
+                            } else {
+                              alert(result.message || "No billing items found in this document.");
+                            }
+                            setDamageDocPicker(false);
+                          } catch (err) { alert("Failed: " + err.message); }
+                          setDamageDocLoading(false);
+                        }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {isBilling && <span style={{ color: "#0369a1", marginRight: 4 }}>●</span>}
+                            {doc.filename}
+                          </div>
+                          <div style={{ fontSize: 10, color: "var(--c-text3)" }}>
+                            {folder && <span style={{ marginRight: 8 }}>📁 {folder.name}</span>}
+                            {doc.docType && <span>{doc.docType}</span>}
+                          </div>
+                        </div>
+                        {damageDocLoading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite", color: "#64748b", flexShrink: 0 }} /> : <ChevronRight size={14} style={{ color: "var(--c-text3)", flexShrink: 0 }} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             {piDataLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading...</div>}
             {(() => {
               const totalBilled = damages.reduce((s, d) => s + (Number(d.billed) || 0), 0);
