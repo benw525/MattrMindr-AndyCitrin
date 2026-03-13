@@ -8365,9 +8365,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
                                 </div>
                                 {gross > 0 && (
-                                  <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)" }}>
+                                  <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)", flexWrap: "wrap" }}>
                                     <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
                                     <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
+                                    {totalOwedDamages > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Damages:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalOwedDamages.toLocaleString()}</span></div>}
+                                    {totalExpenses > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Expenses:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalExpenses.toLocaleString()}</span></div>}
                                     <div><span style={{ fontSize: 10, color: "#64748b" }}>Net:</span> <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? "#16a34a" : "#dc2626" }}>${net.toLocaleString()}</span></div>
                                   </div>
                                 )}
@@ -8440,9 +8442,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                 onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
                             </div>
                             {gross > 0 && (
-                              <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)" }}>
+                              <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)", flexWrap: "wrap" }}>
                                 <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
                                 <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
+                                {totalOwedDamages > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Damages:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalOwedDamages.toLocaleString()}</span></div>}
+                                {totalExpenses > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Expenses:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalExpenses.toLocaleString()}</span></div>}
                                 <div><span style={{ fontSize: 10, color: "#64748b" }}>Net:</span> <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? "#16a34a" : "#dc2626" }}>${net.toLocaleString()}</span></div>
                               </div>
                             )}
