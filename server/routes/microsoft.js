@@ -5,18 +5,31 @@ const { randomUUID } = require("crypto");
 
 const router = express.Router();
 
-const MS_CLIENT_ID = process.env.MS_CLIENT_ID;
-const MS_CLIENT_SECRET = process.env.MS_CLIENT_SECRET;
-const MS_REDIRECT_URI = process.env.MS_REDIRECT_URI || "";
 const MS_SCOPES = "openid profile email Files.ReadWrite.All offline_access";
 
-router.get("/configured", requireAuth, (req, res) => {
-  res.json({ configured: !!(MS_CLIENT_ID && MS_CLIENT_SECRET) });
+async function getMsCredentials() {
+  const envId = process.env.MS_CLIENT_ID;
+  const envSecret = process.env.MS_CLIENT_SECRET;
+  const envRedirect = process.env.MS_REDIRECT_URI || "";
+  if (envId && envSecret) return { clientId: envId, clientSecret: envSecret, redirectUri: envRedirect };
+  try {
+    const { rows } = await pool.query("SELECT key, value FROM integration_configs WHERE key IN ('ms_client_id', 'ms_client_secret', 'ms_redirect_uri')");
+    const map = {};
+    rows.forEach(r => { map[r.key] = r.value; });
+    if (map.ms_client_id && map.ms_client_secret) return { clientId: map.ms_client_id, clientSecret: map.ms_client_secret, redirectUri: map.ms_redirect_uri || "" };
+  } catch {}
+  return null;
+}
+
+router.get("/configured", requireAuth, async (req, res) => {
+  const creds = await getMsCredentials();
+  res.json({ configured: !!creds });
 });
 
 router.get("/status", requireAuth, async (req, res) => {
   try {
-    if (!MS_CLIENT_ID || !MS_CLIENT_SECRET) return res.json({ connected: false, configured: false });
+    const creds = await getMsCredentials();
+    if (!creds) return res.json({ connected: false, configured: false });
     const { rows } = await pool.query(
       "SELECT ms_access_token, ms_token_expiry, ms_account_email FROM users WHERE id = $1",
       [req.session.userId]
@@ -27,16 +40,34 @@ router.get("/status", requireAuth, async (req, res) => {
     res.json({ connected: true, configured: true, email: user.ms_account_email, expired });
   } catch (err) {
     console.error("MS status error:", err.message);
-    res.json({ connected: false, configured: !!MS_CLIENT_ID });
+    res.json({ connected: false, configured: false });
   }
 });
 
-router.get("/auth-url", requireAuth, (req, res) => {
-  if (!MS_CLIENT_ID) return res.status(400).json({ error: "Microsoft integration not configured" });
-  const redirectUri = MS_REDIRECT_URI || `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}/api/microsoft/callback`;
+router.get("/auth-url", requireAuth, async (req, res) => {
+  const creds = await getMsCredentials();
+  if (!creds) return res.status(400).json({ error: "Microsoft integration not configured" });
+  const redirectUri = creds.redirectUri || `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}/api/microsoft/callback`;
   const state = Buffer.from(JSON.stringify({ userId: req.session.userId })).toString("base64");
-  const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${MS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(MS_SCOPES)}&state=${state}&response_mode=query`;
+  const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${creds.clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(MS_SCOPES)}&state=${state}&response_mode=query`;
   res.json({ url });
+});
+
+router.post("/configure", requireAuth, async (req, res) => {
+  const { rows: uRows } = await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId]);
+  if (!uRows.length || uRows[0].role !== "App Admin") return res.status(403).json({ error: "Admin access required" });
+  const { clientId, clientSecret, redirectUri } = req.body;
+  if (!clientId || !clientSecret) return res.status(400).json({ error: "Client ID and Client Secret are required" });
+  try {
+    const upsert = "INSERT INTO integration_configs (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()";
+    await pool.query(upsert, ["ms_client_id", clientId.trim()]);
+    await pool.query(upsert, ["ms_client_secret", clientSecret.trim()]);
+    if (redirectUri) await pool.query(upsert, ["ms_redirect_uri", redirectUri.trim()]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("MS configure error:", err.message);
+    res.status(500).json({ error: "Failed to save configuration" });
+  }
 });
 
 router.get("/callback", async (req, res) => {
@@ -44,14 +75,16 @@ router.get("/callback", async (req, res) => {
     const { code, state } = req.query;
     if (!code || !state) return res.status(400).send("Missing code or state");
     const { userId } = JSON.parse(Buffer.from(state, "base64").toString());
-    const redirectUri = MS_REDIRECT_URI || `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}/api/microsoft/callback`;
+    const creds = await getMsCredentials();
+    if (!creds) return res.status(400).send("Microsoft integration not configured");
+    const redirectUri = creds.redirectUri || `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}/api/microsoft/callback`;
 
     const tokenRes = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: MS_CLIENT_ID,
-        client_secret: MS_CLIENT_SECRET,
+        client_id: creds.clientId,
+        client_secret: creds.clientSecret,
         code,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
@@ -93,13 +126,15 @@ async function getValidToken(userId) {
     return user.ms_access_token;
   }
   if (!user.ms_refresh_token) return null;
+  const creds = await getMsCredentials();
+  if (!creds) return null;
   try {
     const tokenRes = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: MS_CLIENT_ID,
-        client_secret: MS_CLIENT_SECRET,
+        client_id: creds.clientId,
+        client_secret: creds.clientSecret,
         refresh_token: user.ms_refresh_token,
         grant_type: "refresh_token",
         scope: MS_SCOPES,

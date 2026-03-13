@@ -748,6 +748,7 @@ export const apiGetMsStatus       = ()                => apiFetch("/api/microsof
 export const apiGetMsConfigured   = ()                => apiFetch("/api/microsoft/configured");
 export const apiGetMsAuthUrl      = ()                => apiFetch("/api/microsoft/auth-url");
 export const apiDisconnectMs      = ()                => apiFetch("/api/microsoft/disconnect", { method: "POST" });
+export const apiConfigureMs       = (data)            => apiFetch("/api/microsoft/configure", { method: "POST", body: data });
 export const apiMsUploadForEdit   = (docId)           => apiFetch("/api/microsoft/upload-for-edit", { method: "POST", body: { docId } });
 export const apiMsSyncBack        = (docId, driveItemId) => apiFetch("/api/microsoft/sync-back", { method: "POST", body: { docId, driveItemId } });
 export const apiMsCleanup         = (driveItemId)     => apiFetch(`/api/microsoft/cleanup/${driveItemId}`, { method: "DELETE" });

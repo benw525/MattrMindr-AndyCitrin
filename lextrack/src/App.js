@@ -63,7 +63,7 @@ import {
   apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
   apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
-  apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs,
+  apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiConfigureMs,
   apiGetOnlyofficeStatus,
   apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSummarizeTranscript, apiSendToScribe, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
   apiGetVoirdireStatus, apiConnectVoirdire, apiDisconnectVoirdire,
@@ -3320,7 +3320,12 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
     apiGetVoirdireStatus().then(setVoirdireStatus).catch(() => setVoirdireStatus({ connected: false }));
   }, []);
 
+  const [showMsSetup, setShowMsSetup] = useState(false);
+  const [msConfigForm, setMsConfigForm] = useState({ clientId: "", clientSecret: "", redirectUri: "" });
+  const [msConfigSaving, setMsConfigSaving] = useState(false);
+
   const connectMs = async () => {
+    if (msStatus?.configured === false) { setShowMsSetup(true); return; }
     setBusy("ms");
     try {
       const { url } = await apiGetMsAuthUrl();
@@ -3331,6 +3336,18 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
         setBusy("");
       }, 5000);
     } catch (err) { alert(err.message); setBusy(""); }
+  };
+
+  const saveMsConfig = async () => {
+    if (!msConfigForm.clientId || !msConfigForm.clientSecret) return;
+    setMsConfigSaving(true);
+    try {
+      await apiConfigureMs(msConfigForm);
+      setMsStatus({ connected: false, configured: true });
+      setShowMsSetup(false);
+      setMsConfigForm({ clientId: "", clientSecret: "", redirectUri: "" });
+    } catch (err) { alert(err.message); }
+    setMsConfigSaving(false);
   };
 
   const disconnectMs = async () => {
@@ -3397,6 +3414,31 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
           <button onClick={connectMs} disabled={busy === "ms"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{busy === "ms" ? "..." : msStatus?.configured === false ? "Configure" : "Connect"}</button>
         )}
       </div>
+
+      {showMsSetup && (
+        <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Configure Microsoft 365</div>
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Enter your Azure AD app credentials from the Microsoft Entra admin center.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Application (Client) ID *</label>
+              <input value={msConfigForm.clientId} onChange={e => setMsConfigForm(p => ({ ...p, clientId: e.target.value }))} placeholder="e.g. 12345678-abcd-..." style={{ width: "100%", padding: "8px 12px", fontSize: 13, border: "1px solid #e2e8f0", borderRadius: 8, boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Client Secret *</label>
+              <input value={msConfigForm.clientSecret} onChange={e => setMsConfigForm(p => ({ ...p, clientSecret: e.target.value }))} type="password" placeholder="Enter client secret value" style={{ width: "100%", padding: "8px 12px", fontSize: 13, border: "1px solid #e2e8f0", borderRadius: 8, boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Redirect URI (optional)</label>
+              <input value={msConfigForm.redirectUri} onChange={e => setMsConfigForm(p => ({ ...p, redirectUri: e.target.value }))} placeholder="Auto-detected if left blank" style={{ width: "100%", padding: "8px 12px", fontSize: 13, border: "1px solid #e2e8f0", borderRadius: 8, boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button onClick={saveMsConfig} disabled={msConfigSaving || !msConfigForm.clientId || !msConfigForm.clientSecret} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", opacity: msConfigSaving || !msConfigForm.clientId || !msConfigForm.clientSecret ? 0.5 : 1 }}>{msConfigSaving ? "Saving..." : "Save & Continue"}</button>
+            <button onClick={() => setShowMsSetup(false)} style={{ padding: "8px 16px", fontSize: 13, color: "#64748b", background: "none", border: "1px solid #e2e8f0", borderRadius: 8, cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       <div className={`${cardStyle} ${ooStatus?.available ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}>
         <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #ff6f3d, #ff4444)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

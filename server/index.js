@@ -297,6 +297,7 @@ async function ensureColumns() {
     `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS body_part TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE document_folders ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES document_folders(id) ON DELETE CASCADE`,
+    `CREATE TABLE IF NOT EXISTS integration_configs (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
   ];
 
   const newTableCreations = [
