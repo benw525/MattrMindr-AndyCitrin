@@ -3409,9 +3409,17 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
           </div>
         </div>
         {msStatus?.connected ? (
-          <button onClick={disconnectMs} disabled={busy === "ms"} className="text-xs font-semibold px-3 py-1.5 rounded-lg border-none cursor-pointer bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100">Disconnect</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => setShowMsSetup(true)} style={{ padding: "4px 10px", fontSize: 11, color: "#64748b", background: "none", border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer" }}>Reconfigure</button>
+            <button onClick={disconnectMs} disabled={busy === "ms"} className="text-xs font-semibold px-3 py-1.5 rounded-lg border-none cursor-pointer bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100">Disconnect</button>
+          </div>
+        ) : msStatus?.configured ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => setShowMsSetup(true)} style={{ padding: "4px 10px", fontSize: 11, color: "#64748b", background: "none", border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer" }}>Reconfigure</button>
+            <button onClick={connectMs} disabled={busy === "ms"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{busy === "ms" ? "..." : "Connect"}</button>
+          </div>
         ) : (
-          <button onClick={connectMs} disabled={busy === "ms"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{busy === "ms" ? "..." : msStatus?.configured === false ? "Configure" : "Connect"}</button>
+          <button onClick={connectMs} disabled={busy === "ms"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{busy === "ms" ? "..." : "Configure"}</button>
         )}
       </div>
 
