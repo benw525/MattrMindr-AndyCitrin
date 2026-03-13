@@ -610,6 +610,7 @@ export const apiCreateDocFolder   = (caseId, name)  => apiFetch(`/api/case-docum
 export const apiUpdateDocFolder   = (folderId, data) => apiFetch(`/api/case-documents/folders/${folderId}`, { method: "PUT", body: data });
 export const apiDeleteDocFolder   = (folderId)       => apiFetch(`/api/case-documents/folders/${folderId}`, { method: "DELETE" });
 export const apiMoveDocument      = (docId, folderId) => apiFetch(`/api/case-documents/${docId}/move`, { method: "PUT", body: { folderId } });
+export const apiBatchMoveDocuments = (ids, folderId) => apiFetch(`/api/case-documents/batch-move`, { method: "PUT", body: { ids, folderId } });
 export const apiReorderDocFolders = (caseId, order)   => apiFetch(`/api/case-documents/${caseId}/reorder-folders`, { method: "PUT", body: { order } });
 
 // Transcript Folders

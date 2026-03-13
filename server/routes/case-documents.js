@@ -551,6 +551,33 @@ router.put("/:docId/move", requireAuth, async (req, res) => {
   }
 });
 
+router.put("/batch-move", requireAuth, async (req, res) => {
+  try {
+    const { ids, folderId } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids array required" });
+    const { rows: docRows } = await pool.query(
+      "SELECT DISTINCT case_id FROM case_documents WHERE id = ANY($1) AND deleted_at IS NULL", [ids]
+    );
+    if (docRows.length === 0) return res.status(404).json({ error: "No documents found" });
+    if (docRows.length > 1) return res.status(400).json({ error: "All documents must belong to the same case" });
+    const caseId = docRows[0].case_id;
+    if (folderId) {
+      const { rows: folderRows } = await pool.query(
+        "SELECT id FROM document_folders WHERE id = $1 AND case_id = $2", [folderId, caseId]
+      );
+      if (folderRows.length === 0) return res.status(400).json({ error: "Folder not found for this case" });
+    }
+    const { rowCount } = await pool.query(
+      "UPDATE case_documents SET folder_id = $1 WHERE id = ANY($2) AND deleted_at IS NULL",
+      [folderId || null, ids]
+    );
+    return res.json({ ok: true, moved: rowCount });
+  } catch (err) {
+    console.error("Batch move documents error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/batch-delete", requireAuth, async (req, res) => {
   try {
     const userRoles = req.session.userRoles || [req.session.userRole];

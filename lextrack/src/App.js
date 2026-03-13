@@ -54,7 +54,7 @@ import {
   apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript, apiSuggestTranscriptName, apiGetTranscriptHistory, apiSaveTranscriptHistory, apiRevertTranscript,
   apiMfaSetup, apiMfaVerifySetup, apiMfaVerify, apiMfaDisable,
   apiUploadProfilePicture, apiDeleteProfilePicture,
-  apiGetDocFolders, apiCreateDocFolder, apiUpdateDocFolder, apiDeleteDocFolder, apiMoveDocument, apiReorderDocFolders,
+  apiGetDocFolders, apiCreateDocFolder, apiUpdateDocFolder, apiDeleteDocFolder, apiMoveDocument, apiBatchMoveDocuments, apiReorderDocFolders,
   apiGetTranscriptFolders, apiCreateTranscriptFolder, apiUpdateTranscriptFolder, apiDeleteTranscriptFolder, apiMoveTranscript, apiReorderTranscriptFolders,
   apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence, apiBatchDeleteSmsMessages, apiBatchDeleteFilings,
   apiUploadCaseDocumentChunked, apiUploadFilingChunked,
@@ -9260,19 +9260,44 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 </div>
               </div>
               {docSelectMode && (
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, padding: "6px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca", flexWrap: "wrap" }}>
                   <button onClick={() => { const filtered = caseDocuments.filter(d => docFilterType === "All" || d.docType === docFilterType); setSelectedDocIds(new Set(filtered.map(d => d.id))); }} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Select All</button>
                   <button onClick={() => setSelectedDocIds(new Set())} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}>Deselect All</button>
                   {selectedDocIds.size > 0 && (
-                    <button onClick={async () => {
-                      if (!await confirmDelete()) return;
-                      try {
-                        await apiBatchDeleteDocuments([...selectedDocIds]);
-                        setCaseDocuments(prev => prev.filter(d => !selectedDocIds.has(d.id)));
-                        log("Batch Deleted", `${selectedDocIds.size} documents`);
-                        setSelectedDocIds(new Set()); setDocSelectMode(false);
-                      } catch (err) { alert("Batch delete failed: " + err.message); }
-                    }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Delete Selected ({selectedDocIds.size})</button>
+                    <>
+                      <div style={{ position: "relative", display: "inline-block" }}>
+                        <select
+                          defaultValue=""
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            if (val === "") return;
+                            const folderId = val === "__none__" ? null : parseInt(val);
+                            const folderName = val === "__none__" ? "No Folder" : (docFolders.find(f => f.id === folderId)?.name || "folder");
+                            try {
+                              await apiBatchMoveDocuments([...selectedDocIds], folderId);
+                              setCaseDocuments(prev => prev.map(d => selectedDocIds.has(d.id) ? { ...d, folderId } : d));
+                              log("Batch Moved", `${selectedDocIds.size} documents to ${folderName}`);
+                              setSelectedDocIds(new Set()); setDocSelectMode(false);
+                            } catch (err) { alert("Move failed: " + err.message); }
+                            e.target.value = "";
+                          }}
+                          style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid #6366f1", background: "#eef2ff", color: "#4338ca", cursor: "pointer", fontWeight: 600 }}
+                        >
+                          <option value="" disabled>Move to Folder ({selectedDocIds.size})</option>
+                          <option value="__none__">No Folder (Unfiled)</option>
+                          {docFolders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
+                      </div>
+                      <button onClick={async () => {
+                        if (!await confirmDelete()) return;
+                        try {
+                          await apiBatchDeleteDocuments([...selectedDocIds]);
+                          setCaseDocuments(prev => prev.filter(d => !selectedDocIds.has(d.id)));
+                          log("Batch Deleted", `${selectedDocIds.size} documents`);
+                          setSelectedDocIds(new Set()); setDocSelectMode(false);
+                        } catch (err) { alert("Batch delete failed: " + err.message); }
+                      }} style={{ fontSize: 11, padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Delete Selected ({selectedDocIds.size})</button>
+                    </>
                   )}
                 </div>
               )}
