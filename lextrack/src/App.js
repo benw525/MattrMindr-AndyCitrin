@@ -6318,7 +6318,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
     apiGetVoicemails(c.id).then(setVoicemails).catch(() => {}).finally(() => setVoicemailsLoading(false));
     setDocsLoading(true);
     apiGetCaseDocuments(c.id).then(docs => { setCaseDocuments(docs); }).catch(() => {}).finally(() => setDocsLoading(false));
-    apiGetDocFolders(c.id).then(setDocFolders).catch(() => setDocFolders([]));
+    apiGetDocFolders(c.id).then(folders => setDocFolders(folders.map(f => ({ ...f, collapsed: true })))).catch(() => setDocFolders([]));
     setTranscriptsLoading(true);
     apiGetTranscripts(c.id).then(setTranscripts).catch(() => {}).finally(() => setTranscriptsLoading(false));
     apiGetTranscriptFolders(c.id).then(setTranscriptFolders).catch(() => setTranscriptFolders([]));
@@ -9259,7 +9259,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       {[...new Set(caseDocuments.map(d => d.docType))].sort().map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   )}
-                  <button onClick={async () => { const name = prompt("Folder name:"); if (name) { try { const f = await apiCreateDocFolder(c.id, name); setDocFolders(prev => [...prev, f]); } catch (err) { alert(err.message); } } }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}><FolderPlus size={12} /> Folder</button>
+                  <button onClick={async () => { const name = prompt("Folder name:"); if (name) { try { const f = await apiCreateDocFolder(c.id, name); setDocFolders(prev => [...prev, { ...f, collapsed: true }]); } catch (err) { alert(err.message); } } }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}><FolderPlus size={12} /> Folder</button>
                   {isAttorneyPlus && caseDocuments.length > 0 && (
                     <button onClick={() => { setDocSelectMode(!docSelectMode); setSelectedDocIds(new Set()); }} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: docSelectMode ? "1px solid #ef4444" : "1px solid var(--c-border)", background: docSelectMode ? "#fef2f2" : "var(--c-bg)", color: docSelectMode ? "#ef4444" : "var(--c-text)", cursor: "pointer" }}>{docSelectMode ? "Cancel" : "Select"}</button>
                   )}
