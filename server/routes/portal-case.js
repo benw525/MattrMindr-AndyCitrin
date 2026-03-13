@@ -231,4 +231,34 @@ router.get("/documents/:id/download", requireClientAuth, async (req, res) => {
   }
 });
 
+router.get("/treatments", requireClientAuth, async (req, res) => {
+  try {
+    const caseId = req.session.clientCaseId;
+    const { rows: settingsRows } = await pool.query(
+      "SELECT show_medical_treatments FROM client_portal_settings WHERE case_id = $1",
+      [caseId]
+    );
+    if (!settingsRows[0]?.show_medical_treatments) {
+      return res.json([]);
+    }
+    const { rows } = await pool.query(
+      `SELECT id, provider_name, provider_type, first_visit_date, last_visit_date, still_treating, description
+       FROM case_medical_treatments WHERE case_id = $1 AND deleted_at IS NULL ORDER BY first_visit_date DESC NULLS LAST, created_at DESC`,
+      [caseId]
+    );
+    res.json(rows.map(r => ({
+      id: r.id,
+      providerName: r.provider_name,
+      providerType: r.provider_type,
+      firstVisitDate: r.first_visit_date,
+      lastVisitDate: r.last_visit_date,
+      stillTreating: r.still_treating,
+      description: r.description,
+    })));
+  } catch (err) {
+    console.error("Portal treatments error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

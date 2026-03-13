@@ -33,6 +33,8 @@ export async function portalUploadDocument(file) {
   return res.json();
 }
 
+export const portalGetTreatments = () => portalFetch("/api/portal/case/treatments");
+
 export async function portalDownloadDocument(docId) {
   const res = await fetch(`/api/portal/case/documents/${docId}/download`, { credentials: "include" });
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);

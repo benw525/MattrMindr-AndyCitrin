@@ -3,6 +3,7 @@ import {
   portalLogin, portalLogout, portalMe, portalChangePassword,
   portalGetCase, portalGetMessages, portalSendMessage,
   portalGetDocuments, portalUploadDocument, portalDownloadDocument,
+  portalGetTreatments,
 } from "./portalApi";
 
 const PI_PROCESS_INFO = [
@@ -41,6 +42,7 @@ export default function PortalApp() {
         {page === "dashboard" && <DashboardPage />}
         {page === "messages" && <MessagesPage />}
         {page === "documents" && <DocumentsPage />}
+        {page === "treatments" && <TreatmentsPage />}
       </main>
     </div>
   );
@@ -69,6 +71,7 @@ function Nav({ page, setPage }) {
     { id: "dashboard", label: "Dashboard" },
     { id: "messages", label: "Messages" },
     { id: "documents", label: "Documents" },
+    { id: "treatments", label: "Medical Treatment" },
   ];
   return (
     <nav style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 24px", display: "flex", gap: 0 }}>
@@ -496,6 +499,116 @@ function DocumentsPage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const PROVIDER_TYPE_ICONS = {
+  "Hospital": "\u{1F3E5}",
+  "Orthopedic": "\u{1FA7A}",
+  "Chiropractor": "\u{1F9B4}",
+  "Physical Therapy": "\u{1F3CB}",
+  "Pain Management": "\u{1F489}",
+  "Neurologist": "\u{1F9E0}",
+  "Primary Care": "\u{1FA7A}",
+  "Dentist": "\u{1F9B7}",
+  "Psychologist": "\u{1F9E0}",
+  "Imaging/Radiology": "\u{1FA7B}",
+  "Pharmacy": "\u{1F48A}",
+  "Surgeon": "\u{1FA7A}",
+  "Other": "\u{1FA7A}",
+};
+
+function TreatmentsPage() {
+  const [treatments, setTreatments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    portalGetTreatments()
+      .then(t => { setTreatments(t); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ color: "#64748b", textAlign: "center", padding: 40 }}>Loading treatments...</div>;
+
+  if (treatments.length === 0) {
+    return (
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "48px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>{"\u{1FA7A}"}</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: "#1e293b", marginBottom: 6 }}>No Treatment Information</div>
+        <div style={{ fontSize: 14, color: "#64748b" }}>Your legal team has not added any medical treatment providers yet.</div>
+      </div>
+    );
+  }
+
+  const active = treatments.filter(t => t.stillTreating);
+  const completed = treatments.filter(t => !t.stillTreating);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1e293b", margin: 0 }}>Medical Treatment</h2>
+        <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>Treatment providers involved in your case</p>
+      </div>
+
+      {active.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#059669", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#059669", display: "inline-block" }}></span>
+            Currently Treating ({active.length})
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {active.map(t => <TreatmentCard key={t.id} treatment={t} active />)}
+          </div>
+        </div>
+      )}
+
+      {completed.length > 0 && (
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+            Completed ({completed.length})
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {completed.map(t => <TreatmentCard key={t.id} treatment={t} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreatmentCard({ treatment, active }) {
+  const icon = PROVIDER_TYPE_ICONS[treatment.providerType] || PROVIDER_TYPE_ICONS["Other"];
+  const fmtDate = d => d ? new Date(d).toLocaleDateString() : null;
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 10, border: active ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+      padding: "16px 20px", display: "flex", gap: 14, alignItems: "flex-start"
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 10,
+        background: active ? "#ecfdf5" : "#f8fafc",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 20, flexShrink: 0
+      }}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}>{treatment.providerName || "Unknown Provider"}</span>
+          {active && <span style={{ fontSize: 11, fontWeight: 600, color: "#059669", background: "#ecfdf5", padding: "2px 8px", borderRadius: 20 }}>Active</span>}
+        </div>
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{treatment.providerType}</div>
+        {(treatment.firstVisitDate || treatment.lastVisitDate) && (
+          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>
+            {treatment.firstVisitDate && <span>First visit: {fmtDate(treatment.firstVisitDate)}</span>}
+            {treatment.firstVisitDate && treatment.lastVisitDate && <span> · </span>}
+            {treatment.lastVisitDate && <span>Last visit: {fmtDate(treatment.lastVisitDate)}</span>}
+          </div>
+        )}
+        {treatment.description && (
+          <div style={{ fontSize: 13, color: "#475569", marginTop: 8, lineHeight: 1.5 }}>{treatment.description}</div>
+        )}
+      </div>
     </div>
   );
 }
