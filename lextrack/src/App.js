@@ -8609,7 +8609,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 return 0;
               })
               .map(t => {
-              const isCollapsed = collapsedProviders[t.id];
+              const isCollapsed = collapsedProviders[t.id] !== false;
               const updateTxLocal = (field, val) => setMedicalTreatments(prev => prev.map(x => x.id === t.id ? { ...x, [field]: val } : x));
               const saveTx = (updates) => apiUpdateMedicalTreatment(c.id, t.id, updates).then(u => setMedicalTreatments(prev => prev.map(x => x.id === t.id ? u : x))).catch(err => console.error("Treatment save failed:", err));
               const provName = t.providerName || t.provider_name || "(No Name)";
@@ -8622,8 +8622,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div key={t.id} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }}
                   onClick={() => {
-                    setCollapsedProviders(p => ({ ...p, [t.id]: !p[t.id] }));
-                    if (!medicalRecords[t.id] && !medicalRecordsLoading[t.id]) {
+                    const wasCollapsed = p => p[t.id] !== false;
+                    setCollapsedProviders(p => ({ ...p, [t.id]: wasCollapsed(p) ? false : true }));
+                    if (collapsedProviders[t.id] !== false && !medicalRecords[t.id] && !medicalRecordsLoading[t.id]) {
                       setMedicalRecordsLoading(p => ({ ...p, [t.id]: true }));
                       apiGetMedicalRecords(c.id, t.id).then(r => {
                         setMedicalRecords(p => ({ ...p, [t.id]: r }));
