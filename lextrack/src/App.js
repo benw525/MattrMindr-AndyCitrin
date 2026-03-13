@@ -4,7 +4,7 @@ import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
 import TranscriptViewerWindow from "./TranscriptViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, MoreHorizontal, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, GripVertical, ToggleLeft, ToggleRight, ArrowRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, ToggleLeft, ToggleRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -21,7 +21,7 @@ import {
   apiGetContactCaseLinks, apiAddContactCaseLink, apiDeleteContactCaseLink,
   apiAiSearch,
   apiChargeAnalysis, apiDeadlineGenerator, apiCaseStrategy, apiDraftDocument, apiCaseTriage, apiClientSummary, apiDocSummary, apiTaskSuggestions, apiAdvocateChat,
-  apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiReExtractDocument, apiGetDocOcrStatus, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
+  apiGetCaseDocuments, apiUploadCaseDocument, apiSummarizeDocument, apiGetDocOcrStatus, apiDownloadDocument, apiDeleteCaseDocument, apiUpdateCaseDocument,
   apiGetFilings, apiUploadFiling, apiDeleteFiling, apiSummarizeFiling, apiUpdateFiling, apiClassifyFiling,
   apiGetCorrespondence, apiDeleteCorrespondence, apiGetAllCorrespondence,
   apiGetVoicemails, apiCreateVoicemail, apiUpdateVoicemail, apiDeleteVoicemail, apiTranscribeVoicemail,
@@ -48,14 +48,14 @@ import {
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
   apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail, apiReprocessUnmatchedEmails, apiReprocessStatus,
-  apiGetPermissionKeys, apiGetPermissions, apiCreatePermission, apiCreatePermissionsBulk, apiDeletePermission, apiDeletePermissionsBulk, apiCheckPermissions,
+  apiGetPermissionKeys, apiGetPermissions, apiCreatePermissionsBulk, apiDeletePermissionsBulk, apiCheckPermissions,
   apiSendSupport,
   apiGetCollabUnreadCount,
   apiGetTranscripts, apiUploadTranscript, apiUploadTranscriptChunked, apiGetTranscriptDetail, apiUpdateTranscript, apiDeleteTranscript, apiDownloadTranscriptAudio, apiExportTranscript, apiSuggestTranscriptName, apiGetTranscriptHistory, apiSaveTranscriptHistory, apiRevertTranscript,
   apiMfaSetup, apiMfaVerifySetup, apiMfaVerify, apiMfaDisable,
   apiUploadProfilePicture, apiDeleteProfilePicture,
-  apiGetDocFolders, apiCreateDocFolder, apiUpdateDocFolder, apiDeleteDocFolder, apiMoveDocument, apiBatchMoveDocuments, apiReorderDocFolders,
-  apiGetTranscriptFolders, apiCreateTranscriptFolder, apiUpdateTranscriptFolder, apiDeleteTranscriptFolder, apiMoveTranscript, apiReorderTranscriptFolders,
+  apiGetDocFolders, apiCreateDocFolder, apiUpdateDocFolder, apiDeleteDocFolder, apiMoveDocument, apiBatchMoveDocuments,
+  apiGetTranscriptFolders, apiCreateTranscriptFolder,
   apiBatchDeleteDocuments, apiBatchDeleteTranscripts, apiBatchDeleteCorrespondence, apiBatchDeleteSmsMessages, apiBatchDeleteFilings,
   apiUploadCaseDocumentChunked, apiUploadFilingChunked,
   apiDownloadFiling,
@@ -63,12 +63,12 @@ import {
   apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
   apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
-  apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiMsUploadForEdit, apiMsSyncBack, apiMsCleanup,
-  apiGetOnlyofficeStatus, apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup,
-  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSummarizeTranscript, apiSendToScribe, apiGetScribeTranscriptStatus, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
+  apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs,
+  apiGetOnlyofficeStatus,
+  apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSummarizeTranscript, apiSendToScribe, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
   apiGetVoirdireStatus, apiConnectVoirdire, apiDisconnectVoirdire,
   apiGetCustomReports, apiCreateCustomReport, apiUpdateCustomReport, apiDeleteCustomReport, apiRunCustomReport, apiCustomReportAiAssist,
-  apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiPreviewCustomAgent, apiGetAvailableModels, apiUploadAgentInstructions, apiClearAgentInstructions,
+  apiGetCustomAgents, apiCreateCustomAgent, apiUpdateCustomAgent, apiDeleteCustomAgent, apiRunCustomAgent, apiChatCustomAgent, apiUploadAgentInstructions, apiClearAgentInstructions,
   apiGetTaskFlows, apiGetTaskFlow, apiCreateTaskFlow, apiUpdateTaskFlow, apiDeleteTaskFlow,
   apiGetCustomWidgets, apiCreateCustomWidget, apiUpdateCustomWidget, apiDeleteCustomWidget, apiRunCustomWidget,
 } from "./api.js";
@@ -3151,7 +3151,7 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
   const [mfaErr, setMfaErr] = useState("");
   const [mfaBusy, setMfaBusy] = useState(false);
   const [disablePw, setDisablePw] = useState("");
-  const [picBusy, setPicBusy] = useState(false);
+  const [, setPicBusy] = useState(false);
   const picRef = useRef(null);
   const [picKey, setPicKey] = useState(0);
 
@@ -6164,15 +6164,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [showTranscriptHistory, setShowTranscriptHistory] = useState(false);
   const [revertingHistoryId, setRevertingHistoryId] = useState(null);
   const [docFolders, setDocFolders] = useState([]);
-  const [transcriptFolders, setTranscriptFolders] = useState([]);
+  const [, setTranscriptFolders] = useState([]);
   const [docSelectMode, setDocSelectMode] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState(new Set());
   const [transcriptSelectMode, setTranscriptSelectMode] = useState(false);
   const [selectedTranscriptIds, setSelectedTranscriptIds] = useState(new Set());
   const [corrSelectMode, setCorrSelectMode] = useState(false);
   const [selectedCorrIds, setSelectedCorrIds] = useState(new Set());
-  const [docUploadProgress, setDocUploadProgress] = useState(null);
-  const [filingUploadProgress, setFilingUploadProgress] = useState(null);
+  const [docUploadProgress] = useState(null);
+  const [filingUploadProgress] = useState(null);
   const [backgroundUploads, setBackgroundUploads] = useState([]);
   const bgUploadIdRef = useRef(0);
   const startBackgroundUpload = useCallback((filename) => {
@@ -6247,7 +6247,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [transcripts, setTranscripts] = useState([]);
   const [transcriptsLoading, setTranscriptsLoading] = useState(false);
   const [transcriptUploading, setTranscriptUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(null);
+  const [uploadProgress] = useState(null); // eslint-disable-line no-unused-vars
   const [expandedTranscriptId, setExpandedTranscriptId] = useState(null);
   const [transcriptDetail, setTranscriptDetail] = useState(null);
   const [transcriptDetailLoading, setTranscriptDetailLoading] = useState(false);
@@ -6458,7 +6458,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const handleScribeImport = async (scribeTranscriptId) => {
     setScribeImporting(scribeTranscriptId);
     try {
-      const result = await apiImportNewFromScribe(scribeTranscriptId, c.id);
+      await apiImportNewFromScribe(scribeTranscriptId, c.id);
       setScribeImportList(prev => prev.filter(t => t.id !== scribeTranscriptId));
       const refreshed = await apiGetTranscripts(c.id);
       setTranscripts(refreshed);
@@ -8919,7 +8919,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               const updateLocal = (field, val) => setDamages(p => p.map(x => x.id === d.id ? { ...x, [field]: val } : x));
               const isDmgExpanded = expandedDamageId === d.id;
               const dmgCategory = d.category === "Medical Bills" ? "Medical Bill" : d.category;
-              const dmgLabel = d.name || dmgCategory || "Untitled Damage";
               return (
               <div key={`${d.id}-${d.reductionIsPercent}`} style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 12, background: isDmgExpanded ? "var(--c-bg2)" : "var(--c-bg)" }}
@@ -9377,7 +9376,6 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 const firmDocs = filteredDocs.filter(d => d.source !== "client");
                 const renderDocSection = (docs, sectionLabel, sectionStyle) => {
                   if (docs.length === 0) return null;
-                  const sectionFolderDocs = docs.filter(d => d.folderId);
                   const sectionUnfiled = docs.filter(d => !d.folderId);
                   return (
                     <div style={{ marginBottom: 16, ...sectionStyle }}>
@@ -9804,7 +9802,7 @@ body.light .text { color: #1e293b; }
 <script>
 function setTheme(t){document.body.className=t;document.getElementById('darkBtn').className='theme-btn'+(t==='dark'?' active':'');document.getElementById('lightBtn').className='theme-btn'+(t==='light'?' active':'');}
 document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close();});
-<\/script>
+<${"/"}script>
 </body></html>`);
                                       presentWindow.document.close();
                                     }}
@@ -10211,7 +10209,6 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                   {email.attachments.map((att, idx) => {
                                     const isImage = att.contentType?.startsWith("image/");
                                     const isPdf = att.contentType === "application/pdf";
-                                    const isPreviewable = isImage || isPdf;
                                     const icon = isImage ? "img" : isPdf ? "pdf" : "file";
                                     return (
                                       <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -13521,20 +13518,6 @@ function TaskFlowsTab({ currentUser, allUsers, confirmDelete }) {
     if (tc.operator === "is_true") return `${label} is True`;
     if (tc.operator === "is_false") return `${label} is False`;
     return `${label} ${tc.operator.replace("_", " ")} "${tc.value}"`;
-  };
-
-  const stepCondSummary = (cond, allSteps) => {
-    const ct = STEP_CONDITION_TYPES.find(t => t.value === cond.type);
-    switch (cond.type) {
-      case "prior_step": return cond.stepIndex != null ? `After Step ${cond.stepIndex + 1}${allSteps && allSteps[cond.stepIndex] ? `: ${allSteps[cond.stepIndex].title || "(untitled)"}` : ""}` : "After step (not set)";
-      case "case_field": { const cf = CASE_TRIGGER_FIELDS.find(x => x.value === cond.field); const lbl = cf ? cf.label : cond.field; return cond.operator === "is_true" ? `${lbl} is True` : cond.operator === "is_false" ? `${lbl} is False` : `${lbl} ${(cond.operator || "").replace("_", " ")} "${cond.value || ""}"`; }
-      case "task_status": return `Task "${cond.taskTitle || "?"}" is ${cond.status || "Completed"}`;
-      case "role_assigned": return `${cond.role || "Role"} assigned on case`;
-      case "case_age": return `Case is at least ${cond.minDays || 0} days old`;
-      case "has_document": return `Document "${cond.documentName || "?"}" exists`;
-      case "priority_level": return `${cond.priority || "Urgent"} tasks ${(cond.countOperator || "greater_than").replace("_", " ")} ${cond.countValue || 0}`;
-      default: return ct ? ct.label : cond.type;
-    }
   };
 
   if (showEditor) {
