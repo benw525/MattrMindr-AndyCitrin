@@ -3393,10 +3393,8 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
         </div>
         {msStatus?.connected ? (
           <button onClick={disconnectMs} disabled={busy === "ms"} className="text-xs font-semibold px-3 py-1.5 rounded-lg border-none cursor-pointer bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100">Disconnect</button>
-        ) : msStatus?.configured !== false ? (
-          <button onClick={connectMs} disabled={busy === "ms"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{busy === "ms" ? "..." : "Connect"}</button>
         ) : (
-          <span style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: "#f1f5f9", color: "#94a3b8", borderRadius: 8 }}>Not Configured</span>
+          <button onClick={connectMs} disabled={busy === "ms"} style={{ padding: "6px 16px", fontSize: 12, fontWeight: 600, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{busy === "ms" ? "..." : msStatus?.configured === false ? "Configure" : "Connect"}</button>
         )}
       </div>
 
