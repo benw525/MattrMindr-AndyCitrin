@@ -368,26 +368,51 @@ function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => {
     portalGetDocuments().then(d => { setDocuments(d); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFiles = async (files) => {
+    if (!files || files.length === 0) return;
     setUploading(true);
-    try {
-      const doc = await portalUploadDocument(file);
-      setDocuments(prev => [doc, ...prev]);
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+    const total = files.length;
+    let uploaded = 0;
+    const errors = [];
+    for (const file of files) {
+      setUploadProgress(`Uploading ${uploaded + 1} of ${total}: ${file.name}`);
+      try {
+        const doc = await portalUploadDocument(file);
+        setDocuments(prev => [doc, ...prev]);
+      } catch (err) {
+        errors.push(`${file.name}: ${err.message}`);
+      }
+      uploaded++;
     }
+    setUploading(false);
+    setUploadProgress("");
+    if (errors.length > 0) alert(`Some uploads failed:\n${errors.join("\n")}`);
   };
+
+  const handleUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (fileRef.current) fileRef.current.value = "";
+    await uploadFiles(files);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    await uploadFiles(files);
+  };
+
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); };
 
   const handleDownload = async (doc) => {
     try {
@@ -415,12 +440,38 @@ function DocumentsPage() {
             padding: "8px 16px", background: "#1e293b", color: "#fff", borderRadius: 8, fontSize: 13,
             fontWeight: 600, cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1
           }}>
-            {uploading ? "Uploading..." : "Upload Document"}
+            {uploading ? "Uploading..." : "Upload Documents"}
             <input type="file" ref={fileRef} onChange={handleUpload} style={{ display: "none" }}
-              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" />
+              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.tiff,.tif" multiple />
           </label>
         </div>
-        <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 12px" }}>Upload documents for your legal team (medical records, photos, receipts, etc.)</p>
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          style={{
+            border: `2px dashed ${dragOver ? "#3b82f6" : "#cbd5e1"}`,
+            borderRadius: 10,
+            padding: uploading ? "16px 20px" : "24px 20px",
+            textAlign: "center",
+            marginBottom: 16,
+            background: dragOver ? "#eff6ff" : "#f8fafc",
+            transition: "all 0.2s ease",
+            cursor: uploading ? "wait" : "pointer"
+          }}
+          onClick={() => { if (!uploading && fileRef.current) fileRef.current.click(); }}
+        >
+          {uploading ? (
+            <div style={{ fontSize: 13, color: "#3b82f6", fontWeight: 500 }}>{uploadProgress || "Uploading..."}</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 28, marginBottom: 4 }}>📄</div>
+              <div style={{ fontSize: 14, color: "#475569", fontWeight: 500 }}>Drag & drop files here</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>or click to browse — you can select multiple files</div>
+              <div style={{ fontSize: 11, color: "#cbd5e1", marginTop: 6 }}>PDF, DOC, DOCX, TXT, JPG, PNG, TIFF</div>
+            </>
+          )}
+        </div>
         {clientDocs.length === 0 ? (
           <div style={{ textAlign: "center", color: "#94a3b8", padding: 20, fontSize: 14 }}>No documents uploaded yet.</div>
         ) : (
