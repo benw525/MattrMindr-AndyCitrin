@@ -487,13 +487,17 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
 router.post("/folders", requireAuth, async (req, res) => {
   try {
-    const { caseId, name } = req.body;
+    const { caseId, name, parentId } = req.body;
     if (!caseId || !name) return res.status(400).json({ error: "caseId and name are required" });
     if (!(await verifyCaseAccess(req, caseId))) return res.status(403).json({ error: "Access denied" });
+    if (parentId) {
+      const { rows: parentRows } = await pool.query("SELECT id FROM document_folders WHERE id = $1 AND case_id = $2", [parentId, caseId]);
+      if (!parentRows.length) return res.status(400).json({ error: "Parent folder not found" });
+    }
     const { rows: maxRows } = await pool.query("SELECT COALESCE(MAX(sort_order), -1) + 1 as next FROM document_folders WHERE case_id = $1", [caseId]);
     const { rows } = await pool.query(
-      "INSERT INTO document_folders (case_id, name, sort_order) VALUES ($1, $2, $3) RETURNING *",
-      [caseId, name, maxRows[0].next]
+      "INSERT INTO document_folders (case_id, name, sort_order, parent_id) VALUES ($1, $2, $3, $4) RETURNING *",
+      [caseId, name, maxRows[0].next, parentId || null]
     );
     return res.status(201).json(rows[0]);
   } catch (err) {

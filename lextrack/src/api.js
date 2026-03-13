@@ -606,7 +606,7 @@ export const apiDeleteProfilePicture = (userId) => apiFetch(`/api/users/${userId
 
 // Document Folders
 export const apiGetDocFolders     = (caseId)       => apiFetch(`/api/case-documents/${caseId}/folders`);
-export const apiCreateDocFolder   = (caseId, name)  => apiFetch(`/api/case-documents/folders`, { method: "POST", body: { caseId, name } });
+export const apiCreateDocFolder   = (caseId, name, parentId)  => apiFetch(`/api/case-documents/folders`, { method: "POST", body: { caseId, name, parentId: parentId || undefined } });
 export const apiUpdateDocFolder   = (folderId, data) => apiFetch(`/api/case-documents/folders/${folderId}`, { method: "PUT", body: data });
 export const apiDeleteDocFolder   = (folderId)       => apiFetch(`/api/case-documents/folders/${folderId}`, { method: "DELETE" });
 export const apiMoveDocument      = (docId, folderId) => apiFetch(`/api/case-documents/${docId}/move`, { method: "PUT", body: { folderId } });

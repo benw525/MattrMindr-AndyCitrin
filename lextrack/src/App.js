@@ -9290,7 +9290,13 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         >
                           <option value="" disabled>Move to Folder ({selectedDocIds.size})</option>
                           <option value="__none__">No Folder (Unfiled)</option>
-                          {docFolders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          {(() => {
+                            const renderOpts = (parentId, depth) => docFolders.filter(f => (f.parentId || f.parent_id || null) === parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).flatMap(f => [
+                              <option key={f.id} value={f.id}>{"  ".repeat(depth)}{depth > 0 ? "└ " : ""}{f.name}</option>,
+                              ...renderOpts(f.id, depth + 1)
+                            ]);
+                            return renderOpts(null, 0);
+                          })()}
                         </select>
                       </div>
                       <button onClick={async () => {
@@ -9312,7 +9318,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 const renderDocRow = (doc) => {
                   const isDocEditing = editingDocId === doc.id;
                   return (
-                    <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0" }} draggable={!docSelectMode} onDragStart={e => e.dataTransfer.setData("docId", String(doc.id))}>
+                    <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0" }} draggable={!docSelectMode && !expandedDocId} onDragStart={e => { if (window.getSelection()?.toString()) { e.preventDefault(); return; } e.dataTransfer.setData("docId", String(doc.id)); }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         {docSelectMode && <input type="checkbox" checked={selectedDocIds.has(doc.id)} onChange={e => { const next = new Set(selectedDocIds); if (e.target.checked) next.add(doc.id); else next.delete(doc.id); setSelectedDocIds(next); }} style={{ width: 16, height: 16, flexShrink: 0 }} />}
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -9382,30 +9388,42 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div style={{ fontSize: 13, fontWeight: 700, color: sectionLabel === "Client Provided Documents" ? "#1d4ed8" : "#1e293b", padding: "8px 12px", marginBottom: 8, borderRadius: 6, background: sectionLabel === "Client Provided Documents" ? "#dbeafe" : "#f1f5f9", border: sectionLabel === "Client Provided Documents" ? "1px solid #93c5fd" : "1px solid #e2e8f0" }}>
                         {sectionLabel} <span style={{ fontSize: 11, fontWeight: 400, color: sectionLabel === "Client Provided Documents" ? "#3b82f6" : "#64748b" }}>({docs.length})</span>
                       </div>
-                      {docFolders.length > 0 && docFolders.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(folder => {
-                        const folderItems = docs.filter(d => d.folderId === folder.id);
-                        return (
-                          <div key={`folder-${folder.id}-${sectionLabel}`} style={{ marginBottom: 8, border: "1px solid var(--c-border2)", borderRadius: 6, overflow: "hidden" }}
-                            onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
-                            onDragLeave={e => { e.currentTarget.style.background = ""; }}
-                            onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), folder.id); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: folder.id } : d)); } catch (err) { alert(err.message); } } }}>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }} onClick={() => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, collapsed: !f.collapsed } : f))}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <FolderOpen size={14} style={{ color: "#6366f1" }} />
-                                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>{folder.name}</span>
-                                <span style={{ fontSize: 10, color: "#94a3b8" }}>({folderItems.length})</span>
+                      {(() => {
+                        const renderFolder = (folder, depth = 0) => {
+                          const folderItems = docs.filter(d => d.folderId === folder.id);
+                          const childFolders = docFolders.filter(f => (f.parentId || f.parent_id) === folder.id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                          const totalCount = folderItems.length + childFolders.reduce((sum, cf) => sum + docs.filter(d => d.folderId === cf.id).length, 0);
+                          return (
+                            <div key={`folder-${folder.id}-${sectionLabel}`} style={{ marginBottom: depth > 0 ? 4 : 8, border: "1px solid var(--c-border)", borderRadius: 6, overflow: "hidden", marginLeft: depth > 0 ? 16 : 0 }}
+                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = "2px solid #6366f1"; }}
+                              onDragLeave={e => { e.currentTarget.style.outline = ""; }}
+                              onDrop={async e => { e.stopPropagation(); e.currentTarget.style.outline = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), folder.id); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: folder.id } : d)); } catch (err) { alert(err.message); } } }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }} onClick={() => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, collapsed: !f.collapsed } : f))}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <FolderOpen size={14} style={{ color: depth > 0 ? "#8b5cf6" : "#6366f1" }} />
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>{folder.name}</span>
+                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>({totalCount})</span>
+                                </div>
+                                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                  <button onClick={e => { e.stopPropagation(); const name = prompt("Subfolder name:"); if (name) { apiCreateDocFolder(c.id, name, folder.id).then(f => setDocFolders(prev => [...prev, { ...f, collapsed: true }])).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }} title="Add subfolder"><FolderPlus size={11} /></button>
+                                  <button onClick={e => { e.stopPropagation(); const name = prompt("Rename folder:", folder.name); if (name && name !== folder.name) { apiUpdateDocFolder(folder.id, { name }).then(u => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, name: u.name } : f))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Pencil size={11} /></button>
+                                  <button onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDocFolder(folder.id).then(() => { const descendantIds = docFolders.filter(f => (f.parentId || f.parent_id) === folder.id).map(f => f.id); setDocFolders(prev => prev.filter(f => f.id !== folder.id && !descendantIds.includes(f.id))); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id || descendantIds.includes(d.folderId) ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
+                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
+                                </div>
                               </div>
-                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                                <button onClick={e => { e.stopPropagation(); const name = prompt("Rename folder:", folder.name); if (name && name !== folder.name) { apiUpdateDocFolder(folder.id, { name }).then(u => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, name: u.name } : f))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Pencil size={11} /></button>
-                                <button onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDocFolder(folder.id).then(() => { setDocFolders(prev => prev.filter(f => f.id !== folder.id)); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
-                                <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
-                              </div>
+                              {!folder.collapsed && (
+                                <div style={{ padding: "0 4px 4px" }}>
+                                  {childFolders.map(cf => renderFolder(cf, depth + 1))}
+                                  {folderItems.length > 0 && folderItems.map(doc => renderDocRow(doc))}
+                                  {folderItems.length === 0 && childFolders.length === 0 && <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Empty — drag documents here</div>}
+                                </div>
+                              )}
                             </div>
-                            {!folder.collapsed && folderItems.length === 0 && <div style={{ padding: "8px 12px", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Empty — drag documents here</div>}
-                            {!folder.collapsed && folderItems.length > 0 && <div style={{ padding: "0 4px 4px" }}>{folderItems.map(doc => renderDocRow(doc))}</div>}
-                          </div>
-                        );
-                      })}
+                          );
+                        };
+                        const topFolders = docFolders.filter(f => !(f.parentId || f.parent_id)).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                        return topFolders.map(folder => renderFolder(folder));
+                      })()}
                       {docFolders.length > 0 && sectionUnfiled.length > 0 && (
                         <div style={{ marginTop: 8 }}
                           onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}

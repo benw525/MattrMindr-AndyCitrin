@@ -861,6 +861,7 @@ async function createSchema() {
         name        TEXT NOT NULL,
         sort_order  INTEGER NOT NULL DEFAULT 0,
         collapsed   BOOLEAN NOT NULL DEFAULT FALSE,
+        parent_id   INTEGER REFERENCES document_folders(id) ON DELETE CASCADE,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
