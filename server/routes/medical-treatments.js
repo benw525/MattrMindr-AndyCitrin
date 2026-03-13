@@ -10,7 +10,10 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 
 let openai;
 try {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
+  openai = new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  });
 } catch (e) {
   openai = null;
 }
@@ -155,7 +158,7 @@ router.get("/:caseId/records/:treatmentId", requireAuth, async (req, res) => {
 });
 
 const parseMedicalText = async (text) => {
-  if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
+  if (!openai) openai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL });
   const completion = await openai.chat.completions.create({
     model: "gpt-5-mini",
     messages: [
