@@ -11649,7 +11649,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
         {activeTab === "portal" && (() => {
           const TOGGLES = [
             { key: "show_stage", label: "Case Stage / Progress" },
-            { key: "show_attorney_name", label: "Attorney Name" },
+            { key: "show_attorney_name", label: "Staff Assigned" },
             { key: "show_case_type", label: "Case Type" },
             { key: "show_accident_date", label: "Accident Date" },
             { key: "show_next_court_date", label: "Next Court Date" },

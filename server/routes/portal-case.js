@@ -56,25 +56,25 @@ router.get("/", requireClientAuth, async (req, res) => {
     if (caseRows.length === 0) return res.status(404).json({ error: "Case not found" });
     const c = caseRows[0];
 
-    let attorneyName = null;
+    let attorneyName = null, attorneyPhone = null, attorneyEmail = null;
     if (settings.show_attorney_name !== false && c.lead_attorney) {
-      const { rows: attRows } = await pool.query("SELECT name FROM users WHERE id = $1", [c.lead_attorney]);
-      if (attRows.length) attorneyName = attRows[0].name;
+      const { rows: attRows } = await pool.query("SELECT name, phone, email FROM users WHERE id = $1", [c.lead_attorney]);
+      if (attRows.length) { attorneyName = attRows[0].name; attorneyPhone = attRows[0].phone; attorneyEmail = attRows[0].email; }
     }
 
     const litigationStages = ["Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial"];
     const isLitigation = litigationStages.includes(c.stage);
 
-    let caseManagerName = null;
+    let caseManagerName = null, caseManagerPhone = null, caseManagerEmail = null;
     if (!isLitigation && c.case_manager) {
-      const { rows: cmRows } = await pool.query("SELECT name FROM users WHERE id = $1", [c.case_manager]);
-      if (cmRows.length) caseManagerName = cmRows[0].name;
+      const { rows: cmRows } = await pool.query("SELECT name, phone, email FROM users WHERE id = $1", [c.case_manager]);
+      if (cmRows.length) { caseManagerName = cmRows[0].name; caseManagerPhone = cmRows[0].phone; caseManagerEmail = cmRows[0].email; }
     }
 
-    let paralegalName = null;
+    let paralegalName = null, paralegalPhone = null, paralegalEmail = null;
     if (isLitigation && c.paralegal) {
-      const { rows: plRows } = await pool.query("SELECT name FROM users WHERE id = $1", [c.paralegal]);
-      if (plRows.length) paralegalName = plRows[0].name;
+      const { rows: plRows } = await pool.query("SELECT name, phone, email FROM users WHERE id = $1", [c.paralegal]);
+      if (plRows.length) { paralegalName = plRows[0].name; paralegalPhone = plRows[0].phone; paralegalEmail = plRows[0].email; }
     }
 
     const stageIndex = PI_STAGES.indexOf(c.stage);
@@ -103,8 +103,14 @@ router.get("/", requireClientAuth, async (req, res) => {
     if (settings.show_case_value) result.caseValueEstimate = c.case_value_estimate;
     if (settings.show_attorney_name !== false) {
       result.attorneyName = attorneyName;
+      result.attorneyPhone = attorneyPhone || null;
+      result.attorneyEmail = attorneyEmail || null;
       result.caseManagerName = caseManagerName;
+      result.caseManagerPhone = caseManagerPhone || null;
+      result.caseManagerEmail = caseManagerEmail || null;
       result.paralegalName = paralegalName;
+      result.paralegalPhone = paralegalPhone || null;
+      result.paralegalEmail = paralegalEmail || null;
     }
 
     result.showDocuments = settings.show_documents !== false;
