@@ -2472,7 +2472,7 @@ function FirmApp() {
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
-        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} />}
+        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { alert("Failed to remove deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} confirmDelete={confirmDelete} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
@@ -7265,6 +7265,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 {deadlines.length === 0 && !aiDeadlines.show && !showAddDeadline && <div style={{ fontSize: 12, color: "#64748b" }}>None on record.</div>}
                 {[...deadlines].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(d => {
                   const days = daysUntil(d.date); const col = urgencyColor(days);
+                  const canDel = ["Case Manager", "Paralegal", "Attorney", "App Admin"].some(r => (currentUser.roles || [currentUser.role]).includes(r));
                   return (
                     <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--c-border2)" }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
@@ -7276,6 +7277,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div>{fmt(d.date)}</div>
                         {days !== null && <div style={{ fontSize: 10 }}>{days < 0 ? `${Math.abs(days)}d over` : `${days}d`}</div>}
                       </div>
+                      {canDel && <button onClick={async () => { if (!(await confirmDelete())) return; onDeleteDeadline(d.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 12, padding: "2px 4px", flexShrink: 0 }} title="Remove deadline">✕</button>}
                     </div>
                   );
                 })}
@@ -10093,7 +10095,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   Texts {smsMessages.length > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({smsMessages.length})</span>}
                 </button>
                 <button onClick={() => setCorrSubTab("voicemails")} className={`pb-4 text-sm font-medium bg-transparent border-none cursor-pointer ${corrSubTab === "voicemails" ? "border-b-2 border-gray-900 dark:border-slate-100 text-gray-900 dark:text-slate-100" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"}`} style={{ padding: "8px 16px" }}>
-                  Voicemails {(voicemails.length + correspondence.filter(e => e.isVoicemail).length) > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({voicemails.length + correspondence.filter(e => e.isVoicemail).length})</span>}
+                  Voicemails {((voicemails || []).length + (correspondence || []).filter(e => e.isVoicemail).length) > 0 && <span className="text-gray-400 dark:text-slate-500 font-normal ml-1 text-xs">({(voicemails || []).length + (correspondence || []).filter(e => e.isVoicemail).length})</span>}
                 </button>
                 <div style={{ flex: 1 }} />
                 <button className="border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-800 bg-transparent cursor-pointer mb-1" onClick={() => {
@@ -10846,7 +10848,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontSize: 11, color: "#64748b" }}>
-                      {voicemails.length + correspondence.filter(e => e.isVoicemail).length} voicemail{(voicemails.length + correspondence.filter(e => e.isVoicemail).length) !== 1 ? "s" : ""}
+                      {(voicemails || []).length + (correspondence || []).filter(e => e.isVoicemail).length} voicemail{((voicemails || []).length + (correspondence || []).filter(e => e.isVoicemail).length) !== 1 ? "s" : ""}
                     </span>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
@@ -10862,9 +10864,9 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                     </div>
                   </div>
 
-                  {correspondence.filter(e => e.isVoicemail).length > 0 && (
+                  {(() => { const vmEmails = (correspondence || []).filter(e => e.isVoicemail); if (vmEmails.length === 0) return null; return (
                     <div style={{ marginBottom: 12 }}>
-                      {correspondence.filter(e => e.isVoicemail).map(email => {
+                      {vmEmails.map(email => {
                         const isExpanded = expandedEmail === email.id;
                         const dateStr = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : "";
                         const audioAttachments = (email.attachments || []).filter(a => a.contentType && a.contentType.startsWith("audio/"));
@@ -10942,7 +10944,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         );
                       })}
                     </div>
-                  )}
+                  ); })()}
 
                   {showAddVoicemail && (
                     <div style={{ background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 8, padding: 16, marginBottom: 16 }}>
@@ -10995,12 +10997,12 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   )}
 
                   {voicemailsLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading voicemails...</div>}
-                  {!voicemailsLoading && voicemails.length === 0 && correspondence.filter(e => e.isVoicemail).length === 0 && !showAddVoicemail && (
+                  {!voicemailsLoading && (voicemails || []).length === 0 && (correspondence || []).filter(e => e.isVoicemail).length === 0 && !showAddVoicemail && (
                     <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
                       No voicemails recorded yet. Voicemail emails (with "Voice Message" in subject) appear here automatically, or click "Add Voicemail" to log one manually.
                     </div>
                   )}
-                  {!voicemailsLoading && voicemails.map(vm => {
+                  {!voicemailsLoading && (voicemails || []).map(vm => {
                     const dateStr = vm.receivedAt ? new Date(vm.receivedAt).toLocaleString() : "";
                     const durationStr = vm.duration ? `${Math.floor(vm.duration / 60)}:${String(vm.duration % 60).padStart(2, "0")}` : "";
                     return (
@@ -12860,7 +12862,8 @@ function ICalManager({ externalEvents, setExternalEvents, allCases }) {
 }
 
 // ─── Calendar View ────────────────────────────────────────────────────────────
-function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds, onSelectCase }) {
+function DeadlinesView({ deadlines, tasks, onAddDeadline, onDeleteDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds, onSelectCase, confirmDelete }) {
+  const canDeleteDeadline = ["Case Manager", "Paralegal", "Attorney", "App Admin"].some(r => (currentUser.roles || [currentUser.role]).includes(r));
   const [tab, setTab] = useState("calendar");
   const [typeFilter, setTypeFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -12933,7 +12936,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                     <SortTh col="case" label="Case" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                     <SortTh col="type" label="Type" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                     <SortTh col="date" label="Due Date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                    <th>Days</th><th>Assigned</th>
+                    <th>Days</th><th>Assigned</th>{canDeleteDeadline && <th style={{ width: 40 }}></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -12949,6 +12952,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, allCases, calcInputs, 
                         <td data-label="Due" style={{ color: col, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(d.date)}</td>
                         <td data-label="Days" style={{ color: col, fontWeight: 700 }}>{days < 0 ? <span style={{ color: "#e05252" }}>{Math.abs(days)}d over</span> : days === 0 ? "Today" : `${days}d`}</td>
                         <td data-label="Assigned"><Avatar userId={d.assigned} size={26} /></td>
+                        {canDeleteDeadline && <td><button onClick={async () => { if (!confirmDelete || !(await confirmDelete())) return; onDeleteDeadline(d.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 13, padding: "2px 6px", borderRadius: 4 }} title="Remove deadline">✕</button></td>}
                       </tr>
                     );
                   })}

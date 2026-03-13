@@ -52,7 +52,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     if (!(await verifyCaseAccess(req, req.params.caseId))) return res.status(403).json({ error: "Access denied" });
     const { rows } = await pool.query(
-      "SELECT id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at FROM case_filings WHERE case_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
+      "SELECT id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at FROM case_filings WHERE case_id = $1 AND deleted_at IS NULL ORDER BY filing_date DESC NULLS LAST, created_at DESC",
       [req.params.caseId]
     );
     return res.json(rows.map(toFrontend));

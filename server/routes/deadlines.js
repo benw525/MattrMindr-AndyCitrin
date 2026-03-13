@@ -107,6 +107,11 @@ router.put("/:id", requireAuth, async (req, res) => {
 
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
+    const roles = req.session.userRoles || [req.session.userRole];
+    const allowed = ["Case Manager", "Paralegal", "Attorney", "App Admin"];
+    if (!roles.some(r => allowed.includes(r))) {
+      return res.status(403).json({ error: "Only Case Managers, Paralegals, and Attorneys can remove deadlines" });
+    }
     const { rows } = await pool.query("UPDATE deadlines SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING *", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     const { cancelForEvent } = require("../sms-scheduler");
