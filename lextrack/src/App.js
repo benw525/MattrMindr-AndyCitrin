@@ -11155,11 +11155,11 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                 fileInput.dispatchEvent(new Event("change", { bubbles: true }));
               }
             }} style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end", padding: "8px 10px", border: "1px dashed var(--c-border)", borderRadius: 6, background: "var(--c-bg)" }}>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Upload Filing (PDF only) — or drag & drop</label>
+                <label style={{ fontSize: 10, fontWeight: 500, color: "var(--c-text3)", display: "block", marginBottom: 3 }}>Upload Filing (PDF) — or drag & drop</label>
                 {filingUploadProgress !== null && <div style={{ fontSize: 11, color: "#6366f1", marginBottom: 4 }}>Uploading: {filingUploadProgress}%</div>}
-                <input type="file" accept=".pdf,application/pdf" id="filing-upload-input" style={{ fontSize: 12, width: "100%" }} disabled={filingUploadProgress !== null} onChange={async (e) => {
+                <input type="file" accept=".pdf,application/pdf" id="filing-upload-input" style={{ fontSize: 11, width: "100%" }} disabled={filingUploadProgress !== null} onChange={async (e) => {
                   const file = e.target.files[0]; if (!file) return;
                   const bg = startBackgroundUpload(file.name);
                   e.target.value = "";
@@ -11190,19 +11190,19 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                 }} />
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Filed By</label>
-                <select value={filingUploadFiledBy} onChange={e => setFilingUploadFiledBy(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB" }}>
+                <label style={{ fontSize: 10, fontWeight: 500, color: "var(--c-text3)", display: "block", marginBottom: 3 }}>Filed By</label>
+                <select value={filingUploadFiledBy} onChange={e => setFilingUploadFiledBy(e.target.value)} style={{ fontSize: 11, padding: "4px 6px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }}>
                   <option value="">— Auto-detect —</option>
                   <option>Plaintiff</option><option>Defendant</option><option>Court</option><option>Other</option>
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Filing Date</label>
-                <input type="date" value={filingUploadDate} onChange={e => setFilingUploadDate(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB" }} />
+                <label style={{ fontSize: 10, fontWeight: 500, color: "var(--c-text3)", display: "block", marginBottom: 3 }}>Filing Date</label>
+                <input type="date" value={filingUploadDate} onChange={e => setFilingUploadDate(e.target.value)} style={{ fontSize: 11, padding: "4px 6px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }} />
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Doc Type</label>
-                <input type="text" placeholder="e.g., Motion to Compel" value={filingUploadDocType} onChange={e => setFilingUploadDocType(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB", width: 160 }} />
+                <label style={{ fontSize: 10, fontWeight: 500, color: "var(--c-text3)", display: "block", marginBottom: 3 }}>Doc Type</label>
+                <input type="text" placeholder="e.g., Motion to Compel" value={filingUploadDocType} onChange={e => setFilingUploadDocType(e.target.value)} style={{ fontSize: 11, padding: "4px 6px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", width: 140 }} />
               </div>
             </div>
             </DragDropZone>
@@ -11289,8 +11289,8 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                             <option>Plaintiff</option><option>Defendant</option><option>Court</option><option>Other</option>
                           </select>
                         ) : (
-                          f.filedBy ? <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: partyColor, borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", cursor: "pointer" }} onClick={() => setReassigningFilingId(f.id)} title="Click to reassign party">{f.filedBy}</span>
-                          : <span style={{ fontSize: 10, fontWeight: 500, color: "#9CA3AF", background: "#F3F4F6", borderRadius: 4, padding: "2px 7px", cursor: "pointer", fontStyle: "italic" }} onClick={() => setReassigningFilingId(f.id)} title="Click to assign party">No party</span>
+                          f.filedBy ? <span style={{ fontSize: 10, fontWeight: 600, color: partyColor, background: partyColor + "12", border: `1px solid ${partyColor}33`, borderRadius: 6, padding: "2px 8px", textTransform: "uppercase", cursor: "pointer", letterSpacing: "0.04em", whiteSpace: "nowrap", fontFamily: "'Inter',sans-serif" }} onClick={() => setReassigningFilingId(f.id)} title="Click to reassign party">{f.filedBy}</span>
+                          : <span style={{ fontSize: 10, fontWeight: 500, color: "#9CA3AF", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontStyle: "italic" }} onClick={() => setReassigningFilingId(f.id)} title="Click to assign party">No party</span>
                         )}
                         {isEditing ? (
                           <input value={editingFilingData.docType || ""} onChange={e => setEditingFilingData(d => ({ ...d, docType: e.target.value }))} placeholder="Doc type" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6", width: 120 }} />
@@ -11312,8 +11312,8 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                 log("Filing edited", editingFilingData.filename);
                                 setEditingFilingId(null);
                               } catch (err) { alert("Save failed: " + err.message); }
-                            }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #059669", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Save</button>
-                            <button onClick={() => setEditingFilingId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer" }}>Cancel</button>
+                            }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text2)", cursor: "pointer", fontWeight: 600 }}>Save</button>
+                            <button onClick={() => setEditingFilingId(null)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text3)", cursor: "pointer" }}>Cancel</button>
                           </div>
                         )}
                       </div>
@@ -11322,10 +11322,10 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         <span style={{ fontSize: 10, color: "#64748b" }}>{f.uploadedByName ? `by ${f.uploadedByName}` : ""}{f.sourceEmailFrom ? `from ${f.sourceEmailFrom}` : ""}</span>
                         <span style={{ fontSize: 10, color: "#64748b" }}>{new Date(f.createdAt).toLocaleDateString()}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                          <button onClick={() => openAppFilingViewer(f.id, f.filename)} className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 bg-transparent border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">View</button>
-                          <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingClassifying === f.id ? "Classifying..." : <><Sparkles size={9} className="inline mr-0.5" /> Classify</>}</button>
-                          <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer flex items-center gap-1">{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? <><Sparkles size={9} className="inline mr-0.5" /> Re-summarize</> : <><Sparkles size={9} className="inline mr-0.5" /> Summarize</>)}</button>
-                          {canRemove && <button onClick={async () => { if (!await confirmDelete()) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-transparent border border-red-200 dark:border-red-900/50 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">Delete</button>}
+                          <button onClick={() => openAppFilingViewer(f.id, f.filename)} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text2)", cursor: "pointer", fontWeight: 500 }}>View</button>
+                          <button disabled={filingClassifying === f.id} onClick={async () => { setFilingClassifying(f.id); try { const { classification } = await apiClassifyFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, filename: classification.suggestedName || x.filename, filedBy: classification.filedBy || x.filedBy, docType: classification.docType || x.docType, filingDate: classification.filingDate || x.filingDate, summary: classification.summary || x.summary } : x)); log("Filing classified", `${classification.suggestedName || f.filename}`); } catch (err) { alert("Classification failed: " + err.message); } setFilingClassifying(null); }} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text2)", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 3, opacity: filingClassifying === f.id ? 0.6 : 1 }}>{filingClassifying === f.id ? "Classifying..." : <><Sparkles size={9} /> Classify</>}</button>
+                          <button disabled={filingSummarizing === f.id} onClick={async () => { setFilingSummarizing(f.id); try { const { summary } = await apiSummarizeFiling(f.id); setFilings(prev => prev.map(x => x.id === f.id ? { ...x, summary } : x)); setExpandedFilingId(f.id); log("Filing summarized", f.filename); } catch (err) { alert("Summary failed: " + err.message); } setFilingSummarizing(null); }} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text2)", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 3, opacity: filingSummarizing === f.id ? 0.6 : 1 }}>{filingSummarizing === f.id ? "Summarizing..." : (f.summary ? <><Sparkles size={9} /> Re-summarize</> : <><Sparkles size={9} /> Summarize</>)}</button>
+                          {canRemove && <button onClick={async () => { if (!await confirmDelete()) return; try { await apiDeleteFiling(f.id); setFilings(prev => prev.filter(x => x.id !== f.id)); log("Filing deleted", f.filename); } catch (err) { alert("Delete failed: " + err.message); } }} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text2)", cursor: "pointer", fontWeight: 500 }}>Delete</button>}
                         </div>
                       </div>
                       {f.originalFilename && f.originalFilename !== f.filename && (
@@ -11333,7 +11333,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                       )}
                       {f.summary && (
                         <div style={{ marginTop: 8 }}>
-                          <button onClick={() => setExpandedFilingId(expandedFilingId === f.id ? null : f.id)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 text-sm font-medium bg-transparent border-none cursor-pointer p-0">{expandedFilingId === f.id ? "▾ Hide Summary" : "▸ View Summary"}</button>
+                          <button onClick={() => setExpandedFilingId(expandedFilingId === f.id ? null : f.id)} style={{ fontSize: 11, fontWeight: 500, color: "var(--c-text2)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandedFilingId === f.id ? "▾ Hide Summary" : "▸ View Summary"}</button>
                           {expandedFilingId === f.id && (
                             <div style={{ marginTop: 6 }}>
                               <AiPanel title="Filing Summary" result={f.summary} />
