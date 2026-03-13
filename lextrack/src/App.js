@@ -6130,7 +6130,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [aiDeadlines, setAiDeadlines] = useState({ loading: false, deadlines: null, error: null, show: false });
   const [aiTasks, setAiTasks] = useState({ loading: false, tasks: null, error: null, show: false, added: {} });
   const [showAddDeadline, setShowAddDeadline] = useState(false);
-  const [dlForm, setDlForm] = useState({ title: "", date: "", type: "Other" });
+  const [dlForm, setDlForm] = useState({ title: "", date: "", type: "Filing" });
+  const [editingCaseDlId, setEditingCaseDlId] = useState(null);
+  const [editingCaseDlTitle, setEditingCaseDlTitle] = useState("");
   const [showAddTask, setShowAddTask] = useState(false);
   const [tkForm, setTkForm] = useState({ title: "", priority: "Medium", due: "" });
   const [aiClientSummary, setAiClientSummary] = useState({ loading: false, result: null, error: null, show: false });
@@ -7221,7 +7223,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div className="case-overlay-section-title">Deadlines ({deadlines.length})</div>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowAddDeadline(s => !s); if (showAddDeadline) setDlForm({ title: "", date: "", type: "Other" }); }}>
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowAddDeadline(s => !s); if (showAddDeadline) setDlForm({ title: "", date: "", type: "Filing" }); }}>
                       {showAddDeadline ? "Cancel" : "+ Add Deadline"}
                     </button>
                     <button className="border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer" onClick={() => {
@@ -7246,19 +7248,15 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label>Type</label>
                         <select value={dlForm.type} onChange={e => setDlForm(p => ({ ...p, type: e.target.value }))}>
-                          <option>Motion</option>
-                          <option>Hearing</option>
-                          <option>Filing</option>
-                          <option>Court Date</option>
-                          <option>Other</option>
+                          {PI_DEADLINE_TYPES.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowAddDeadline(false); setDlForm({ title: "", date: "", type: "Other" }); }}>Cancel</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => { setShowAddDeadline(false); setDlForm({ title: "", date: "", type: "Filing" }); }}>Cancel</button>
                       <button className="btn btn-gold btn-sm" style={{ fontSize: 11 }} disabled={!dlForm.title.trim() || !dlForm.date} onClick={() => {
                         onAddDeadline({ caseId: c.id, title: dlForm.title.trim(), date: dlForm.date, type: dlForm.type });
-                        setDlForm({ title: "", date: "", type: "Other" });
+                        setDlForm({ title: "", date: "", type: "Filing" });
                         setShowAddDeadline(false);
                       }}>Add Deadline</button>
                     </div>
@@ -7268,12 +7266,23 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 {[...deadlines].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map(d => {
                   const days = daysUntil(d.date); const col = urgencyColor(days);
                   const canDel = ["Case Manager", "Paralegal", "Attorney", "App Admin"].some(r => (currentUser.roles || [currentUser.role]).includes(r));
+                  const isEditingTitle = editingCaseDlId === d.id;
                   return (
                     <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--c-border2)" }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, color: "var(--c-text)" }}>{d.title}</div>
-                        {d.type && <div style={{ fontSize: 10, color: "#64748b" }}>{d.type}</div>}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {isEditingTitle ? (
+                          <input autoFocus value={editingCaseDlTitle} onChange={e => setEditingCaseDlTitle(e.target.value)}
+                            onBlur={() => { if (editingCaseDlTitle.trim() && editingCaseDlTitle !== d.title) onUpdateDeadline(d.id, { title: editingCaseDlTitle.trim() }); setEditingCaseDlId(null); }}
+                            onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") setEditingCaseDlId(null); }}
+                            style={{ fontSize: 13, padding: "1px 4px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", width: "100%", boxSizing: "border-box" }} />
+                        ) : (
+                          <div style={{ fontSize: 13, color: "var(--c-text)", cursor: "pointer" }} onClick={() => { setEditingCaseDlId(d.id); setEditingCaseDlTitle(d.title); }} title="Click to edit title">{d.title}</div>
+                        )}
+                        <select value={d.type || "Filing"} onChange={e => onUpdateDeadline(d.id, { type: e.target.value })}
+                          style={{ fontSize: 10, padding: "0 2px", borderRadius: 3, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "#64748b", cursor: "pointer", marginTop: 2, maxWidth: 150 }}>
+                          {[...new Set([...PI_DEADLINE_TYPES, d.type].filter(Boolean))].sort().map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
                       </div>
                       <div style={{ fontSize: 12, color: col, whiteSpace: "nowrap", textAlign: "right" }}>
                         <div>{fmt(d.date)}</div>
