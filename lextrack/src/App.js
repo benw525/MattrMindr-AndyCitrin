@@ -8710,7 +8710,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               const folder = docFolders.find(f => f.id === (doc.folderId || doc.folder_id));
                               const isMedical = medicalKeywords.test(doc.filename || "") || medicalKeywords.test(doc.description || "") || medicalKeywords.test(doc.docType || "") || (folder && medicalKeywords.test(folder.name));
                               return (
-                                <div key={doc.id} style={{ padding: "6px 10px", borderBottom: "1px solid var(--c-border2)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: docPickerLoading === t.id ? "wait" : "pointer", opacity: docPickerLoading === t.id ? 0.5 : 1, background: isMedical ? "#f0fdf4" : "transparent", pointerEvents: docPickerLoading === t.id ? "none" : "auto" }}
+                                <div key={doc.id} style={{ padding: "6px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: docPickerLoading === t.id ? "wait" : "pointer", opacity: docPickerLoading === t.id ? 0.5 : 1, background: isMedical ? "var(--c-bg2)" : "transparent", pointerEvents: docPickerLoading === t.id ? "none" : "auto" }}
                                   onClick={async () => {
                                     if (docPickerLoading) return;
                                     setDocPickerLoading(t.id);
