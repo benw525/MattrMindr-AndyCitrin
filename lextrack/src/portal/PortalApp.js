@@ -241,8 +241,13 @@ function DashboardPage() {
         {caseData.caseType && (
           <InfoCard label="Case Type" value={caseData.caseType} />
         )}
-        {caseData.attorneyName && (
-          <InfoCard label="Your Attorney" value={caseData.attorneyName} />
+        {(caseData.attorneyName || caseData.caseManagerName || caseData.paralegalName) && (
+          <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", padding: "16px 20px" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Staff</div>
+            {caseData.attorneyName && <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}>{caseData.attorneyName} <span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>Attorney</span></div>}
+            {caseData.caseManagerName && <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginTop: caseData.attorneyName ? 4 : 0 }}>{caseData.caseManagerName} <span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>Case Manager</span></div>}
+            {caseData.paralegalName && <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginTop: caseData.attorneyName ? 4 : 0 }}>{caseData.paralegalName} <span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>Paralegal</span></div>}
+          </div>
         )}
         {caseData.accidentDate && (
           <InfoCard label="Date of Incident" value={new Date(caseData.accidentDate).toLocaleDateString()} />

@@ -49,7 +49,7 @@ router.get("/", requireClientAuth, async (req, res) => {
     const { rows: caseRows } = await pool.query(
       `SELECT id, title, client_name, case_type, stage, status,
               accident_date, next_court_date, trial_date, mediation_date,
-              case_value_estimate, lead_attorney, state_jurisdiction
+              case_value_estimate, lead_attorney, case_manager, paralegal, state_jurisdiction
        FROM cases WHERE id = $1`,
       [caseId]
     );
@@ -60,6 +60,21 @@ router.get("/", requireClientAuth, async (req, res) => {
     if (settings.show_attorney_name !== false && c.lead_attorney) {
       const { rows: attRows } = await pool.query("SELECT name FROM users WHERE id = $1", [c.lead_attorney]);
       if (attRows.length) attorneyName = attRows[0].name;
+    }
+
+    const litigationStages = ["Suit Filed", "Discovery", "Mediation", "Trial Preparation", "Trial"];
+    const isLitigation = litigationStages.includes(c.stage);
+
+    let caseManagerName = null;
+    if (!isLitigation && c.case_manager) {
+      const { rows: cmRows } = await pool.query("SELECT name FROM users WHERE id = $1", [c.case_manager]);
+      if (cmRows.length) caseManagerName = cmRows[0].name;
+    }
+
+    let paralegalName = null;
+    if (isLitigation && c.paralegal) {
+      const { rows: plRows } = await pool.query("SELECT name FROM users WHERE id = $1", [c.paralegal]);
+      if (plRows.length) paralegalName = plRows[0].name;
     }
 
     const stageIndex = PI_STAGES.indexOf(c.stage);
@@ -86,7 +101,11 @@ router.get("/", requireClientAuth, async (req, res) => {
       result.mediationDate = c.mediation_date;
     }
     if (settings.show_case_value) result.caseValueEstimate = c.case_value_estimate;
-    if (settings.show_attorney_name !== false) result.attorneyName = attorneyName;
+    if (settings.show_attorney_name !== false) {
+      result.attorneyName = attorneyName;
+      result.caseManagerName = caseManagerName;
+      result.paralegalName = paralegalName;
+    }
 
     result.showDocuments = settings.show_documents !== false;
     result.showMessaging = settings.show_messaging !== false;
