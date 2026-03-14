@@ -66,6 +66,7 @@ import {
   apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiConfigureMs,
   apiGetMsCalendarSettings, apiUpdateMsCalendarSettings, apiSyncAllDeadlinesToOutlook, apiGetOutlookEvents,
   apiGetOutlookContacts, apiImportOutlookContacts, apiExportContactsToOutlook,
+  apiResolveOneDriveLink, apiImportOneDriveFile,
   apiGetOnlyofficeStatus,
   apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSummarizeTranscript, apiSendToScribe, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
   apiGetVoirdireStatus, apiConnectVoirdire, apiDisconnectVoirdire,
@@ -6192,6 +6193,16 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docUploadType, setDocUploadType] = useState("Medical Records");
+  const [showOneDriveImport, setShowOneDriveImport] = useState(false);
+  const [oneDriveLink, setOneDriveLink] = useState("");
+  const [oneDriveItems, setOneDriveItems] = useState([]);
+  const [oneDriveSelected, setOneDriveSelected] = useState(new Set());
+  const [oneDriveLoading, setOneDriveLoading] = useState(false);
+  const [oneDriveImporting, setOneDriveImporting] = useState(false);
+  const [oneDriveProgress, setOneDriveProgress] = useState({ done: 0, total: 0 });
+  const [oneDriveError, setOneDriveError] = useState("");
+  const [caseMsConnected, setCaseMsConnected] = useState(false);
+  useEffect(() => { apiGetMsStatus().then(s => setCaseMsConnected(s?.connected || false)).catch(() => {}); }, []);
   const [docsSubTab, setDocsSubTab] = useState("documents");
   const [docFilterType, setDocFilterType] = useState("All");
   const [docSummarizing, setDocSummarizing] = useState(null);
@@ -9381,9 +9392,109 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <FolderPlus size={13} /> Upload Folder
                   </button>
                 </div>
+                {caseMsConnected && (
+                  <button type="button" className="btn btn-sm" style={{ background: "#0078d4", border: "none", color: "white", display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, padding: "5px 10px", borderRadius: 5 }}
+                    onClick={() => { setShowOneDriveImport(true); setOneDriveLink(""); setOneDriveItems([]); setOneDriveSelected(new Set()); setOneDriveError(""); }}>
+                    <Download size={13} /> Import from OneDrive
+                  </button>
+                )}
               </form>
               </DragDropZone>
             </div>
+
+            {showOneDriveImport && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => !oneDriveImporting && setShowOneDriveImport(false)}>
+                <div style={{ background: "var(--c-card)", borderRadius: 12, width: "90%", maxWidth: 640, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>Import from OneDrive</div>
+                    <button onClick={() => !oneDriveImporting && setShowOneDriveImport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}>✕</button>
+                  </div>
+                  <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)" }}>
+                    <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, display: "block", marginBottom: 6 }}>Paste a OneDrive sharing link:</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input type="text" placeholder="https://1drv.ms/... or https://onedrive.live.com/..." value={oneDriveLink} onChange={e => setOneDriveLink(e.target.value)} disabled={oneDriveLoading || oneDriveImporting}
+                        style={{ flex: 1, fontSize: 12, padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)" }} />
+                      <button className="btn btn-sm" disabled={!oneDriveLink.trim() || oneDriveLoading || oneDriveImporting} style={{ background: "#0078d4", color: "white", border: "none", padding: "6px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}
+                        onClick={async () => {
+                          setOneDriveLoading(true); setOneDriveError(""); setOneDriveItems([]); setOneDriveSelected(new Set());
+                          try {
+                            const result = await apiResolveOneDriveLink(oneDriveLink.trim());
+                            const files = (result.items || []).filter(i => i.isFile);
+                            if (!files.length) { setOneDriveError("No files found at this link."); }
+                            else { setOneDriveItems(files); setOneDriveSelected(new Set(files.map((_, i) => i))); }
+                          } catch (err) { setOneDriveError(err.message || "Failed to resolve link"); }
+                          setOneDriveLoading(false);
+                        }}>
+                        {oneDriveLoading ? "Loading..." : "Resolve"}
+                      </button>
+                    </div>
+                    {oneDriveError && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{oneDriveError}</div>}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", minHeight: 100 }}>
+                    {oneDriveLoading && <div style={{ padding: 30, textAlign: "center", color: "#64748b", fontSize: 12 }}>Resolving link...</div>}
+                    {!oneDriveLoading && oneDriveItems.length === 0 && !oneDriveError && <div style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 12 }}>Paste a OneDrive link above to see available files.</div>}
+                    {!oneDriveLoading && oneDriveItems.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--c-border2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{oneDriveItems.length} file{oneDriveItems.length !== 1 ? "s" : ""} found</span>
+                          <button className="btn btn-sm" style={{ fontSize: 11 }} onClick={() => {
+                            if (oneDriveSelected.size === oneDriveItems.length) setOneDriveSelected(new Set());
+                            else setOneDriveSelected(new Set(oneDriveItems.map((_, i) => i)));
+                          }}>{oneDriveSelected.size === oneDriveItems.length ? "Deselect All" : "Select All"}</button>
+                        </div>
+                        {oneDriveItems.map((item, i) => (
+                          <div key={item.id} onClick={() => !oneDriveImporting && setOneDriveSelected(prev => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; })}
+                            style={{ padding: "10px 20px", borderBottom: "1px solid var(--c-border2)", cursor: oneDriveImporting ? "default" : "pointer", display: "flex", gap: 10, alignItems: "center", background: oneDriveSelected.has(i) ? "#eff6ff" : "transparent" }}>
+                            <input type="checkbox" checked={oneDriveSelected.has(i)} readOnly disabled={oneDriveImporting} style={{ accentColor: "#0078d4" }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{item.name}</div>
+                              <div style={{ fontSize: 11, color: "#64748b" }}>{fmtFileSize(item.size)}{item.mimeType ? ` · ${item.mimeType.split("/").pop()}` : ""}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                  {oneDriveImporting && (
+                    <div style={{ padding: "8px 20px", background: "#eff6ff", borderTop: "1px solid var(--c-border)" }}>
+                      <div style={{ fontSize: 12, color: "#0078d4", fontWeight: 600, marginBottom: 4 }}>Importing: {oneDriveProgress.done} of {oneDriveProgress.total}</div>
+                      <div style={{ height: 6, borderRadius: 3, background: "#dbeafe" }}>
+                        <div style={{ height: "100%", borderRadius: 3, background: "#0078d4", width: `${oneDriveProgress.total ? (oneDriveProgress.done / oneDriveProgress.total * 100) : 0}%`, transition: "width 0.3s" }} />
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ padding: "12px 20px", borderTop: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>{oneDriveSelected.size} selected</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-outline btn-sm" disabled={oneDriveImporting} onClick={() => setShowOneDriveImport(false)}>Cancel</button>
+                      <button className="btn btn-sm" disabled={oneDriveSelected.size === 0 || oneDriveImporting} style={{ background: "#0078d4", color: "white", border: "none" }}
+                        onClick={async () => {
+                          const files = [...oneDriveSelected].map(i => oneDriveItems[i]);
+                          setOneDriveImporting(true); setOneDriveProgress({ done: 0, total: files.length });
+                          let imported = 0;
+                          for (const file of files) {
+                            try {
+                              const saved = await apiImportOneDriveFile({ driveId: file.driveId, itemId: file.id, caseId: c.id, docType: docUploadType });
+                              setCaseDocuments(prev => [saved, ...prev]);
+                              imported++;
+                              setOneDriveProgress(p => ({ ...p, done: p.done + 1 }));
+                              log("Document Imported", `${file.name} from OneDrive`);
+                            } catch (err) {
+                              setOneDriveProgress(p => ({ ...p, done: p.done + 1 }));
+                              console.error(`Failed to import ${file.name}:`, err.message);
+                            }
+                          }
+                          setOneDriveImporting(false);
+                          alert(`Imported ${imported} of ${files.length} file${files.length !== 1 ? "s" : ""} from OneDrive.`);
+                          if (imported > 0) setShowOneDriveImport(false);
+                        }}>
+                        Import {oneDriveSelected.size} File{oneDriveSelected.size !== 1 ? "s" : ""}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="case-overlay-section">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>

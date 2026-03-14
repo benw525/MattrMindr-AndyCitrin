@@ -340,6 +340,19 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 - Calendar UI: Outlook toggle in CalendarGrid, "Outlook Sync" tab in DeadlinesView with sync-all and refresh buttons
 - Contacts UI: "Import from Outlook" / "Export to Outlook" buttons in ContactsView toolbar with selection modals
 
+### OneDrive Link Document Import (T013)
+- Allows users to paste a OneDrive sharing link and import files directly into a case's Documents section
+- Backend routes in `server/routes/microsoft.js`:
+  - `POST /onedrive/resolve-link` — resolves a OneDrive sharing link via Graph shares API, returns file metadata (name, size, mimeType, driveId) for files/folders
+  - `POST /onedrive/import-file` — downloads file by driveItem ID from OneDrive, saves into case_documents with text extraction pipeline
+- Uses Microsoft Graph shares API: `https://graph.microsoft.com/v1.0/shares/{shareId}/driveItem` with base64url encoding of the share URL
+- Supports both individual file links and shared folder links (folder shows children for selection)
+- Frontend: "Import from OneDrive" button in Documents tab (visible when MS connected), opens modal with URL input, file preview with checkboxes, progress bar during import
+- API functions: `apiResolveOneDriveLink(url)`, `apiImportOneDriveFile(data)` in `lextrack/src/api.js`
+- Imported documents get `source: "OneDrive"` tag, go through existing text extraction pipeline
+- 25 MB per-file size limit enforced server-side
+- Case access authorization enforced on import endpoint
+
 ### ONLYOFFICE DocSpace Editing (T005)
 - Backend: `server/routes/onlyoffice.js` — `/status`, `/upload-for-edit`, `/sync-back`, `/cleanup/:fileId`
 - DocSpace session authentication with caching

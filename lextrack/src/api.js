@@ -759,6 +759,10 @@ export const apiGetOutlookContacts = ()               => apiFetch("/api/microsof
 export const apiImportOutlookContacts = (contacts, category) => apiFetch("/api/microsoft/contacts/import", { method: "POST", body: { contacts, category } });
 export const apiExportContactsToOutlook = (contactIds) => apiFetch("/api/microsoft/contacts/export", { method: "POST", body: { contactIds } });
 
+// OneDrive
+export const apiResolveOneDriveLink = (url) => apiFetch("/api/microsoft/onedrive/resolve-link", { method: "POST", body: { url } });
+export const apiImportOneDriveFile = (data) => apiFetch("/api/microsoft/onedrive/import-file", { method: "POST", body: data });
+
 // ONLYOFFICE DocSpace Integration
 export const apiGetOnlyofficeStatus    = ()           => apiFetch("/api/onlyoffice/status");
 export const apiOnlyofficeUploadForEdit = (docId)     => apiFetch("/api/onlyoffice/upload-for-edit", { method: "POST", body: { docId } });

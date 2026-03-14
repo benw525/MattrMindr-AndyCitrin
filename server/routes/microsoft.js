@@ -482,6 +482,118 @@ async function deleteOutlookEvent(userId, outlookEventId) {
   }
 }
 
+// ── OneDrive Link Resolution ──
+router.post("/onedrive/resolve-link", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    const { url } = req.body;
+    if (!url || typeof url !== "string") return res.status(400).json({ error: "URL is required" });
+    const shareUrl = url.trim();
+    const encodedUrl = Buffer.from(shareUrl).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const shareId = "u!" + encodedUrl;
+    const graphRes = await fetch(`https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem?$expand=children($select=id,name,size,file,folder)`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!graphRes.ok) {
+      const errBody = await graphRes.json().catch(() => ({}));
+      const errMsg = errBody.error?.message || "Unable to access this link";
+      if (graphRes.status === 404) return res.status(404).json({ error: "Link not found or expired" });
+      if (graphRes.status === 403) return res.status(403).json({ error: "Access denied — you may need permission to view this link" });
+      return res.status(graphRes.status).json({ error: errMsg });
+    }
+    const item = await graphRes.json();
+    const result = { isFolder: !!item.folder, items: [] };
+    if (item.folder && item.children) {
+      result.items = item.children.map(c => ({
+        id: c.id, name: c.name, size: c.size || 0,
+        mimeType: c.file?.mimeType || "", isFile: !!c.file,
+        driveId: item.parentReference?.driveId || "",
+      }));
+    } else if (item.file) {
+      result.items = [{
+        id: item.id, name: item.name, size: item.size || 0,
+        mimeType: item.file.mimeType || "", isFile: true,
+        driveId: item.parentReference?.driveId || "",
+      }];
+    } else {
+      return res.status(400).json({ error: "Link does not point to a file or folder" });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error("OneDrive resolve link error:", err.message);
+    res.status(500).json({ error: "Failed to resolve OneDrive link" });
+  }
+});
+
+router.post("/onedrive/import-file", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    const { driveId, itemId, caseId, docType, folderId } = req.body;
+    if (!itemId || !caseId) return res.status(400).json({ error: "itemId and caseId are required" });
+
+    const uid = req.session.userId;
+    const roles = req.session.userRoles || [req.session.userRole];
+    const isAdmin = roles.includes("App Admin");
+    if (!isAdmin) {
+      const { rows: caseRows } = await pool.query(
+        "SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $2 OR case_manager = $2 OR investigator = $2 OR paralegal = $2)",
+        [caseId, uid]
+      );
+      if (!caseRows.length) return res.status(403).json({ error: "Access denied to this case" });
+    }
+
+    const metaUrl = driveId
+      ? `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}?$select=name,size,file`
+      : `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}?$select=name,size,file`;
+    const metaRes = await fetch(metaUrl, { headers: { Authorization: `Bearer ${token}` } });
+    if (!metaRes.ok) return res.status(metaRes.status).json({ error: "Cannot access file metadata" });
+    const meta = await metaRes.json();
+    const filename = meta.name || "unknown";
+    const mimeType = meta.file?.mimeType || "application/octet-stream";
+    const fileSize = meta.size || 0;
+
+    if (fileSize > 25 * 1024 * 1024) return res.status(400).json({ error: `File too large (${(fileSize / 1048576).toFixed(1)} MB). Maximum is 25 MB.` });
+
+    const downloadUrl = driveId
+      ? `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content`
+      : `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content`;
+    const dlRes = await fetch(downloadUrl, { headers: { Authorization: `Bearer ${token}` } });
+    if (!dlRes.ok) return res.status(dlRes.status).json({ error: "Failed to download file from OneDrive" });
+    const arrayBuf = await dlRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuf);
+
+    const userName = req.session.userName || "";
+    let folderVal = null;
+    if (folderId) {
+      folderVal = parseInt(folderId);
+      if (isNaN(folderVal)) folderVal = null;
+    }
+
+    const { extractText } = require("../utils/extract-text");
+    let extractedText = "";
+    try { extractedText = await extractText(buffer, mimeType, filename); } catch {}
+    const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
+    const { rows } = await pool.query(
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+      [caseId, filename, mimeType, buffer, extractedText, docType || "Other", uid, userName, buffer.length, ocrStatus, folderVal, "OneDrive"]
+    );
+    const saved = rows[0];
+    res.status(201).json({
+      id: saved.id, caseId: saved.case_id, filename: saved.filename, contentType: saved.content_type,
+      summary: saved.summary || null, docType: saved.doc_type, uploadedBy: saved.uploaded_by,
+      uploadedByName: saved.uploaded_by_name, fileSize: saved.file_size, createdAt: saved.created_at,
+      folderId: saved.folder_id, sortOrder: saved.sort_order, ocrStatus: saved.ocr_status,
+    });
+  } catch (err) {
+    console.error("OneDrive import file error:", err.message);
+    res.status(500).json({ error: "Failed to import file from OneDrive" });
+  }
+});
+
 module.exports = router;
 module.exports.pushDeadlineToOutlook = pushDeadlineToOutlook;
 module.exports.deleteOutlookEvent = deleteOutlookEvent;
