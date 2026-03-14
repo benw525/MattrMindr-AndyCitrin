@@ -571,7 +571,37 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
       if (isNaN(folderVal)) folderVal = null;
     }
 
+    if (folderVal) {
+      const { rows: folderRows } = await pool.query("SELECT id FROM document_folders WHERE id = $1 AND case_id = $2", [folderVal, caseId]);
+      if (!folderRows.length) { folderVal = null; }
+    }
+
     const { extractText } = require("../utils/extract-text");
+    const needsAsyncOcr = mimeType === "application/pdf";
+    if (needsAsyncOcr) {
+      const { rows } = await pool.query(
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, source)
+         VALUES ($1,$2,$3,$4,'',$5,$6,$7,$8,'processing',$9,$10)
+         RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+        [caseId, filename, mimeType, buffer, docType || "Other", uid, userName, buffer.length, folderVal, "OneDrive"]
+      );
+      const docId = rows[0].id;
+      (async () => {
+        try {
+          const text = await extractText(buffer, mimeType, filename);
+          const status = (text && text.trim().length > 0) ? "complete" : "failed";
+          await pool.query("UPDATE case_documents SET extracted_text = $1, ocr_status = $2 WHERE id = $3", [text || "", status, docId]);
+        } catch { await pool.query("UPDATE case_documents SET ocr_status = 'failed' WHERE id = $1", [docId]).catch(() => {}); }
+      })();
+      const saved = rows[0];
+      return res.status(201).json({
+        id: saved.id, caseId: saved.case_id, filename: saved.filename, contentType: saved.content_type,
+        summary: saved.summary || null, docType: saved.doc_type, uploadedBy: saved.uploaded_by,
+        uploadedByName: saved.uploaded_by_name, fileSize: saved.file_size, createdAt: saved.created_at,
+        folderId: saved.folder_id, sortOrder: saved.sort_order, ocrStatus: saved.ocr_status,
+      });
+    }
+
     let extractedText = "";
     try { extractedText = await extractText(buffer, mimeType, filename); } catch {}
     const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
