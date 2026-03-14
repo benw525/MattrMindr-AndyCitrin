@@ -350,7 +350,7 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
     if (!viewer.docId) return;
     setEditLoading(true);
     try {
-      const { apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup } = await import("./api");
+      const { apiOnlyofficeUploadForEdit } = await import("./api");
       const upRes = await apiOnlyofficeUploadForEdit(viewer.docId);
       if (upRes.editorUrl && upRes.editorConfig && upRes.fileId) {
         setOoEditData({ docId: viewer.docId, fileId: upRes.fileId, editorUrl: upRes.editorUrl, editorConfig: upRes.editorConfig });
@@ -358,18 +358,8 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
         setTimeout(() => {
           initOOEditor(upRes.editorUrl, upRes.editorConfig);
         }, 200);
-      } else if (upRes.editorUrl && upRes.fileId) {
-        const editWin = window.open(upRes.editorUrl, "_blank");
-        const checkClosed = setInterval(async () => {
-          if (editWin && editWin.closed) {
-            clearInterval(checkClosed);
-            try {
-              await apiOnlyofficeSyncBack(viewer.docId, upRes.fileId);
-              if (onViewerUpdate) onViewerUpdate(viewer.docId);
-            } catch (e) { console.error("Sync-back error:", e); }
-            try { await apiOnlyofficeCleanup(upRes.fileId); } catch {}
-          }
-        }, 1500);
+      } else {
+        throw new Error("ONLYOFFICE editor configuration not available");
       }
     } catch (err) {
       console.error("Edit error:", err);
