@@ -1,8 +1,6 @@
 const express = require("express");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
-const { randomUUID } = require("crypto");
-
 const router = express.Router();
 
 const MS_SCOPES = "openid profile email Files.ReadWrite.All offline_access";
@@ -161,95 +159,6 @@ router.post("/disconnect", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("MS disconnect error:", err.message);
     res.status(500).json({ error: "Failed to disconnect" });
-  }
-});
-
-router.post("/upload-for-edit", requireAuth, async (req, res) => {
-  try {
-    const { docId } = req.body;
-    const token = await getValidToken(req.session.userId);
-    if (!token) return res.status(401).json({ error: "Microsoft account not connected or token expired" });
-
-    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id FROM case_documents WHERE id = $1", [docId]);
-    if (rows.length) {
-      const userId = req.session.userId;
-      const userRole = req.session.userRole || "";
-      if (userRole !== "App Admin") {
-        const { rows: cRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $2 OR case_manager = $2 OR investigator = $2 OR paralegal = $2 OR confidential = false OR confidential IS NULL)", [rows[0].case_id, userId]);
-        if (!cRows.length) return res.status(403).json({ error: "Access denied" });
-      }
-    }
-    if (!rows.length) return res.status(404).json({ error: "Document not found" });
-    const doc = rows[0];
-    if (!doc.file_data) return res.status(400).json({ error: "No file data available" });
-
-    const uploadRes = await fetch(
-      `https://graph.microsoft.com/v1.0/me/drive/root:/MattrMindr/${randomUUID()}_${doc.filename}:/content`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": doc.content_type || "application/octet-stream",
-        },
-        body: doc.file_data,
-      }
-    );
-    if (!uploadRes.ok) {
-      const errBody = await uploadRes.text();
-      console.error("OneDrive upload failed:", errBody);
-      return res.status(500).json({ error: "Failed to upload to OneDrive" });
-    }
-    const item = await uploadRes.json();
-    const editUrl = item.webUrl || item["@microsoft.graph.downloadUrl"];
-    res.json({ driveItemId: item.id, editUrl, webUrl: item.webUrl });
-  } catch (err) {
-    console.error("MS upload-for-edit error:", err.message);
-    res.status(500).json({ error: "Failed to upload for editing" });
-  }
-});
-
-router.post("/sync-back", requireAuth, async (req, res) => {
-  try {
-    const { docId, driveItemId } = req.body;
-    const { rows: docCheck } = await pool.query("SELECT case_id FROM case_documents WHERE id = $1", [docId]);
-    if (docCheck.length) {
-      const userId = req.session.userId;
-      const userRole = req.session.userRole || "";
-      if (userRole !== "App Admin") {
-        const { rows: cRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $2 OR case_manager = $2 OR investigator = $2 OR paralegal = $2 OR confidential = false OR confidential IS NULL)", [docCheck[0].case_id, userId]);
-        if (!cRows.length) return res.status(403).json({ error: "Access denied" });
-      }
-    }
-    const token = await getValidToken(req.session.userId);
-    if (!token) return res.status(401).json({ error: "Token expired" });
-
-    const dlRes = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${driveItemId}/content`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!dlRes.ok) return res.status(500).json({ error: "Failed to download from OneDrive" });
-    const buffer = Buffer.from(await dlRes.arrayBuffer());
-
-    await pool.query("UPDATE case_documents SET file_data = $1, updated_at = NOW() WHERE id = $2", [buffer, docId]);
-    res.json({ ok: true, size: buffer.length });
-  } catch (err) {
-    console.error("MS sync-back error:", err.message);
-    res.status(500).json({ error: "Failed to sync back" });
-  }
-});
-
-router.delete("/cleanup/:driveItemId", requireAuth, async (req, res) => {
-  try {
-    const token = await getValidToken(req.session.userId);
-    if (token) {
-      await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${req.params.driveItemId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    }
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("MS cleanup error:", err.message);
-    res.json({ ok: true });
   }
 });
 

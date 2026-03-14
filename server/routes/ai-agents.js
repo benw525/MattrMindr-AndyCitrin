@@ -830,8 +830,8 @@ DOCUMENTS:
 - Click a document filename or "View" button to open it in the floating Document Viewer window
 - Document Viewer: floating, draggable, resizable window with title bar buttons for download, print, present (opens in new window), and reload
 - Document Viewer supports: PDF, Word (DOCX/DOC), Excel (XLSX/XLS), PowerPoint (PPTX/PPT), images, video, audio, and text files
-- Document Viewer: Office documents can be viewed via Microsoft 365 Online or built-in viewer (toggle between them)
-- Document Viewer: Office documents can be edited in-place using Microsoft 365 or ONLYOFFICE DocSpace (if connected)
+- Document Viewer: Office documents can be viewed via Microsoft Office Online or built-in viewer (toggle between them)
+- Document Viewer: Office documents can be edited in-place using ONLYOFFICE DocSpace (if connected)
 - Document Viewer: Case Info Panel — click the briefcase icon in the title bar to open a side panel showing all case information (client, dates, financials, liability, team) for quick reference while reviewing documents
 - Multiple document viewers can be open simultaneously; minimize to chips at bottom of screen
 

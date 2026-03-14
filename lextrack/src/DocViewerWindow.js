@@ -145,7 +145,6 @@ export default function DocViewerWindow({
 }) {
   const [officeViewMode, setOfficeViewMode] = useState(!!viewer.officeViewUrl);
   const [officeFailed, setOfficeFailed] = useState(false);
-  const [editMenuOpen, setEditMenuOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [ooEditMode, setOoEditMode] = useState(false);
   const [ooEditData, setOoEditData] = useState(null);
@@ -345,50 +344,32 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
 
   const vType = getViewerType();
   const isOfficeType = vType === "docx" || vType === "xlsx" || vType === "pptx";
-  const canEdit = isOfficeType && viewer.docId && ((msStatus && msStatus.connected) || (ooStatus && ooStatus.available));
+  const canEdit = isOfficeType && viewer.docId && (ooStatus && ooStatus.available);
 
-  const handleEditWith = async (provider) => {
-    setEditMenuOpen(false);
+  const handleEdit = async () => {
     if (!viewer.docId) return;
     setEditLoading(true);
     try {
-      const { apiMsUploadForEdit, apiMsSyncBack, apiMsCleanup, apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup } = await import("./api");
-      if (provider === "microsoft") {
-        const upRes = await apiMsUploadForEdit(viewer.docId);
-        if (upRes.editUrl && upRes.driveItemId) {
-          const editWin = window.open(upRes.editUrl, "_blank");
-          const checkClosed = setInterval(async () => {
-            if (editWin && editWin.closed) {
-              clearInterval(checkClosed);
-              try {
-                await apiMsSyncBack(viewer.docId, upRes.driveItemId);
-                if (onViewerUpdate) onViewerUpdate(viewer.docId);
-              } catch (e) { console.error("Sync-back error:", e); }
-              try { await apiMsCleanup(upRes.driveItemId); } catch {}
-            }
-          }, 1500);
-        }
-      } else if (provider === "onlyoffice") {
-        const upRes = await apiOnlyofficeUploadForEdit(viewer.docId);
-        if (upRes.editorUrl && upRes.editorConfig && upRes.fileId) {
-          setOoEditData({ docId: viewer.docId, fileId: upRes.fileId, editorUrl: upRes.editorUrl, editorConfig: upRes.editorConfig });
-          setOoEditMode(true);
-          setTimeout(() => {
-            initOOEditor(upRes.editorUrl, upRes.editorConfig);
-          }, 200);
-        } else if (upRes.editorUrl && upRes.fileId) {
-          const editWin = window.open(upRes.editorUrl, "_blank");
-          const checkClosed = setInterval(async () => {
-            if (editWin && editWin.closed) {
-              clearInterval(checkClosed);
-              try {
-                await apiOnlyofficeSyncBack(viewer.docId, upRes.fileId);
-                if (onViewerUpdate) onViewerUpdate(viewer.docId);
-              } catch (e) { console.error("Sync-back error:", e); }
-              try { await apiOnlyofficeCleanup(upRes.fileId); } catch {}
-            }
-          }, 1500);
-        }
+      const { apiOnlyofficeUploadForEdit, apiOnlyofficeSyncBack, apiOnlyofficeCleanup } = await import("./api");
+      const upRes = await apiOnlyofficeUploadForEdit(viewer.docId);
+      if (upRes.editorUrl && upRes.editorConfig && upRes.fileId) {
+        setOoEditData({ docId: viewer.docId, fileId: upRes.fileId, editorUrl: upRes.editorUrl, editorConfig: upRes.editorConfig });
+        setOoEditMode(true);
+        setTimeout(() => {
+          initOOEditor(upRes.editorUrl, upRes.editorConfig);
+        }, 200);
+      } else if (upRes.editorUrl && upRes.fileId) {
+        const editWin = window.open(upRes.editorUrl, "_blank");
+        const checkClosed = setInterval(async () => {
+          if (editWin && editWin.closed) {
+            clearInterval(checkClosed);
+            try {
+              await apiOnlyofficeSyncBack(viewer.docId, upRes.fileId);
+              if (onViewerUpdate) onViewerUpdate(viewer.docId);
+            } catch (e) { console.error("Sync-back error:", e); }
+            try { await apiOnlyofficeCleanup(upRes.fileId); } catch {}
+          }
+        }, 1500);
       }
     } catch (err) {
       console.error("Edit error:", err);
@@ -588,46 +569,11 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             {!ooEditMode && (
               <>
-                {canEdit && (() => {
-                  const hasMsOffice = msStatus && msStatus.connected;
-                  const hasDocSpace = ooStatus && ooStatus.available;
-                  const hasBoth = hasMsOffice && hasDocSpace;
-
-                  if (hasBoth) {
-                    return (
-                      <div style={{ position: "relative" }}>
-                        <button onClick={(e) => { e.stopPropagation(); setEditMenuOpen(!editMenuOpen); }} title="Edit document" style={{ ...btnStyle, gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500, color: editLoading ? "#6366f1" : "var(--c-text, #334155)" }} disabled={editLoading}>
-                          <Pencil size={12} /> Edit
-                        </button>
-                        {editMenuOpen && (
-                          <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--c-bg, #fff)", border: "1px solid var(--c-border, #e2e8f0)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
-                            <button onClick={(e) => { e.stopPropagation(); handleEditWith("microsoft"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
-                              Edit with Microsoft 365
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--c-text, #334155)" }} onMouseEnter={e => e.target.style.background = "var(--c-bg-h, #f1f5f9)"} onMouseLeave={e => e.target.style.background = "transparent"}>
-                              Edit with ONLYOFFICE DocSpace
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  if (hasMsOffice) {
-                    return (
-                      <button onClick={(e) => { e.stopPropagation(); handleEditWith("microsoft"); }} style={{ padding: "4px 12px", background: "#059669", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }} title="Edit with Microsoft 365" disabled={editLoading}>
-                        <Pencil size={12} /> Office
-                      </button>
-                    );
-                  }
-                  if (hasDocSpace) {
-                    return (
-                      <button onClick={(e) => { e.stopPropagation(); handleEditWith("onlyoffice"); }} style={{ padding: "4px 12px", background: "#059669", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }} title="Edit with DocSpace" disabled={editLoading}>
-                        <Pencil size={12} /> DocSpace
-                      </button>
-                    );
-                  }
-                  return null;
-                })()}
+                {canEdit && (
+                  <button onClick={(e) => { e.stopPropagation(); handleEdit(); }} style={{ padding: "4px 12px", background: "#059669", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }} title="Edit with ONLYOFFICE" disabled={editLoading}>
+                    <Pencil size={12} /> Edit
+                  </button>
+                )}
 
                 <div style={{ width: 1, height: 18, background: "var(--c-border, #e2e8f0)", margin: "0 4px" }} />
               </>
