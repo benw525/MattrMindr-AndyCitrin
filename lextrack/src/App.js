@@ -13082,6 +13082,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
   const [externalEvents, setExternalEvents] = useState([]);
   const [outlookEvents, setOutlookEvents] = useState([]);
   const [outlookCalSync, setOutlookCalSync] = useState(false);
+  const [outlookSyncTypes, setOutlookSyncTypes] = useState([]);
   const [outlookSyncing, setOutlookSyncing] = useState(false);
   const [editingDlId, setEditingDlId] = useState(null);
   const [editingDlTitle, setEditingDlTitle] = useState("");
@@ -13091,7 +13092,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
 
   useEffect(() => {
     if (!msStatus?.connected) return;
-    apiGetMsCalendarSettings().then(r => setOutlookCalSync(r.calendarSync)).catch(() => {});
+    apiGetMsCalendarSettings().then(r => { setOutlookCalSync(r.calendarSync); setOutlookSyncTypes(r.syncDeadlineTypes || []); }).catch(() => {});
     const now = new Date();
     const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
     const endDate = new Date(now.getFullYear(), now.getMonth() + 3, 0);
@@ -13112,6 +13113,19 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
         setOutlookSyncing(false);
       }
     } catch { setOutlookCalSync(!newVal); }
+  };
+
+  const handleToggleSyncType = async (type) => {
+    let newTypes;
+    if (outlookSyncTypes.includes(type)) {
+      newTypes = outlookSyncTypes.filter(t => t !== type);
+      if (newTypes.length === 0) newTypes = [];
+    } else {
+      newTypes = [...outlookSyncTypes, type];
+    }
+    const prev = outlookSyncTypes;
+    setOutlookSyncTypes(newTypes);
+    try { await apiUpdateMsCalendarSettings({ syncDeadlineTypes: newTypes }); } catch { setOutlookSyncTypes(prev); }
   };
 
   const handleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
@@ -13334,6 +13348,24 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
                     </span>
                   </label>
                 </div>
+                {outlookCalSync && (
+                  <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg)" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8 }}>Deadline types to sync:</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>
+                        <input type="checkbox" checked={outlookSyncTypes.length === 0} onChange={async () => { setOutlookSyncTypes([]); try { await apiUpdateMsCalendarSettings({ syncDeadlineTypes: [] }); } catch {} }} style={{ accentColor: "#0078d4", width: 13, height: 13 }} />
+                        All types
+                      </label>
+                      {PI_DEADLINE_TYPES.map(t => (
+                        <label key={t} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 12, color: outlookSyncTypes.length === 0 ? "#94a3b8" : "var(--c-text2)" }}>
+                          <input type="checkbox" checked={outlookSyncTypes.includes(t)} disabled={outlookSyncTypes.length === 0} onChange={() => handleToggleSyncType(t)} style={{ accentColor: "#0078d4", width: 13, height: 13 }} />
+                          {t}
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>{outlookSyncTypes.length === 0 ? "All deadline types will be synced to Outlook." : `Only ${outlookSyncTypes.length} selected type${outlookSyncTypes.length !== 1 ? "s" : ""} will sync.`}</div>
+                  </div>
+                )}
                 {outlookSyncing && <div style={{ fontSize: 12, color: "#0078d4", marginBottom: 12 }}>Syncing all deadlines to Outlook...</div>}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <button className="btn btn-primary btn-sm" disabled={outlookSyncing} onClick={async () => {
@@ -18443,6 +18475,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
   const [outlookImportLoading, setOutlookImportLoading] = useState(false);
   const [outlookImportSelected, setOutlookImportSelected] = useState(new Set());
   const [outlookImportCategory, setOutlookImportCategory] = useState("Miscellaneous");
+  const [outlookFieldMap, setOutlookFieldMap] = useState({ name: "name", email: "email", phone: "phone", company: "company", address: "address" });
   const [showOutlookExport, setShowOutlookExport] = useState(false);
   const [outlookExportSelected, setOutlookExportSelected] = useState(new Set());
   const [outlookExportBusy, setOutlookExportBusy] = useState(false);
@@ -18638,7 +18671,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
               <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>📨 Import Contacts from Outlook</div>
               <button onClick={() => setShowOutlookImport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}>✕</button>
             </div>
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Import as:</label>
               <select value={outlookImportCategory} onChange={e => setOutlookImportCategory(e.target.value)} style={{ fontSize: 12, padding: "4px 8px" }}>
                 {CONTACT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -18647,6 +18680,25 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
                 if (outlookImportSelected.size === outlookContacts.length) setOutlookImportSelected(new Set());
                 else setOutlookImportSelected(new Set(outlookContacts.map((_, i) => i)));
               }}>{outlookImportSelected.size === outlookContacts.length ? "Deselect All" : "Select All"}</button>
+            </div>
+            <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--c-border)", background: "#f8fafc" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Field Mapping (Outlook → MattrMindr)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "6px 16px" }}>
+                {[
+                  { outlookField: "name", label: "Display Name", targets: ["name", "(skip)"] },
+                  { outlookField: "email", label: "Email", targets: ["email", "phone", "(skip)"] },
+                  { outlookField: "phone", label: "Phone", targets: ["phone", "email", "(skip)"] },
+                  { outlookField: "company", label: "Company", targets: ["company", "firm", "(skip)"] },
+                  { outlookField: "address", label: "Address", targets: ["address", "(skip)"] },
+                ].map(f => (
+                  <div key={f.outlookField} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 11, color: "#64748b", width: 70, flexShrink: 0 }}>{f.label} →</span>
+                    <select value={outlookFieldMap[f.outlookField] || f.outlookField} onChange={e => setOutlookFieldMap(prev => ({ ...prev, [f.outlookField]: e.target.value }))} style={{ fontSize: 11, padding: "2px 4px", flex: 1 }}>
+                      {f.targets.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "0" }}>
               {outlookImportLoading && <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>Loading Outlook contacts...</div>}
@@ -18667,7 +18719,15 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowOutlookImport(false)}>Cancel</button>
                 <button className="btn btn-primary btn-sm" disabled={outlookImportSelected.size === 0} onClick={async () => {
-                  const toImport = [...outlookImportSelected].map(i => outlookContacts[i]);
+                  const toImport = [...outlookImportSelected].map(i => {
+                    const oc = outlookContacts[i];
+                    const mapped = {};
+                    Object.entries(outlookFieldMap).forEach(([src, dest]) => {
+                      if (dest !== "(skip)" && oc[src]) mapped[dest] = oc[src];
+                    });
+                    if (!mapped.name) mapped.name = oc.name;
+                    return mapped;
+                  });
                   try {
                     const r = await apiImportOutlookContacts(toImport, outlookImportCategory);
                     alert(`Imported ${r.imported} contact${r.imported !== 1 ? "s" : ""}${r.skipped ? ` (${r.skipped} skipped — duplicates)` : ""}.`);

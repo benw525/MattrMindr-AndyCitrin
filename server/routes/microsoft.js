@@ -1,7 +1,10 @@
 const express = require("express");
+const crypto = require("crypto");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
+
+const pendingOAuthStates = new Map();
 
 const MS_SCOPES = "openid profile email Files.ReadWrite.All Calendars.ReadWrite Contacts.ReadWrite offline_access";
 
@@ -46,7 +49,11 @@ router.get("/auth-url", requireAuth, async (req, res) => {
   const creds = await getMsCredentials();
   if (!creds) return res.status(400).json({ error: "Microsoft integration not configured" });
   const redirectUri = creds.redirectUri || `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}/api/microsoft/callback`;
-  const state = Buffer.from(JSON.stringify({ userId: req.session.userId })).toString("base64");
+  const nonce = crypto.randomBytes(32).toString("hex");
+  const statePayload = { userId: req.session.userId, nonce };
+  pendingOAuthStates.set(nonce, { userId: req.session.userId, createdAt: Date.now() });
+  setTimeout(() => pendingOAuthStates.delete(nonce), 600000);
+  const state = Buffer.from(JSON.stringify(statePayload)).toString("base64");
   const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${creds.clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(MS_SCOPES)}&state=${state}&response_mode=query`;
   res.json({ url });
 });
@@ -72,7 +79,12 @@ router.get("/callback", async (req, res) => {
   try {
     const { code, state } = req.query;
     if (!code || !state) return res.status(400).send("Missing code or state");
-    const { userId } = JSON.parse(Buffer.from(state, "base64").toString());
+    const parsed = JSON.parse(Buffer.from(state, "base64").toString());
+    const { userId, nonce } = parsed;
+    if (!nonce || !pendingOAuthStates.has(nonce)) return res.status(400).send("Invalid or expired OAuth state");
+    const stored = pendingOAuthStates.get(nonce);
+    if (stored.userId !== userId) return res.status(400).send("OAuth state mismatch");
+    pendingOAuthStates.delete(nonce);
     const creds = await getMsCredentials();
     if (!creds) return res.status(400).send("Microsoft integration not configured");
     const redirectUri = creds.redirectUri || `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}/api/microsoft/callback`;
@@ -164,8 +176,9 @@ router.post("/disconnect", requireAuth, async (req, res) => {
 
 router.get("/calendar/settings", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT ms_calendar_sync FROM users WHERE id = $1", [req.session.userId]);
-    res.json({ calendarSync: rows[0]?.ms_calendar_sync || false });
+    const { rows } = await pool.query("SELECT ms_calendar_sync, ms_sync_deadline_types FROM users WHERE id = $1", [req.session.userId]);
+    const user = rows[0] || {};
+    res.json({ calendarSync: user.ms_calendar_sync || false, syncDeadlineTypes: user.ms_sync_deadline_types || [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -173,9 +186,16 @@ router.get("/calendar/settings", requireAuth, async (req, res) => {
 
 router.put("/calendar/settings", requireAuth, async (req, res) => {
   try {
-    const { calendarSync } = req.body;
-    await pool.query("UPDATE users SET ms_calendar_sync = $1 WHERE id = $2", [!!calendarSync, req.session.userId]);
-    res.json({ ok: true, calendarSync: !!calendarSync });
+    const { calendarSync, syncDeadlineTypes } = req.body;
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    if (calendarSync !== undefined) { sets.push(`ms_calendar_sync = $${idx++}`); vals.push(!!calendarSync); }
+    if (syncDeadlineTypes !== undefined) { sets.push(`ms_sync_deadline_types = $${idx++}`); vals.push(JSON.stringify(syncDeadlineTypes)); }
+    if (sets.length === 0) return res.json({ ok: true });
+    vals.push(req.session.userId);
+    await pool.query(`UPDATE users SET ${sets.join(", ")} WHERE id = $${idx}`, vals);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -233,6 +253,8 @@ router.post("/calendar/sync-all", requireAuth, async (req, res) => {
     const token = await getValidToken(req.session.userId);
     if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
     const uid = req.session.userId;
+    const { rows: userRows } = await pool.query("SELECT ms_sync_deadline_types FROM users WHERE id = $1", [uid]);
+    const allowedTypes = (userRows.length && userRows[0].ms_sync_deadline_types) || [];
     const roles = req.session.userRoles || [req.session.userRole];
     const isAdmin = roles.includes("App Admin");
     let dlQuery = `SELECT d.*, c.title as case_title, c.case_num FROM deadlines d LEFT JOIN cases c ON d.case_id = c.id WHERE d.deleted_at IS NULL AND d.date >= CURRENT_DATE`;
@@ -243,8 +265,9 @@ router.post("/calendar/sync-all", requireAuth, async (req, res) => {
     }
     dlQuery += ` ORDER BY d.date`;
     const { rows: dlRows } = await pool.query(dlQuery, dlParams);
-    let pushed = 0, errors = 0;
+    let pushed = 0, errors = 0, skipped = 0;
     for (const dl of dlRows) {
+      if (allowedTypes.length > 0 && !allowedTypes.includes(dl.type || "Filing")) { skipped++; continue; }
       try {
         const dateStr = dl.date instanceof Date ? dl.date.toISOString().split("T")[0] : dl.date;
         const event = {
@@ -270,7 +293,7 @@ router.post("/calendar/sync-all", requireAuth, async (req, res) => {
         else errors++;
       } catch { errors++; }
     }
-    res.json({ ok: true, pushed, errors, total: dlRows.length });
+    res.json({ ok: true, pushed, errors, skipped, total: dlRows.length });
   } catch (err) {
     console.error("Sync all deadlines error:", err.message);
     res.status(500).json({ error: err.message });
@@ -363,7 +386,7 @@ router.post("/contacts/import", requireAuth, async (req, res) => {
       if (existing.rows.length) { skipped++; continue; }
       await pool.query(
         `INSERT INTO contacts (name, category, phone, email, address, company) VALUES ($1,$2,$3,$4,$5,$6)`,
-        [c.name.trim(), cat, c.phone || "", c.email || "", c.address || "", c.company || ""]
+        [c.name.trim(), cat, c.phone || "", c.email || "", c.address || "", c.company || c.firm || ""]
       );
       imported++;
     }
@@ -408,13 +431,15 @@ router.post("/contacts/export", requireAuth, async (req, res) => {
 
 async function pushDeadlineToOutlook(userId, deadlineId) {
   try {
-    const { rows: userRows } = await pool.query("SELECT ms_calendar_sync FROM users WHERE id = $1", [userId]);
+    const { rows: userRows } = await pool.query("SELECT ms_calendar_sync, ms_sync_deadline_types FROM users WHERE id = $1", [userId]);
     if (!userRows.length || !userRows[0].ms_calendar_sync) return;
+    const allowedTypes = userRows[0].ms_sync_deadline_types || [];
     const token = await getValidToken(userId);
     if (!token) return;
     const { rows } = await pool.query("SELECT d.*, c.title as case_title, c.case_num FROM deadlines d LEFT JOIN cases c ON d.case_id = c.id WHERE d.id = $1", [deadlineId]);
     if (!rows.length) return;
     const dl = rows[0];
+    if (allowedTypes.length > 0 && !allowedTypes.includes(dl.type || "Filing")) return;
     const dateStr = dl.date instanceof Date ? dl.date.toISOString().split("T")[0] : dl.date;
     const event = {
       subject: `[MattrMindr] ${dl.title}`,
