@@ -749,6 +749,15 @@ export const apiGetMsConfigured   = ()                => apiFetch("/api/microsof
 export const apiGetMsAuthUrl      = ()                => apiFetch("/api/microsoft/auth-url");
 export const apiDisconnectMs      = ()                => apiFetch("/api/microsoft/disconnect", { method: "POST" });
 export const apiConfigureMs       = (data)            => apiFetch("/api/microsoft/configure", { method: "POST", body: data });
+export const apiGetMsCalendarSettings = ()            => apiFetch("/api/microsoft/calendar/settings");
+export const apiUpdateMsCalendarSettings = (data)     => apiFetch("/api/microsoft/calendar/settings", { method: "PUT", body: data });
+export const apiPushDeadlineToOutlook = (deadlineId)  => apiFetch("/api/microsoft/calendar/push-deadline", { method: "POST", body: { deadlineId } });
+export const apiSyncAllDeadlinesToOutlook = ()        => apiFetch("/api/microsoft/calendar/sync-all", { method: "POST" });
+export const apiGetOutlookEvents  = (start, end)      => apiFetch(`/api/microsoft/calendar/events?start=${start}&end=${end}`);
+export const apiDeleteOutlookEvent = (eventId)        => apiFetch(`/api/microsoft/calendar/event/${eventId}`, { method: "DELETE" });
+export const apiGetOutlookContacts = ()               => apiFetch("/api/microsoft/contacts");
+export const apiImportOutlookContacts = (contacts, category) => apiFetch("/api/microsoft/contacts/import", { method: "POST", body: { contacts, category } });
+export const apiExportContactsToOutlook = (contactIds) => apiFetch("/api/microsoft/contacts/export", { method: "POST", body: { contactIds } });
 
 // ONLYOFFICE DocSpace Integration
 export const apiGetOnlyofficeStatus    = ()           => apiFetch("/api/onlyoffice/status");

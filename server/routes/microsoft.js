@@ -3,7 +3,7 @@ const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 
-const MS_SCOPES = "openid profile email Files.ReadWrite.All offline_access";
+const MS_SCOPES = "openid profile email Files.ReadWrite.All Calendars.ReadWrite Contacts.ReadWrite offline_access";
 
 async function getMsCredentials() {
   const envId = process.env.MS_CLIENT_ID;
@@ -152,7 +152,7 @@ async function getValidToken(userId) {
 router.post("/disconnect", requireAuth, async (req, res) => {
   try {
     await pool.query(
-      `UPDATE users SET ms_access_token = NULL, ms_refresh_token = NULL, ms_token_expiry = NULL, ms_account_email = NULL WHERE id = $1`,
+      `UPDATE users SET ms_access_token = NULL, ms_refresh_token = NULL, ms_token_expiry = NULL, ms_account_email = NULL, ms_calendar_sync = false WHERE id = $1`,
       [req.session.userId]
     );
     res.json({ ok: true });
@@ -162,4 +162,303 @@ router.post("/disconnect", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/calendar/settings", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT ms_calendar_sync FROM users WHERE id = $1", [req.session.userId]);
+    res.json({ calendarSync: rows[0]?.ms_calendar_sync || false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/calendar/settings", requireAuth, async (req, res) => {
+  try {
+    const { calendarSync } = req.body;
+    await pool.query("UPDATE users SET ms_calendar_sync = $1 WHERE id = $2", [!!calendarSync, req.session.userId]);
+    res.json({ ok: true, calendarSync: !!calendarSync });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/calendar/push-deadline", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    const { deadlineId } = req.body;
+    const uid = req.session.userId;
+    const roles = req.session.userRoles || [req.session.userRole];
+    const isAdmin = roles.includes("App Admin");
+    let query = "SELECT d.*, c.title as case_title, c.case_num FROM deadlines d LEFT JOIN cases c ON d.case_id = c.id WHERE d.id = $1";
+    const params = [deadlineId];
+    if (!isAdmin) {
+      query += " AND (c.lead_attorney = $2 OR c.second_attorney = $2 OR c.case_manager = $2 OR c.investigator = $2 OR c.paralegal = $2)";
+      params.push(uid);
+    }
+    const { rows } = await pool.query(query, params);
+    if (!rows.length) return res.status(404).json({ error: "Deadline not found" });
+    const dl = rows[0];
+    const dateStr = dl.date instanceof Date ? dl.date.toISOString().split("T")[0] : dl.date;
+    const event = {
+      subject: `[MattrMindr] ${dl.title}`,
+      body: { contentType: "Text", content: `Case: ${dl.case_title || ""}${dl.case_num ? ` (${dl.case_num})` : ""}\nType: ${dl.type || "Filing"}\nRule: ${dl.rule || ""}` },
+      start: { dateTime: `${dateStr}T09:00:00`, timeZone: "UTC" },
+      end: { dateTime: `${dateStr}T09:30:00`, timeZone: "UTC" },
+      isAllDay: false,
+      isReminderOn: true,
+      reminderMinutesBeforeStart: 1440,
+      categories: ["MattrMindr"],
+    };
+    if (dl.outlook_event_id) {
+      const upRes = await fetch(`https://graph.microsoft.com/v1.0/me/events/${dl.outlook_event_id}`, {
+        method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event),
+      });
+      if (upRes.ok) { const ev = await upRes.json(); return res.json({ ok: true, eventId: ev.id, updated: true }); }
+    }
+    const createRes = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event),
+    });
+    if (!createRes.ok) { const err = await createRes.json(); return res.status(createRes.status).json({ error: err.error?.message || "Failed to create event" }); }
+    const created = await createRes.json();
+    await pool.query("UPDATE deadlines SET outlook_event_id = $1 WHERE id = $2", [created.id, deadlineId]);
+    res.json({ ok: true, eventId: created.id, created: true });
+  } catch (err) {
+    console.error("Push deadline to Outlook error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/calendar/sync-all", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    const uid = req.session.userId;
+    const roles = req.session.userRoles || [req.session.userRole];
+    const isAdmin = roles.includes("App Admin");
+    let dlQuery = `SELECT d.*, c.title as case_title, c.case_num FROM deadlines d LEFT JOIN cases c ON d.case_id = c.id WHERE d.deleted_at IS NULL AND d.date >= CURRENT_DATE`;
+    const dlParams = [];
+    if (!isAdmin) {
+      dlParams.push(uid);
+      dlQuery += ` AND (c.lead_attorney = $1 OR c.second_attorney = $1 OR c.case_manager = $1 OR c.investigator = $1 OR c.paralegal = $1)`;
+    }
+    dlQuery += ` ORDER BY d.date`;
+    const { rows: dlRows } = await pool.query(dlQuery, dlParams);
+    let pushed = 0, errors = 0;
+    for (const dl of dlRows) {
+      try {
+        const dateStr = dl.date instanceof Date ? dl.date.toISOString().split("T")[0] : dl.date;
+        const event = {
+          subject: `[MattrMindr] ${dl.title}`,
+          body: { contentType: "Text", content: `Case: ${dl.case_title || ""}${dl.case_num ? ` (${dl.case_num})` : ""}\nType: ${dl.type || "Filing"}\nRule: ${dl.rule || ""}` },
+          start: { dateTime: `${dateStr}T09:00:00`, timeZone: "UTC" },
+          end: { dateTime: `${dateStr}T09:30:00`, timeZone: "UTC" },
+          isAllDay: false,
+          isReminderOn: true,
+          reminderMinutesBeforeStart: 1440,
+          categories: ["MattrMindr"],
+        };
+        if (dl.outlook_event_id) {
+          const upRes = await fetch(`https://graph.microsoft.com/v1.0/me/events/${dl.outlook_event_id}`, {
+            method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event),
+          });
+          if (upRes.ok) { pushed++; continue; }
+        }
+        const createRes = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+          method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event),
+        });
+        if (createRes.ok) { const cr = await createRes.json(); await pool.query("UPDATE deadlines SET outlook_event_id = $1 WHERE id = $2", [cr.id, dl.id]); pushed++; }
+        else errors++;
+      } catch { errors++; }
+    }
+    res.json({ ok: true, pushed, errors, total: dlRows.length });
+  } catch (err) {
+    console.error("Sync all deadlines error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/calendar/events", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    const { start, end } = req.query;
+    if (!start || !end) return res.status(400).json({ error: "start and end query params required" });
+    const graphRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${start}T00:00:00Z&endDateTime=${end}T23:59:59Z&$top=200&$select=id,subject,start,end,location,bodyPreview,categories,isAllDay`,
+      { headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' } }
+    );
+    if (!graphRes.ok) { const err = await graphRes.json(); return res.status(graphRes.status).json({ error: err.error?.message || "Graph API error" }); }
+    const data = await graphRes.json();
+    const events = (data.value || []).map(ev => ({
+      id: ev.id,
+      title: ev.subject || "(No Subject)",
+      date: (ev.start?.dateTime || "").split("T")[0],
+      endDate: (ev.end?.dateTime || "").split("T")[0],
+      location: ev.location?.displayName || "",
+      notes: ev.bodyPreview || "",
+      isAllDay: ev.isAllDay,
+      isMattrMindr: (ev.categories || []).includes("MattrMindr"),
+      source: "Outlook",
+    }));
+    res.json(events);
+  } catch (err) {
+    console.error("Fetch Outlook events error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/calendar/event/:eventId", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    const delRes = await fetch(`https://graph.microsoft.com/v1.0/me/events/${req.params.eventId}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!delRes.ok && delRes.status !== 404) return res.status(delRes.status).json({ error: "Failed to delete event" });
+    await pool.query("UPDATE deadlines SET outlook_event_id = NULL WHERE outlook_event_id = $1", [req.params.eventId]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete Outlook event error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/contacts", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    let allContacts = [];
+    let nextLink = "https://graph.microsoft.com/v1.0/me/contacts?$top=100&$select=id,displayName,givenName,surname,emailAddresses,mobilePhone,businessPhones,homePhones,companyName,jobTitle,businessAddress";
+    while (nextLink && allContacts.length < 500) {
+      const graphRes = await fetch(nextLink, { headers: { Authorization: `Bearer ${token}` } });
+      if (!graphRes.ok) { const err = await graphRes.json(); return res.status(graphRes.status).json({ error: err.error?.message || "Graph API error" }); }
+      const data = await graphRes.json();
+      allContacts = allContacts.concat((data.value || []).map(c => ({
+        outlookId: c.id,
+        name: c.displayName || `${c.givenName || ""} ${c.surname || ""}`.trim(),
+        email: (c.emailAddresses || [])[0]?.address || "",
+        phone: c.mobilePhone || (c.businessPhones || [])[0] || (c.homePhones || [])[0] || "",
+        company: c.companyName || "",
+        jobTitle: c.jobTitle || "",
+        address: c.businessAddress ? [c.businessAddress.street, c.businessAddress.city, c.businessAddress.state, c.businessAddress.postalCode].filter(Boolean).join(", ") : "",
+      })));
+      nextLink = data["@odata.nextLink"] || null;
+    }
+    res.json(allContacts);
+  } catch (err) {
+    console.error("Fetch Outlook contacts error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/contacts/import", requireAuth, async (req, res) => {
+  try {
+    const { contacts: incoming, category } = req.body;
+    if (!incoming || !incoming.length) return res.status(400).json({ error: "No contacts provided" });
+    const cat = category || "Other";
+    let imported = 0, skipped = 0;
+    for (const c of incoming) {
+      if (!c.name || !c.name.trim()) { skipped++; continue; }
+      const existing = await pool.query("SELECT id FROM contacts WHERE LOWER(name) = LOWER($1) AND deleted_at IS NULL", [c.name.trim()]);
+      if (existing.rows.length) { skipped++; continue; }
+      await pool.query(
+        `INSERT INTO contacts (name, category, phone, email, address, company) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [c.name.trim(), cat, c.phone || "", c.email || "", c.address || "", c.company || ""]
+      );
+      imported++;
+    }
+    res.json({ ok: true, imported, skipped });
+  } catch (err) {
+    console.error("Import Outlook contacts error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/contacts/export", requireAuth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.session.userId);
+    if (!token) return res.status(401).json({ error: "Not connected to Microsoft" });
+    const { contactIds } = req.body;
+    if (!contactIds || !contactIds.length) return res.status(400).json({ error: "No contact IDs provided" });
+    const { rows } = await pool.query("SELECT * FROM contacts WHERE id = ANY($1) AND deleted_at IS NULL", [contactIds]);
+    let exported = 0, errors = 0;
+    for (const c of rows) {
+      try {
+        const nameParts = (c.name || "").split(" ");
+        const givenName = nameParts[0] || "";
+        const surname = nameParts.slice(1).join(" ") || "";
+        const body = {
+          givenName, surname, displayName: c.name || "",
+          emailAddresses: c.email ? [{ address: c.email, name: c.name }] : [],
+          mobilePhone: c.phone || null,
+          companyName: c.company || c.firm || "",
+        };
+        const createRes = await fetch("https://graph.microsoft.com/v1.0/me/contacts", {
+          method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        if (createRes.ok) exported++; else errors++;
+      } catch { errors++; }
+    }
+    res.json({ ok: true, exported, errors, total: rows.length });
+  } catch (err) {
+    console.error("Export contacts to Outlook error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function pushDeadlineToOutlook(userId, deadlineId) {
+  try {
+    const { rows: userRows } = await pool.query("SELECT ms_calendar_sync FROM users WHERE id = $1", [userId]);
+    if (!userRows.length || !userRows[0].ms_calendar_sync) return;
+    const token = await getValidToken(userId);
+    if (!token) return;
+    const { rows } = await pool.query("SELECT d.*, c.title as case_title, c.case_num FROM deadlines d LEFT JOIN cases c ON d.case_id = c.id WHERE d.id = $1", [deadlineId]);
+    if (!rows.length) return;
+    const dl = rows[0];
+    const dateStr = dl.date instanceof Date ? dl.date.toISOString().split("T")[0] : dl.date;
+    const event = {
+      subject: `[MattrMindr] ${dl.title}`,
+      body: { contentType: "Text", content: `Case: ${dl.case_title || ""}${dl.case_num ? ` (${dl.case_num})` : ""}\nType: ${dl.type || "Filing"}\nRule: ${dl.rule || ""}` },
+      start: { dateTime: `${dateStr}T09:00:00`, timeZone: "UTC" },
+      end: { dateTime: `${dateStr}T09:30:00`, timeZone: "UTC" },
+      isAllDay: false,
+      isReminderOn: true,
+      reminderMinutesBeforeStart: 1440,
+      categories: ["MattrMindr"],
+    };
+    if (dl.outlook_event_id) {
+      const upRes = await fetch(`https://graph.microsoft.com/v1.0/me/events/${dl.outlook_event_id}`, {
+        method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event),
+      });
+      if (upRes.ok) return;
+    }
+    const createRes = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event),
+    });
+    if (createRes.ok) {
+      const cr = await createRes.json();
+      await pool.query("UPDATE deadlines SET outlook_event_id = $1 WHERE id = $2", [cr.id, deadlineId]);
+    }
+  } catch (err) {
+    console.error("Auto-push deadline to Outlook error:", err.message);
+  }
+}
+
+async function deleteOutlookEvent(userId, outlookEventId) {
+  try {
+    if (!outlookEventId) return;
+    const { rows: userRows } = await pool.query("SELECT ms_calendar_sync FROM users WHERE id = $1", [userId]);
+    if (!userRows.length || !userRows[0].ms_calendar_sync) return;
+    const token = await getValidToken(userId);
+    if (!token) return;
+    await fetch(`https://graph.microsoft.com/v1.0/me/events/${outlookEventId}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (err) {
+    console.error("Auto-delete Outlook event error:", err.message);
+  }
+}
+
 module.exports = router;
+module.exports.pushDeadlineToOutlook = pushDeadlineToOutlook;
+module.exports.deleteOutlookEvent = deleteOutlookEvent;

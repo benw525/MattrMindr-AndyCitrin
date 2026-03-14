@@ -64,6 +64,8 @@ import {
   apiParseIntake,
   apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
   apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiConfigureMs,
+  apiGetMsCalendarSettings, apiUpdateMsCalendarSettings, apiSyncAllDeadlinesToOutlook, apiGetOutlookEvents,
+  apiGetOutlookContacts, apiImportOutlookContacts, apiExportContactsToOutlook,
   apiGetOnlyofficeStatus,
   apiGetScribeStatus, apiConnectScribe, apiDisconnectScribe, apiGetScribeSummaries, apiSummarizeTranscript, apiSendToScribe, apiImportFromScribe, apiListScribeTranscripts, apiImportNewFromScribe,
   apiGetVoirdireStatus, apiConnectVoirdire, apiDisconnectVoirdire,
@@ -1312,11 +1314,13 @@ function FirmApp() {
   const [minChipScrollIdx, setMinChipScrollIdx] = useState(0);
 
   useEffect(() => {
-    if (openDocViewers.length > 0 && appMsStatus === null) {
+    if (appMsStatus === null) {
       apiGetMsConfigured().then(r => { if (r.configured) apiGetMsStatus().then(setAppMsStatus).catch(() => {}); else setAppMsStatus({ connected: false, configured: false }); }).catch(() => setAppMsStatus({ connected: false, configured: false }));
+    }
+    if (openDocViewers.length > 0 && appOoStatus === null) {
       apiGetOnlyofficeStatus().then(setAppOoStatus).catch(() => setAppOoStatus({ configured: false, available: false }));
     }
-  }, [openDocViewers.length]);
+  }, [openDocViewers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openAppDocViewer = async (docId, filename, contentType, caseId) => {
     try {
@@ -2472,7 +2476,7 @@ function FirmApp() {
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
         {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
-        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { alert("Failed to remove deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} confirmDelete={confirmDelete} />}
+        {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { alert("Failed to remove deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} confirmDelete={confirmDelete} msStatus={appMsStatus} />}
         {view === "documents" && <DocumentsView currentUser={currentUser} allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
         {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
@@ -2480,7 +2484,7 @@ function FirmApp() {
         {view === "trialcenter" && <TrialCenterView currentUser={currentUser} users={allUsers} cases={allCases} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTrialCenterCaseChange={(caseId) => setCurrentUser(prev => prev ? { ...prev, preferences: { ...(prev.preferences || {}), trialCenterCaseId: caseId } } : prev)} />}
         {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "timelog" && <TimeLogView currentUser={currentUser} allCases={allCases} tasks={tasks} caseNotes={caseNotes} correspondence={allCorrespondence} allUsers={allUsers} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
+        {view === "contacts" && <ContactsView currentUser={currentUser} allCases={allCases} onOpenCase={c => { handleSelectCase(c); setView("cases"); }} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} msStatus={appMsStatus} />}
         {view === "unmatched" && <UnmatchedView allCases={allCases} onMenuToggle={() => setSidebarOpen(true)} />}
         {view === "staff" && <StaffView allCases={allCases} currentUser={currentUser} setCurrentUser={setCurrentUser} allUsers={allUsers} setAllUsers={setAllUsers} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
         {view === "customization" && (isAppAdmin(currentUser) || userPerms._isAdmin || userPerms.access_customization) && <CustomizationView currentUser={currentUser} allCases={allCases} allUsers={allUsers} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} confirmDelete={confirmDelete} />}
@@ -3405,7 +3409,7 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">Microsoft Office</div>
           <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
-            {msStatus?.connected ? `Connected — ${msStatus.email || "Microsoft account"}` : "Connect to view documents with Office Online"}
+            {msStatus?.connected ? `Connected — ${msStatus.email || "Microsoft account"}` : "Connect for Office Online, Outlook Calendar & Contacts"}
           </div>
         </div>
         {msStatus?.connected ? (
@@ -3426,7 +3430,7 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
       {showMsSetup && (
         <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20, marginBottom: 12 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Configure Microsoft 365</div>
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Enter your Azure AD app credentials from the Microsoft Entra admin center.</div>
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Enter your Azure AD app credentials from the Microsoft Entra admin center. Required permissions: Files.ReadWrite.All, Calendars.ReadWrite, Contacts.ReadWrite.</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Application (Client) ID *</label>
@@ -12683,7 +12687,7 @@ function parseICalText(text, calName, allCases) {
 }
 
 // ─── Calendar Grid ────────────────────────────────────────────────────────────
-function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase, currentUser }) {
+function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvents, onSelectCase, currentUser }) {
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -12694,6 +12698,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
   const [showTasks, setShowTasks] = useState(() => calPrefs.tasks !== undefined ? calPrefs.tasks : true);
   const [showCourtDates, setShowCourtDates] = useState(() => calPrefs.courtDates !== undefined ? calPrefs.courtDates : true);
   const [showExternal, setShowExternal] = useState(() => calPrefs.external !== undefined ? calPrefs.external : true);
+  const [showOutlook, setShowOutlook] = useState(() => calPrefs.outlook !== undefined ? calPrefs.outlook : true);
   const calMounted = useRef(false);
   const saveCalToggle = useCallback((key, val) => {
     const cur = currentUser?.preferences?.calendarToggles || {};
@@ -12703,6 +12708,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
   useEffect(() => { if (!calMounted.current) return; saveCalToggle("tasks", showTasks); }, [showTasks]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!calMounted.current) return; saveCalToggle("courtDates", showCourtDates); }, [showCourtDates]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!calMounted.current) return; saveCalToggle("external", showExternal); }, [showExternal]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!calMounted.current) return; saveCalToggle("outlook", showOutlook); }, [showOutlook]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { calMounted.current = true; }, []);
 
   const monthName = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -12717,9 +12723,9 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
     cells.push(dateStr);
   }
 
-  const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#d97706", trial: "#dc2626", mediation: "#0891b2", deposition: "#7c3aed", external: "#5588cc" };
-  const KIND_ICONS = { deadline: "📋", task: "✅", "court-date": "⚖", trial: "⚖", mediation: "🤝", deposition: "📝", external: "📅" };
-  const KIND_LABELS = { deadline: "Deadline", task: "Task", "court-date": "Court Date", trial: "Trial", mediation: "Mediation", deposition: "Deposition", external: "External" };
+  const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#d97706", trial: "#dc2626", mediation: "#0891b2", deposition: "#7c3aed", external: "#5588cc", outlook: "#0078d4" };
+  const KIND_ICONS = { deadline: "📋", task: "✅", "court-date": "⚖", trial: "⚖", mediation: "🤝", deposition: "📝", external: "📅", outlook: "📨" };
+  const KIND_LABELS = { deadline: "Deadline", task: "Task", "court-date": "Court Date", trial: "Trial", mediation: "Mediation", deposition: "Deposition", external: "External", outlook: "Outlook" };
 
   const eventsByDate = useMemo(() => {
     const map = {};
@@ -12733,8 +12739,9 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
       if (c.statuteOfLimitationsDate) addTo(c.statuteOfLimitationsDate, { id: `sol-${c.id}`, title: `${c.clientName || c.title} — SOL Deadline`, date: c.statuteOfLimitationsDate, kind: "sol-deadline", caseId: c.id });
     });
     if (showExternal) externalEvents.forEach(e => { if (e.date) addTo(e.date, { ...e, kind: "external" }); });
+    if (showOutlook) (outlookEvents || []).forEach(e => { if (e.date) addTo(e.date, { ...e, kind: "outlook" }); });
     return map;
-  }, [deadlines, tasks, allCases, externalEvents, showDeadlines, showTasks, showCourtDates, showExternal]);
+  }, [deadlines, tasks, allCases, externalEvents, outlookEvents, showDeadlines, showTasks, showCourtDates, showExternal, showOutlook]);
 
   const selectedEvents = selected ? (eventsByDate[selected] || []) : [];
 
@@ -12783,6 +12790,12 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
             <input type="checkbox" checked={showExternal} readOnly style={{ accentColor: "#5588cc", width: 13, height: 13, cursor: "pointer" }} />
             <span style={{ fontSize: 11, color: "var(--c-text2)" }}>📅 External</span>
           </div>
+          {(outlookEvents || []).length > 0 && (
+            <div style={toggleStyle(showOutlook)} onClick={() => setShowOutlook(v => !v)}>
+              <input type="checkbox" checked={showOutlook} readOnly style={{ accentColor: "#0078d4", width: 13, height: 13, cursor: "pointer" }} />
+              <span style={{ fontSize: 11, color: "var(--c-text2)" }}>📨 Outlook</span>
+            </div>
+          )}
         </div>
 
         <div className="cal-grid-wrap">
@@ -12834,7 +12847,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
         {selected && (() => {
           const grouped = {};
           selectedEvents.forEach(ev => { const k = ev.kind; if (!grouped[k]) grouped[k] = []; grouped[k].push(ev); });
-          const order = ["deadline","task","court-date","trial","mediation","deposition","external"];
+          const order = ["deadline","task","court-date","trial","mediation","deposition","external","outlook"];
           return order.filter(k => grouped[k]).map(kind => (
             <div key={kind}>
               <div style={{ padding: "6px 16px", fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)" }}>
@@ -12855,6 +12868,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, onSelectCase
                       </div>
                     )}
                     {kind === "external" && <div style={{ fontSize: 11, color: "#5588cc", marginTop: 2 }}>📅 {ev.source}</div>}
+                    {kind === "outlook" && <div style={{ fontSize: 11, color: "#0078d4", marginTop: 2 }}>📨 Outlook Calendar</div>}
                     {ev.location && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>📍 {ev.location}</div>}
                     {ev.notes && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2, fontStyle: "italic" }}>{(ev.notes || "").slice(0, 80)}</div>}
                     {cs && (
@@ -13057,7 +13071,7 @@ const PI_DEADLINE_TYPES = [
   "Appeal Deadline", "Post-Trial Motion", "Case Review", "Follow-Up", "Other"
 ];
 
-function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDeleteDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds, onSelectCase, confirmDelete }) {
+function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDeleteDeadline, allCases, calcInputs, setCalcInputs, calcResult, runCalc, currentUser, onMenuToggle, pinnedCaseIds, onSelectCase, confirmDelete, msStatus }) {
   const canDeleteDeadline = ["Case Manager", "Paralegal", "Attorney", "App Admin"].some(r => (currentUser.roles || [currentUser.role]).includes(r));
   const [tab, setTab] = useState("calendar");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -13066,11 +13080,39 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
   const [sortCol, setSortCol] = useState("date");
   const [sortDir, setSortDir] = useState("asc");
   const [externalEvents, setExternalEvents] = useState([]);
+  const [outlookEvents, setOutlookEvents] = useState([]);
+  const [outlookCalSync, setOutlookCalSync] = useState(false);
+  const [outlookSyncing, setOutlookSyncing] = useState(false);
   const [editingDlId, setEditingDlId] = useState(null);
   const [editingDlTitle, setEditingDlTitle] = useState("");
   const [newDl, setNewDl] = useState({ caseId: allCases.find(c => c.status === "Active")?.id || 1, title: "", date: today, type: "Filing", rule: "", assigned: currentUser.id });
   const [dlCaseSearch, setDlCaseSearch] = useState("");
   const [dlCaseDropOpen, setDlCaseDropOpen] = useState(false);
+
+  useEffect(() => {
+    if (!msStatus?.connected) return;
+    apiGetMsCalendarSettings().then(r => setOutlookCalSync(r.calendarSync)).catch(() => {});
+    const now = new Date();
+    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+    const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
+    apiGetOutlookEvents(start, end).then(evts => {
+      setOutlookEvents(evts.filter(e => !e.isMattrMindr).map(e => ({ ...e, kind: "outlook", source: "Outlook" })));
+    }).catch(() => {});
+  }, [msStatus?.connected]);
+
+  const handleToggleOutlookSync = async () => {
+    const newVal = !outlookCalSync;
+    setOutlookCalSync(newVal);
+    try {
+      await apiUpdateMsCalendarSettings({ calendarSync: newVal });
+      if (newVal) {
+        setOutlookSyncing(true);
+        try { await apiSyncAllDeadlinesToOutlook(); } catch {}
+        setOutlookSyncing(false);
+      }
+    } catch { setOutlookCalSync(!newVal); }
+  };
 
   const handleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
 
@@ -13111,13 +13153,13 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
       </div>
       <div className="content">
         <div className="tabs">
-          {[["calendar","📅 Calendar"], ["list","List View"], ["add","Add Deadline"], ["ical","Internet Calendars"], ["calc","Rules Calculator"]].map(([t, l]) => (
+          {[["calendar","📅 Calendar"], ["list","List View"], ["add","Add Deadline"], ["ical","Internet Calendars"], ...(msStatus?.connected ? [["outlook-sync","📨 Outlook Sync"]] : []), ["calc","Rules Calculator"]].map(([t, l]) => (
             <div key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>{l}</div>
           ))}
         </div>
 
         {tab === "calendar" && (
-          <CalendarGrid deadlines={deadlines} tasks={tasks} allCases={allCases} externalEvents={externalEvents} onSelectCase={onSelectCase} currentUser={currentUser} />
+          <CalendarGrid deadlines={deadlines} tasks={tasks} allCases={allCases} externalEvents={externalEvents} outlookEvents={outlookEvents} onSelectCase={onSelectCase} currentUser={currentUser} />
         )}
 
         {tab === "list" && (
@@ -13264,6 +13306,73 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
 
         {tab === "ical" && (
           <ICalManager externalEvents={externalEvents} setExternalEvents={setExternalEvents} allCases={allCases} />
+        )}
+
+        {tab === "outlook-sync" && msStatus?.connected && (
+          <div style={{ maxWidth: 680 }}>
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="card-header">
+                <div className="card-title">📨 Outlook Calendar Sync</div>
+                <span style={{ fontSize: 12, color: "#64748b" }}>{outlookEvents.length} Outlook event{outlookEvents.length !== 1 ? "s" : ""} loaded</span>
+              </div>
+              <div style={{ padding: 20 }}>
+                <div style={{ fontSize: 13, color: "var(--c-text2)", marginBottom: 16, lineHeight: 1.6 }}>
+                  Sync your MattrMindr deadlines to your Outlook calendar. When enabled, new and updated deadlines are automatically pushed to Outlook. Outlook events (non-MattrMindr) are pulled into the calendar overlay.
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--c-border)", background: outlookCalSync ? "#eff6ff" : "var(--c-bg)", marginBottom: 16 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #0078d4, #00bcf2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ color: "white", fontSize: 18 }}>📨</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)" }}>Auto-sync deadlines to Outlook</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>{outlookCalSync ? "Deadlines are pushed to Outlook on create/update" : "Enable to push deadlines to your Outlook calendar"}</div>
+                  </div>
+                  <label style={{ position: "relative", display: "inline-block", width: 44, height: 24, cursor: "pointer" }}>
+                    <input type="checkbox" checked={outlookCalSync} onChange={handleToggleOutlookSync} style={{ opacity: 0, width: 0, height: 0 }} />
+                    <span style={{ position: "absolute", inset: 0, borderRadius: 12, background: outlookCalSync ? "#0078d4" : "#cbd5e1", transition: "background 0.2s" }}>
+                      <span style={{ position: "absolute", left: outlookCalSync ? 22 : 2, top: 2, width: 20, height: 20, borderRadius: "50%", background: "white", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                    </span>
+                  </label>
+                </div>
+                {outlookSyncing && <div style={{ fontSize: 12, color: "#0078d4", marginBottom: 12 }}>Syncing all deadlines to Outlook...</div>}
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button className="btn btn-primary btn-sm" disabled={outlookSyncing} onClick={async () => {
+                    setOutlookSyncing(true);
+                    try {
+                      const r = await apiSyncAllDeadlinesToOutlook();
+                      alert(`Synced ${r.pushed} deadline${r.pushed !== 1 ? "s" : ""} to Outlook${r.errors ? ` (${r.errors} error${r.errors !== 1 ? "s" : ""})` : ""}.`);
+                    } catch (err) { alert("Sync failed: " + err.message); }
+                    setOutlookSyncing(false);
+                  }}>
+                    {outlookSyncing ? "Syncing..." : "Sync All Deadlines Now"}
+                  </button>
+                  <button className="btn btn-outline btn-sm" onClick={async () => {
+                    try {
+                      const now = new Date();
+                      const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+                      const endDate = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+                      const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
+                      const evts = await apiGetOutlookEvents(start, end);
+                      setOutlookEvents(evts.filter(e => !e.isMattrMindr).map(e => ({ ...e, kind: "outlook", source: "Outlook" })));
+                    } catch (err) { alert("Failed to refresh: " + err.message); }
+                  }}>Refresh Outlook Events</button>
+                </div>
+                {outlookEvents.length > 0 && (
+                  <div style={{ marginTop: 20 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Recent Outlook Events</div>
+                    <div style={{ maxHeight: 300, overflowY: "auto", border: "1px solid var(--c-border)", borderRadius: 8 }}>
+                      {outlookEvents.slice(0, 20).map((ev, i) => (
+                        <div key={ev.id || i} style={{ padding: "8px 12px", borderBottom: "1px solid var(--c-border2)", fontSize: 12 }}>
+                          <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{ev.title}</div>
+                          <div style={{ color: "#64748b", fontSize: 11 }}>{ev.date}{ev.location ? ` · 📍 ${ev.location}` : ""}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {tab === "calc" && (
@@ -18315,7 +18424,7 @@ function UnmatchedView({ allCases, onMenuToggle }) {
   );
 }
 
-function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirmDelete }) {
+function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirmDelete, msStatus }) {
   const [contacts, setContacts] = useState(null);
   const [deletedContacts, setDeletedContacts] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -18329,6 +18438,14 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [contactCaseCounts, setContactCaseCounts] = useState({});
   const [pinnedContactIds, setPinnedContactIds] = useState(() => currentUser?.preferences?.pinnedContacts || []);
+  const [showOutlookImport, setShowOutlookImport] = useState(false);
+  const [outlookContacts, setOutlookContacts] = useState([]);
+  const [outlookImportLoading, setOutlookImportLoading] = useState(false);
+  const [outlookImportSelected, setOutlookImportSelected] = useState(new Set());
+  const [outlookImportCategory, setOutlookImportCategory] = useState("Miscellaneous");
+  const [showOutlookExport, setShowOutlookExport] = useState(false);
+  const [outlookExportSelected, setOutlookExportSelected] = useState(new Set());
+  const [outlookExportBusy, setOutlookExportBusy] = useState(false);
   const [pinnedContactsExpanded, setPinnedContactsExpanded] = useState(true);
   const saveContactPins = (next) => { setPinnedContactIds(next); apiSavePreferences({ pinnedContacts: next }).catch(() => {}); };
   const togglePinContact = (id) => { const next = pinnedContactIds.includes(id) ? pinnedContactIds.filter(x => x !== id) : [...pinnedContactIds, id]; saveContactPins(next); };
@@ -18499,9 +18616,115 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
               {mergeMode ? "Cancel Merge" : "Merge Contacts"}
             </button>
           )}
+          {!mergeMode && msStatus?.connected && !isDeleted && (
+            <>
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 12 }} onClick={async () => {
+                setShowOutlookImport(true);
+                setOutlookImportLoading(true);
+                try { const oc = await apiGetOutlookContacts(); setOutlookContacts(oc); } catch (err) { alert("Failed to load Outlook contacts: " + err.message); }
+                setOutlookImportLoading(false);
+              }}>📨 Import from Outlook</button>
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 12 }} onClick={() => { setShowOutlookExport(true); setOutlookExportSelected(new Set()); }}>📤 Export to Outlook</button>
+            </>
+          )}
           {!mergeMode && <button className="btn btn-primary" onClick={() => setShowNew(true)}>+ New Contact</button>}
         </div>
       </div>
+
+      {showOutlookImport && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowOutlookImport(false)}>
+          <div style={{ background: "var(--c-card)", borderRadius: 12, width: "90%", maxWidth: 640, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>📨 Import Contacts from Outlook</div>
+              <button onClick={() => setShowOutlookImport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}>✕</button>
+            </div>
+            <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 10, alignItems: "center" }}>
+              <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Import as:</label>
+              <select value={outlookImportCategory} onChange={e => setOutlookImportCategory(e.target.value)} style={{ fontSize: 12, padding: "4px 8px" }}>
+                {CONTACT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button className="btn btn-sm" style={{ fontSize: 11, marginLeft: "auto" }} onClick={() => {
+                if (outlookImportSelected.size === outlookContacts.length) setOutlookImportSelected(new Set());
+                else setOutlookImportSelected(new Set(outlookContacts.map((_, i) => i)));
+              }}>{outlookImportSelected.size === outlookContacts.length ? "Deselect All" : "Select All"}</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "0" }}>
+              {outlookImportLoading && <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>Loading Outlook contacts...</div>}
+              {!outlookImportLoading && outlookContacts.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>No contacts found in your Outlook account.</div>}
+              {!outlookImportLoading && outlookContacts.map((c, i) => (
+                <div key={i} onClick={() => setOutlookImportSelected(prev => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; })}
+                  style={{ padding: "10px 20px", borderBottom: "1px solid var(--c-border2)", cursor: "pointer", display: "flex", gap: 10, alignItems: "center", background: outlookImportSelected.has(i) ? "#eff6ff" : "transparent" }}>
+                  <input type="checkbox" checked={outlookImportSelected.has(i)} readOnly style={{ accentColor: "#0078d4" }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{c.name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>{[c.email, c.phone, c.company].filter(Boolean).join(" · ")}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "12px 20px", borderTop: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#64748b" }}>{outlookImportSelected.size} selected</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowOutlookImport(false)}>Cancel</button>
+                <button className="btn btn-primary btn-sm" disabled={outlookImportSelected.size === 0} onClick={async () => {
+                  const toImport = [...outlookImportSelected].map(i => outlookContacts[i]);
+                  try {
+                    const r = await apiImportOutlookContacts(toImport, outlookImportCategory);
+                    alert(`Imported ${r.imported} contact${r.imported !== 1 ? "s" : ""}${r.skipped ? ` (${r.skipped} skipped — duplicates)` : ""}.`);
+                    setShowOutlookImport(false);
+                    apiGetContacts().then(setContacts).catch(() => {});
+                  } catch (err) { alert("Import failed: " + err.message); }
+                }}>Import {outlookImportSelected.size} Contact{outlookImportSelected.size !== 1 ? "s" : ""}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOutlookExport && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowOutlookExport(false)}>
+          <div style={{ background: "var(--c-card)", borderRadius: 12, width: "90%", maxWidth: 640, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>📤 Export Contacts to Outlook</div>
+              <button onClick={() => setShowOutlookExport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}>✕</button>
+            </div>
+            <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 10, alignItems: "center" }}>
+              <button className="btn btn-sm" style={{ fontSize: 11 }} onClick={() => {
+                if (outlookExportSelected.size === filtered.length) setOutlookExportSelected(new Set());
+                else setOutlookExportSelected(new Set(filtered.map(c => c.id)));
+              }}>{outlookExportSelected.size === filtered.length ? "Deselect All" : "Select All"}</button>
+              <span style={{ fontSize: 12, color: "#64748b" }}>Showing {filtered.length} contacts ({categoryFilter})</span>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              {filtered.map(c => (
+                <div key={c.id} onClick={() => setOutlookExportSelected(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; })}
+                  style={{ padding: "10px 20px", borderBottom: "1px solid var(--c-border2)", cursor: "pointer", display: "flex", gap: 10, alignItems: "center", background: outlookExportSelected.has(c.id) ? "#eff6ff" : "transparent" }}>
+                  <input type="checkbox" checked={outlookExportSelected.has(c.id)} readOnly style={{ accentColor: "#0078d4" }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)" }}>{c.name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>{[c.category, c.email, c.phone].filter(Boolean).join(" · ")}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "12px 20px", borderTop: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#64748b" }}>{outlookExportSelected.size} selected</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowOutlookExport(false)}>Cancel</button>
+                <button className="btn btn-primary btn-sm" disabled={outlookExportSelected.size === 0 || outlookExportBusy} onClick={async () => {
+                  setOutlookExportBusy(true);
+                  try {
+                    const r = await apiExportContactsToOutlook([...outlookExportSelected]);
+                    alert(`Exported ${r.exported} contact${r.exported !== 1 ? "s" : ""} to Outlook${r.errors ? ` (${r.errors} error${r.errors !== 1 ? "s" : ""})` : ""}.`);
+                    setShowOutlookExport(false);
+                  } catch (err) { alert("Export failed: " + err.message); }
+                  setOutlookExportBusy(false);
+                }}>{outlookExportBusy ? "Exporting..." : `Export ${outlookExportSelected.size} Contact${outlookExportSelected.size !== 1 ? "s" : ""}`}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="content" style={{ paddingTop: 0 }}>
         {/* Category tabs */}

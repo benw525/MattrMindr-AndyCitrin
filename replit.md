@@ -317,11 +317,28 @@ Client, Insurance Adjuster, Insurance Company, Medical Provider, Defense Attorne
 ### Microsoft Office Editing (T004)
 - OAuth2 flow connecting user's Microsoft 365 account
 - DB columns: `ms_access_token`, `ms_refresh_token`, `ms_token_expiry`, `ms_account_email`
-- Backend: `server/routes/microsoft.js` — `/configured`, `/status`, `/auth-url`, `/callback`, `/disconnect`, `/upload-for-edit`, `/sync-back`, `/cleanup/:driveItemId`
+- Backend: `server/routes/microsoft.js` — `/configured`, `/status`, `/auth-url`, `/callback`, `/disconnect`
 - Token refresh logic for expired access tokens
-- Upload to OneDrive → edit in browser → sync changes back to DB
 - Settings UI: Microsoft 365 connection/disconnection in Integrations section
 - Env vars: `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_REDIRECT_URI` (optional)
+
+### Microsoft Outlook Calendar & Contacts (T012)
+- OAuth2 scopes: `Calendars.ReadWrite Contacts.ReadWrite` added to MS_SCOPES
+- DB columns: `users.ms_calendar_sync` (BOOLEAN), `deadlines.outlook_event_id` (TEXT)
+- Calendar routes in `server/routes/microsoft.js`:
+  - `GET/PUT /calendar/settings` — toggle calendar sync per user
+  - `POST /calendar/push-deadline` — push single deadline to Outlook
+  - `POST /calendar/sync-all` — push all active deadlines
+  - `GET /calendar/events?start=&end=` — fetch Outlook calendarView events
+  - `DELETE /calendar/event/:eventId` — remove event from Outlook
+- Contacts routes in `server/routes/microsoft.js`:
+  - `GET /contacts` — fetch Outlook contacts via Graph API (paginated, max 500)
+  - `POST /contacts/import` — import selected Outlook contacts into MattrMindr contacts table
+  - `POST /contacts/export` — push selected MattrMindr contacts to Outlook
+- Deadline hooks: `deadlines.js` auto-pushes to Outlook on create/update, auto-deletes on delete (if user has `ms_calendar_sync` enabled)
+- Exported helpers: `pushDeadlineToOutlook(userId, deadlineId)`, `deleteOutlookEvent(userId, outlookEventId)`
+- Calendar UI: Outlook toggle in CalendarGrid, "Outlook Sync" tab in DeadlinesView with sync-all and refresh buttons
+- Contacts UI: "Import from Outlook" / "Export to Outlook" buttons in ContactsView toolbar with selection modals
 
 ### ONLYOFFICE DocSpace Editing (T005)
 - Backend: `server/routes/onlyoffice.js` — `/status`, `/upload-for-edit`, `/sync-back`, `/cleanup/:fileId`

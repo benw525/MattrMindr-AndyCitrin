@@ -57,6 +57,9 @@ router.post("/", requireAuth, async (req, res) => {
     const { scheduleForNewEvent } = require("../sms-scheduler");
     scheduleForNewEvent(created.case_id, eventType, created.title, created.date).catch(err => console.error("SMS auto-schedule error:", err));
 
+    const { pushDeadlineToOutlook } = require("./microsoft");
+    pushDeadlineToOutlook(req.session.userId, created.id).catch(err => console.error("Outlook push error:", err));
+
     return res.status(201).json(toFrontend(created));
   } catch (err) {
     console.error("Deadline create error:", err);
@@ -98,6 +101,9 @@ router.put("/:id", requireAuth, async (req, res) => {
       scheduleForNewEvent(updated.case_id, eventType, updated.title, updated.date).catch(err => console.error("SMS reschedule error:", err));
     }
 
+    const { pushDeadlineToOutlook } = require("./microsoft");
+    pushDeadlineToOutlook(req.session.userId, updated.id).catch(err => console.error("Outlook push error:", err));
+
     return res.json(toFrontend(updated));
   } catch (err) {
     console.error("Deadline update error:", err);
@@ -116,6 +122,10 @@ router.delete("/:id", requireAuth, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     const { cancelForEvent } = require("../sms-scheduler");
     cancelForEvent(rows[0].case_id, rows[0].title, rows[0].date).catch(err => console.error("SMS cancel error:", err));
+    if (rows[0].outlook_event_id) {
+      const { deleteOutlookEvent } = require("./microsoft");
+      deleteOutlookEvent(req.session.userId, rows[0].outlook_event_id).catch(err => console.error("Outlook delete error:", err));
+    }
     return res.json({ ok: true });
   } catch (err) {
     console.error("Deadline delete error:", err);

@@ -298,6 +298,8 @@ async function ensureColumns() {
     `ALTER TABLE case_damages ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE document_folders ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES document_folders(id) ON DELETE CASCADE`,
     `CREATE TABLE IF NOT EXISTS integration_configs (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_calendar_sync BOOLEAN DEFAULT false`,
+    `ALTER TABLE deadlines ADD COLUMN IF NOT EXISTS outlook_event_id TEXT`,
   ];
 
   const newTableCreations = [
