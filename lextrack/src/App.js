@@ -13353,17 +13353,26 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8 }}>Deadline types to sync:</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
                       <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>
-                        <input type="checkbox" checked={outlookSyncTypes.length === 0} onChange={async () => { setOutlookSyncTypes([]); try { await apiUpdateMsCalendarSettings({ syncDeadlineTypes: [] }); } catch {} }} style={{ accentColor: "#0078d4", width: 13, height: 13 }} />
+                        <input type="checkbox" checked={outlookSyncTypes.length === 0} onChange={async () => {
+                          if (outlookSyncTypes.length === 0) {
+                            const allTypes = [...PI_DEADLINE_TYPES];
+                            setOutlookSyncTypes(allTypes);
+                            try { await apiUpdateMsCalendarSettings({ syncDeadlineTypes: allTypes }); } catch { setOutlookSyncTypes([]); }
+                          } else {
+                            setOutlookSyncTypes([]);
+                            try { await apiUpdateMsCalendarSettings({ syncDeadlineTypes: [] }); } catch {}
+                          }
+                        }} style={{ accentColor: "#0078d4", width: 13, height: 13 }} />
                         All types
                       </label>
                       {PI_DEADLINE_TYPES.map(t => (
                         <label key={t} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 12, color: outlookSyncTypes.length === 0 ? "#94a3b8" : "var(--c-text2)" }}>
-                          <input type="checkbox" checked={outlookSyncTypes.includes(t)} disabled={outlookSyncTypes.length === 0} onChange={() => handleToggleSyncType(t)} style={{ accentColor: "#0078d4", width: 13, height: 13 }} />
+                          <input type="checkbox" checked={outlookSyncTypes.length === 0 || outlookSyncTypes.includes(t)} disabled={outlookSyncTypes.length === 0} onChange={() => handleToggleSyncType(t)} style={{ accentColor: "#0078d4", width: 13, height: 13 }} />
                           {t}
                         </label>
                       ))}
                     </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>{outlookSyncTypes.length === 0 ? "All deadline types will be synced to Outlook." : `Only ${outlookSyncTypes.length} selected type${outlookSyncTypes.length !== 1 ? "s" : ""} will sync.`}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>{outlookSyncTypes.length === 0 ? "All deadline types will be synced to Outlook. Uncheck \"All types\" to choose specific types." : `Only ${outlookSyncTypes.length} selected type${outlookSyncTypes.length !== 1 ? "s" : ""} will sync.`}</div>
                   </div>
                 )}
                 {outlookSyncing && <div style={{ fontSize: 12, color: "#0078d4", marginBottom: 12 }}>Syncing all deadlines to Outlook...</div>}
