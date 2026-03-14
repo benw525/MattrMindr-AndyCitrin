@@ -472,8 +472,6 @@ async function pushDeadlineToOutlook(userId, deadlineId) {
 async function deleteOutlookEvent(userId, outlookEventId) {
   try {
     if (!outlookEventId) return;
-    const { rows: userRows } = await pool.query("SELECT ms_calendar_sync FROM users WHERE id = $1", [userId]);
-    if (!userRows.length || !userRows[0].ms_calendar_sync) return;
     const token = await getValidToken(userId);
     if (!token) return;
     await fetch(`https://graph.microsoft.com/v1.0/me/events/${outlookEventId}`, {
