@@ -1,0 +1,857 @@
+{\rtf1\ansi\deff0
+{\fonttbl
+{\f0\fswiss\fcharset0 Helvetica;}
+{\f1\fmodern\fcharset0 Courier New;}
+{\f2\froman\fcharset0 Georgia;}
+}
+{\colortbl;
+\red0\green0\blue0;
+\red30\green58\blue95;
+\red100\green116\blue139;
+\red220\green38\blue38;
+\red22\green163\blue74;
+\red59\green130\blue246;
+\red107\green114\blue128;
+}
+\paperw12240\paperh15840\margl1440\margr1440\margt1440\margb1440
+\widowctrl\ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul
+
+{\pard\sb600\sa200\keepn\f2\fs48\b\cf2 MATTRMINDR \endash  TECHNICAL BLUEPRINT\par}
+{\pard\sb0\sa400\f0\fs22\cf7 Comprehensive Architecture & Implementation Reference for Full-Stack Developers\line Last Updated: March 2026\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb500\sa200\keepn\f2\fs36\b\cf2 TABLE OF CONTENTS\par}
+{\pard\li360\f0\fs22\cf1
+1. System Architecture Overview\line
+2. Technology Stack & Dependencies\line
+3. Project Structure & File Layout\line
+4. Database Schema (Complete)\line
+5. Authentication & Session Management\line
+6. API Route Architecture\line
+7. Case Management Core\line
+8. PI-Specific Data Tables & Relationships\line
+9. Document Management Pipeline\line
+10. AI Agent System\line
+11. Microsoft 365 Integration\line
+12. Email & SMS Processing\line
+13. Trial Center\line
+14. Client Portal\line
+15. Custom Automation Engine\line
+16. Real-Time Chat (Collaborate)\line
+17. Deployment & Production Configuration\line
+18. Runtime Migration System\line
+19. External Integrations (Scribe, Voir Dire)\line
+20. Security & Permissions\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 1. SYSTEM ARCHITECTURE OVERVIEW\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+MattrMindr is a monolithic full-stack application with a clear client/server split. It is NOT a microservices architecture. The entire application runs from a single repository with two primary directories: a React frontend ("lextrack") and a Node.js/Express backend ("server"). Both share a single PostgreSQL database.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Request Flow:}\line
+Browser \endash > React SPA (port 5000) \endash > CRA proxy \endash > Express API (port 3001) \endash > PostgreSQL\line
+In production, Express serves the React build directly on port 5000 (no proxy needed).\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Key Architectural Decisions:}\line
+\bullet  Single-page React app with no client-side routing library \endash  the entire UI is a state machine in one 21,000-line App.js file. Navigation is handled via a "currentView" state variable, not React Router.\line
+\bullet  No ORM. All database access is raw SQL through the "pg" driver's parameterized queries.\line
+\bullet  No migration framework. Schema changes are handled by a runtime migration system that runs ALTER TABLE IF NOT EXISTS statements at startup.\line
+\bullet  Binary file storage uses a hybrid model: PostgreSQL BYTEA columns for most files, Cloudflare R2 (S3-compatible) for large audio/video when configured.\line
+\bullet  AI features use OpenAI's API (gpt-4o-mini primarily) and Google Gemini for OCR.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 2. TECHNOLOGY STACK & DEPENDENCIES\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 2.1 Frontend (lextrack/)\par}
+{\pard\li360\f0\fs22\cf1
+\bullet  {\b React 19.2} via Create React App (react-scripts 5.0.1)\line
+\bullet  {\b Tailwind CSS 3.4} for styling (PostCSS/Autoprefixer pipeline)\line
+\bullet  {\b lucide-react} for icons throughout the UI\line
+\bullet  No state management library \endash  all state is React useState/useEffect in App.js\line
+\bullet  No routing library \endash  navigation via state variables\line
+\bullet  CRA dev proxy configured in package.json: "proxy": "http://localhost:3001"\line
+\bullet  {\b api.js} (\wave816 lines): thin fetch wrapper for every API call. Each function is a named export (e.g., apiGetCases, apiCreateTask). All calls go to relative URLs like "/api/cases" and include credentials: "include".\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 2.2 Backend (server/)\par}
+{\pard\li360\f0\fs22\cf1
+\bullet  {\b Node.js 20} with {\b Express 4.19}\line
+\bullet  {\b PostgreSQL} via "pg" driver (version 8.12)\line
+\bullet  {\b express-session} with connect-pg-simple for session storage\line
+\bullet  {\b bcryptjs} for password hashing\line
+\bullet  {\b @google/generative-ai} for Gemini OCR pipeline\line
+\bullet  {\b OpenAI SDK} (via Replit integration: AI_INTEGRATIONS_OPENAI_API_KEY + AI_INTEGRATIONS_OPENAI_BASE_URL)\line
+\bullet  {\b @sendgrid/mail} for outbound email\line
+\bullet  {\b twilio} (v5.12) for SMS\line
+\bullet  {\b multer} for file upload handling\line
+\bullet  {\b sharp} for image compression during OCR\line
+\bullet  {\b pdf-parse} for native PDF text extraction\line
+\bullet  {\b mammoth} for DOCX-to-HTML conversion\line
+\bullet  {\b mailparser} for inbound email MIME parsing\line
+\bullet  {\b otplib + qrcode} for TOTP-based MFA\line
+\bullet  {\b @aws-sdk/client-s3} for Cloudflare R2 storage\line
+\bullet  {\b jsonwebtoken} for external API JWT auth\line
+\bullet  {\b docxtemplater + pizzip} for document template generation\line
+\bullet  {\b xlsx} (SheetJS) for spreadsheet parsing\line
+\bullet  {\b tesseract.js} for local OCR fallback\line
+\bullet  {\b pdfkit} for PDF generation\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 2.3 System Dependencies\par}
+{\pard\li360\f0\fs22\cf1
+\bullet  {\b ffmpeg} (Nix package) \endash  required for Whisper audio transcription\line
+\bullet  {\b pdftoppm} (poppler-utils) \endash  PDF page-to-image conversion for OCR pipeline\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 3. PROJECT STRUCTURE & FILE LAYOUT\par}
+
+{\pard\sb100\sa100\f1\fs20\cf1
+/\line
+\emdash  package.json          Root monorepo (concurrently runs server + frontend)\line
+\emdash  server/\line
+   \emdash  index.js            Express entry, middleware, route mounting, migrations\line
+   \emdash  db.js               pg Pool singleton (DATABASE_URL)\line
+   \emdash  schema.js           Initial CREATE TABLE statements\line
+   \emdash  seed.js             Seed data importer\line
+   \emdash  email.js            SendGrid wrapper\line
+   \emdash  sms.js              Twilio wrapper\line
+   \emdash  sms-scheduler.js    Background SMS reminder scheduler\line
+   \emdash  r2.js               Cloudflare R2 S3 client\line
+   \emdash  utils/\line
+      \emdash  extract-text.js  OCR pipeline (Gemini > Tesseract fallback)\line
+   \emdash  middleware/\line
+      \emdash  auth.js          requireAuth (firm users)\line
+      \emdash  clientAuth.js    requireClientAuth (portal users)\line
+      \emdash  external-auth.js requireExternalAuth (JWT bearer)\line
+   \emdash  routes/             60+ route files (\wave16,000 lines total)\line
+      \emdash  auth.js, cases.js, tasks.js, deadlines.js, ...\line
+\emdash  lextrack/\line
+   \emdash  src/\line
+      \emdash  App.js            Entire firm UI (\wave21,000 lines)\line
+      \emdash  api.js            API fetch wrapper (\wave816 lines)\line
+      \emdash  CollaborateView.js  Internal chat\line
+      \emdash  TrialCenterView.js  Trial prep\line
+      \emdash  DocViewerWindow.js  Floating document viewer\line
+      \emdash  portal/\line
+         \emdash  PortalApp.js   Client portal SPA\line
+         \emdash  portalApi.js   Portal API wrapper\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 4. DATABASE SCHEMA (COMPLETE)\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+The database has 70+ tables. Schema is defined in server/schema.js for initial creation and server/index.js ensureColumns() for runtime migrations. There is NO migration framework \endash  all columns use ADD COLUMN IF NOT EXISTS.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.1 Core Tables\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 users\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, name TEXT, role TEXT, roles TEXT[], email TEXT UNIQUE,\line
+initials TEXT, phone TEXT, cell TEXT, ext TEXT, avatar TEXT,\line
+offices TEXT[], pin_hash TEXT, password_hash TEXT,\line
+must_change_password BOOL, temp_password TEXT,\line
+password_reset_token TEXT, password_reset_expires TIMESTAMPTZ,\line
+deleted_at TIMESTAMPTZ, pinned_cases JSONB, preferences JSONB,\line
+mfa_secret TEXT, mfa_enabled BOOL,\line
+profile_picture BYTEA, profile_picture_type TEXT,\line
+ms_access_token TEXT, ms_refresh_token TEXT, ms_token_expiry TIMESTAMPTZ,\line
+ms_account_email TEXT, ms_calendar_sync BOOL, ms_sync_deadline_types JSONB,\line
+scribe_url TEXT, scribe_token TEXT, scribe_user_email TEXT,\line
+voirdire_url TEXT, voirdire_token TEXT, voirdire_user_email TEXT\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 cases\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_num TEXT, title TEXT, client_name TEXT,\line
+county TEXT, court TEXT, court_case_number TEXT,\line
+case_type TEXT, type TEXT, status TEXT, stage TEXT,\line
+state_jurisdiction TEXT, accident_date DATE,\line
+incident_description TEXT, incident_location TEXT,\line
+injury_type TEXT, injury_description TEXT,\line
+statute_of_limitations_date DATE, case_value_estimate NUMERIC,\line
+settlement_amount NUMERIC, settlement_date DATE,\line
+demand_amount NUMERIC, demand_date DATE, demand_response_due DATE,\line
+contingency_fee_pct NUMERIC, fee_is_flat BOOL,\line
+case_expenses NUMERIC, liability_assessment TEXT,\line
+comparative_fault_pct NUMERIC, police_report_number TEXT,\line
+weather_conditions TEXT, property_damage_amount NUMERIC,\line
+offices TEXT[], next_court_date DATE, trial_date DATE,\line
+mediation_date DATE, disposition_date DATE, disposition_type TEXT,\line
+judge TEXT, referring_attorney TEXT, referral_source TEXT,\line
+custom_fields JSONB, custom_dates JSONB, hidden_fields JSONB,\line
+confidential BOOL, custom_team JSONB, in_litigation BOOL,\line
+client_dob DATE, client_ssn TEXT, client_address TEXT,\line
+client_phones JSONB, client_email TEXT,\line
+client_emergency_contact TEXT, client_bankruptcy BOOL,\line
+medical_summary JSONB, charges JSONB, probation_data JSONB,\line
+custody_tracking JSONB, billing_parties JSONB,\line
+deleted_at TIMESTAMPTZ, created_at TIMESTAMPTZ,\line
+\line
+FK: lead_attorney -> users(id)\line
+FK: second_attorney -> users(id)\line
+FK: case_manager -> users(id)\line
+FK: investigator -> users(id)\line
+FK: paralegal -> users(id)\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.2 PI-Specific Tables\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_insurance_policies\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+policy_type TEXT, carrier_name TEXT, policy_number TEXT,\line
+policy_limits TEXT, adjuster_name TEXT, adjuster_phone TEXT,\line
+adjuster_email TEXT, claim_number TEXT, insured_name TEXT,\line
+notes TEXT, created_at TIMESTAMPTZ, deleted_at TIMESTAMPTZ\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_medical_treatments\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+provider_name TEXT, provider_type TEXT,\line
+first_visit_date DATE, last_visit_date DATE,\line
+still_treating BOOL, total_billed NUMERIC, total_paid NUMERIC,\line
+description TEXT, notes TEXT, created_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 medical_records\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, treatment_id INT -> case_medical_treatments(id) CASCADE,\line
+source_document_id INT -> case_documents(id),\line
+provider TEXT, visit_date DATE, pages TEXT, summary TEXT,\line
+body_part TEXT, raw_text TEXT, case_id INT,\line
+created_at TIMESTAMPTZ\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_damages\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+category TEXT, name TEXT, description TEXT, amount NUMERIC,\line
+documentation_status TEXT, billed NUMERIC(12,2), owed NUMERIC(12,2),\line
+reduction_value NUMERIC(12,2), reduction_is_percent BOOL,\line
+insurance_paid NUMERIC(12,2), write_off NUMERIC(12,2),\line
+client_paid NUMERIC(12,2), firm_paid NUMERIC(12,2),\line
+notes TEXT, created_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_liens\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+lien_type TEXT, lienholder_name TEXT, amount NUMERIC,\line
+negotiated_amount NUMERIC, status TEXT,\line
+reduction_value NUMERIC(12,2), reduction_is_percent BOOL,\line
+notes TEXT, created_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_negotiations\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+date DATE, direction TEXT (Demand/Offer/Counter-Demand/Counter-Offer),\line
+amount NUMERIC, from_party TEXT, notes TEXT,\line
+policy_id INT (links to case_insurance_policies),\line
+created_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_expenses\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+category TEXT, description TEXT, amount NUMERIC,\line
+date DATE, vendor TEXT, status TEXT, notes TEXT,\line
+created_at, deleted_at\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.3 Document & File Tables\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_documents\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+filename TEXT, content_type TEXT, file_data BYTEA,\line
+extracted_text TEXT, summary TEXT, doc_type TEXT,\line
+uploaded_by INT -> users(id), uploaded_by_name TEXT,\line
+file_size INT, annotations JSONB, content_html TEXT,\line
+ocr_status TEXT (processing/complete/failed),\line
+source TEXT (firm/client/OneDrive),\line
+firm_viewed_at TIMESTAMPTZ,\line
+folder_id INT -> document_folders(id) SET NULL,\line
+sort_order INT, created_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_filings\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+filename TEXT, original_filename TEXT, content_type TEXT,\line
+file_data BYTEA, extracted_text TEXT, file_size INT,\line
+filed_by TEXT, filing_date DATE, summary TEXT, doc_type TEXT,\line
+source TEXT, source_email_from TEXT,\line
+uploaded_by INT -> users(id), uploaded_by_name TEXT,\line
+created_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_transcripts\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+filename TEXT, content_type TEXT,\line
+audio_data BYTEA, video_data BYTEA, video_content_type TEXT,\line
+r2_audio_key TEXT, r2_video_key TEXT,\line
+file_size INT, transcript JSONB, status TEXT,\line
+error_message TEXT, duration_seconds REAL,\line
+is_video BOOL,\line
+scribe_transcript_id TEXT, scribe_status TEXT,\line
+transcript_versions JSONB, summaries JSONB, pipeline_log JSONB,\line
+folder_id INT -> transcript_folders(id) SET NULL,\line
+sort_order INT, description TEXT,\line
+uploaded_by INT -> users(id), uploaded_by_name TEXT,\line
+created_at, updated_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 document_folders / transcript_folders\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+name TEXT, sort_order INT, collapsed BOOL,\line
+parent_id INT -> document_folders(id) CASCADE (nested folders)\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.4 Task & Deadline Tables\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 tasks\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+title TEXT, assigned INT -> users(id), assigned_role TEXT,\line
+due DATE, priority TEXT, status TEXT,\line
+auto_escalate BOOL, escalate_medium_days INT,\line
+escalate_high_days INT, escalate_urgent_days INT,\line
+recurring BOOL, recurring_days INT,\line
+is_generated BOOL, is_chained BOOL,\line
+completed_at TIMESTAMPTZ, completed_by INT -> users(id),\line
+time_logged NUMERIC, time_log_user INT -> users(id),\line
+source_flow_id INT, notes TEXT, created_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 deadlines\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+title TEXT, date DATE, type TEXT, rule TEXT,\line
+assigned INT -> users(id),\line
+outlook_event_id TEXT, created_at, deleted_at\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.5 Communication Tables\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_correspondence\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+from_address TEXT, to_address TEXT, subject TEXT,\line
+body TEXT, direction TEXT, created_at, deleted_at,\line
+is_voicemail BOOL, attachments JSONB\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 case_voicemails\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT -> cases(id) CASCADE,\line
+caller_name TEXT, caller_number TEXT, duration INT,\line
+transcript TEXT, notes TEXT,\line
+audio_data BYTEA, audio_content_type TEXT,\line
+created_at, deleted_at\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 sms_messages / sms_configs / sms_scheduled / sms_watch_numbers\par}
+{\pard\li360\f1\fs18\cf1
+sms_messages: id, case_id, direction, from_number, to_number, body, status, created_at\line
+sms_configs: id, case_id, notify_client BOOL, phone_numbers TEXT[],\line
+             reminder_days INT[], event_types TEXT[]\line
+sms_watch_numbers: id, case_id, phone_number, label\par}
+
+{\pard\sb100\sa50\f0\fs22\b\cf2 client_messages\par}
+{\pard\li360\f1\fs18\cf1
+id SERIAL PK, case_id INT, sender_type TEXT (firm/client),\line
+sender_id INT, sender_name TEXT, body TEXT, created_at\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.6 Chat Tables\par}
+{\pard\li360\f1\fs18\cf1
+chat_channels: id, name, created_by, created_at\line
+chat_channel_members: id, channel_id -> chat_channels, user_id -> users\line
+chat_groups: id, name, members INT[], created_by, created_at\line
+chat_messages: id, channel_id -> chat_channels, sender_id -> users,\line
+               body TEXT, mentions INT[], attachment_name, attachment_url, created_at\line
+chat_typing: id, channel_id, user_id, updated_at\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.7 Trial Center Tables\par}
+{\pard\li360\f1\fs18\cf1
+trial_sessions: id, case_id, name, start_date, end_date, notes, created_at\line
+trial_witnesses: id, session_id, name, type, role, organization, notes\line
+trial_witness_documents: id, witness_id, document_id, document_type\line
+trial_exhibits: id, session_id, exhibit_number, description, status,\line
+                document_id, document_type, notes\line
+trial_jurors: id, session_id, seat_number, name, age, occupation,\line
+              gender, race, marital_status, notes, status, rating,\line
+              ai_analysis, voirdire_juror_id\line
+trial_motions: id, session_id, title, type, status, filed_date,\line
+               ruling, notes\line
+trial_outlines: id, session_id, title, type, content, sort_order\line
+trial_jury_instructions: id, session_id, number, title, content, status\line
+trial_log_entries: id, session_id, entry_time, entry_type, description\line
+trial_timeline_events: id, session_id, event_time, title, description\line
+trial_pinned_docs: id, session_id, document_id, document_type, notes\line
+jury_analyses: id, session_id, analysis TEXT, created_at,\line
+               daubert_challenge TEXT\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.8 Automation & Customization Tables\par}
+{\pard\li360\f1\fs18\cf1
+custom_task_flows: id, name, description, trigger_condition JSONB,\line
+                   trigger_on TEXT, is_active BOOL, created_by -> users\line
+custom_task_flow_steps: id, flow_id -> custom_task_flows CASCADE,\line
+                        title, assigned_role, assigned_user_id -> users,\line
+                        due_in_days INT, priority, conditions JSONB,\line
+                        sort_order, depends_on_step_id\line
+task_flow_executions: id, flow_id, case_id, triggered_by, triggered_at\line
+custom_agents: id, user_id -> users, name, system_prompt,\line
+               context_sources JSONB, model TEXT, interaction_mode,\line
+               instruction_file BYTEA, visibility\line
+custom_reports: id, user_id -> users, name, data_source, config JSONB\line
+custom_dashboard_widgets: id, user_id -> users, name, widget_type,\line
+                          data_source, config JSONB, size, visibility\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 4.9 Other Tables\par}
+{\pard\li360\f1\fs18\cf1
+case_activity: id, case_id, ts TIMESTAMPTZ, user_id, user_name,\line
+               user_role, action TEXT, detail TEXT\line
+case_notes: id, case_id, type, body, author_id, author_name, author_role\line
+case_links: id, case_id, url, title, created_at\line
+case_parties: id, case_id, data JSONB\line
+case_experts: id, case_id, data JSONB\line
+case_misc_contacts: id, case_id, data JSONB\line
+contacts: id, name, category, phone, email, fax, address,\line
+          firm, company, county, deleted_at\line
+contact_phones: id, contact_id -> contacts CASCADE, label, number\line
+contact_notes: id, contact_id -> contacts, body, author_id, created_at\line
+contact_staff: id, contact_id -> contacts, data JSONB\line
+contact_case_links: id, contact_id, case_id\line
+linked_cases: id, case_id_1, case_id_2, link_type, created_at\line
+permissions: id, permission_key, target_type (role/user),\line
+             target_value, granted BOOL, expires_at\line
+integration_configs: key TEXT PK, value TEXT\line
+ai_training: id, user_id, agent_type, content, scope,\line
+             target_agents TEXT[]\line
+doc_templates: id, name, content TEXT, placeholders JSONB, tags TEXT[]\line
+calendar_feeds: id, user_id, feed_url, name\line
+time_entries: id, case_id, user_id, date, hours, description\line
+client_users: id, case_id, name, email, password_hash,\line
+              must_change_password, temp_password, created_at\line
+client_portal_settings: id, case_id, [visibility toggles as BOOL columns],\line
+                        custom_status TEXT\line
+unmatched_filings_emails: id, from_email, from_name, subject,\line
+                          body_text, body_html, attachments JSONB,\line
+                          court_case_number, assigned_case_id\line
+transcript_history: id, transcript_id -> case_transcripts CASCADE,\line
+                    change_type, change_description, previous_state JSONB\line
+user_sessions: sid TEXT PK, sess JSON, expire TIMESTAMPTZ (connect-pg-simple)\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 5. AUTHENTICATION & SESSION MANAGEMENT\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 5.1 Session Infrastructure\par}
+{\pard\li360\f0\fs22\cf1
+Sessions are stored in PostgreSQL via connect-pg-simple in the "user_sessions" table. Cookie name is "lextrack.sid". Default session duration is 8 hours. In production, cookies are httpOnly + secure with sameSite=lax. The session stores: userId, userName, userEmail, userRole, userRoles.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 5.2 Firm Login Flow\par}
+{\pard\li360\f0\fs22\cf1
+1. User submits email + password to POST /api/auth/login\line
+2. Server queries users table by email (case-insensitive)\line
+3. Checks deleted_at for deactivated accounts\line
+4. Compares bcrypt hash OR matches temp_password\line
+5. If temp_password matches, it auto-hashes and sets must_change_password = true\line
+6. If MFA enabled: stores mfaPendingUserId in session, returns \{requireMfa: true\}\line
+7. If rememberMe=true: sets cookie maxAge to 30 days\line
+8. On success: populates session with userId, userName, userEmail, userRole, userRoles\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 5.3 MFA (TOTP)\par}
+{\pard\li360\f0\fs22\cf1
+Uses otplib for TOTP secret generation and verification. QR codes generated via the qrcode library. Setup: POST /api/auth/mfa/setup generates secret + QR. Verification: user submits 6-digit code to /mfa/verify-setup to enable, or /mfa/verify during login. Stored in users.mfa_secret and users.mfa_enabled columns.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 5.4 Password Reset\par}
+{\pard\li360\f0\fs22\cf1
+POST /api/auth/forgot-password generates a random token, stores it in password_reset_token with 1-hour expiry, and sends email via SendGrid. POST /api/auth/reset-password validates token + email and updates password_hash.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 5.5 Three Auth Middleware\par}
+{\pard\li360\f0\fs22\cf1
+1. {\b requireAuth} (server/middleware/auth.js): Checks req.session.userId. Used for all firm API routes.\line
+2. {\b requireClientAuth} (server/middleware/clientAuth.js): Checks req.session.clientId + req.session.isClient. Used for portal routes.\line
+3. {\b requireExternalAuth} (server/middleware/external-auth.js): JWT Bearer token validation. Signed with EXTERNAL_JWT_SECRET. Populates req.extUser instead of session. Used for the /api/external routes.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 5.6 Client Portal Auth\par}
+{\pard\li360\f0\fs22\cf1
+Completely separate from firm auth. Uses client_users table. Login via POST /api/portal/auth/login. Session sets isClient=true, clientId, clientCaseId. Critically sets userId=null to prevent portal users from accessing firm APIs.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 6. API ROUTE ARCHITECTURE\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+All routes are mounted in server/index.js. Every route file exports an Express Router. There are 60+ route files totaling \wave16,000 lines of backend code. Route mounting follows the pattern: app.use("/api/[resource]", routeModule).\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Key route files and their line counts (top 15):}\line
+ai-agents.js: 1,188 lines \endash  11 AI agent endpoints\line
+transcripts.js: 1,030 lines \endash  audio/video upload, Whisper transcription\line
+case-documents.js: 735 lines \endash  document CRUD, folder management, OCR\line
+templates.js: 685 lines \endash  document template generation (docxtemplater)\line
+microsoft.js: 629 lines \endash  OAuth, Calendar, OneDrive integration\line
+trial-center.js: 559 lines \endash  Trial Center CRUD\line
+inbound-email.js: 531 lines \endash  Email webhook, filing auto-sort\line
+medical-treatments.js: 527 lines \endash  Treatment CRUD + AI record parsing\line
+trial-center-ai.js: 526 lines \endash  7 trial AI agents\line
+collaborate.js: 514 lines \endash  Internal chat system\line
+sms.js: 501 lines \endash  SMS config, send, AI draft, inbound webhook\line
+cases.js: 433 lines \endash  Case CRUD + conflict check\line
+task-flows.js: 428 lines \endash  Automation engine\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Standard CRUD Pattern:}\line
+GET /api/[resource]?caseId=X \endash  list for a case\line
+POST /api/[resource] \endash  create (body contains caseId + fields)\line
+PUT /api/[resource]/:id \endash  update (partial update supported)\line
+DELETE /api/[resource]/:id \endash  soft-delete (sets deleted_at) or hard-delete\line
+All mutations log to case_activity via INSERT INTO case_activity.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 7. CASE MANAGEMENT CORE\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+Cases are the central entity. Every other table references cases via case_id.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Case Types:} Auto Accident, Truck Accident, Motorcycle Accident, Slip & Fall, Medical Malpractice, Product Liability, Wrongful Death, Workers' Compensation, Dog Bite, Premises Liability, Nursing Home Abuse, Other.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Case Stages:} Intake > Investigation > Treatment > Pre-Litigation Demand > Negotiation > Suit Filed > Discovery > Mediation > Trial Preparation > Trial > Settlement/Verdict > Closed.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Case Statuses:} Active, Pre-Litigation, In Litigation, Settled, Closed, Referred Out.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Staff Roles (14):} Managing Partner, Senior Partner, Partner, Associate Attorney, Of Counsel, Paralegal, Legal Assistant, Case Manager, Medical Records Coordinator, Intake Specialist, Office Administrator, IT Specialist, Investigator, App Admin.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Conflict Check:} When creating a case, the system searches existing cases and contacts by client name/email/phone for potential conflicts. Returns matching cases with party names.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b SOL Warning:} Red badge when statute of limitations is \u8804? 60 days away, amber when \u8804? 180 days. Displayed in case detail header and case list rows.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Litigation Toggle:} A header checkbox marks cases as "in litigation". When toggled on, auto-reassigns CM call tasks to Paralegal.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 8. PI-SPECIFIC DATA RELATIONSHIPS\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+The PI data model centers on the case entity with several domain tables:\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Insurance Tab Structure:}\line
+case_insurance_policies (per case, multiple policies)\line
+  \u8627? case_negotiations (per policy, linked via policy_id)\line
+\line
+Negotiations display nested under each insurance policy card. The UI calculates Gross Settlement (sum of demand amounts) and Net Settlement (gross minus liens and expenses).\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Medical Tab Structure:}\line
+case_medical_treatments (per case, one per provider)\line
+  \u8627? medical_records (per treatment, AI-parsed visit entries)\line
+     \u8627? source_document_id -> case_documents(id)\line
+\line
+When a PDF is uploaded to a treatment, the AI parses it into individual visit entries with: provider, date, body part, procedures, pain levels, diagnoses, ICD codes, objective findings, referrals. These are staged for user review before committing.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Damages Tab Structure:}\line
+case_damages (financial tracking per damage category)\line
+  \u8627? Owed is auto-calculated: billed - reduction - insurance_paid - write_off\line
+case_liens (lienholder claims against settlement)\line
+  \u8627? Reduction supports both % and $ amounts\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 9. DOCUMENT MANAGEMENT PIPELINE\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 9.1 Upload Flow\par}
+{\pard\li360\f0\fs22\cf1
+Documents go through: multer file parsing > size validation (25MB for docs, 100MB for filings via chunked upload) > text extraction > OCR if needed > database insert. File binary is stored in the file_data BYTEA column. For transcripts, large files can use R2 storage.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 9.2 OCR Pipeline (server/utils/extract-text.js)\par}
+{\pard\li360\f0\fs22\cf1
+Three-tier fallback OCR system:\line
+1. {\b pdf-parse} (native text extraction) \endash  fastest, for digitally-created PDFs\line
+2. If text yield is low (<200 chars or <20 words):\line
+   a. {\b Gemini 3.1 Flash Lite Preview} \endash  sends PDF directly to Gemini API\line
+   b. {\b Gemini 2.0 Flash} \endash  converts pages to JPEG via pdftoppm, compresses oversized images with sharp, sends to Gemini\line
+3. {\b Tesseract.js} \endash  local fallback when API keys unavailable\line
+\line
+For PDFs, the extractTextWithPages() variant returns text with [PAGE N] markers for accurate citations in medical record parsing.\line
+\line
+For case_documents: PDFs trigger async OCR (ocr_status = "processing", background extraction updates to "complete" or "failed"). Non-PDFs do inline extraction.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 9.3 R2 Hybrid Storage (server/r2.js)\par}
+{\pard\li360\f0\fs22\cf1
+Uses @aws-sdk/client-s3 to connect to Cloudflare R2. Configured via R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME. Supports standard put/get/delete plus S3 multipart upload for large files. When R2 is configured, transcripts store r2_audio_key/r2_video_key instead of audio_data/video_data BYTEA. isR2Configured() acts as a feature flag.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 9.4 Document Viewer\par}
+{\pard\li360\f0\fs22\cf1
+Frontend renders documents in floating draggable/resizable windows. Supports:\line
+\bullet  PDF: iframe viewer\line
+\bullet  DOCX/DOC: mammoth HTML conversion\line
+\bullet  XLSX/XLS: SheetJS interactive table with sheet tabs\line
+\bullet  PPTX: jszip XML parsing into slide cards\line
+\bullet  Images: blob URL display\line
+\bullet  Audio/Video: HTML5 media player\line
+Multiple documents can be open simultaneously with independent z-ordering.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 10. AI AGENT SYSTEM\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 10.1 Architecture\par}
+{\pard\li360\f0\fs22\cf1
+All AI calls use the OpenAI SDK with credentials from Replit integration (AI_INTEGRATIONS_OPENAI_API_KEY + AI_INTEGRATIONS_OPENAI_BASE_URL). Every call includes store: false to prevent training on attorney-client privileged data. Primary model is gpt-4o-mini for cost efficiency.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 10.2 Built-in Agents (server/routes/ai-agents.js)\par}
+{\pard\li360\f0\fs22\cf1
+11 agents, each with specialized system prompts:\line
+1. {\b Liability Analysis} \endash  tort law, comparative negligence, state-specific rules\line
+2. {\b Deadline Generator} \endash  SOL, discovery deadlines, jurisdiction-aware (returns JSON)\line
+3. {\b Case Valuation & Strategy} \endash  case value estimate, litigation strategy\line
+4. {\b Document Drafting} \endash  demand letters, motions, correspondence\line
+5. {\b Case Triage} \endash  ranks cases by SOL proximity, value, treatment status (returns JSON)\line
+6. {\b Client Communication Summary} \endash  treatment status, claim progress\line
+7. {\b Medical Record Summarizer} \endash  focuses on medical/accident/expert reports\line
+8. {\b Task Suggestions} \endash  PI-specific task recommendations (returns JSON)\line
+9. {\b Filing Classifier} \endash  classifies filing types (returns JSON)\line
+10. {\b Advocate AI} \endash  conversational assistant with case context\line
+11. {\b Batch Case Manager} \endash  bulk operations via natural language\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 10.3 Context Building\par}
+{\pard\li360\f0\fs22\cf1
+Each agent dynamically fetches relevant data from the database. For example, Case Strategy fetches notes, tasks, deadlines, insurance policies, medical treatments, damages, liens, and negotiations via Promise.all. This data is serialized into the user message or system prompt.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 10.4 AI Training Layer\par}
+{\pard\li360\f0\fs22\cf1
+The ai_training table stores user-defined training entries (office guidelines, preferences) that get appended to system prompts (up to 8,000 chars). Function: getTrainingContext(agentType, userId).\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 10.5 AI Search (server/routes/ai-search.js)\par}
+{\pard\li360\f0\fs22\cf1
+Full-caseload synthesis search. Queries EVERY table in the database, builds dense text summaries for each case, then passes all summaries + user query to gpt-4o. The AI returns relevant case IDs with match reasons. Document/transcript filenames are weighted 2x in relevance scoring. No vector database or embeddings used.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 10.6 Custom Agents (server/routes/custom-agents-builder.js)\par}
+{\pard\li360\f0\fs22\cf1
+Users can create custom AI agents with:\line
+\bullet  Model selection: gpt-4o, gpt-4o-mini, claude-3.5-sonnet, gemini-2.0-flash\line
+\bullet  Custom system prompt + optional instruction file upload\line
+\bullet  Configurable context sources: notes, filings, documents, medical_records\line
+\bullet  Run mode (single execution) or Chat mode (conversational)\line
+\bullet  Private or shared visibility\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 10.7 Formatting Rules\par}
+{\pard\li360\f0\fs22\cf1
+A NO_MARKDOWN constant is appended to all non-JSON prompts. It instructs the AI to use ALL CAPS for headings and plain text instead of Markdown formatting, ensuring clean display in the UI.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 11. MICROSOFT 365 INTEGRATION\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 11.1 OAuth Flow\par}
+{\pard\li360\f0\fs22\cf1
+Uses Microsoft Identity Platform v2.0 Authorization Code Flow. Config stored in integration_configs table (clientId, clientSecret, redirectUri). Scopes: openid, profile, email, Files.ReadWrite.All, Calendars.ReadWrite, Contacts.ReadWrite, offline_access. Tokens stored per-user in users table columns. getValidToken(userId) handles automatic refresh.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 11.2 Calendar Sync\par}
+{\pard\li360\f0\fs22\cf1
+\bullet  Manual push: POST /api/microsoft/calendar/push-deadline creates/updates Outlook event\line
+\bullet  Auto sync: When users enable ms_calendar_sync, deadline create/update in deadlines.js auto-pushes to Outlook\line
+\bullet  Type filtering: ms_sync_deadline_types (JSONB array) controls which deadline types sync. Empty array = all types\line
+\bullet  Delete sync: Deleting a deadline also removes its Outlook event via deleteOutlookEvent\line
+\bullet  Two-way display: GET /api/microsoft/calendar/events fetches Outlook events for calendar view\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 11.3 OneDrive Import\par}
+{\pard\li360\f0\fs22\cf1
+\bullet  POST /api/microsoft/onedrive/resolve-link: Encodes share URL to base64url shareId, calls Graph /shares/\{shareId\}/driveItem. Supports files and folders.\line
+\bullet  POST /api/microsoft/onedrive/import-file: Downloads file via Graph API, runs OCR pipeline, inserts into case_documents with source="OneDrive". 25MB limit. Folder validation. Async OCR for PDFs.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 12. EMAIL & SMS PROCESSING\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 12.1 Inbound Email (server/routes/inbound-email.js)\par}
+{\pard\li360\f0\fs22\cf1
+SendGrid Inbound Parse webhook at POST /api/inbound-email. Two routing branches:\line
+\line
+{\b Branch 1 \endash  filings@:}\line
+Extracts court case number from subject line via regex. Matches against cases.court_case_number. On match: saves correspondence, extracts PDF attachments, runs AI classification (filing type, party, dates), creates deadline entries for hearing dates. On no match: stores in unmatched_filings_emails table.\line
+\line
+{\b Branch 2 \endash  case-[ID]@:}\line
+Links directly to case by ID. Saves to case_correspondence. Triage logic:\line
+\bullet  PDFs with "ALAFILE E-NOTICE" markers go to case_filings\line
+\bullet  Audio files with "voice message" subject go to case_voicemails\line
+\bullet  Other audio goes to case_transcripts (triggers auto-transcription)\line
+\bullet  Other attachments go to case_documents\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 12.2 SMS System\par}
+{\pard\li360\f0\fs22\cf1
+{\b Outbound:} POST /api/sms/send formats number to E.164, sends via Twilio, logs to sms_messages.\line
+{\b AI Drafting:} POST /api/sms/draft generates professional 160-char reminder using gpt-4o-mini.\line
+{\b Scheduled:} sms_scheduler.js generates reminders from sms_configs. Checks upcoming hearings, deadlines, meetings. Creates "pending" entries in sms_scheduled. Background worker sends at scheduled time.\line
+{\b Inbound Webhook:} POST /api/sms/inbound receives Twilio webhook. Matches incoming number against: previous outbound messages, sms_configs, sms_watch_numbers. Unmatched messages stored with case_id = NULL.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 13. TRIAL CENTER\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+Full trial preparation module with 10 tabs: Witnesses, Exhibits, Jury, Motions, Outlines, Jury Instructions, Demonstratives, Quick Docs, Trial Log, AI Agents.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Civil PI context:} Uses plaintiff/client terminology. Civil jury options (6-12 jurors). PI-relevant motion types. Witness types include treating physicians, expert witnesses, accident reconstructionists.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b 7 Trial AI Agents:} Witness preparation (cross-exam, credibility attacks), jury selection analysis, opening/closing statement drafting, objection analysis, trial strategy, exhibit analysis, Daubert challenge evaluation.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Voir Dire Integration:} Imports juror data from external VoirDire.MattrMindr.com service. Brings demographics, bias ratings, and AI analysis into trial_jurors table.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 14. CLIENT PORTAL\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+Separate SPA at /portal (lextrack/src/portal/PortalApp.js). Completely isolated auth system.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Invite Flow:} Firm staff invite clients from case detail "Client Portal" tab. System generates temp password, optionally sends welcome email via SendGrid. Client logs in with email + password.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Visibility Controls:} Per-case settings (client_portal_settings table) let firms toggle what clients can see: stage progress, attorney name, case type, accident date, court date, documents, messaging, medical treatments, negotiations, case value. Plus a custom status message.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Portal Features:}\line
+\bullet  Case progress timeline (PI stages mapped to client-friendly labels)\line
+\bullet  Case info cards (filtered by visibility)\line
+\bullet  Messaging (bidirectional chat via client_messages table)\line
+\bullet  Document upload (marked with source="client") + view firm-shared docs\line
+\bullet  "What to Expect" section explaining the PI process\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 15. CUSTOM AUTOMATION ENGINE\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 15.1 Task Flows\par}
+{\pard\li360\f0\fs22\cf1
+Automated task creation based on case events. A flow has a trigger_condition (JSONB with field/operator/value rules) and trigger_on setting (create/update/both).\line
+\line
+{\b Trigger fields:} status, stage, caseType, inLitigation, clientBankruptcy, stateJurisdiction, county, dispositionType, injuryType.\line
+{\b Operators:} equals, not_equals, contains, is_true, is_false, changed_to.\line
+\line
+Each flow has ordered steps with their own conditions:\line
+\bullet  prior_step \endash  another step must have been created first\line
+\bullet  case_field \endash  case field must match condition\line
+\bullet  task_status \endash  existing task must be in specified status\line
+\bullet  role_assigned \endash  specific role must be filled on case\line
+\bullet  case_age \endash  case must be X days old\line
+\bullet  has_document \endash  document matching pattern must exist\line
+\bullet  priority_level \endash  open task count at priority level meets threshold\line
+\line
+Execution is tracked in task_flow_executions to prevent duplicates. evaluateFlowsForCase() is called from cases.js POST and PUT endpoints.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 15.2 Custom Dashboard Widgets\par}
+{\pard\li360\f0\fs22\cf1
+User-defined widgets: Metric (count/sum/average), List (filtered records), Chart (bar/pie). Data sources: cases, tasks, deadlines, contacts, correspondence, expenses, staff_assigned. Each widget has JSONB config for filters (field/operator/value). Widgets can be private or public.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 15.3 Custom Reports\par}
+{\pard\li360\f0\fs22\cf1
+SQL-based report builder with AI-assisted configuration. Reports define a data source and JSONB config for columns, filters, grouping, and sorting. Supports CSV export.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 16. REAL-TIME CHAT (COLLABORATE)\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+Internal messaging system in server/routes/collaborate.js (\wave514 lines). Uses polling-based approach (NOT WebSocket). Tables: chat_channels, chat_channel_members, chat_groups, chat_messages, chat_typing.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+Features: Direct messages, group chats, channel-based conversations, @mentions (stored as INT[] of user IDs), file attachments, typing indicators (chat_typing table with timestamp-based expiry), message threading.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 17. DEPLOYMENT & PRODUCTION\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+{\b Deployment Target:} Replit Autoscale (stateless, scales on traffic).\line
+{\b Build Command:} npm install && cd server && npm install && cd ../lextrack && npm install && CI=false npm run build\line
+{\b Run Command:} NODE_ENV=production node server/index.js\line
+\line
+In production:\line
+\bullet  Express serves React build from lextrack/build/ on port 5000\line
+\bullet  trust proxy is enabled (app.set("trust proxy", 1))\line
+\bullet  Session cookies are secure + httpOnly + sameSite=lax\line
+\bullet  CORS origin is empty (same-origin since Express serves frontend)\line
+\bullet  SMS scheduler runs every 60s (vs 300s in dev)\line
+\bullet  PostgreSQL SSL enabled with rejectUnauthorized: false\line
+\bullet  CI=false in build command prevents ESLint warnings from failing the build\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 18. RUNTIME MIGRATION SYSTEM\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+The ensureColumns() function in server/index.js runs at startup, before app.listen(). It executes three categories of DDL:\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+1. {\b Table creations:} CREATE TABLE IF NOT EXISTS for transcript_history, custom_reports, custom_agents, permissions, unmatched_filings_emails, custom_task_flows, custom_task_flow_steps, task_flow_executions, custom_dashboard_widgets, integration_configs.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+2. {\b Column migrations:} ALTER TABLE ADD COLUMN IF NOT EXISTS for 40+ columns across users, cases, case_transcripts, case_documents, case_damages, case_liens, case_negotiations, tasks, deadlines, jury_analyses, sms_messages, medical_records, document_folders, custom_task_flow_steps.\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+3. {\b Data fixes:} Retroactive voicemail detection (updates case_correspondence where subject matches "voice message" pattern). Admin user seeding (creates admin@mattrmindr.com if not exists).\par}
+
+{\pard\sb100\sa100\f0\fs22\cf1
+All migration statements use .catch(() => \{\}) to silently ignore errors (column already exists, table already exists). This makes the system idempotent.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 19. EXTERNAL INTEGRATIONS\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 19.1 MattrMindr Scribe (server/routes/scribe.js)\par}
+{\pard\li360\f0\fs22\cf1
+Audio transcription service. Users connect via Scribe credentials (stored in users table: scribe_url, scribe_token, scribe_user_email). Workflow: send audio to Scribe via temporary download token > Scribe processes > app polls for status > imports transcript segments + AI summaries into case_transcripts table.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 19.2 Voir Dire Analyst (server/routes/voirdire.js)\par}
+{\pard\li360\f0\fs22\cf1
+Juror analysis service at voirdire.mattrmindr.com. Imports juror data (demographics, bias ratings, AI analysis) into trial_jurors table. Connected via user credentials in users table.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 19.3 External API (server/routes/external.js)\par}
+{\pard\li360\f0\fs22\cf1
+JWT-authenticated REST API for third-party access. Uses Bearer token with EXTERNAL_JWT_SECRET. CORS configured via EXTERNAL_CORS_ORIGINS env var. Mounted at /api/external with separate CORS middleware.\par}
+
+{\pard\sb0\sa0\brdrb\brdrs\brdrw10\brsp20\cf3\par}
+
+{\pard\sb600\sa200\keepn\f2\fs36\b\cf2 20. SECURITY & PERMISSIONS\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 20.1 Password Security\par}
+{\pard\li360\f0\fs22\cf1
+bcryptjs with salt rounds = 10. Temporary passwords for new users sent via SendGrid. Password reset tokens with 1-hour expiry. Optional MFA via TOTP (otplib).\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 20.2 SQL Injection Prevention\par}
+{\pard\li360\f0\fs22\cf1
+All database queries use pg's parameterized queries ($1, $2, ...). No string interpolation of user input into SQL.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 20.3 Role-Based Access\par}
+{\pard\li360\f0\fs22\cf1
+Checked at the route level by inspecting req.session.userRole or req.session.userRoles. Admin operations (send temp password, manage permissions, customization) require "App Admin" role. Batch delete requires attorney-level roles (Managing Partner through Associate Attorney).\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 20.4 Granular Permissions (permissions table)\par}
+{\pard\li360\f0\fs22\cf1
+Supports both role-based and user-based permissions. Permission keys define access rights. target_type is "role" or "user". Supports optional expiration dates. CRUD via /api/permissions.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 20.5 Confidential Cases\par}
+{\pard\li360\f0\fs22\cf1
+Cases with confidential=true are only visible to directly assigned staff (lead_attorney, second_attorney, case_manager, paralegal, investigator) and App Admin users.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 20.6 Soft Delete & Data Recovery\par}
+{\pard\li360\f0\fs22\cf1
+Most records use soft-delete (deleted_at TIMESTAMPTZ). The Deleted Data view (/api/deleted-data) allows searching, batch restore, and batch purge of deleted records. Auto-purge runs daily for records older than the configured retention period.\par}
+
+{\pard\sb200\sa100\keepn\f0\fs26\b\cf2 20.7 OpenAI Privacy\par}
+{\pard\li360\f0\fs22\cf1
+Every OpenAI API call includes store: false to prevent attorney-client privileged data from being used for model training.\par}
+
+{\pard\sb400\sa200\f0\fs22\cf7
+\emdash  End of Document \emdash \par}
+}

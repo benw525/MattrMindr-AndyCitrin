@@ -6,3 +6,9 @@ id = "-4oZh4vBRaUb_gEnxPvuU"
 uri = "file://MattrMindr_AI_Models.txt"
 type = "text"
 title = "MattrMindr AI Models by Agent"
+
+[[outputs]]
+id = "ivKP3jcbWQ9gfqtg_CWxX"
+uri = "file://MattrMindr_Technical_Blueprint.rtf"
+type = "unspecified"
+title = "MattrMindr Technical Blueprint (.rtf)"
