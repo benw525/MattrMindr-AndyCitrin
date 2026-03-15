@@ -5,12 +5,6 @@ const pool = require("../db");
 const { extractText } = require("../utils/extract-text");
 const { isR2Configured, uploadToR2 } = require("../r2");
 
-function fireAndForgetS3(table, id, key, buffer, contentType) {
-  uploadToR2(key, buffer, contentType).then(() =>
-    pool.query(`UPDATE ${table} SET s3_key = $1 WHERE id = $2`, [key, id])
-  ).catch(e => console.error(`S3 upload error (${table} ${id}):`, e.message));
-}
-
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, fieldSize: 50 * 1024 * 1024 } });
 

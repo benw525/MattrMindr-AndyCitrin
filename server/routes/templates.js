@@ -9,14 +9,6 @@ const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
 
-async function uploadTemplateToS3(templateId, name, buffer) {
-  if (!isR2Configured()) return null;
-  const key = `templates/${templateId}/${name}.docx`;
-  await uploadToR2(key, buffer, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-  await pool.query("UPDATE doc_templates SET s3_key = $1 WHERE id = $2", [key, templateId]);
-  return key;
-}
-
 async function getTemplateBuffer(row) {
   if (row.s3_key && isR2Configured()) {
     try { return await downloadFromR2(row.s3_key); } catch (e) { console.error("S3 template download fallback:", e.message); }

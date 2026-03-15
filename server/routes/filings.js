@@ -9,14 +9,6 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 const pendingFilingChunks = new Map();
 
-async function uploadFilingToS3(filingId, filename, buffer, contentType) {
-  if (!isR2Configured()) return null;
-  const key = `filings/${filingId}/${filename}`;
-  await uploadToR2(key, buffer, contentType);
-  await pool.query("UPDATE case_filings SET s3_key = $1 WHERE id = $2", [key, filingId]);
-  return key;
-}
-
 async function getFilingBuffer(row) {
   if (row.s3_key && isR2Configured()) {
     return downloadFromR2(row.s3_key);

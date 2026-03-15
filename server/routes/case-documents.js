@@ -8,14 +8,6 @@ const { isR2Configured, uploadToR2, downloadFromR2, deleteFromR2 } = require("..
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
-async function uploadDocToS3(docId, filename, buffer, contentType) {
-  if (!isR2Configured()) return null;
-  const key = `documents/${docId}/${filename}`;
-  await uploadToR2(key, buffer, contentType);
-  await pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [key, docId]);
-  return key;
-}
-
 async function getDocBuffer(doc) {
   if (doc.s3_key && isR2Configured()) {
     return downloadFromR2(doc.s3_key);
