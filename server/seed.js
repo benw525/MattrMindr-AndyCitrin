@@ -41,12 +41,12 @@ async function importTableData(client, tableName, rows) {
     if (hasId || hasTextPk) {
       const pkCol = hasTextPk ? "key" : "id";
       await client.query(
-        `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders}) ON CONFLICT (${pkCol}) DO NOTHING`,
+        `INSERT INTO "${tableName}" (${colList}) VALUES (${placeholders}) ON CONFLICT (${pkCol}) DO NOTHING`,
         values
       );
     } else {
       await client.query(
-        `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders})`,
+        `INSERT INTO "${tableName}" (${colList}) VALUES (${placeholders})`,
         values
       );
     }
@@ -60,7 +60,7 @@ async function importTableData(client, tableName, rows) {
       const seqName = `${tableName}_id_seq`;
       await client.query("SAVEPOINT seq_check");
       try {
-        await client.query(`SELECT setval('${seqName}', GREATEST($1, (SELECT COALESCE(max(id),0) FROM ${tableName})), true)`, [maxId]);
+        await client.query(`SELECT setval('${seqName}', GREATEST($1, (SELECT COALESCE(max(id),0) FROM "${tableName}")), true)`, [maxId]);
         await client.query("RELEASE SAVEPOINT seq_check");
         console.log(`  ${tableName}: ${inserted} rows imported, sequence set to ${maxId}`);
       } catch (_) {
@@ -168,12 +168,12 @@ async function seed() {
       `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`
     );
     for (const t of allTables) {
-      await client.query(`ALTER TABLE ${t.table_name} DISABLE TRIGGER ALL`);
+      await client.query(`ALTER TABLE "${t.table_name}" DISABLE TRIGGER ALL`);
     }
 
     console.log("Clearing existing data...");
     for (const t of allTables) {
-      await client.query(`DELETE FROM ${t.table_name}`);
+      await client.query(`DELETE FROM "${t.table_name}"`);
     }
     console.log("Data cleared.\n");
 
@@ -192,7 +192,7 @@ async function seed() {
 
     console.log("\nRe-enabling FK triggers...");
     for (const t of allTables) {
-      await client.query(`ALTER TABLE ${t.table_name} ENABLE TRIGGER ALL`);
+      await client.query(`ALTER TABLE "${t.table_name}" ENABLE TRIGGER ALL`);
     }
 
     await client.query("COMMIT");

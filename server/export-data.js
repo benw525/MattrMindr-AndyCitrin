@@ -115,7 +115,7 @@ async function exportData() {
       cols = "*";
     }
 
-    const { rows } = await pool.query(`SELECT ${cols} FROM ${tableName}`);
+    const { rows } = await pool.query(`SELECT ${cols} FROM "${tableName}"`);
     if (rows.length === 0) {
       console.log(`${tableName}: 0 rows (empty)`);
       continue;
