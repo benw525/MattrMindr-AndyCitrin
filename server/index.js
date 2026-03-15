@@ -307,6 +307,7 @@ async function ensureColumns() {
     `ALTER TABLE case_voicemails ADD COLUMN IF NOT EXISTS s3_key TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS s3_profile_picture_key TEXT`,
     `ALTER TABLE custom_agents ADD COLUMN IF NOT EXISTS s3_instruction_key TEXT`,
+    `ALTER TABLE doc_templates ALTER COLUMN docx_data DROP NOT NULL`,
   ];
 
   const newTableCreations = [
