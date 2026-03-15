@@ -1,15 +1,7 @@
 const pool = require("./db");
 
-const EXCLUDE_COLUMNS = {
-  case_documents: ["file_data"],
-  case_filings: ["file_data"],
-  case_transcripts: ["audio_data", "video_data"],
-  case_voicemails: ["audio_data"],
-  custom_agents: ["instruction_file"],
-  doc_templates: ["docx_data"],
-  medical_records: ["file_data"],
-  trial_timeline_events: ["file_data"],
-  users: ["profile_picture", "ms_access_token", "ms_refresh_token", "ms_token_expiry", "scribe_token", "voirdire_token"],
+const EXTRA_EXCLUDE_COLUMNS = {
+  users: ["ms_access_token", "ms_refresh_token", "ms_token_expiry", "scribe_token", "voirdire_token"],
 };
 
 const FK_SAFE_ORDER = [
@@ -104,15 +96,23 @@ async function exportData() {
   let totalRows = 0;
 
   for (const tableName of orderedTables) {
-    const excludeCols = EXCLUDE_COLUMNS[tableName] || [];
-    let cols = "*";
+    const { rows: colInfo } = await pool.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`,
+      [tableName]
+    );
+    const byteaCols = colInfo.filter(c => c.data_type === "bytea").map(c => c.column_name);
+    const extraExclude = EXTRA_EXCLUDE_COLUMNS[tableName] || [];
+    const excludeCols = [...byteaCols, ...extraExclude];
+
+    let cols;
     if (excludeCols.length > 0) {
-      const { rows: colInfo } = await pool.query(
-        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`,
-        [tableName]
-      );
       const allCols = colInfo.map(c => c.column_name);
       cols = allCols.filter(c => !excludeCols.includes(c)).map(c => `"${c}"`).join(", ");
+      if (byteaCols.length > 0) {
+        console.log(`${tableName}: auto-excluding BYTEA columns: ${byteaCols.join(", ")}`);
+      }
+    } else {
+      cols = "*";
     }
 
     const { rows } = await pool.query(`SELECT ${cols} FROM ${tableName}`);
