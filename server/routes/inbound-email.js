@@ -462,10 +462,21 @@ router.post("/", upload.any(), async (req, res) => {
       for (const audioAtt of audioAttachments) {
         try {
           const fileBuffer = Buffer.from(audioAtt.data, "base64");
+          let r2AudioKey = null;
+          if (isR2Configured()) {
+            const { randomUUID } = require("crypto");
+            r2AudioKey = `transcripts/${caseId}/${randomUUID()}/audio`;
+            try {
+              await uploadToR2(r2AudioKey, fileBuffer, audioAtt.contentType);
+            } catch (e) {
+              console.error("S3 transcript audio upload error:", e.message);
+              r2AudioKey = null;
+            }
+          }
           const { rows: tRows } = await pool.query(
-            `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by_name)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [caseId, audioAtt.filename, audioAtt.contentType, fileBuffer, audioAtt.size, `Email: ${fromEmail}`]
+            `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by_name, r2_audio_key)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+            [caseId, audioAtt.filename, audioAtt.contentType, r2AudioKey ? null : fileBuffer, audioAtt.size, `Email: ${fromEmail}`, r2AudioKey]
           );
           if (tRows.length > 0) {
             const { processTranscription } = require("./transcripts");

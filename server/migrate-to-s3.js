@@ -5,7 +5,7 @@ const { isR2Configured, uploadToR2 } = require("./r2");
 const BATCH_SIZE = 10;
 const DRY_RUN = process.argv.includes("--dry-run");
 
-async function migrateTable({ table, idCol, dataCol, s3KeyCol, keyPrefix, filenameCol, mimeCol, defaultMime, defaultExt }) {
+async function migrateTable({ table, idCol, dataCol, s3KeyCol, keyPrefix, filenameCol, mimeCol, defaultMime, defaultExt, customKeyFn }) {
   const label = `${table}.${dataCol}`;
   const countRes = await pool.query(
     `SELECT COUNT(*) FROM ${table} WHERE ${dataCol} IS NOT NULL AND ${s3KeyCol} IS NULL`
@@ -25,6 +25,7 @@ async function migrateTable({ table, idCol, dataCol, s3KeyCol, keyPrefix, filena
     const cols = [idCol, dataCol];
     if (filenameCol) cols.push(filenameCol);
     if (mimeCol) cols.push(mimeCol);
+    if (customKeyFn && !cols.includes("case_id")) cols.push("case_id");
 
     const { rows } = await pool.query(
       `SELECT ${cols.join(", ")} FROM ${table} WHERE ${dataCol} IS NOT NULL AND ${s3KeyCol} IS NULL AND ${idCol} > $1 ORDER BY ${idCol} LIMIT $2`,
@@ -43,7 +44,7 @@ async function migrateTable({ table, idCol, dataCol, s3KeyCol, keyPrefix, filena
         filename = `file.${ext}`;
       }
 
-      const key = `${keyPrefix}/${id}/${filename}`;
+      const key = customKeyFn ? customKeyFn(id, row) : `${keyPrefix}/${id}/${filename}`;
 
       if (DRY_RUN) {
         console.log(`  [DRY RUN] Would upload ${key} (${buffer.length} bytes)`);
@@ -92,6 +93,7 @@ async function main() {
   console.log(`Batch size: ${BATCH_SIZE}`);
   console.log();
 
+  const { randomUUID } = require("crypto");
   const tables = [
     {
       table: "case_documents", idCol: "id", dataCol: "file_data", s3KeyCol: "s3_key",
@@ -123,6 +125,18 @@ async function main() {
       table: "custom_agents", idCol: "id", dataCol: "instruction_file", s3KeyCol: "s3_instruction_key",
       keyPrefix: "custom-agents", filenameCol: "instruction_filename", mimeCol: null,
       defaultMime: "application/octet-stream",
+    },
+    {
+      table: "case_transcripts", idCol: "id", dataCol: "audio_data", s3KeyCol: "r2_audio_key",
+      keyPrefix: "transcripts", filenameCol: null, mimeCol: "content_type",
+      defaultMime: "audio/mpeg", defaultExt: "audio",
+      customKeyFn: (id, row) => `transcripts/${row.case_id || 0}/${randomUUID()}/audio`,
+    },
+    {
+      table: "case_transcripts", idCol: "id", dataCol: "video_data", s3KeyCol: "r2_video_key",
+      keyPrefix: "transcripts", filenameCol: null, mimeCol: "video_content_type",
+      defaultMime: "video/mp4", defaultExt: "video",
+      customKeyFn: (id, row) => `transcripts/${row.case_id || 0}/${randomUUID()}/video`,
     },
   ];
 
