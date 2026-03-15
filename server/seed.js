@@ -2,7 +2,80 @@ const fs   = require("fs");
 const path = require("path");
 const pool = require("./db");
 
-const IMPORT_ORDER = [
+const TABLES_WITH_TEXT_PK = ["integration_configs"];
+
+async function importTableData(client, tableName, rows) {
+  if (!rows || rows.length === 0) return;
+
+  const sampleRow = rows[0];
+  const cols = Object.keys(sampleRow);
+
+  const { rows: colTypes } = await client.query(
+    `SELECT column_name, data_type, udt_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
+    [tableName]
+  );
+  const typeMap = {};
+  for (const c of colTypes) typeMap[c.column_name] = c.data_type === "ARRAY" ? "array" : (c.udt_name === "jsonb" || c.udt_name === "json") ? "json" : "other";
+
+  const hasId = cols.includes("id");
+  const hasTextPk = TABLES_WITH_TEXT_PK.includes(tableName);
+
+  let inserted = 0;
+  for (const row of rows) {
+    const values = cols.map((col) => {
+      let val = row[col];
+      if (val !== null && typeof val === "object" && !Buffer.isBuffer(val) && !(val instanceof Date)) {
+        if (typeMap[col] === "json") {
+          val = JSON.stringify(val);
+        } else if (typeMap[col] === "array") {
+        } else {
+          val = JSON.stringify(val);
+        }
+      }
+      return val;
+    });
+
+    const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
+    const colList = cols.map((c) => `"${c}"`).join(", ");
+
+    if (hasId || hasTextPk) {
+      const pkCol = hasTextPk ? "key" : "id";
+      await client.query(
+        `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders}) ON CONFLICT (${pkCol}) DO NOTHING`,
+        values
+      );
+    } else {
+      await client.query(
+        `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders})`,
+        values
+      );
+    }
+    inserted++;
+  }
+
+  if (hasId) {
+    const ids = rows.map((r) => r.id).filter((id) => typeof id === "number");
+    if (ids.length > 0) {
+      const maxId = Math.max(...ids);
+      const seqName = `${tableName}_id_seq`;
+      await client.query("SAVEPOINT seq_check");
+      try {
+        await client.query(`SELECT setval('${seqName}', GREATEST($1, (SELECT COALESCE(max(id),0) FROM ${tableName})), true)`, [maxId]);
+        await client.query("RELEASE SAVEPOINT seq_check");
+        console.log(`  ${tableName}: ${inserted} rows imported, sequence set to ${maxId}`);
+      } catch (_) {
+        await client.query("ROLLBACK TO SAVEPOINT seq_check");
+        console.log(`  ${tableName}: ${inserted} rows imported (no sequence)`);
+      }
+    } else {
+      console.log(`  ${tableName}: ${inserted} rows imported`);
+    }
+  } else {
+    console.log(`  ${tableName}: ${inserted} rows imported`);
+  }
+}
+
+const FK_SAFE_ORDER = [
   "users",
   "contacts",
   "cases",
@@ -56,6 +129,7 @@ const IMPORT_ORDER = [
   "chat_channel_members",
   "chat_groups",
   "chat_messages",
+  "chat_typing",
   "unmatched_filings_emails",
   "client_portal_settings",
   "client_users",
@@ -72,71 +146,8 @@ const IMPORT_ORDER = [
   "trial_pinned_docs",
   "trial_timeline_events",
   "jury_analyses",
+  "user_sessions",
 ];
-
-const TABLES_WITH_TEXT_PK = ["integration_configs"];
-
-async function importTableData(client, tableName, rows) {
-  if (!rows || rows.length === 0) return;
-
-  const sampleRow = rows[0];
-  const cols = Object.keys(sampleRow);
-
-  const hasId = cols.includes("id");
-  const hasTextPk = TABLES_WITH_TEXT_PK.includes(tableName);
-
-  let inserted = 0;
-  let skipped = 0;
-  for (const row of rows) {
-    const values = cols.map((col) => {
-      let val = row[col];
-      if (val !== null && typeof val === "object" && !Buffer.isBuffer(val) && !(val instanceof Date)) {
-        if (Array.isArray(val) && (val.length === 0 || typeof val[0] !== "object")) {
-        } else {
-          val = JSON.stringify(val);
-        }
-      }
-      return val;
-    });
-
-    const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
-    const colList = cols.map((c) => `"${c}"`).join(", ");
-
-    try {
-      if (hasId || hasTextPk) {
-        const pkCol = hasTextPk ? "key" : "id";
-        await client.query(
-          `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders}) ON CONFLICT (${pkCol}) DO NOTHING`,
-          values
-        );
-      } else {
-        await client.query(
-          `INSERT INTO ${tableName} (${colList}) VALUES (${placeholders})`,
-          values
-        );
-      }
-      inserted++;
-    } catch (err) {
-      if (err.code === "23505") continue;
-      if (err.code === "23503") { skipped++; continue; }
-      console.error(`  Error inserting into ${tableName}: ${err.message}`);
-      skipped++;
-    }
-  }
-
-  if (hasId) {
-    const ids = rows.map((r) => r.id).filter((id) => typeof id === "number");
-    if (ids.length > 0) {
-      const maxId = Math.max(...ids);
-      const seqName = `${tableName}_id_seq`;
-      try {
-        await client.query(`SELECT setval('${seqName}', GREATEST($1, (SELECT COALESCE(max(id),0) FROM ${tableName})), true)`, [maxId]);
-      } catch (_) {}
-    }
-  }
-  const skipMsg = skipped > 0 ? ` (${skipped} skipped)` : "";
-  console.log(`  ${tableName}: ${inserted} rows imported${skipMsg}`);
-}
 
 async function seed() {
   const seedDataPath = path.join(__dirname, "seed-data.json");
@@ -146,46 +157,46 @@ async function seed() {
   }
 
   const seedData = JSON.parse(fs.readFileSync(seedDataPath, "utf8"));
+  const seedTables = Object.keys(seedData);
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    console.log("Disabling FK checks temporarily...");
+    console.log("Disabling FK triggers...");
     const { rows: allTables } = await client.query(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`
     );
     for (const t of allTables) {
-      try { await client.query(`ALTER TABLE ${t.table_name} DISABLE TRIGGER ALL`); } catch (_) {}
+      await client.query(`ALTER TABLE ${t.table_name} DISABLE TRIGGER ALL`);
     }
 
     console.log("Clearing existing data...");
-    const reverseOrder = [...IMPORT_ORDER].reverse();
-    for (const tableName of reverseOrder) {
-      try { await client.query(`DELETE FROM ${tableName}`); } catch (_) {}
+    for (const t of allTables) {
+      await client.query(`DELETE FROM ${t.table_name}`);
     }
     console.log("Data cleared.\n");
 
-    console.log("Importing seed data...");
-    for (const tableName of IMPORT_ORDER) {
-      if (seedData[tableName]) {
-        await importTableData(client, tableName, seedData[tableName]);
-      }
+    const importOrder = [];
+    for (const t of FK_SAFE_ORDER) {
+      if (seedTables.includes(t)) importOrder.push(t);
+    }
+    for (const t of seedTables) {
+      if (!importOrder.includes(t)) importOrder.push(t);
     }
 
-    const extraTables = Object.keys(seedData).filter(t => !IMPORT_ORDER.includes(t));
-    for (const tableName of extraTables) {
-      console.log(`  (extra) ${tableName}:`);
+    console.log(`Importing ${seedTables.length} tables...`);
+    for (const tableName of importOrder) {
       await importTableData(client, tableName, seedData[tableName]);
     }
 
-    console.log("\nRe-enabling FK checks...");
+    console.log("\nRe-enabling FK triggers...");
     for (const t of allTables) {
-      try { await client.query(`ALTER TABLE ${t.table_name} ENABLE TRIGGER ALL`); } catch (_) {}
+      await client.query(`ALTER TABLE ${t.table_name} ENABLE TRIGGER ALL`);
     }
 
     await client.query("COMMIT");
-    console.log("\nSeed complete.");
+    console.log("\nSeed complete — all data imported successfully.");
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

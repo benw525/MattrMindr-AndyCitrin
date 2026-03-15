@@ -12,7 +12,7 @@ const EXCLUDE_COLUMNS = {
   users: ["profile_picture", "ms_access_token", "ms_refresh_token", "ms_token_expiry", "scribe_token", "voirdire_token"],
 };
 
-const TABLES_IN_ORDER = [
+const FK_SAFE_ORDER = [
   "users",
   "contacts",
   "cases",
@@ -66,6 +66,7 @@ const TABLES_IN_ORDER = [
   "chat_channel_members",
   "chat_groups",
   "chat_messages",
+  "chat_typing",
   "unmatched_filings_emails",
   "client_portal_settings",
   "client_users",
@@ -82,34 +83,47 @@ const TABLES_IN_ORDER = [
   "trial_pinned_docs",
   "trial_timeline_events",
   "jury_analyses",
+  "user_sessions",
 ];
 
 async function exportData() {
+  const { rows: allTables } = await pool.query(
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`
+  );
+  const allTableNames = allTables.map(r => r.table_name);
+
+  const orderedTables = [];
+  for (const t of FK_SAFE_ORDER) {
+    if (allTableNames.includes(t)) orderedTables.push(t);
+  }
+  for (const t of allTableNames) {
+    if (!orderedTables.includes(t)) orderedTables.push(t);
+  }
+
   const data = {};
   let totalRows = 0;
 
-  for (const tableName of TABLES_IN_ORDER) {
+  for (const tableName of orderedTables) {
     const excludeCols = EXCLUDE_COLUMNS[tableName] || [];
-    try {
-      let cols = "*";
-      if (excludeCols.length > 0) {
-        const { rows: colInfo } = await pool.query(
-          `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`,
-          [tableName]
-        );
-        const allCols = colInfo.map(c => c.column_name);
-        cols = allCols.filter(c => !excludeCols.includes(c)).map(c => `"${c}"`).join(", ");
-      }
-
-      const { rows } = await pool.query(`SELECT ${cols} FROM ${tableName}`);
-      if (rows.length === 0) continue;
-
-      data[tableName] = rows;
-      totalRows += rows.length;
-      console.log(`${tableName}: ${rows.length} rows exported`);
-    } catch (err) {
-      console.log(`${tableName}: skipped (${err.message})`);
+    let cols = "*";
+    if (excludeCols.length > 0) {
+      const { rows: colInfo } = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`,
+        [tableName]
+      );
+      const allCols = colInfo.map(c => c.column_name);
+      cols = allCols.filter(c => !excludeCols.includes(c)).map(c => `"${c}"`).join(", ");
     }
+
+    const { rows } = await pool.query(`SELECT ${cols} FROM ${tableName}`);
+    if (rows.length === 0) {
+      console.log(`${tableName}: 0 rows (empty)`);
+      continue;
+    }
+
+    data[tableName] = rows;
+    totalRows += rows.length;
+    console.log(`${tableName}: ${rows.length} rows exported`);
   }
 
   const fs = require("fs");
