@@ -3,9 +3,25 @@ const multer = require("multer");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { extractText } = require("../utils/extract-text");
+const { isR2Configured, uploadToR2, downloadFromR2, deleteFromR2 } = require("../r2");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+async function uploadDocToS3(docId, filename, buffer, contentType) {
+  if (!isR2Configured()) return null;
+  const key = `documents/${docId}/${filename}`;
+  await uploadToR2(key, buffer, contentType);
+  await pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [key, docId]);
+  return key;
+}
+
+async function getDocBuffer(doc) {
+  if (doc.s3_key && isR2Configured()) {
+    return downloadFromR2(doc.s3_key);
+  }
+  return doc.file_data || null;
+}
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -137,6 +153,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         [caseId, req.file.originalname, ct, req.file.buffer, docType || "Other", req.session.userId, userName, req.file.size, folderVal]
       );
       const saved = rows[0];
+      uploadDocToS3(saved.id, req.file.originalname, req.file.buffer, ct).catch(e => console.error("S3 upload error:", e.message));
       runOcrBackground(saved.id, req.file.buffer, ct, req.file.originalname);
       return res.status(201).json(toFrontend(saved));
     }
@@ -154,6 +171,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
       [caseId, req.file.originalname, ct, req.file.buffer, extractedText, docType || "Other", req.session.userId, userName, req.file.size, ocrStatus, folderVal]
     );
+    uploadDocToS3(rows[0].id, req.file.originalname, req.file.buffer, ct).catch(e => console.error("S3 upload error:", e.message));
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Document upload error:", err);
@@ -164,7 +182,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 router.get("/:id/text", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT cd.extracted_text, cd.case_id, cd.file_data, cd.content_type, cd.filename FROM case_documents cd WHERE cd.id = $1", [req.params.id]
+      "SELECT cd.extracted_text, cd.case_id, cd.file_data, cd.content_type, cd.filename, cd.s3_key FROM case_documents cd WHERE cd.id = $1", [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
@@ -172,9 +190,10 @@ router.get("/:id/text", requireAuth, async (req, res) => {
     if (doc.extracted_text) {
       return res.json({ text: doc.extracted_text });
     }
-    if (doc.file_data) {
+    const fileBuffer = await getDocBuffer(doc);
+    if (fileBuffer) {
       try {
-        const liveText = await extractText(doc.file_data, doc.content_type, doc.filename);
+        const liveText = await extractText(fileBuffer, doc.content_type, doc.filename);
         if (liveText) {
           pool.query("UPDATE case_documents SET extracted_text = $1 WHERE id = $2", [liveText, req.params.id]).catch(() => {});
           return res.json({ text: liveText });
@@ -208,13 +227,14 @@ router.get("/:id/ocr-status", requireAuth, async (req, res) => {
 router.post("/:id/re-extract", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT cd.case_id, cd.file_data, cd.content_type, cd.filename FROM case_documents cd WHERE cd.id = $1", [req.params.id]
+      "SELECT cd.case_id, cd.file_data, cd.content_type, cd.filename, cd.s3_key FROM case_documents cd WHERE cd.id = $1", [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
     const doc = rows[0];
-    if (!doc.file_data) return res.status(400).json({ error: "No file data available for re-extraction" });
-    const newText = await extractText(doc.file_data, doc.content_type, doc.filename);
+    const fileBuffer = await getDocBuffer(doc);
+    if (!fileBuffer) return res.status(400).json({ error: "No file data available for re-extraction" });
+    const newText = await extractText(fileBuffer, doc.content_type, doc.filename);
     const newStatus = (newText && newText.trim().length > 0) ? "complete" : "failed";
     await pool.query("UPDATE case_documents SET extracted_text = $1, ocr_status = $2 WHERE id = $3", [newText || "", newStatus, req.params.id]);
     return res.json({ text: newText || "", length: (newText || "").length, ocrStatus: newStatus, hasText: newStatus === "complete" });
@@ -276,16 +296,18 @@ Be concise but thorough. Flag anything that could help the plaintiff's case.`;
 
 router.get("/:id/download", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id, source FROM case_documents WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id, source, s3_key FROM case_documents WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     const doc = rows[0];
     if (!(await verifyCaseAccess(req, doc.case_id))) return res.status(403).json({ error: "Access denied" });
     if (doc.source === "client") {
       pool.query("UPDATE case_documents SET firm_viewed_at = NOW() WHERE id = $1 AND firm_viewed_at IS NULL", [req.params.id]).catch(() => {});
     }
+    const fileBuffer = await getDocBuffer(doc);
+    if (!fileBuffer) return res.status(404).json({ error: "File data not found" });
     res.setHeader("Content-Type", doc.content_type);
     res.setHeader("Content-Disposition", `attachment; filename="${doc.filename}"`);
-    return res.send(doc.file_data);
+    return res.send(fileBuffer);
   } catch (err) {
     console.error("Document download error:", err);
     return res.status(500).json({ error: "Download failed" });
@@ -294,14 +316,15 @@ router.get("/:id/download", requireAuth, async (req, res) => {
 
 router.get("/:id/html", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT file_data, content_type, case_id, filename, content_html FROM case_documents WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT file_data, content_type, case_id, filename, content_html, s3_key FROM case_documents WHERE id = $1", [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
     const doc = rows[0];
     if (doc.content_html) return res.json({ html: doc.content_html });
-    if (!doc.file_data) return res.status(400).json({ error: "No file data" });
+    const fileBuffer = await getDocBuffer(doc);
+    if (!fileBuffer) return res.status(400).json({ error: "No file data" });
     const mammoth = require("mammoth");
-    const result = await mammoth.convertToHtml({ buffer: doc.file_data });
+    const result = await mammoth.convertToHtml({ buffer: fileBuffer });
     pool.query("UPDATE case_documents SET content_html = $1 WHERE id = $2", [result.value, req.params.id]).catch(() => {});
     res.json({ html: result.value });
   } catch (err) {
@@ -326,11 +349,13 @@ router.put("/:id/content", requireAuth, async (req, res) => {
 
 router.get("/:id/xlsx-data", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT file_data, case_id FROM case_documents WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT file_data, case_id, s3_key FROM case_documents WHERE id = $1", [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
+    const fileBuffer = await getDocBuffer(rows[0]);
+    if (!fileBuffer) return res.status(400).json({ error: "No file data" });
     const XLSX = require("xlsx");
-    const workbook = XLSX.read(rows[0].file_data, { type: "buffer" });
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" });
     const sheets = workbook.SheetNames.map(name => {
       const sheet = workbook.Sheets[name];
       const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
@@ -357,6 +382,8 @@ router.put("/:id/xlsx-data", requireAuth, async (req, res) => {
     }
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     await pool.query("UPDATE case_documents SET file_data = $1 WHERE id = $2", [buffer, req.params.id]);
+    const { rows: docInfo } = await pool.query("SELECT filename, content_type FROM case_documents WHERE id = $1", [req.params.id]);
+    if (docInfo.length) uploadDocToS3(req.params.id, docInfo[0].filename, buffer, docInfo[0].content_type).catch(e => console.error("S3 xlsx save error:", e.message));
     res.json({ ok: true });
   } catch (err) {
     console.error("XLSX save error:", err);
@@ -366,11 +393,13 @@ router.put("/:id/xlsx-data", requireAuth, async (req, res) => {
 
 router.get("/:id/pptx-slides", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT file_data, case_id FROM case_documents WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT file_data, case_id, s3_key FROM case_documents WHERE id = $1", [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
+    const fileBuffer = await getDocBuffer(rows[0]);
+    if (!fileBuffer) return res.status(400).json({ error: "No file data" });
     const JSZip = require("jszip");
-    const zip = await JSZip.loadAsync(rows[0].file_data);
+    const zip = await JSZip.loadAsync(fileBuffer);
     const slides = [];
     const slideFiles = Object.keys(zip.files).filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f)).sort();
     for (const slideFile of slideFiles) {
@@ -430,13 +459,15 @@ router.get("/:id/annotations", requireAuth, async (req, res) => {
 
 router.get("/:id/view", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id FROM case_documents WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id, s3_key FROM case_documents WHERE id = $1", [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     if (!(await verifyCaseAccess(req, rows[0].case_id))) return res.status(403).json({ error: "Access denied" });
     const doc = rows[0];
+    const fileBuffer = await getDocBuffer(doc);
+    if (!fileBuffer) return res.status(404).json({ error: "File data not found" });
     res.setHeader("Content-Type", doc.content_type);
     res.setHeader("Content-Disposition", `inline; filename="${doc.filename}"`);
-    res.send(doc.file_data);
+    res.send(fileBuffer);
   } catch (err) {
     console.error("Document view error:", err);
     res.status(500).json({ error: "View failed" });
@@ -668,6 +699,7 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
          VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing', $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
         [pending.caseId, pending.filename, pending.contentType, fullBuffer, pending.docType, pending.userId, uploaderName, fullBuffer.length, pending.folderId || null]
       );
+      uploadDocToS3(rows[0].id, pending.filename, fullBuffer, pending.contentType).catch(e => console.error("S3 upload error:", e.message));
       runOcrBackground(rows[0].id, fullBuffer, pending.contentType, pending.filename);
       return res.json(toFrontend(rows[0]));
     }
@@ -680,6 +712,7 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
       [pending.caseId, pending.filename, pending.contentType, fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length, ocrStatus, pending.folderId || null]
     );
+    uploadDocToS3(rows[0].id, pending.filename, fullBuffer, pending.contentType).catch(e => console.error("S3 upload error:", e.message));
     res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Doc chunk complete error:", err.message);
@@ -691,14 +724,14 @@ const officeViewTokens = new Map();
 
 router.get("/:id/office-view-url", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id, filename, content_type, file_data, case_id FROM case_documents WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT id, filename, content_type, file_data, case_id, s3_key FROM case_documents WHERE id = $1", [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     const doc = rows[0];
     if (!(await verifyCaseAccess(req, doc.case_id))) return res.status(403).json({ error: "Access denied" });
     const ext = (doc.filename || "").split(".").pop().toLowerCase();
     const officeExts = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
     if (!officeExts.includes(ext)) return res.json({ url: null });
-    if (!doc.file_data) return res.json({ url: null });
+    if (!doc.file_data && !doc.s3_key) return res.json({ url: null });
 
     const token = randomUUID();
     officeViewTokens.set(token, { docId: doc.id, expiresAt: Date.now() + 10 * 60 * 1000 });
@@ -720,12 +753,14 @@ router.get("/office-download/:token", async (req, res) => {
     const entry = officeViewTokens.get(req.params.token);
     if (!entry || Date.now() > entry.expiresAt) return res.status(403).json({ error: "Token expired or invalid" });
 
-    const { rows } = await pool.query("SELECT filename, content_type, file_data FROM case_documents WHERE id = $1", [entry.docId]);
+    const { rows } = await pool.query("SELECT filename, content_type, file_data, s3_key FROM case_documents WHERE id = $1", [entry.docId]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     const doc = rows[0];
+    const fileBuffer = await getDocBuffer(doc);
+    if (!fileBuffer) return res.status(404).json({ error: "File data not found" });
     res.setHeader("Content-Type", doc.content_type || "application/octet-stream");
     res.setHeader("Content-Disposition", `inline; filename="${doc.filename}"`);
-    res.send(doc.file_data);
+    res.send(fileBuffer);
   } catch (err) {
     console.error("Office download error:", err.message);
     res.status(500).json({ error: "Server error" });

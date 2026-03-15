@@ -7,27 +7,37 @@ let s3Client = null;
 function getClient() {
   if (s3Client) return s3Client;
   if (!isR2Configured()) return null;
+  const endpoint = process.env.R2_ACCOUNT_ID
+    ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+    : undefined;
   s3Client = new S3Client({
-    region: "auto",
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    region: process.env.AWS_REGION || process.env.S3_REGION || "us-east-1",
+    ...(endpoint ? { endpoint } : {}),
     credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY,
     },
   });
   return s3Client;
 }
 
+function getBucket() {
+  return process.env.S3_BUCKET_NAME || process.env.R2_BUCKET_NAME;
+}
+
 function isR2Configured() {
-  return !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME);
+  const hasCredentials = !!(
+    (process.env.AWS_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID) &&
+    (process.env.AWS_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY)
+  );
+  return !!(hasCredentials && getBucket());
 }
 
 async function uploadToR2(key, buffer, contentType) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
+  if (!client) throw new Error("S3 not configured");
   await client.send(new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket: getBucket(),
     Key: key,
     Body: buffer,
     ContentType: contentType,
@@ -37,9 +47,9 @@ async function uploadToR2(key, buffer, contentType) {
 
 async function downloadFromR2(key) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
+  if (!client) throw new Error("S3 not configured");
   const resp = await client.send(new GetObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket: getBucket(),
     Key: key,
   }));
   const chunks = [];
@@ -51,8 +61,8 @@ async function downloadFromR2(key) {
 
 async function streamFromR2(key, range) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
-  const params = { Bucket: process.env.R2_BUCKET_NAME, Key: key };
+  if (!client) throw new Error("S3 not configured");
+  const params = { Bucket: getBucket(), Key: key };
   if (range) params.Range = range;
   const resp = await client.send(new GetObjectCommand(params));
   return {
@@ -66,18 +76,18 @@ async function streamFromR2(key, range) {
 
 async function deleteFromR2(key) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
+  if (!client) throw new Error("S3 not configured");
   await client.send(new DeleteObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket: getBucket(),
     Key: key,
   }));
 }
 
 async function createMultipartUpload(key, contentType) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
+  if (!client) throw new Error("S3 not configured");
   const resp = await client.send(new CreateMultipartUploadCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket: getBucket(),
     Key: key,
     ContentType: contentType,
   }));
@@ -86,9 +96,9 @@ async function createMultipartUpload(key, contentType) {
 
 async function uploadPart(key, uploadId, partNumber, buffer) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
+  if (!client) throw new Error("S3 not configured");
   const resp = await client.send(new UploadPartCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket: getBucket(),
     Key: key,
     UploadId: uploadId,
     PartNumber: partNumber,
@@ -99,9 +109,9 @@ async function uploadPart(key, uploadId, partNumber, buffer) {
 
 async function completeMultipartUpload(key, uploadId, parts) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
+  if (!client) throw new Error("S3 not configured");
   await client.send(new CompleteMultipartUploadCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket: getBucket(),
     Key: key,
     UploadId: uploadId,
     MultipartUpload: { Parts: parts.sort((a, b) => a.PartNumber - b.PartNumber) },
@@ -110,9 +120,9 @@ async function completeMultipartUpload(key, uploadId, parts) {
 
 async function abortMultipartUpload(key, uploadId) {
   const client = getClient();
-  if (!client) throw new Error("R2 not configured");
+  if (!client) throw new Error("S3 not configured");
   await client.send(new AbortMultipartUploadCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket: getBucket(),
     Key: key,
     UploadId: uploadId,
   }));

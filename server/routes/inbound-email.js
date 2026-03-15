@@ -3,6 +3,13 @@ const multer = require("multer");
 const { simpleParser } = require("mailparser");
 const pool = require("../db");
 const { extractText } = require("../utils/extract-text");
+const { isR2Configured, uploadToR2 } = require("../r2");
+
+function fireAndForgetS3(table, id, key, buffer, contentType) {
+  uploadToR2(key, buffer, contentType).then(() =>
+    pool.query(`UPDATE ${table} SET s3_key = $1 WHERE id = $2`, [key, id])
+  ).catch(e => console.error(`S3 upload error (${table} ${id}):`, e.message));
+}
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, fieldSize: 50 * 1024 * 1024 } });
@@ -158,8 +165,12 @@ router.post("/", upload.any(), async (req, res) => {
             [caseId, pdfAtt.filename, pdfAtt.filename, "application/pdf", fileBuffer, extractedText, pdfAtt.size, fromEmail]
           );
 
-          if (filingRows.length > 0 && extractedText) {
+          if (filingRows.length > 0) {
             const filingId = filingRows[0].id;
+            if (isR2Configured()) {
+              fireAndForgetS3("case_filings", filingId, `filings/${filingId}/${pdfAtt.filename}`, fileBuffer, "application/pdf");
+            }
+            if (extractedText) {
             try {
               const OpenAI = require("openai");
               const openai = new OpenAI({
@@ -224,6 +235,7 @@ router.post("/", upload.any(), async (req, res) => {
               console.error("Filings email auto-classify error:", classifyErr.message);
             }
           }
+          }
           console.log(`Filings email: filing created from ${pdfAtt.filename} for case ${caseId}`);
         } catch (pErr) {
           console.error("Filings email PDF processing error:", pErr.message);
@@ -286,8 +298,12 @@ router.post("/", upload.any(), async (req, res) => {
             [caseId, pdfAtt.filename, pdfAtt.filename, "application/pdf", fileBuffer, extractedText, pdfAtt.size, fromEmail]
           );
 
-          if (filingRows.length > 0 && extractedText) {
+          if (filingRows.length > 0) {
             const filingId = filingRows[0].id;
+            if (isR2Configured()) {
+              fireAndForgetS3("case_filings", filingId, `filings/${filingId}/${pdfAtt.filename}`, fileBuffer, "application/pdf");
+            }
+            if (extractedText) {
             try {
               const OpenAI = require("openai");
               const openai = new OpenAI({
@@ -352,6 +368,7 @@ router.post("/", upload.any(), async (req, res) => {
               console.error("Auto-classify filing error:", classifyErr.message);
             }
           }
+          }
           console.log(`PDF filing created from email: ${pdfAtt.filename} for case ${caseId}`);
         } else {
           const { rows: docRows } = await pool.query(
@@ -361,8 +378,12 @@ router.post("/", upload.any(), async (req, res) => {
             [caseId, pdfAtt.filename, "application/pdf", fileBuffer, extractedText, `Email: ${fromEmail}`, pdfAtt.size]
           );
 
-          if (docRows.length > 0 && extractedText) {
+          if (docRows.length > 0) {
             const docId = docRows[0].id;
+            if (isR2Configured()) {
+              fireAndForgetS3("case_documents", docId, `documents/${docId}/${pdfAtt.filename}`, fileBuffer, "application/pdf");
+            }
+            if (extractedText) {
             try {
               const OpenAI = require("openai");
               const openai = new OpenAI({
@@ -399,6 +420,7 @@ router.post("/", upload.any(), async (req, res) => {
               console.error("Auto-classify PDF document error:", classifyErr.message);
             }
           }
+          }
           console.log(`PDF document created from email: ${pdfAtt.filename} for case ${caseId}`);
         }
       } catch (pdfErr) {
@@ -422,11 +444,15 @@ router.post("/", upload.any(), async (req, res) => {
       for (const audioAtt of audioAttachments) {
         try {
           const fileBuffer = Buffer.from(audioAtt.data, "base64");
-          await pool.query(
+          const { rows: vmRows } = await pool.query(
             `INSERT INTO case_voicemails (case_id, caller_name, caller_number, audio_data, audio_mime, received_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())`,
+             VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
             [caseId, fromName || "Unknown", "", fileBuffer, audioAtt.contentType]
           );
+          if (vmRows.length > 0 && isR2Configured()) {
+            const ext = (audioAtt.filename || "audio.mp3").split(".").pop() || "mp3";
+            fireAndForgetS3("case_voicemails", vmRows[0].id, `voicemails/${vmRows[0].id}/audio.${ext}`, fileBuffer, audioAtt.contentType);
+          }
           console.log(`Voicemail audio saved to case_voicemails: ${audioAtt.filename} for case ${caseId}`);
         } catch (audioErr) {
           console.error("Process voicemail audio error:", audioErr.message);
@@ -477,8 +503,12 @@ router.post("/", upload.any(), async (req, res) => {
           [caseId, docAtt.filename, docAtt.contentType, fileBuffer, extractedText, `Email: ${fromEmail}`, docAtt.size]
         );
 
-        if (docRows.length > 0 && extractedText) {
+        if (docRows.length > 0) {
           const docId = docRows[0].id;
+          if (isR2Configured()) {
+            fireAndForgetS3("case_documents", docId, `documents/${docId}/${docAtt.filename}`, fileBuffer, docAtt.contentType);
+          }
+          if (extractedText) {
           try {
             const OpenAI = require("openai");
             const openai = new OpenAI({
@@ -514,6 +544,7 @@ router.post("/", upload.any(), async (req, res) => {
           } catch (classifyErr) {
             console.error("Auto-classify document error:", classifyErr.message);
           }
+        }
         }
         console.log(`Document created from email: ${docAtt.filename} for case ${caseId}`);
       } catch (docErr) {

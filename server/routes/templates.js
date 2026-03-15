@@ -7,6 +7,22 @@ const path = require("path");
 const fs = require("fs");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
+
+async function uploadTemplateToS3(templateId, name, buffer) {
+  if (!isR2Configured()) return null;
+  const key = `templates/${templateId}/${name}.docx`;
+  await uploadToR2(key, buffer, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  await pool.query("UPDATE doc_templates SET s3_key = $1 WHERE id = $2", [key, templateId]);
+  return key;
+}
+
+async function getTemplateBuffer(row) {
+  if (row.s3_key && isR2Configured()) {
+    try { return await downloadFromR2(row.s3_key); } catch (e) { console.error("S3 template download fallback:", e.message); }
+  }
+  return row.docx_data || null;
+}
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -385,6 +401,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         useSystemCos,
       ]
     );
+    uploadTemplateToS3(rows[0].id, name.trim(), docxBuffer).catch(e => console.error("S3 template upload error:", e.message));
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Template save error:", err);
@@ -394,12 +411,14 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
 
 router.get("/:id/source", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT docx_data, placeholders, created_by FROM doc_templates WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT docx_data, placeholders, created_by, s3_key FROM doc_templates WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     if (!canEditTemplate(req, rows[0])) return res.status(403).json({ error: "Permission denied" });
 
+    const templateBuffer = await getTemplateBuffer(rows[0]);
+    if (!templateBuffer) return res.status(400).json({ error: "No template data" });
     const oldPlaceholders = rows[0].placeholders || [];
-    const zip = new PizZip(rows[0].docx_data);
+    const zip = new PizZip(templateBuffer);
     let xml = "";
     const xmlFile = zip.file("word/document.xml");
     if (xmlFile) xml = xmlFile.asText();
@@ -410,7 +429,7 @@ router.get("/:id/source", requireAuth, async (req, res) => {
       cleanXml = cleanXml.replace(tokenPattern, (ph.original || `<<${ph.token}>>`));
     }
 
-    const cleanZip = new PizZip(rows[0].docx_data);
+    const cleanZip = new PizZip(templateBuffer);
     cleanZip.file("word/document.xml", cleanXml);
     const cleanBuffer = cleanZip.generate({ type: "nodebuffer" });
 
@@ -454,7 +473,7 @@ router.get("/:id/source", requireAuth, async (req, res) => {
 router.put("/:id", requireAuth, async (req, res) => {
   const { name, tags, placeholders, visibility, reprocessDocx, category, subType, useSystemHeader, useSystemSignature, useSystemCos } = req.body;
   try {
-    const { rows: existing } = await pool.query("SELECT created_by, docx_data, placeholders AS old_placeholders FROM doc_templates WHERE id = $1", [req.params.id]);
+    const { rows: existing } = await pool.query("SELECT created_by, docx_data, placeholders AS old_placeholders, s3_key FROM doc_templates WHERE id = $1", [req.params.id]);
     if (existing.length === 0) return res.status(404).json({ error: "Not found" });
     if (!canEditTemplate(req, existing[0])) return res.status(403).json({ error: "Only the creator or a Shareholder can edit this template" });
 
@@ -485,7 +504,9 @@ router.put("/:id", requireAuth, async (req, res) => {
 
     if (reprocessDocx && placeholders !== undefined) {
       const oldPhs = existing[0].old_placeholders || [];
-      const zip = new PizZip(existing[0].docx_data);
+      const existingBuffer = await getTemplateBuffer(existing[0]);
+      if (!existingBuffer) return res.status(400).json({ error: "No template data" });
+      const zip = new PizZip(existingBuffer);
       const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/header3.xml", "word/footer1.xml", "word/footer2.xml", "word/footer3.xml"];
 
       for (const xmlPath of xmlFiles) {
@@ -516,6 +537,10 @@ router.put("/:id", requireAuth, async (req, res) => {
       const newDocxData = zip.generate({ type: "nodebuffer" });
       sets.push(`docx_data = $${idx++}`);
       vals.push(newDocxData);
+      if (isR2Configured()) {
+        const tplName = name || "template";
+        uploadTemplateToS3(req.params.id, tplName, newDocxData).catch(e => console.error("S3 template reprocess upload error:", e.message));
+      }
     }
 
     vals.push(req.params.id);
@@ -534,9 +559,13 @@ router.put("/:id", requireAuth, async (req, res) => {
 
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
-    const { rows: existing } = await pool.query("SELECT created_by FROM doc_templates WHERE id = $1", [req.params.id]);
+    const { rows: existing } = await pool.query("SELECT created_by, s3_key FROM doc_templates WHERE id = $1", [req.params.id]);
     if (existing.length === 0) return res.status(404).json({ error: "Not found" });
     if (!canEditTemplate(req, existing[0])) return res.status(403).json({ error: "Only the creator or a Shareholder can delete this template" });
+    if (existing[0].s3_key && isR2Configured()) {
+      const { deleteFromR2 } = require("../r2");
+      deleteFromR2(existing[0].s3_key).catch(e => console.error("S3 template delete error:", e.message));
+    }
     await pool.query("DELETE FROM doc_templates WHERE id=$1", [req.params.id]);
     return res.json({ ok: true });
   } catch (err) {
@@ -583,7 +612,8 @@ router.post("/:id/generate", requireAuth, async (req, res) => {
       }
     }
 
-    let docxBuffer = template.docx_data;
+    let docxBuffer = await getTemplateBuffer(template);
+    if (!docxBuffer) return res.status(400).json({ error: "No template data" });
 
     if (isPleading) {
       const useSystemHeader = template.use_system_header !== false;

@@ -3,10 +3,26 @@ const multer = require("multer");
 const { randomUUID } = require("crypto");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 const pendingFilingChunks = new Map();
+
+async function uploadFilingToS3(filingId, filename, buffer, contentType) {
+  if (!isR2Configured()) return null;
+  const key = `filings/${filingId}/${filename}`;
+  await uploadToR2(key, buffer, contentType);
+  await pool.query("UPDATE case_filings SET s3_key = $1 WHERE id = $2", [key, filingId]);
+  return key;
+}
+
+async function getFilingBuffer(row) {
+  if (row.s3_key && isR2Configured()) {
+    return downloadFromR2(row.s3_key);
+  }
+  return row.file_data || null;
+}
 
 async function extractPdfText(buffer) {
   const pdfParse = require("pdf-parse");
@@ -87,6 +103,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
        RETURNING id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at`,
       [caseId, req.file.originalname, req.file.originalname, req.file.mimetype, req.file.buffer, extractedText, req.file.size, filedBy || "", filingDate || null, docType || "", req.session.userId, userName]
     );
+    uploadFilingToS3(rows[0].id, req.file.originalname, req.file.buffer, req.file.mimetype).catch(e => console.error("S3 filing upload error:", e.message));
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Filing upload error:", err);
@@ -96,14 +113,16 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
 router.get("/:id/download", requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id FROM case_filings WHERE id = $1", [req.params.id]);
+    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id, s3_key FROM case_filings WHERE id = $1", [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     const doc = rows[0];
     if (!(await verifyCaseAccess(req, doc.case_id))) return res.status(403).json({ error: "Access denied" });
+    const fileBuffer = await getFilingBuffer(doc);
+    if (!fileBuffer) return res.status(404).json({ error: "File data not found" });
     const disposition = req.query.inline === "true" ? "inline" : "attachment";
     res.setHeader("Content-Type", doc.content_type);
     res.setHeader("Content-Disposition", `${disposition}; filename="${doc.filename}"`);
-    return res.send(doc.file_data);
+    return res.send(fileBuffer);
   } catch (err) {
     console.error("Filing download error:", err);
     return res.status(500).json({ error: "Download failed" });
@@ -327,6 +346,7 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
        RETURNING id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at`,
       [pending.caseId, pending.filename, pending.filename, fullBuffer, extractedText, fullBuffer.length, pending.filedBy, pending.filingDate, pending.docType, pending.userId, uploaderName]
     );
+    uploadFilingToS3(rows[0].id, pending.filename, fullBuffer, "application/pdf").catch(e => console.error("S3 filing upload error:", e.message));
     res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Filing chunk complete error:", err.message);

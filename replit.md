@@ -39,7 +39,8 @@ server/
   email.js          — SendGrid email utility
   sms.js            — Twilio SMS utility
   sms-scheduler.js  — SMS scheduler for appointment/treatment reminders
-  r2.js             — Cloudflare R2 storage module (S3-compatible, hybrid fallback)
+  r2.js             — AWS S3 storage module (supports S3 via AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION/S3_BUCKET_NAME; legacy R2 fallback via R2_* vars)
+  migrate-to-s3.js  — One-time migration script: uploads BYTEA data to S3, sets s3_key columns, optional --nullify-bytea to clear BYTEA after confirming
   routes/
     auth.js         — login, logout, me, change-password, forgot/reset-password
     case-documents.js — CRUD /api/case-documents; PUT /:docId/move for folder drag-and-drop
@@ -196,7 +197,14 @@ All agents use OpenAI (`gpt-4o-mini`) via existing integration. Jurisdiction-awa
 
 ### Cloud Storage (R2)
 - Cloudflare R2 via S3-compatible API (`server/r2.js`)
-- Hybrid model: R2 when configured (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME), BYTEA fallback
+- **S3 Storage**: All binary files (documents, filings, voicemails, templates, profile pictures, agent instructions) upload to S3 with BYTEA fallback
+- **S3 env vars**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` (all set in secrets)
+- **S3 key columns**: `case_documents.s3_key`, `case_filings.s3_key`, `doc_templates.s3_key`, `case_voicemails.s3_key`, `users.s3_profile_picture_key`, `custom_agents.s3_instruction_key`
+- **Upload pattern**: INSERT with BYTEA → fire-and-forget `uploadToR2()` → UPDATE s3_key. BYTEA kept for legacy fallback
+- **Download pattern**: `getXBuffer(row)` checks `row.s3_key && isR2Configured()` first (with try/catch fallback to BYTEA)
+- **S3 key paths**: `documents/{id}/{filename}`, `filings/{id}/{filename}`, `voicemails/{id}/audio.{ext}`, `templates/{id}/{name}.docx`, `profile-pictures/{id}/avatar.{ext}`, `custom-agents/{id}/{filename}`
+- **Migration script**: `node server/migrate-to-s3.js` (--dry-run to preview, --nullify-bytea to clear BYTEA after confirming)
+- Legacy R2 support retained (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME)
 - Chunked uploads use S3 multipart when R2 available
 - Supports audio, video, and document storage
 

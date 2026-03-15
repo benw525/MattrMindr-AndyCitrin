@@ -301,6 +301,12 @@ async function ensureColumns() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_calendar_sync BOOLEAN DEFAULT false`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS ms_sync_deadline_types JSONB DEFAULT '[]'`,
     `ALTER TABLE deadlines ADD COLUMN IF NOT EXISTS outlook_event_id TEXT`,
+    `ALTER TABLE case_documents ADD COLUMN IF NOT EXISTS s3_key TEXT`,
+    `ALTER TABLE case_filings ADD COLUMN IF NOT EXISTS s3_key TEXT`,
+    `ALTER TABLE doc_templates ADD COLUMN IF NOT EXISTS s3_key TEXT`,
+    `ALTER TABLE case_voicemails ADD COLUMN IF NOT EXISTS s3_key TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS s3_profile_picture_key TEXT`,
+    `ALTER TABLE custom_agents ADD COLUMN IF NOT EXISTS s3_instruction_key TEXT`,
   ];
 
   const newTableCreations = [

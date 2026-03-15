@@ -7,8 +7,25 @@ const path = require("path");
 const OpenAI = require("openai");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
 
 const router = express.Router();
+
+async function uploadVmToS3(vmId, buffer, contentType) {
+  if (!isR2Configured()) return null;
+  const ext = contentType === "audio/wav" ? "wav" : contentType === "audio/mpeg" ? "mp3" : "audio";
+  const key = `voicemails/${vmId}/audio.${ext}`;
+  await uploadToR2(key, buffer, contentType);
+  await pool.query("UPDATE case_voicemails SET s3_key = $1 WHERE id = $2", [key, vmId]);
+  return key;
+}
+
+async function getVmBuffer(row) {
+  if (row.s3_key && isR2Configured()) {
+    try { return await downloadFromR2(row.s3_key); } catch (e) { console.error("S3 VM download fallback:", e.message); }
+  }
+  return row.audio_data || null;
+}
 
 const toFrontend = (row) => ({
   id: row.id,
@@ -28,7 +45,7 @@ router.get("/:caseId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, case_id, caller_name, caller_number, duration, transcript_text,
-              (audio_data IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at
+              (audio_data IS NOT NULL OR s3_key IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at
        FROM case_voicemails
        WHERE case_id = $1 AND deleted_at IS NULL
        ORDER BY received_at DESC`,
@@ -48,7 +65,7 @@ router.post("/:caseId", requireAuth, async (req, res) => {
       `INSERT INTO case_voicemails (case_id, caller_name, caller_number, duration, transcript_text, notes, received_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, case_id, caller_name, caller_number, duration, transcript_text,
-                 (audio_data IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at`,
+                 (audio_data IS NOT NULL OR s3_key IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at`,
       [req.params.caseId, callerName || '', callerNumber || '', duration || null, transcriptText || '', notes || '', receivedAt || new Date()]
     );
     return res.json(toFrontend(rows[0]));
@@ -71,7 +88,7 @@ router.put("/:id", requireAuth, async (req, res) => {
            received_at = COALESCE($6, received_at)
        WHERE id = $7 AND deleted_at IS NULL
        RETURNING id, case_id, caller_name, caller_number, duration, transcript_text,
-                 (audio_data IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at`,
+                 (audio_data IS NOT NULL OR s3_key IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at`,
       [callerName, callerNumber, duration, transcriptText, notes, receivedAt, req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
@@ -104,13 +121,12 @@ router.post("/:id/transcribe", requireAuth, async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      "SELECT id, audio_data, audio_mime FROM case_voicemails WHERE id = $1 AND deleted_at IS NULL",
+      "SELECT id, audio_data, audio_mime, s3_key FROM case_voicemails WHERE id = $1 AND deleted_at IS NULL",
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Voicemail not found" });
-    if (!rows[0].audio_data) return res.status(400).json({ error: "No audio data to transcribe" });
-
-    const audioBuffer = rows[0].audio_data;
+    const audioBuffer = await getVmBuffer(rows[0]);
+    if (!audioBuffer) return res.status(400).json({ error: "No audio data to transcribe" });
     await writeFile(inputPath, audioBuffer);
 
     await new Promise((resolve, reject) => {
@@ -156,7 +172,7 @@ router.post("/:id/transcribe", requireAuth, async (req, res) => {
       `UPDATE case_voicemails SET transcript_text = $1
        WHERE id = $2 AND deleted_at IS NULL
        RETURNING id, case_id, caller_name, caller_number, duration, transcript_text,
-                 (audio_data IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at`,
+                 (audio_data IS NOT NULL OR s3_key IS NOT NULL) as has_audio, audio_mime, notes, received_at, created_at`,
       [transcriptText, req.params.id]
     );
 
@@ -174,12 +190,14 @@ router.post("/:id/transcribe", requireAuth, async (req, res) => {
 router.get("/:id/audio", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT audio_data, audio_mime FROM case_voicemails WHERE id = $1 AND deleted_at IS NULL",
+      "SELECT audio_data, audio_mime, s3_key FROM case_voicemails WHERE id = $1 AND deleted_at IS NULL",
       [req.params.id]
     );
-    if (rows.length === 0 || !rows[0].audio_data) return res.status(404).json({ error: "No audio" });
+    if (rows.length === 0) return res.status(404).json({ error: "No audio" });
+    const audioBuffer = await getVmBuffer(rows[0]);
+    if (!audioBuffer) return res.status(404).json({ error: "No audio" });
     res.setHeader("Content-Type", rows[0].audio_mime || "audio/mpeg");
-    return res.send(rows[0].audio_data);
+    return res.send(audioBuffer);
   } catch (err) {
     console.error("Voicemail audio error:", err);
     return res.status(500).json({ error: "Server error" });

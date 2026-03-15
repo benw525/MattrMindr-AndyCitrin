@@ -19,9 +19,9 @@ const ENTITY_CONFIG = [
   { type: "cases", table: "cases", nameCol: "title", caseCol: null, label: "Cases" },
   { type: "contacts", table: "contacts", nameCol: "name", caseCol: null, label: "Contacts" },
   { type: "users", table: "users", nameCol: "name", caseCol: null, label: "Staff" },
-  { type: "documents", table: "case_documents", nameCol: "filename", caseCol: "case_id", label: "Documents", r2KeyCol: "r2_key" },
+  { type: "documents", table: "case_documents", nameCol: "filename", caseCol: "case_id", label: "Documents", r2KeyCol: "s3_key" },
   { type: "transcripts", table: "case_transcripts", nameCol: "filename", caseCol: "case_id", label: "Transcripts", r2KeyCols: ["r2_audio_key", "r2_video_key"] },
-  { type: "filings", table: "case_filings", nameCol: "filename", caseCol: "case_id", label: "Filings", r2KeyCol: "r2_key" },
+  { type: "filings", table: "case_filings", nameCol: "filename", caseCol: "case_id", label: "Filings", r2KeyCol: "s3_key" },
   { type: "correspondence", table: "case_correspondence", nameCol: "subject", caseCol: "case_id", label: "Correspondence" },
   { type: "deadlines", table: "deadlines", nameCol: "title", caseCol: "case_id", label: "Deadlines" },
   { type: "notes", table: "case_notes", nameCol: "body", caseCol: "case_id", label: "Notes" },
@@ -225,6 +225,15 @@ async function autoPurgeExpired() {
   try {
     let total = 0;
     for (const cfg of ENTITY_CONFIG) {
+      if (cfg.r2KeyCol || cfg.r2KeyCols) {
+        const { rows: expiredRows } = await pool.query(
+          `SELECT id FROM ${cfg.table} WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'`
+        );
+        if (expiredRows.length > 0) {
+          const ids = expiredRows.map(r => r.id);
+          await deleteR2Objects(cfg, ids);
+        }
+      }
       const { rowCount } = await pool.query(
         `DELETE FROM ${cfg.table} WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'`
       );

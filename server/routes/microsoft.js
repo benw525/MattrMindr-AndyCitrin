@@ -2,6 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { isR2Configured, uploadToR2 } = require("../r2");
 const router = express.Router();
 
 const pendingOAuthStates = new Map();
@@ -586,6 +587,12 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
         [caseId, filename, mimeType, buffer, docType || "Other", uid, userName, buffer.length, folderVal, "OneDrive"]
       );
       const docId = rows[0].id;
+      if (isR2Configured()) {
+        const s3Key = `documents/${docId}/${filename}`;
+        uploadToR2(s3Key, buffer, mimeType).then(() =>
+          pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [s3Key, docId])
+        ).catch(e => console.error("S3 OneDrive doc upload error:", e.message));
+      }
       (async () => {
         try {
           const text = await extractText(buffer, mimeType, filename);
@@ -612,6 +619,12 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
       [caseId, filename, mimeType, buffer, extractedText, docType || "Other", uid, userName, buffer.length, ocrStatus, folderVal, "OneDrive"]
     );
     const saved = rows[0];
+    if (isR2Configured()) {
+      const s3Key = `documents/${saved.id}/${filename}`;
+      uploadToR2(s3Key, buffer, mimeType).then(() =>
+        pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [s3Key, saved.id])
+      ).catch(e => console.error("S3 OneDrive doc upload error:", e.message));
+    }
     res.status(201).json({
       id: saved.id, caseId: saved.case_id, filename: saved.filename, contentType: saved.content_type,
       summary: saved.summary || null, docType: saved.doc_type, uploadedBy: saved.uploaded_by,

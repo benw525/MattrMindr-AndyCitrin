@@ -2,11 +2,12 @@ const express = require("express");
 const multer = require("multer");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { isR2Configured, uploadToR2, downloadFromR2, deleteFromR2 } = require("../r2");
 
 const router = express.Router();
 const ppUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-const USER_FIELDS = "id, name, role, roles, email, initials, phone, cell, ext, avatar, offices, deleted_at, (profile_picture IS NOT NULL AND profile_picture_type IS NOT NULL) as has_profile_picture";
+const USER_FIELDS = "id, name, role, roles, email, initials, phone, cell, ext, avatar, offices, deleted_at, ((profile_picture IS NOT NULL AND profile_picture_type IS NOT NULL) OR s3_profile_picture_key IS NOT NULL) as has_profile_picture";
 
 function normalizeUser(r) {
   return {
@@ -184,6 +185,13 @@ router.post("/:id/profile-picture", requireAuth, ppUpload.single("picture"), asy
       "UPDATE users SET profile_picture = $1, profile_picture_type = $2 WHERE id = $3",
       [req.file.buffer, req.file.mimetype, targetId]
     );
+    if (isR2Configured()) {
+      const ext = req.file.mimetype === "image/png" ? "png" : req.file.mimetype === "image/webp" ? "webp" : req.file.mimetype === "image/gif" ? "gif" : "jpg";
+      const key = `profile-pictures/${targetId}/avatar.${ext}`;
+      uploadToR2(key, req.file.buffer, req.file.mimetype).then(() =>
+        pool.query("UPDATE users SET s3_profile_picture_key = $1 WHERE id = $2", [key, targetId])
+      ).catch(e => console.error("S3 profile pic upload error:", e.message));
+    }
     return res.json({ ok: true });
   } catch (err) {
     console.error("Profile picture upload error:", err);
@@ -194,15 +202,22 @@ router.post("/:id/profile-picture", requireAuth, ppUpload.single("picture"), asy
 router.get("/:id/profile-picture", async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT profile_picture, profile_picture_type FROM users WHERE id = $1",
+      "SELECT profile_picture, profile_picture_type, s3_profile_picture_key FROM users WHERE id = $1",
       [req.params.id]
     );
-    if (!rows.length || !rows[0].profile_picture) {
-      return res.status(404).json({ error: "No profile picture" });
+    if (!rows.length) return res.status(404).json({ error: "No profile picture" });
+    let buffer = null;
+    let contentType = rows[0].profile_picture_type || "image/jpeg";
+    if (rows[0].s3_profile_picture_key && isR2Configured()) {
+      try { buffer = await downloadFromR2(rows[0].s3_profile_picture_key); } catch (e) { console.error("S3 profile pic download fallback:", e.message); }
     }
-    res.setHeader("Content-Type", rows[0].profile_picture_type);
+    if (!buffer && rows[0].profile_picture) {
+      buffer = rows[0].profile_picture;
+    }
+    if (!buffer) return res.status(404).json({ error: "No profile picture" });
+    res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=300");
-    return res.send(rows[0].profile_picture);
+    return res.send(buffer);
   } catch (err) {
     console.error("Profile picture fetch error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -215,8 +230,12 @@ router.delete("/:id/profile-picture", requireAuth, async (req, res) => {
     if (req.session.userId !== targetId && !isAppAdmin(req)) {
       return res.status(403).json({ error: "Not authorized" });
     }
+    const { rows } = await pool.query("SELECT s3_profile_picture_key FROM users WHERE id = $1", [targetId]);
+    if (rows[0]?.s3_profile_picture_key && isR2Configured()) {
+      deleteFromR2(rows[0].s3_profile_picture_key).catch(e => console.error("S3 profile pic delete error:", e.message));
+    }
     await pool.query(
-      "UPDATE users SET profile_picture = NULL, profile_picture_type = NULL WHERE id = $1",
+      "UPDATE users SET profile_picture = NULL, profile_picture_type = NULL, s3_profile_picture_key = NULL WHERE id = $1",
       [targetId]
     );
     return res.json({ ok: true });

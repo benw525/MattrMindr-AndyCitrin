@@ -4,6 +4,7 @@ const multer = require("multer");
 const pool = require("../db");
 const { requireClientAuth } = require("../middleware/clientAuth");
 const { extractText } = require("../utils/extract-text");
+const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
@@ -214,6 +215,13 @@ router.post("/documents/upload", requireClientAuth, upload.single("file"), async
        VALUES ($1, $2, $3, $4, $5, 'Client Upload', $6, $7, $8, 'client') RETURNING id, filename, doc_type, file_size, source, created_at`,
       [caseId, req.file.originalname, req.file.mimetype, req.file.buffer, extractedText, req.session.clientId, uploaderName, req.file.size]
     );
+    if (rows.length > 0 && isR2Configured()) {
+      const docId = rows[0].id;
+      const s3Key = `documents/${docId}/${req.file.originalname}`;
+      uploadToR2(s3Key, req.file.buffer, req.file.mimetype).then(() =>
+        pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [s3Key, docId])
+      ).catch(e => console.error("S3 portal upload error:", e.message));
+    }
     res.json(rows[0]);
   } catch (err) {
     console.error("Portal upload error:", err);
@@ -224,13 +232,21 @@ router.post("/documents/upload", requireClientAuth, upload.single("file"), async
 router.get("/documents/:id/download", requireClientAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT file_data, content_type, filename FROM case_documents WHERE id = $1 AND case_id = $2",
+      "SELECT file_data, content_type, filename, s3_key FROM case_documents WHERE id = $1 AND case_id = $2",
       [req.params.id, req.session.clientCaseId]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
+    let buffer = null;
+    if (rows[0].s3_key && isR2Configured()) {
+      try { buffer = await downloadFromR2(rows[0].s3_key); } catch (e) { console.error("S3 portal download fallback:", e.message); }
+    }
+    if (!buffer) {
+      buffer = rows[0].file_data;
+    }
+    if (!buffer) return res.status(404).json({ error: "Document data not found" });
     res.set("Content-Type", rows[0].content_type);
     res.set("Content-Disposition", `attachment; filename="${rows[0].filename}"`);
-    res.send(rows[0].file_data);
+    res.send(buffer);
   } catch (err) {
     console.error("Portal download error:", err);
     res.status(500).json({ error: "Server error" });
