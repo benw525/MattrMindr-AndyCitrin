@@ -578,21 +578,25 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
     }
 
     const { extractText } = require("../utils/extract-text");
+
+    let odS3Key = null;
+    if (isR2Configured()) {
+      try {
+        const { randomUUID } = require("crypto");
+        odS3Key = `documents/${randomUUID()}/${filename}`;
+        await uploadToR2(odS3Key, buffer, mimeType);
+      } catch (e) { console.error("S3 OneDrive pre-upload failed, using BYTEA:", e.message); odS3Key = null; }
+    }
+
     const needsAsyncOcr = mimeType === "application/pdf";
     if (needsAsyncOcr) {
       const { rows } = await pool.query(
-        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, source)
-         VALUES ($1,$2,$3,$4,'',$5,$6,$7,$8,'processing',$9,$10)
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, source, s3_key)
+         VALUES ($1,$2,$3,$4,'',$5,$6,$7,$8,'processing',$9,$10,$11)
          RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-        [caseId, filename, mimeType, buffer, docType || "Other", uid, userName, buffer.length, folderVal, "OneDrive"]
+        [caseId, filename, mimeType, odS3Key ? null : buffer, docType || "Other", uid, userName, buffer.length, folderVal, "OneDrive", odS3Key]
       );
       const docId = rows[0].id;
-      if (isR2Configured()) {
-        const s3Key = `documents/${docId}/${filename}`;
-        uploadToR2(s3Key, buffer, mimeType).then(() =>
-          pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [s3Key, docId])
-        ).catch(e => console.error("S3 OneDrive doc upload error:", e.message));
-      }
       (async () => {
         try {
           const text = await extractText(buffer, mimeType, filename);
@@ -613,18 +617,12 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
     try { extractedText = await extractText(buffer, mimeType, filename); } catch {}
     const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
     const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, source, s3_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-      [caseId, filename, mimeType, buffer, extractedText, docType || "Other", uid, userName, buffer.length, ocrStatus, folderVal, "OneDrive"]
+      [caseId, filename, mimeType, odS3Key ? null : buffer, extractedText, docType || "Other", uid, userName, buffer.length, ocrStatus, folderVal, "OneDrive", odS3Key]
     );
     const saved = rows[0];
-    if (isR2Configured()) {
-      const s3Key = `documents/${saved.id}/${filename}`;
-      uploadToR2(s3Key, buffer, mimeType).then(() =>
-        pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [s3Key, saved.id])
-      ).catch(e => console.error("S3 OneDrive doc upload error:", e.message));
-    }
     res.status(201).json({
       id: saved.id, caseId: saved.case_id, filename: saved.filename, contentType: saved.content_type,
       summary: saved.summary || null, docType: saved.doc_type, uploadedBy: saved.uploaded_by,

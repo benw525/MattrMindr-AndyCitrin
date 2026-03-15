@@ -210,18 +210,20 @@ router.post("/documents/upload", requireClientAuth, upload.single("file"), async
       extractedText = await extractText(req.file.buffer, req.file.mimetype, req.file.originalname) || "";
     } catch (_) {}
 
-    const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, source)
-       VALUES ($1, $2, $3, $4, $5, 'Client Upload', $6, $7, $8, 'client') RETURNING id, filename, doc_type, file_size, source, created_at`,
-      [caseId, req.file.originalname, req.file.mimetype, req.file.buffer, extractedText, req.session.clientId, uploaderName, req.file.size]
-    );
-    if (rows.length > 0 && isR2Configured()) {
-      const docId = rows[0].id;
-      const s3Key = `documents/${docId}/${req.file.originalname}`;
-      uploadToR2(s3Key, req.file.buffer, req.file.mimetype).then(() =>
-        pool.query("UPDATE case_documents SET s3_key = $1 WHERE id = $2", [s3Key, docId])
-      ).catch(e => console.error("S3 portal upload error:", e.message));
+    let portalS3Key = null;
+    if (isR2Configured()) {
+      try {
+        const { randomUUID } = require("crypto");
+        portalS3Key = `documents/${randomUUID()}/${req.file.originalname}`;
+        await uploadToR2(portalS3Key, req.file.buffer, req.file.mimetype);
+      } catch (e) { console.error("S3 portal pre-upload failed, using BYTEA:", e.message); portalS3Key = null; }
     }
+
+    const { rows } = await pool.query(
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, source, s3_key)
+       VALUES ($1, $2, $3, $4, $5, 'Client Upload', $6, $7, $8, 'client', $9) RETURNING id, filename, doc_type, file_size, source, created_at`,
+      [caseId, req.file.originalname, req.file.mimetype, portalS3Key ? null : req.file.buffer, extractedText, req.session.clientId, uploaderName, req.file.size, portalS3Key]
+    );
     res.json(rows[0]);
   } catch (err) {
     console.error("Portal upload error:", err);

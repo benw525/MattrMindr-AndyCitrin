@@ -382,9 +382,18 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const useSystemSignature = req.body.useSystemSignature !== "false";
     const useSystemCos = req.body.useSystemCos !== "false";
 
+    let s3Key = null;
+    if (isR2Configured()) {
+      try {
+        const { randomUUID } = require("crypto");
+        s3Key = `templates/${randomUUID()}/${name.trim()}.docx`;
+        await uploadToR2(s3Key, docxBuffer, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      } catch (e) { console.error("S3 template pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+    }
+
     const { rows } = await pool.query(
-      `INSERT INTO doc_templates (name, tags, created_by, created_by_name, placeholders, docx_data, visibility, category, sub_type, use_system_header, use_system_signature, use_system_cos)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO doc_templates (name, tags, created_by, created_by_name, placeholders, docx_data, visibility, category, sub_type, use_system_header, use_system_signature, use_system_cos, s3_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING ${TEMPLATE_FIELDS}`,
       [
         name.trim(),
@@ -392,16 +401,16 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         req.session.userId,
         req.session.userName,
         JSON.stringify(storedPlaceholders),
-        docxBuffer,
+        s3Key ? null : docxBuffer,
         req.body.visibility === "personal" ? "personal" : "global",
         category || "General",
         subType || "",
         useSystemHeader,
         useSystemSignature,
         useSystemCos,
+        s3Key,
       ]
     );
-    uploadTemplateToS3(rows[0].id, name.trim(), docxBuffer).catch(e => console.error("S3 template upload error:", e.message));
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Template save error:", err);
@@ -535,11 +544,19 @@ router.put("/:id", requireAuth, async (req, res) => {
       }
 
       const newDocxData = zip.generate({ type: "nodebuffer" });
-      sets.push(`docx_data = $${idx++}`);
-      vals.push(newDocxData);
+      let reprocessS3Key = null;
       if (isR2Configured()) {
-        const tplName = name || "template";
-        uploadTemplateToS3(req.params.id, tplName, newDocxData).catch(e => console.error("S3 template reprocess upload error:", e.message));
+        try {
+          const tplName = name || "template";
+          reprocessS3Key = `templates/${req.params.id}/${tplName}.docx`;
+          await uploadToR2(reprocessS3Key, newDocxData, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        } catch (e) { console.error("S3 template reprocess pre-upload failed, using BYTEA:", e.message); reprocessS3Key = null; }
+      }
+      sets.push(`docx_data = $${idx++}`);
+      vals.push(reprocessS3Key ? null : newDocxData);
+      if (reprocessS3Key) {
+        sets.push(`s3_key = $${idx++}`);
+        vals.push(reprocessS3Key);
       }
     }
 

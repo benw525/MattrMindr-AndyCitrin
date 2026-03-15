@@ -97,13 +97,20 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     }
 
     const userName = req.session.userName || "";
+    let s3Key = null;
+    if (isR2Configured()) {
+      try {
+        const { randomUUID } = require("crypto");
+        s3Key = `filings/${randomUUID()}/${req.file.originalname}`;
+        await uploadToR2(s3Key, req.file.buffer, req.file.mimetype);
+      } catch (e) { console.error("S3 filing pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+    }
     const { rows } = await pool.query(
-      `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, filed_by, filing_date, doc_type, source, uploaded_by, uploaded_by_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'upload', $11, $12)
+      `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, filed_by, filing_date, doc_type, source, uploaded_by, uploaded_by_name, s3_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'upload', $11, $12, $13)
        RETURNING id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at`,
-      [caseId, req.file.originalname, req.file.originalname, req.file.mimetype, req.file.buffer, extractedText, req.file.size, filedBy || "", filingDate || null, docType || "", req.session.userId, userName]
+      [caseId, req.file.originalname, req.file.originalname, req.file.mimetype, s3Key ? null : req.file.buffer, extractedText, req.file.size, filedBy || "", filingDate || null, docType || "", req.session.userId, userName, s3Key]
     );
-    uploadFilingToS3(rows[0].id, req.file.originalname, req.file.buffer, req.file.mimetype).catch(e => console.error("S3 filing upload error:", e.message));
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Filing upload error:", err);
@@ -340,13 +347,20 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     try { extractedText = await extractPdfText(fullBuffer); } catch (e) { console.error("Filing chunk text extraction error:", e); }
     const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [pending.userId]);
     const uploaderName = userRows.length ? userRows[0].name : "";
+    let s3Key = null;
+    if (isR2Configured()) {
+      try {
+        const { randomUUID } = require("crypto");
+        s3Key = `filings/${randomUUID()}/${pending.filename}`;
+        await uploadToR2(s3Key, fullBuffer, "application/pdf");
+      } catch (e) { console.error("S3 filing chunk pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+    }
     const { rows } = await pool.query(
-      `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, filed_by, filing_date, doc_type, source, uploaded_by, uploaded_by_name)
-       VALUES ($1, $2, $3, 'application/pdf', $4, $5, $6, $7, $8, $9, 'upload', $10, $11)
+      `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, filed_by, filing_date, doc_type, source, uploaded_by, uploaded_by_name, s3_key)
+       VALUES ($1, $2, $3, 'application/pdf', $4, $5, $6, $7, $8, $9, 'upload', $10, $11, $12)
        RETURNING id, case_id, filename, original_filename, content_type, file_size, filed_by, filing_date, summary, doc_type, source, source_email_from, uploaded_by, uploaded_by_name, created_at`,
-      [pending.caseId, pending.filename, pending.filename, fullBuffer, extractedText, fullBuffer.length, pending.filedBy, pending.filingDate, pending.docType, pending.userId, uploaderName]
+      [pending.caseId, pending.filename, pending.filename, s3Key ? null : fullBuffer, extractedText, fullBuffer.length, pending.filedBy, pending.filingDate, pending.docType, pending.userId, uploaderName, s3Key]
     );
-    uploadFilingToS3(rows[0].id, pending.filename, fullBuffer, "application/pdf").catch(e => console.error("S3 filing upload error:", e.message));
     res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Filing chunk complete error:", err.message);

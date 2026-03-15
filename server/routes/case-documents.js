@@ -146,16 +146,23 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
       if (!folderRows.length) return res.status(400).json({ error: "Folder not found for this case" });
     }
 
+    let s3Key = null;
+    if (isR2Configured()) {
+      try {
+        const { randomUUID } = require("crypto");
+        s3Key = `documents/${randomUUID()}/${req.file.originalname}`;
+        await uploadToR2(s3Key, req.file.buffer, ct);
+      } catch (e) { console.error("S3 pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+    }
+
     if (needsOcr(ct)) {
       const { rows } = await pool.query(
-        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
-         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing', $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-        [caseId, req.file.originalname, ct, req.file.buffer, docType || "Other", req.session.userId, userName, req.file.size, folderVal]
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, s3_key)
+         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing', $9, $10) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+        [caseId, req.file.originalname, ct, s3Key ? null : req.file.buffer, docType || "Other", req.session.userId, userName, req.file.size, folderVal, s3Key]
       );
-      const saved = rows[0];
-      uploadDocToS3(saved.id, req.file.originalname, req.file.buffer, ct).catch(e => console.error("S3 upload error:", e.message));
-      runOcrBackground(saved.id, req.file.buffer, ct, req.file.originalname);
-      return res.status(201).json(toFrontend(saved));
+      runOcrBackground(rows[0].id, req.file.buffer, ct, req.file.originalname);
+      return res.status(201).json(toFrontend(rows[0]));
     }
 
     let extractedText = "";
@@ -167,11 +174,10 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
     const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
     const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-      [caseId, req.file.originalname, ct, req.file.buffer, extractedText, docType || "Other", req.session.userId, userName, req.file.size, ocrStatus, folderVal]
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, s3_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+      [caseId, req.file.originalname, ct, s3Key ? null : req.file.buffer, extractedText, docType || "Other", req.session.userId, userName, req.file.size, ocrStatus, folderVal, s3Key]
     );
-    uploadDocToS3(rows[0].id, req.file.originalname, req.file.buffer, ct).catch(e => console.error("S3 upload error:", e.message));
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Document upload error:", err);
@@ -381,9 +387,16 @@ router.put("/:id/xlsx-data", requireAuth, async (req, res) => {
       XLSX.utils.book_append_sheet(workbook, ws, sheet.name);
     }
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-    await pool.query("UPDATE case_documents SET file_data = $1 WHERE id = $2", [buffer, req.params.id]);
     const { rows: docInfo } = await pool.query("SELECT filename, content_type FROM case_documents WHERE id = $1", [req.params.id]);
-    if (docInfo.length) uploadDocToS3(req.params.id, docInfo[0].filename, buffer, docInfo[0].content_type).catch(e => console.error("S3 xlsx save error:", e.message));
+    let xlsxS3Key = null;
+    if (isR2Configured() && docInfo.length) {
+      try {
+        const { randomUUID } = require("crypto");
+        xlsxS3Key = `documents/${randomUUID()}/${docInfo[0].filename}`;
+        await uploadToR2(xlsxS3Key, buffer, docInfo[0].content_type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      } catch (e) { console.error("S3 xlsx pre-upload failed, using BYTEA:", e.message); xlsxS3Key = null; }
+    }
+    await pool.query("UPDATE case_documents SET file_data = $1, s3_key = COALESCE($2, s3_key) WHERE id = $3", [xlsxS3Key ? null : buffer, xlsxS3Key, req.params.id]);
     res.json({ ok: true });
   } catch (err) {
     console.error("XLSX save error:", err);
@@ -693,13 +706,21 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [pending.userId]);
     const uploaderName = userRows.length ? userRows[0].name : "";
 
+    let s3Key = null;
+    if (isR2Configured()) {
+      try {
+        const { randomUUID } = require("crypto");
+        s3Key = `documents/${randomUUID()}/${pending.filename}`;
+        await uploadToR2(s3Key, fullBuffer, pending.contentType);
+      } catch (e) { console.error("S3 chunk pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+    }
+
     if (needsOcr(pending.contentType)) {
       const { rows } = await pool.query(
-        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
-         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing', $9) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-        [pending.caseId, pending.filename, pending.contentType, fullBuffer, pending.docType, pending.userId, uploaderName, fullBuffer.length, pending.folderId || null]
+        `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, s3_key)
+         VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, 'processing', $9, $10) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+        [pending.caseId, pending.filename, pending.contentType, s3Key ? null : fullBuffer, pending.docType, pending.userId, uploaderName, fullBuffer.length, pending.folderId || null, s3Key]
       );
-      uploadDocToS3(rows[0].id, pending.filename, fullBuffer, pending.contentType).catch(e => console.error("S3 upload error:", e.message));
       runOcrBackground(rows[0].id, fullBuffer, pending.contentType, pending.filename);
       return res.json(toFrontend(rows[0]));
     }
@@ -708,11 +729,10 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     try { extractedText = await extractText(fullBuffer, pending.contentType, pending.filename); } catch (e) { console.error("Chunk text extraction error:", e); }
     const ocrStatus = (extractedText && extractedText.trim().length > 0) ? "complete" : "failed";
     const { rows } = await pool.query(
-      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
-      [pending.caseId, pending.filename, pending.contentType, fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length, ocrStatus, pending.folderId || null]
+      `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by, uploaded_by_name, file_size, ocr_status, folder_id, s3_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, case_id, filename, content_type, extracted_text, summary, doc_type, uploaded_by, uploaded_by_name, file_size, created_at, folder_id, sort_order, ocr_status`,
+      [pending.caseId, pending.filename, pending.contentType, s3Key ? null : fullBuffer, extractedText, pending.docType, pending.userId, uploaderName, fullBuffer.length, ocrStatus, pending.folderId || null, s3Key]
     );
-    uploadDocToS3(rows[0].id, pending.filename, fullBuffer, pending.contentType).catch(e => console.error("S3 upload error:", e.message));
     res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Doc chunk complete error:", err.message);

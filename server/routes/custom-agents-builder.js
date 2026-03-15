@@ -256,17 +256,18 @@ router.post("/:id/upload-instructions", requireAuth, upload.single("file"), asyn
       text = buffer.toString("utf8").substring(0, 50000);
     }
 
+    let s3Key = null;
+    if (isR2Configured()) {
+      try {
+        s3Key = `custom-agents/${req.params.id}/${filename}`;
+        await uploadToR2(s3Key, buffer, mimeType);
+      } catch (e) { console.error("S3 agent instruction pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+    }
     const { rows } = await pool.query(
-      "UPDATE custom_agents SET instruction_file=$1, instruction_filename=$2, instruction_text=$3, updated_at=NOW() WHERE id=$4 AND user_id=$5 RETURNING *",
-      [buffer, filename, text, req.params.id, req.session.userId]
+      "UPDATE custom_agents SET instruction_file=$1, instruction_filename=$2, instruction_text=$3, s3_instruction_key=$4, updated_at=NOW() WHERE id=$5 AND user_id=$6 RETURNING *",
+      [s3Key ? null : buffer, filename, text, s3Key, req.params.id, req.session.userId]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
-    if (isR2Configured()) {
-      const key = `custom-agents/${req.params.id}/${filename}`;
-      uploadToR2(key, buffer, mimeType).then(() =>
-        pool.query("UPDATE custom_agents SET s3_instruction_key = $1 WHERE id = $2", [key, req.params.id])
-      ).catch(e => console.error("S3 agent instruction upload error:", e.message));
-    }
     res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Custom agent upload instructions error:", err);

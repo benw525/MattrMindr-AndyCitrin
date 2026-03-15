@@ -181,17 +181,18 @@ router.post("/:id/profile-picture", requireAuth, ppUpload.single("picture"), asy
     if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
       return res.status(400).json({ error: "Only JPEG, PNG, WebP, and GIF images are supported" });
     }
-    await pool.query(
-      "UPDATE users SET profile_picture = $1, profile_picture_type = $2 WHERE id = $3",
-      [req.file.buffer, req.file.mimetype, targetId]
-    );
+    const ext = req.file.mimetype === "image/png" ? "png" : req.file.mimetype === "image/webp" ? "webp" : req.file.mimetype === "image/gif" ? "gif" : "jpg";
+    let s3Key = null;
     if (isR2Configured()) {
-      const ext = req.file.mimetype === "image/png" ? "png" : req.file.mimetype === "image/webp" ? "webp" : req.file.mimetype === "image/gif" ? "gif" : "jpg";
-      const key = `profile-pictures/${targetId}/avatar.${ext}`;
-      uploadToR2(key, req.file.buffer, req.file.mimetype).then(() =>
-        pool.query("UPDATE users SET s3_profile_picture_key = $1 WHERE id = $2", [key, targetId])
-      ).catch(e => console.error("S3 profile pic upload error:", e.message));
+      try {
+        s3Key = `profile-pictures/${targetId}/avatar.${ext}`;
+        await uploadToR2(s3Key, req.file.buffer, req.file.mimetype);
+      } catch (e) { console.error("S3 profile pic pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
+    await pool.query(
+      "UPDATE users SET profile_picture = $1, profile_picture_type = $2, s3_profile_picture_key = $3 WHERE id = $4",
+      [s3Key ? null : req.file.buffer, req.file.mimetype, s3Key, targetId]
+    );
     return res.json({ ok: true });
   } catch (err) {
     console.error("Profile picture upload error:", err);

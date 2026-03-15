@@ -158,18 +158,24 @@ router.post("/", upload.any(), async (req, res) => {
             console.error("Filings PDF text extraction error:", pErr.message);
           }
 
+          let filingS3Key = null;
+          if (isR2Configured()) {
+            try {
+              const { randomUUID } = require("crypto");
+              filingS3Key = `filings/${randomUUID()}/${pdfAtt.filename}`;
+              await uploadToR2(filingS3Key, fileBuffer, "application/pdf");
+            } catch (e) { console.error("S3 filing pre-upload failed, using BYTEA:", e.message); filingS3Key = null; }
+          }
+
           const { rows: filingRows } = await pool.query(
-            `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, source, source_email_from)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'email', $8)
+            `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, source, source_email_from, s3_key)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'email', $8, $9)
              RETURNING id`,
-            [caseId, pdfAtt.filename, pdfAtt.filename, "application/pdf", fileBuffer, extractedText, pdfAtt.size, fromEmail]
+            [caseId, pdfAtt.filename, pdfAtt.filename, "application/pdf", filingS3Key ? null : fileBuffer, extractedText, pdfAtt.size, fromEmail, filingS3Key]
           );
 
           if (filingRows.length > 0) {
             const filingId = filingRows[0].id;
-            if (isR2Configured()) {
-              fireAndForgetS3("case_filings", filingId, `filings/${filingId}/${pdfAtt.filename}`, fileBuffer, "application/pdf");
-            }
             if (extractedText) {
             try {
               const OpenAI = require("openai");
@@ -291,18 +297,24 @@ router.post("/", upload.any(), async (req, res) => {
         console.log(`PDF triage: "${pdfAtt.filename}" → ${isFiling ? `FILING (${matchedMarker} detected)` : "DOCUMENT (no filing marker)"}`);
 
         if (isFiling) {
+          let triageFilingS3Key = null;
+          if (isR2Configured()) {
+            try {
+              const { randomUUID } = require("crypto");
+              triageFilingS3Key = `filings/${randomUUID()}/${pdfAtt.filename}`;
+              await uploadToR2(triageFilingS3Key, fileBuffer, "application/pdf");
+            } catch (e) { console.error("S3 triage filing pre-upload failed, using BYTEA:", e.message); triageFilingS3Key = null; }
+          }
+
           const { rows: filingRows } = await pool.query(
-            `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, source, source_email_from)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'email', $8)
+            `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, source, source_email_from, s3_key)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'email', $8, $9)
              RETURNING id`,
-            [caseId, pdfAtt.filename, pdfAtt.filename, "application/pdf", fileBuffer, extractedText, pdfAtt.size, fromEmail]
+            [caseId, pdfAtt.filename, pdfAtt.filename, "application/pdf", triageFilingS3Key ? null : fileBuffer, extractedText, pdfAtt.size, fromEmail, triageFilingS3Key]
           );
 
           if (filingRows.length > 0) {
             const filingId = filingRows[0].id;
-            if (isR2Configured()) {
-              fireAndForgetS3("case_filings", filingId, `filings/${filingId}/${pdfAtt.filename}`, fileBuffer, "application/pdf");
-            }
             if (extractedText) {
             try {
               const OpenAI = require("openai");
@@ -371,18 +383,24 @@ router.post("/", upload.any(), async (req, res) => {
           }
           console.log(`PDF filing created from email: ${pdfAtt.filename} for case ${caseId}`);
         } else {
+          let triageDocS3Key = null;
+          if (isR2Configured()) {
+            try {
+              const { randomUUID } = require("crypto");
+              triageDocS3Key = `documents/${randomUUID()}/${pdfAtt.filename}`;
+              await uploadToR2(triageDocS3Key, fileBuffer, "application/pdf");
+            } catch (e) { console.error("S3 triage doc pre-upload failed, using BYTEA:", e.message); triageDocS3Key = null; }
+          }
+
           const { rows: docRows } = await pool.query(
-            `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by_name, file_size)
-             VALUES ($1, $2, $3, $4, $5, 'Other', $6, $7)
+            `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by_name, file_size, s3_key)
+             VALUES ($1, $2, $3, $4, $5, 'Other', $6, $7, $8)
              RETURNING id`,
-            [caseId, pdfAtt.filename, "application/pdf", fileBuffer, extractedText, `Email: ${fromEmail}`, pdfAtt.size]
+            [caseId, pdfAtt.filename, "application/pdf", triageDocS3Key ? null : fileBuffer, extractedText, `Email: ${fromEmail}`, pdfAtt.size, triageDocS3Key]
           );
 
           if (docRows.length > 0) {
             const docId = docRows[0].id;
-            if (isR2Configured()) {
-              fireAndForgetS3("case_documents", docId, `documents/${docId}/${pdfAtt.filename}`, fileBuffer, "application/pdf");
-            }
             if (extractedText) {
             try {
               const OpenAI = require("openai");
@@ -444,15 +462,20 @@ router.post("/", upload.any(), async (req, res) => {
       for (const audioAtt of audioAttachments) {
         try {
           const fileBuffer = Buffer.from(audioAtt.data, "base64");
-          const { rows: vmRows } = await pool.query(
-            `INSERT INTO case_voicemails (case_id, caller_name, caller_number, audio_data, audio_mime, received_at)
-             VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
-            [caseId, fromName || "Unknown", "", fileBuffer, audioAtt.contentType]
-          );
-          if (vmRows.length > 0 && isR2Configured()) {
-            const ext = (audioAtt.filename || "audio.mp3").split(".").pop() || "mp3";
-            fireAndForgetS3("case_voicemails", vmRows[0].id, `voicemails/${vmRows[0].id}/audio.${ext}`, fileBuffer, audioAtt.contentType);
+          const vmExt = (audioAtt.filename || "audio.mp3").split(".").pop() || "mp3";
+          let vmS3Key = null;
+          if (isR2Configured()) {
+            try {
+              const { randomUUID } = require("crypto");
+              vmS3Key = `voicemails/${randomUUID()}/audio.${vmExt}`;
+              await uploadToR2(vmS3Key, fileBuffer, audioAtt.contentType);
+            } catch (e) { console.error("S3 voicemail pre-upload failed, using BYTEA:", e.message); vmS3Key = null; }
           }
+          const { rows: vmRows } = await pool.query(
+            `INSERT INTO case_voicemails (case_id, caller_name, caller_number, audio_data, audio_mime, received_at, s3_key)
+             VALUES ($1, $2, $3, $4, $5, NOW(), $6) RETURNING id`,
+            [caseId, fromName || "Unknown", "", vmS3Key ? null : fileBuffer, audioAtt.contentType, vmS3Key]
+          );
           console.log(`Voicemail audio saved to case_voicemails: ${audioAtt.filename} for case ${caseId}`);
         } catch (audioErr) {
           console.error("Process voicemail audio error:", audioErr.message);
@@ -507,18 +530,24 @@ router.post("/", upload.any(), async (req, res) => {
           console.error("Doc text extraction error:", eErr.message);
         }
 
+        let emailDocS3Key = null;
+        if (isR2Configured()) {
+          try {
+            const { randomUUID } = require("crypto");
+            emailDocS3Key = `documents/${randomUUID()}/${docAtt.filename}`;
+            await uploadToR2(emailDocS3Key, fileBuffer, docAtt.contentType);
+          } catch (e) { console.error("S3 email doc pre-upload failed, using BYTEA:", e.message); emailDocS3Key = null; }
+        }
+
         const { rows: docRows } = await pool.query(
-          `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by_name, file_size)
-           VALUES ($1, $2, $3, $4, $5, 'Other', $6, $7)
+          `INSERT INTO case_documents (case_id, filename, content_type, file_data, extracted_text, doc_type, uploaded_by_name, file_size, s3_key)
+           VALUES ($1, $2, $3, $4, $5, 'Other', $6, $7, $8)
            RETURNING id`,
-          [caseId, docAtt.filename, docAtt.contentType, fileBuffer, extractedText, `Email: ${fromEmail}`, docAtt.size]
+          [caseId, docAtt.filename, docAtt.contentType, emailDocS3Key ? null : fileBuffer, extractedText, `Email: ${fromEmail}`, docAtt.size, emailDocS3Key]
         );
 
         if (docRows.length > 0) {
           const docId = docRows[0].id;
-          if (isR2Configured()) {
-            fireAndForgetS3("case_documents", docId, `documents/${docId}/${docAtt.filename}`, fileBuffer, docAtt.contentType);
-          }
           if (extractedText) {
           try {
             const OpenAI = require("openai");
