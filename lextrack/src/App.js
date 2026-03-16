@@ -344,8 +344,13 @@ const SortTh = ({ col, label, sortCol, sortDir, onSort, style, className }) => (
 const DragDropZone = ({ onFileSelect, accept, multiple, children, style: extraStyle }) => {
   const dragCounter = useRef(0);
   const [dragActive, setDragActive] = useState(false);
+  const isExternalFile = (e) => {
+    if (e.dataTransfer.types.includes("docId")) return false;
+    return e.dataTransfer.types.includes("Files") || e.dataTransfer.types.includes("application/x-moz-file");
+  };
   const handleDragEnter = useCallback((e) => {
     e.preventDefault(); e.stopPropagation();
+    if (!isExternalFile(e)) return;
     dragCounter.current++;
     if (dragCounter.current === 1) setDragActive(true);
   }, []);
@@ -9568,7 +9573,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 const renderDocRow = (doc) => {
                   const isDocEditing = editingDocId === doc.id;
                   return (
-                    <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0" }} draggable={!docSelectMode && !expandedDocId} onDragStart={e => { if (window.getSelection()?.toString()) { e.preventDefault(); return; } e.dataTransfer.setData("docId", String(doc.id)); }}>
+                    <div key={doc.id} style={{ borderBottom: "1px solid var(--c-border)", padding: "12px 0", cursor: (!docSelectMode && expandedDocId !== doc.id) ? "grab" : "default" }} draggable={!docSelectMode && expandedDocId !== doc.id} onDragStart={e => { if (window.getSelection()?.toString()) { e.preventDefault(); return; } e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("docId", String(doc.id)); }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         {docSelectMode && <input type="checkbox" checked={selectedDocIds.has(doc.id)} onChange={e => { const next = new Set(selectedDocIds); if (e.target.checked) next.add(doc.id); else next.delete(doc.id); setSelectedDocIds(next); }} style={{ width: 16, height: 16, flexShrink: 0 }} />}
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -9645,9 +9650,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           const totalCount = folderItems.length + childFolders.reduce((sum, cf) => sum + docs.filter(d => d.folderId === cf.id).length, 0);
                           return (
                             <div key={`folder-${folder.id}-${sectionLabel}`} style={{ marginBottom: depth > 0 ? 4 : 8, border: "1px solid var(--c-border)", borderRadius: 6, overflow: "hidden", marginLeft: depth > 0 ? 16 : 0 }}
-                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = "2px solid #6366f1"; }}
-                              onDragLeave={e => { e.currentTarget.style.outline = ""; }}
-                              onDrop={async e => { e.stopPropagation(); e.currentTarget.style.outline = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), folder.id); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: folder.id } : d)); } catch (err) { alert(err.message); } } }}>
+                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move"; e.currentTarget.style.outline = "2px solid #6366f1"; e.currentTarget.style.background = "rgba(99,102,241,0.05)"; }}
+                              onDragLeave={e => { e.currentTarget.style.outline = ""; e.currentTarget.style.background = ""; }}
+                              onDrop={async e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = ""; e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), folder.id); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: folder.id } : d)); } catch (err) { alert(err.message); } } }}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: "var(--c-bg2)", cursor: "pointer", userSelect: "none" }} onClick={() => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, collapsed: !f.collapsed } : f))}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                   <FolderOpen size={14} style={{ color: depth > 0 ? "#8b5cf6" : "#6366f1" }} />
@@ -9676,9 +9681,9 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       })()}
                       {docFolders.length > 0 && sectionUnfiled.length > 0 && (
                         <div style={{ marginTop: 8 }}
-                          onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = "#f0f9ff"; }}
-                          onDragLeave={e => { e.currentTarget.style.background = ""; }}
-                          onDrop={async e => { e.currentTarget.style.background = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), null); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: null } : d)); } catch (err) { alert(err.message); } } }}>
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move"; e.currentTarget.style.background = "#f0f9ff"; e.currentTarget.style.outline = "2px dashed #6366f1"; }}
+                          onDragLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.outline = ""; }}
+                          onDrop={async e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.background = ""; e.currentTarget.style.outline = ""; const docId = e.dataTransfer.getData("docId"); if (docId) { try { await apiMoveDocument(parseInt(docId), null); setCaseDocuments(prev => prev.map(d => d.id === parseInt(docId) ? { ...d, folderId: null } : d)); } catch (err) { alert(err.message); } } }}>
                           <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", padding: "6px 0", borderBottom: "1px solid var(--c-border2)" }}>Unfiled</div>
                           {sectionUnfiled.map(doc => renderDocRow(doc))}
                         </div>
