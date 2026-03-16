@@ -8342,6 +8342,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               }, 0);
               const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
               const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              const otherPoliciesLatest = insurancePolicies.filter(op => op.id !== p.id).map(op => {
+                const opNegs = negotiations.filter(n => n.policyId === op.id);
+                if (opNegs.length === 0) return 0;
+                const sorted = [...opNegs].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+                return Number(sorted[sorted.length - 1].amount) || 0;
+              }).reduce((s, v) => s + v, 0);
               const isPolExpanded = expandedPolicyId === p.id;
               const updatePolLocal = (field, val) => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? { ...x, [field]: val } : x));
               const savePol = (updates) => apiUpdateInsurancePolicy(c.id, p.id, updates).then(u => setInsurancePolicies(prev => prev.map(x => x.id === p.id ? u : x))).catch(err => console.error("Policy save failed:", err));
@@ -8418,9 +8424,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
                             const updateNegLocal = (field, val) => setNegotiations(prev => prev.map(x => x.id === n.id ? { ...x, [field]: val } : x));
                             const saveNeg = (updates) => apiUpdateNegotiation(c.id, n.id, updates).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(err => console.error("Negotiation save failed:", err));
-                            const gross = Number(n.amount) || 0;
-                            const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
-                            const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
+                            const policyGross = Number(n.amount) || 0;
+                            const combinedGross = policyGross + otherPoliciesLatest;
+                            const feeAmt = isFeeFlat ? feePct : combinedGross * feePct / 100;
+                            const net = combinedGross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
                             return (
                               <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 6, padding: "8px 10px", background: "var(--c-bg)" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -8443,9 +8450,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
                                     onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
                                 </div>
-                                {gross > 0 && (
+                                {policyGross > 0 && (
                                   <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)", flexWrap: "wrap" }}>
-                                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
+                                    <div><span style={{ fontSize: 10, color: "#64748b" }}>This Policy:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${policyGross.toLocaleString()}</span></div>
+                                    {otherPoliciesLatest > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Other Policies:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#1d4ed8" }}>${otherPoliciesLatest.toLocaleString()}</span></div>}
+                                    <div><span style={{ fontSize: 10, color: "#64748b" }}>Combined Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#0ea5e9" }}>${combinedGross.toLocaleString()}</span></div>
                                     <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
                                     {totalOwedDamages > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Damages:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalOwedDamages.toLocaleString()}</span></div>}
                                     {totalExpenses > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Expenses:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalExpenses.toLocaleString()}</span></div>}
@@ -8476,6 +8485,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               }, 0);
               const totalOwedLiens = liens.reduce((s, l) => s + (Number(l.negotiatedAmount || l.negotiated_amount) || Number(l.amount) || 0), 0);
               const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              const allPoliciesLatest = insurancePolicies.map(op => {
+                const opNegs = negotiations.filter(n => n.policyId === op.id);
+                if (opNegs.length === 0) return 0;
+                const sorted = [...opNegs].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+                return Number(sorted[sorted.length - 1].amount) || 0;
+              }).reduce((s, v) => s + v, 0);
               return (
                 <div style={{ border: "1px solid var(--c-border)", borderRadius: 8, marginTop: 16, padding: "12px 14px" }}>
                   <div onClick={() => setExpandedPolicyNeg(prev => ({ ...prev, general: !prev.general }))} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", padding: "4px 0" }}>
@@ -8495,9 +8510,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         const dirColors = { Demand: "#1d4ed8", Offer: "#16a34a", "Counter-Demand": "#7c3aed", "Counter-Offer": "#d97706" };
                         const updateNegLocal = (field, val) => setNegotiations(prev => prev.map(x => x.id === n.id ? { ...x, [field]: val } : x));
                         const saveNeg = (updates) => apiUpdateNegotiation(c.id, n.id, updates).then(u => setNegotiations(prev => prev.map(x => x.id === n.id ? u : x))).catch(err => console.error("Negotiation save failed:", err));
-                        const gross = Number(n.amount) || 0;
-                        const feeAmt = isFeeFlat ? feePct : gross * feePct / 100;
-                        const net = gross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
+                        const entryGross = Number(n.amount) || 0;
+                        const combinedGross = entryGross + allPoliciesLatest;
+                        const feeAmt = isFeeFlat ? feePct : combinedGross * feePct / 100;
+                        const net = combinedGross - feeAmt - totalOwedDamages - totalOwedLiens - totalExpenses;
                         return (
                           <div key={n.id} style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 6, padding: "8px 10px", background: "var(--c-bg)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -8520,9 +8536,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                               <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
                                 onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
                             </div>
-                            {gross > 0 && (
+                            {(entryGross > 0 || combinedGross > 0) && (
                               <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)", flexWrap: "wrap" }}>
-                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${gross.toLocaleString()}</span></div>
+                                {entryGross > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>This Entry:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>${entryGross.toLocaleString()}</span></div>}
+                                {allPoliciesLatest > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>All Policies:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#1d4ed8" }}>${allPoliciesLatest.toLocaleString()}</span></div>}
+                                <div><span style={{ fontSize: 10, color: "#64748b" }}>Combined Gross:</span> <span style={{ fontSize: 12, fontWeight: 700, color: "#0ea5e9" }}>${combinedGross.toLocaleString()}</span></div>
                                 <div><span style={{ fontSize: 10, color: "#64748b" }}>Fee ({isFeeFlat ? "$" + feePct.toLocaleString() : feePct + "%"}):</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>−${feeAmt.toLocaleString()}</span></div>
                                 {totalOwedDamages > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Damages:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalOwedDamages.toLocaleString()}</span></div>}
                                 {totalExpenses > 0 && <div><span style={{ fontSize: 10, color: "#64748b" }}>Expenses:</span> <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>−${totalExpenses.toLocaleString()}</span></div>}
