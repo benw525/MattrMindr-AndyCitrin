@@ -1120,6 +1120,8 @@ function FollowUpPromptModal({ prompt, onDecide }) {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
+const RenderIcon = ({ icon: Icon, size = 14, style, ...props }) => Icon ? <Icon size={size} style={style} {...props} /> : null;
+
 export default function App() {
   const isPortal = window.location.pathname.startsWith("/portal");
   if (isPortal) return <PortalApp />;
@@ -2602,7 +2604,7 @@ function FirmApp() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="!text-[15px] !font-semibold !text-slate-900 dark:!text-slate-100">Advocate AI</div>
                 <div style={{ fontSize: 10, color: "#64748b", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {advocateFromHelpCenter ? <span>{(() => { const SLI = SCREEN_LABELS.helpcenter.icon; return <SLI size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />; })()} {SCREEN_LABELS.helpcenter.label}</span> : SCREEN_LABELS[view] && <span>{(() => { const SLI = SCREEN_LABELS[view].icon; return <SLI size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />; })()} {SCREEN_LABELS[view].label}</span>}
+                  {advocateFromHelpCenter ? <span><RenderIcon icon={SCREEN_LABELS.helpcenter.icon} size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> {SCREEN_LABELS.helpcenter.label}</span> : SCREEN_LABELS[view] && <span><RenderIcon icon={SCREEN_LABELS[view].icon} size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> {SCREEN_LABELS[view].label}</span>}
                   {advocateCaseId && (() => { const ac = allCases.find(cs => cs.id === advocateCaseId); return ac ? <span style={{ fontWeight: 600 }}>· {ac.case_num || ac.title}</span> : null; })()}
                 </div>
               </div>
@@ -2756,7 +2758,7 @@ function FirmApp() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
                     <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
-                      {(() => { const SLI = SCREEN_LABELS[advocateScreenChips]?.icon; return SLI ? <SLI size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> : null; })()} Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
+                      <RenderIcon icon={SCREEN_LABELS[advocateScreenChips]?.icon} size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
                     </span>
                     <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
                   </div>
@@ -3551,7 +3553,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
   const Accordion = ({ sectionKey, title, children, icon }) => (
     <div style={{ borderBottom: "1px solid var(--c-border)" }}>
       <div onClick={() => toggleSection(sectionKey)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", cursor: "pointer", userSelect: "none" }}>
-        {icon && <span style={{ display: "inline-flex", alignItems: "center" }}>{(() => { const IconComp = icon; return <IconComp size={14} />; })()}</span>}
+        {icon && <span style={{ display: "inline-flex", alignItems: "center" }}><RenderIcon icon={icon} size={14} /></span>}
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{title}</span>
         <ChevronDown size={12} style={{ color: "var(--c-text3)", transform: expandedSections[sectionKey] ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }} />
       </div>
@@ -3625,7 +3627,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
                     { icon: Brain, title: "Custom Training", desc: "Trained with your office's local rules, policies, and defense strategies" },
                   ].map((item, i) => (
                     <div key={i} style={{ padding: 12, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)" }}>
-                      <div style={{ marginBottom: 4 }}>{(() => { const SLI = item.icon; return <SLI size={16} />; })()}</div>
+                      <div style={{ marginBottom: 4 }}><RenderIcon icon={item.icon} size={16} /></div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)", marginBottom: 2 }}>{item.title}</div>
                       <div style={{ fontSize: 11, color: "var(--c-text3)", lineHeight: 1.5 }}>{item.desc}</div>
                     </div>
@@ -4257,7 +4259,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
               }}
             >
               <span style={{ fontSize: 16, color: "var(--c-text2)", cursor: "grab", userSelect: "none", width: 20, textAlign: "center", letterSpacing: 1 }} title="Drag to reorder">⠿</span>
-              <span style={{ width: 24, textAlign: "center", display: "inline-flex", justifyContent: "center" }}>{(() => { const WI = w.icon; return <WI size={16} />; })()}</span>
+              <span style={{ width: 24, textAlign: "center", display: "inline-flex", justifyContent: "center" }}><RenderIcon icon={w.icon} size={16} /></span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
               <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
               <button onClick={() => remove(id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B24A4A", padding: "2px 4px" }} title="Remove"><X size={14} /></button>
@@ -4270,7 +4272,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--c-text2)", marginTop: 20, marginBottom: 8 }}>Available Widgets</div>
             {available.map(w => (
               <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border)" }}>
-                <span style={{ width: 24, textAlign: "center", display: "inline-flex", justifyContent: "center" }}>{(() => { const WI = w.icon; return <WI size={16} />; })()}</span>
+                <span style={{ width: 24, textAlign: "center", display: "inline-flex", justifyContent: "center" }}><RenderIcon icon={w.icon} size={16} /></span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
                 <button onClick={() => add(w.id)} className="btn" style={{ fontSize: 11, padding: "3px 10px" }}>+ Add</button>
@@ -11419,7 +11421,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   <iframe src={attachmentPreview.url} title={attachmentPreview.filename} style={{ width: "100%", height: "100%", border: "none" }} />
                 ) : (
                   <div style={{ color: "#64748b", fontSize: 14, textAlign: "center", padding: 40 }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}><Paperclip size={10} style={{display:"inline",verticalAlign:"middle"}} /></div>
+                    <div style={{ marginBottom: 12 }}><Paperclip size={48} style={{opacity:0.3}} /></div>
                     <div>Preview not available for this file type.</div>
                     <div style={{ marginTop: 8 }}>
                       <button onClick={() => { const a = document.createElement("a"); a.href = attachmentPreview.url; a.download = attachmentPreview.filename; a.click(); }} style={{ color: "#0f172a", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 14 }}>Download to view</button>
@@ -12890,7 +12892,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvent
     return urgencyColor(daysUntil(item.date));
   };
 
-  const chipPrefix = (item) => { const KI = KIND_ICONS[item.kind]; return KI ? <KI size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> : ""; };
+  const chipPrefix = (item) => { const KI = KIND_ICONS[item.kind]; return KI ? <RenderIcon icon={KI} size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> : ""; };
 
   const toggleStyle = (active) => ({ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", opacity: active ? 1 : 0.4, transition: "opacity 0.15s", userSelect: "none" });
 
@@ -12985,7 +12987,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvent
           return order.filter(k => grouped[k]).map(kind => (
             <div key={kind}>
               <div style={{ padding: "6px 16px", fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)" }}>
-                {(() => { const KI = KIND_ICONS[kind]; return KI ? <KI size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> : null; })()} {KIND_LABELS[kind]}s ({grouped[kind].length})
+                <RenderIcon icon={KIND_ICONS[kind]} size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> {KIND_LABELS[kind]}s ({grouped[kind].length})
               </div>
               {grouped[kind].map((ev, i) => {
                 const col = chipColor(ev);
