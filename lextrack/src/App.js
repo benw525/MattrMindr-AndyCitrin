@@ -47,7 +47,7 @@ import {
   apiGetPortalMessages, apiSendPortalMessage, apiMarkPortalMsgRead,
   apiGetSmsConfigs, apiCreateSmsConfig, apiUpdateSmsConfig, apiDeleteSmsConfig,
   apiGetSmsMessages, apiGetSmsScheduled, apiSendSms, apiDraftSmsMessage,
-  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail, apiReprocessUnmatchedEmails, apiReprocessStatus,
+  apiGetSmsWatch, apiAddSmsWatch, apiDeleteSmsWatch, apiGetUnmatchedSms, apiAssignSms, apiDeleteUnmatchedSms, apiGetUnmatchedEmails, apiAssignUnmatchedEmail, apiDeleteUnmatchedEmail, apiReprocessUnmatchedEmails, apiReprocessStatus,
   apiGetPermissionKeys, apiGetPermissions, apiCreatePermissionsBulk, apiDeletePermissionsBulk, apiCheckPermissions,
   apiSendSupport,
   apiGetCollabUnreadCount,
@@ -18382,6 +18382,25 @@ function UnmatchedView({ allCases, onMenuToggle }) {
     setAssigningId(null);
   };
 
+  const doDeleteEmail = async (emailId) => {
+    if (!window.confirm("Delete this unmatched email? This cannot be undone.")) return;
+    try {
+      await apiDeleteUnmatchedEmail(emailId);
+      setEmails(p => p.filter(x => x.id !== emailId));
+      setSearchMap(p => { const n = { ...p }; delete n[`e-${emailId}`]; return n; });
+      if (selectedEmail === emailId) setSelectedEmail(null);
+    } catch (err) { alert(err.message || "Failed to delete"); }
+  };
+
+  const doDeleteText = async (msgId) => {
+    if (!window.confirm("Delete this unmatched text? This cannot be undone.")) return;
+    try {
+      await apiDeleteUnmatchedSms(msgId);
+      setTexts(p => p.filter(x => x.id !== msgId));
+      setSearchMap(p => { const n = { ...p }; delete n[`t-${msgId}`]; return n; });
+    } catch (err) { alert(err.message || "Failed to delete"); }
+  };
+
   const CaseSearchBox = ({ itemKey, onAssign, isAssigning }) => {
     const q = (searchMap[itemKey] || "").toLowerCase().trim();
     const matches = q.length >= 2 ? allCases.filter(cs => (cs.caseNum && cs.caseNum.toLowerCase().includes(q)) || (cs.title && cs.title.toLowerCase().includes(q)) || (cs.clientName && cs.clientName.toLowerCase().includes(q))).slice(0, 8) : [];
@@ -18519,10 +18538,16 @@ function UnmatchedView({ allCases, onMenuToggle }) {
                           </div>
                         )}
                         {!isLinking ? (
-                          <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
-                            onClick={() => setSearchMap(p => ({ ...p, [itemKey]: "" }))}>
-                            <Briefcase size={14} /> Assign to Case
-                          </button>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
+                              onClick={() => setSearchMap(p => ({ ...p, [itemKey]: "" }))}>
+                              <Briefcase size={14} /> Assign to Case
+                            </button>
+                            <button className="btn btn-sm" style={{ background: "transparent", color: "#ef4444", fontSize: 12, display: "flex", alignItems: "center", gap: 6, border: "1px solid #fca5a5" }}
+                              onClick={() => doDeleteEmail(email.id)}>
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </div>
                         ) : (
                           <CaseSearchBox itemKey={itemKey} onAssign={(caseId) => doAssignEmail(email.id, caseId)} isAssigning={assigningId === email.id} />
                         )}
@@ -18562,10 +18587,16 @@ function UnmatchedView({ allCases, onMenuToggle }) {
                     </div>
                     <div style={{ fontSize: 13, color: "var(--c-text)", whiteSpace: "pre-wrap", background: "var(--c-bg2)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border2)", marginBottom: 10 }}>{msg.body}</div>
                     {!isLinking ? (
-                      <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
-                        onClick={() => setSearchMap(p => ({ ...p, [itemKey]: "" }))}>
-                        <Briefcase size={14} /> Assign to Case
-                      </button>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
+                          onClick={() => setSearchMap(p => ({ ...p, [itemKey]: "" }))}>
+                          <Briefcase size={14} /> Assign to Case
+                        </button>
+                        <button className="btn btn-sm" style={{ background: "transparent", color: "#ef4444", fontSize: 12, display: "flex", alignItems: "center", gap: 6, border: "1px solid #fca5a5" }}
+                          onClick={() => doDeleteText(msg.id)}>
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
                     ) : (
                       <CaseSearchBox itemKey={itemKey} onAssign={(caseId) => doAssignText(msg.id, caseId)} isAssigning={assigningId === msg.id} />
                     )}

@@ -427,6 +427,20 @@ router.put("/assign/:messageId", requireAuth, async (req, res) => {
   }
 });
 
+router.delete("/unmatched/:messageId", requireAuth, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      "DELETE FROM sms_messages WHERE id = $1 AND case_id IS NULL",
+      [req.params.messageId]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: "Message not found or already assigned" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete unmatched SMS error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/inbound", async (req, res) => {
   try {
     const from = req.body.From || "";

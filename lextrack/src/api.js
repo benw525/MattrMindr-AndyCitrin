@@ -469,8 +469,10 @@ export const apiAddSmsWatch              = (caseId, data)     => apiFetch(`/api/
 export const apiDeleteSmsWatch           = (watchId)          => apiFetch(`/api/sms/watch/${watchId}`, { method: "DELETE" });
 export const apiGetUnmatchedSms          = ()                 => apiFetch("/api/sms/unmatched");
 export const apiAssignSms                = (messageId, caseId) => apiFetch(`/api/sms/assign/${messageId}`, { method: "PUT", body: { caseId } });
+export const apiDeleteUnmatchedSms      = (messageId)         => apiFetch(`/api/sms/unmatched/${messageId}`, { method: "DELETE" });
 export const apiGetUnmatchedEmails       = ()                 => apiFetch("/api/unmatched-emails");
 export const apiAssignUnmatchedEmail     = (id, caseId)       => apiFetch(`/api/unmatched-emails/assign/${id}`, { method: "PUT", body: { caseId } });
+export const apiDeleteUnmatchedEmail     = (id)               => apiFetch(`/api/unmatched-emails/${id}`, { method: "DELETE" });
 export const apiReprocessUnmatchedEmails = ()                 => apiFetch("/api/unmatched-emails/reprocess", { method: "POST" });
 export const apiReprocessStatus          = ()                 => apiFetch("/api/unmatched-emails/reprocess/status");
 

@@ -170,6 +170,20 @@ router.put("/assign/:id", requireAuth, async (req, res) => {
   }
 });
 
+router.delete("/:id", requireAuth, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      "DELETE FROM unmatched_filings_emails WHERE id = $1 AND assigned_case_id IS NULL",
+      [req.params.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: "Email not found or already assigned" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete unmatched email error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/reprocess/status", requireAuth, async (req, res) => {
   res.json({ ...reprocessStatus });
 });
