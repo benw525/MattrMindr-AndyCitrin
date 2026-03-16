@@ -4,7 +4,7 @@ import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
 import TranscriptViewerWindow from "./TranscriptViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, ToggleLeft, ToggleRight, Filter, RefreshCw, Inbox, Mail, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, ToggleLeft, ToggleRight, Filter, RefreshCw, Inbox, Mail, MessageCircle, Sun, Moon, Paperclip, Circle, Phone, Printer } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -335,7 +335,7 @@ const SortTh = ({ col, label, sortCol, sortDir, onSort, style, className }) => (
     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
       {label}
       <span style={{ color: sortCol === col ? "#0f172a" : "#cbd5e1", fontSize: 10 }}>
-        {sortCol === col ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
+        {sortCol === col ? (sortDir === "asc" ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />) : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle",opacity:0.4}} />}
       </span>
     </span>
   </th>
@@ -1823,20 +1823,20 @@ function FirmApp() {
   };
 
   const SCREEN_LABELS = {
-    dashboard: { icon: "⬛", label: "Dashboard" },
-    cases: { icon: "⚖️", label: "Cases" },
-    deadlines: { icon: "📅", label: "Calendar" },
-    tasks: { icon: "✅", label: "Tasks" },
-    documents: { icon: "📄", label: "Templates" },
-    timelog: { icon: "🕐", label: "Time Log" },
-    reports: { icon: "📊", label: "Reports" },
-    aicenter: { icon: "✦", label: "AI Center" },
-    collaborate: { icon: "💬", label: "Collaborate" },
-    contacts: { icon: "📇", label: "Contacts" },
-    staff: { icon: "👥", label: "Staff" },
-    trialcenter: { icon: "⚖️", label: "Trial Center" },
-    customization: { icon: "⚙️", label: "Customization" },
-    helpcenter: { icon: "❓", label: "Help Center" },
+    dashboard: { icon: LayoutDashboard, label: "Dashboard" },
+    cases: { icon: Scale, label: "Cases" },
+    deadlines: { icon: Calendar, label: "Calendar" },
+    tasks: { icon: CheckSquare, label: "Tasks" },
+    documents: { icon: FileText, label: "Templates" },
+    timelog: { icon: Clock, label: "Time Log" },
+    reports: { icon: BarChart3, label: "Reports" },
+    aicenter: { icon: Brain, label: "AI Center" },
+    collaborate: { icon: MessageSquare, label: "Collaborate" },
+    contacts: { icon: Users, label: "Contacts" },
+    staff: { icon: UserCog, label: "Staff" },
+    trialcenter: { icon: Scale, label: "Trial Center" },
+    customization: { icon: SlidersHorizontal, label: "Customization" },
+    helpcenter: { icon: HelpCircle, label: "Help Center" },
   };
 
   // shape: { target, caseForTask, updatedTasksAfterComplete, pendingChainSpawns, completedDate }
@@ -2602,7 +2602,7 @@ function FirmApp() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="!text-[15px] !font-semibold !text-slate-900 dark:!text-slate-100">Advocate AI</div>
                 <div style={{ fontSize: 10, color: "#64748b", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {advocateFromHelpCenter ? <span>{SCREEN_LABELS.helpcenter.icon} {SCREEN_LABELS.helpcenter.label}</span> : SCREEN_LABELS[view] && <span>{SCREEN_LABELS[view].icon} {SCREEN_LABELS[view].label}</span>}
+                  {advocateFromHelpCenter ? <span>{(() => { const SLI = SCREEN_LABELS.helpcenter.icon; return <SLI size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />; })()} {SCREEN_LABELS.helpcenter.label}</span> : SCREEN_LABELS[view] && <span>{(() => { const SLI = SCREEN_LABELS[view].icon; return <SLI size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />; })()} {SCREEN_LABELS[view].label}</span>}
                   {advocateCaseId && (() => { const ac = allCases.find(cs => cs.id === advocateCaseId); return ac ? <span style={{ fontWeight: 600 }}>· {ac.case_num || ac.title}</span> : null; })()}
                 </div>
               </div>
@@ -2615,9 +2615,9 @@ function FirmApp() {
                 }}>Save as Note</button>
               )}
               {advocateMessages.length > 0 && (
-                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", padding: "2px 4px" }} title="New conversation" onClick={advocateClearConversation}>🗑</button>
+                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", padding: "2px 4px" }} title="New conversation" onClick={advocateClearConversation}><Trash2 size={14} /></button>
               )}
-              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#64748b", padding: "2px 4px" }} onClick={() => setShowAdvocateGlobal(false)}>✕</button>
+              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#64748b", padding: "2px 4px" }} onClick={() => setShowAdvocateGlobal(false)}><X size={14} /></button>
             </div>
           </div>
           <div className="advocate-case-search" style={{ padding: "6px 14px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
@@ -2637,19 +2637,19 @@ function FirmApp() {
           </div>
           {advocateStats && (
             <div className="advocate-stats-bar" style={{ padding: "4px 14px", fontSize: 10, color: "#64748b", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {advocateStats.notes > 0 && <span>📋 {advocateStats.notes}</span>}
-              {advocateStats.tasks > 0 && <span>✓ {advocateStats.tasks}</span>}
-              {advocateStats.deadlines > 0 && <span>📅 {advocateStats.deadlines}</span>}
-              {advocateStats.documents > 0 && <span>📄 {advocateStats.documents}</span>}
-              {advocateStats.filings > 0 && <span>⚖ {advocateStats.filings}</span>}
-              {advocateStats.emails > 0 && <span>✉ {advocateStats.emails}</span>}
-              {advocateStats.parties > 0 && <span>👥 {advocateStats.parties}</span>}
+              {advocateStats.notes > 0 && <span><ClipboardList size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.notes}</span>}
+              {advocateStats.tasks > 0 && <span><Check size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.tasks}</span>}
+              {advocateStats.deadlines > 0 && <span><Calendar size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.deadlines}</span>}
+              {advocateStats.documents > 0 && <span><FileText size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.documents}</span>}
+              {advocateStats.filings > 0 && <span><Scale size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.filings}</span>}
+              {advocateStats.emails > 0 && <span><Mail size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.emails}</span>}
+              {advocateStats.parties > 0 && <span><Users size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.parties}</span>}
             </div>
           )}
           <div className="advocate-msg-area" style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             {advocateMessages.length === 0 && !advocateLoading && !advocateScreenChips && (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
-                <div style={{ fontSize: 36, opacity: 0.3 }}>🤖</div>
+                <div style={{ opacity: 0.3 }}><Bot size={36} /></div>
                 <div style={{ fontSize: 12, color: "#64748b", textAlign: "center", maxWidth: 320, lineHeight: 1.5 }}>
                   {advocateCaseId ? "Ask me anything about this case. I have access to all case data." : "Ask me anything — Alabama law, office procedures, or how to use MattrMindr."}
                 </div>
@@ -2682,7 +2682,7 @@ function FirmApp() {
                 }}>
                   {msg.role === "assistant" && (
                     <button style={{ position: "absolute", top: 3, right: 3, background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#64748b", opacity: 0.5, padding: "2px" }}
-                      title="Copy" onClick={() => { navigator.clipboard.writeText(displayText); }}>📋</button>
+                      title="Copy" onClick={() => { navigator.clipboard.writeText(displayText); }}><ClipboardList size={14} /></button>
                   )}
                   {msg.role === "user" ? (
                     <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
@@ -2724,7 +2724,7 @@ function FirmApp() {
                     const added = msgAdded[ti];
                     return (
                       <div key={ti} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", borderTop: ti > 0 ? "1px solid var(--c-border)" : "none", opacity: added ? 0.45 : 1 }}>
-                        <span style={{ fontSize: 11, marginTop: 1 }}>{added ? "✓" : ""}{!added && <Sparkles size={11} className="text-amber-500" />}</span>
+                        <span style={{ fontSize: 11, marginTop: 1 }}>{added ? <Check size={11} /> : ""}{!added && <Sparkles size={11} className="text-amber-500" />}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 11, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
                           <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
@@ -2756,7 +2756,7 @@ function FirmApp() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
                     <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
-                      {SCREEN_LABELS[advocateScreenChips]?.icon} Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
+                      {(() => { const SLI = SCREEN_LABELS[advocateScreenChips]?.icon; return SLI ? <SLI size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> : null; })()} Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
                     </span>
                     <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
                   </div>
@@ -3143,7 +3143,7 @@ function ChangePasswordModal({ forced, currentUser, onDone, onClose }) {
   return (
     <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
       <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}><X size={14} /></button>
         <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 16 }}>Change Password</div>
         {content}
         <button className="btn btn-outline" style={{ width: "100%", marginTop: 10 }} onClick={onClose}>Cancel</button>
@@ -3249,9 +3249,9 @@ function SettingsModal({ currentUser, darkMode, onToggleDark, onChangePassword, 
         <div className="flex items-center justify-between py-2.5 mb-4">
           <span className="text-sm text-slate-700 dark:text-slate-300">{darkMode ? "Dark Mode" : "Light Mode"}</span>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">☀️</span>
+            <Sun size={14} className="text-slate-400" />
             <Toggle on={darkMode} onChange={onToggleDark} />
-            <span className="text-xs text-slate-400">🌙</span>
+            <Moon size={14} className="text-slate-400" />
           </div>
         </div>
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Advocate AI</div>
@@ -3551,9 +3551,9 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
   const Accordion = ({ sectionKey, title, children, icon }) => (
     <div style={{ borderBottom: "1px solid var(--c-border)" }}>
       <div onClick={() => toggleSection(sectionKey)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", cursor: "pointer", userSelect: "none" }}>
-        {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+        {icon && <span style={{ display: "inline-flex", alignItems: "center" }}>{(() => { const IconComp = icon; return <IconComp size={14} />; })()}</span>}
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{title}</span>
-        <span style={{ fontSize: 12, color: "var(--c-text3)", transform: expandedSections[sectionKey] ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>▼</span>
+        <ChevronDown size={12} style={{ color: "var(--c-text3)", transform: expandedSections[sectionKey] ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }} />
       </div>
       {expandedSections[sectionKey] && (
         <div style={{ padding: "0 0 14px 22px", fontSize: 13, lineHeight: 1.7, color: "var(--c-text)" }}>
@@ -3590,7 +3590,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
   return (
     <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
       <div className="login-box" style={{ maxWidth: 640, width: "calc(100vw - 32px)", borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", padding: "28px 32px" }} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}><X size={14} /></button>
         <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 4 }}>Help Center</div>
         <div style={{ fontSize: 12, color: "var(--c-text3)", marginBottom: 16 }}>Guides, answers, and support for MattrMindr</div>
         <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--c-border)", marginBottom: 16, overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", flexWrap: "nowrap" }}>
@@ -3604,28 +3604,28 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
           {tab === "advocate" && (
             <div>
               <div style={{ textAlign: "center", padding: "24px 16px" }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🤖</div>
+                <div style={{ marginBottom: 12 }}><Bot size={48} /></div>
                 <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 8 }}>Advocate AI</div>
                 <div style={{ fontSize: 13, color: "var(--c-text)", lineHeight: 1.7, maxWidth: 440, margin: "0 auto", marginBottom: 20 }}>
                   Your AI-powered legal assistant. Advocate AI is context-aware and can help with case strategy, explain MattrMindr features, draft communications, suggest next steps, and answer questions about your cases.
                 </div>
                 <button onClick={() => onOpenAdvocate && onOpenAdvocate()} style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, boxShadow: "0 2px 8px rgba(99,102,241,0.3)" }}>
-                  <span style={{ fontSize: 18 }}>🤖</span> Open Advocate AI
+                  <Bot size={18} style={{display:"inline",verticalAlign:"middle"}} /> Open Advocate AI
                 </button>
               </div>
               <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 10 }}>What can Advocate AI do?</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {[
-                    { icon: "⚖️", title: "Case Strategy", desc: "Get strategic recommendations based on charges, evidence, and case details" },
-                    { icon: "📋", title: "Task Suggestions", desc: "Receive actionable task suggestions you can add to a case with one click" },
-                    { icon: "💬", title: "Draft Messages", desc: "Draft client communications, letters, and court documents" },
-                    { icon: "🔍", title: "Feature Help", desc: "Ask how to use any MattrMindr feature and get step-by-step guidance" },
-                    { icon: "📅", title: "Deadline Guidance", desc: "Get help with court rules, filing deadlines, and scheduling" },
-                    { icon: "🧠", title: "Custom Training", desc: "Trained with your office's local rules, policies, and defense strategies" },
+                    { icon: Scale, title: "Case Strategy", desc: "Get strategic recommendations based on charges, evidence, and case details" },
+                    { icon: ClipboardList, title: "Task Suggestions", desc: "Receive actionable task suggestions you can add to a case with one click" },
+                    { icon: MessageSquare, title: "Draft Messages", desc: "Draft client communications, letters, and court documents" },
+                    { icon: Search, title: "Feature Help", desc: "Ask how to use any MattrMindr feature and get step-by-step guidance" },
+                    { icon: Calendar, title: "Deadline Guidance", desc: "Get help with court rules, filing deadlines, and scheduling" },
+                    { icon: Brain, title: "Custom Training", desc: "Trained with your office's local rules, policies, and defense strategies" },
                   ].map((item, i) => (
                     <div key={i} style={{ padding: 12, background: "var(--c-bg2)", borderRadius: 8, border: "1px solid var(--c-border)" }}>
-                      <div style={{ fontSize: 16, marginBottom: 4 }}>{item.icon}</div>
+                      <div style={{ marginBottom: 4 }}>{(() => { const SLI = item.icon; return <SLI size={16} />; })()}</div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)", marginBottom: 2 }}>{item.title}</div>
                       <div style={{ fontSize: 11, color: "var(--c-text3)", lineHeight: 1.5 }}>{item.desc}</div>
                     </div>
@@ -3682,12 +3682,12 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
 function HelpTutorials({ Accordion }) {
   return (
     <div>
-      <Accordion sectionKey="tut-getting-started" title="Getting Started" icon="🚀">
+      <Accordion sectionKey="tut-getting-started" title="Getting Started" icon={Zap}>
         <p><strong>First Login:</strong> Enter the email and temporary password provided by your administrator. You will be prompted to create a new password that meets security requirements (8+ characters, uppercase, lowercase, number, and special character).</p>
         <p><strong>Navigating the Sidebar:</strong> The left sidebar contains all major sections — Dashboard, Cases, Calendar, Tasks, Templates, Time Log, Reports, AI Center, Contacts, and Staff. Click any item to switch views. On mobile, tap the menu icon (top-left) to open the sidebar.</p>
         <p><strong>Understanding the Dashboard:</strong> Your dashboard shows personalized widgets including active case counts, upcoming deadlines, overdue tasks, and recent activity. Click "Customize" in the top-right to add, remove, or reorder widgets. Quick Notes lets you jot down thoughts and assign them to cases later.</p>
       </Accordion>
-      <Accordion sectionKey="tut-cases" title="Case Management" icon="⚖️">
+      <Accordion sectionKey="tut-cases" title="Case Management" icon={Scale}>
         <p><strong>Creating a New Case:</strong> Click "+ New Case" in the Cases view. Enter the client name, case number, case type, and assign team members. A conflict check runs automatically when you enter a client name. Fill in accident date, injury details, and jurisdiction as available.</p>
         <p><strong>Viewing & Editing Case Details:</strong> Click any case row to open the case detail overlay. The Details tab shows case info, injury & incident details, at-fault parties, experts, and parties. Click any field value to edit it inline — changes save automatically.</p>
         <p><strong>Tracking Medical Treatment:</strong> The Medical tab tracks all treatment providers, visit dates, billing totals, and treatment status. Add each provider with their type, visit dates, and billing amounts for a running total of medical specials.</p>
@@ -3695,19 +3695,19 @@ function HelpTutorials({ Accordion }) {
         <p><strong>Damages & Negotiations:</strong> The Damages tab tracks all damage categories with documentation status. The Negotiations tab provides a timeline view of all demands, offers, and counteroffers with amounts.</p>
         <p><strong>Linked Cases:</strong> The Linked Cases tab lets you link related cases — companion cases, prior claims, appeals, or external cases from other jurisdictions. Search existing cases by number or enter external case details manually.</p>
       </Accordion>
-      <Accordion sectionKey="tut-calendar" title="Calendar & Deadlines" icon="📅">
+      <Accordion sectionKey="tut-calendar" title="Calendar & Deadlines" icon={Calendar}>
         <p><strong>Adding Deadlines:</strong> In the Calendar view, click "+ Add Deadline" or use the "Suggest" button in a case detail to let AI generate procedural deadlines. Each deadline includes a title, date, type, and optional case assignment.</p>
         <p><strong>SOL Calculator:</strong> Open the "Rules Calc" tab in Calendar to calculate statute of limitations deadlines based on jurisdiction. Select a state and case type, enter the accident date, and the calculator shows the SOL deadline.</p>
         <p><strong>Importing Calendar Feeds:</strong> In the "Feeds" tab, paste an iCal URL (from court systems, Outlook, Google Calendar, etc.) to import external events. The system auto-detects case numbers and client names in imported events. Feeds refresh each time you log in.</p>
         <p><strong>Calendar Views:</strong> Toggle between calendar grid view and list view. Use the visibility checkboxes to show/hide deadlines, tasks, court dates, and imported events. Click any day in the grid to see a detailed breakdown of that day's events.</p>
       </Accordion>
-      <Accordion sectionKey="tut-tasks" title="Tasks" icon="✅">
+      <Accordion sectionKey="tut-tasks" title="Tasks" icon={CheckSquare}>
         <p><strong>Creating Tasks:</strong> Click "+ Add Task" in the Tasks view or in a case detail. Assign a title, priority, due date, case, and team member. Tasks can be created individually or in bulk via AI suggestions.</p>
         <p><strong>AI Task Suggestions:</strong> In a case detail's Tasks section, click "Suggest Tasks" to have AI analyze the case and recommend concrete PI case tasks with priorities, assignments, and due dates. Add individual suggestions or all at once.</p>
         <p><strong>Completing Tasks:</strong> Click the checkbox next to any task to mark it complete. You'll be prompted to log time spent and optionally create a follow-up task. Completed tasks track who completed them and when.</p>
         <p><strong>Recurring Tasks:</strong> When creating a task, set a recurrence pattern (daily, weekly, biweekly, or monthly). When you complete a recurring task, a new instance is automatically created with the next due date.</p>
       </Accordion>
-      <Accordion sectionKey="tut-documents" title="Documents & Filings" icon="📄">
+      <Accordion sectionKey="tut-documents" title="Documents & Filings" icon={FileText}>
         <p><strong>Uploading Documents:</strong> In a case detail's Documents tab, click "Upload" to attach PDF, DOCX, DOC, or TXT files. Documents are stored securely and can be downloaded, summarized, or deleted.</p>
         <p><strong>Document Types:</strong> Categorize each document by type — Medical Records, Police Report, Insurance Correspondence, Demand Letter, Settlement Agreement, Expert Report, Client Correspondence, Court Filing, Discovery, Witness Statement, Photo/Video Evidence, Bills/Invoices, Employment Records, Property Damage, and more. Click the type label inline to change it.</p>
         <p><strong>Folder Organization:</strong> Create folders within the Documents tab to organize files by category. Drag and drop documents between folders to keep everything organized.</p>
@@ -3719,7 +3719,7 @@ function HelpTutorials({ Accordion }) {
         <p><strong>Court Filings:</strong> The Filings tab in case detail manages court filings separately from general documents. Upload filings and use AI classification to auto-detect the filing type, party, date, and summary.</p>
         <p><strong>AI Document Summary:</strong> Click "Summarize" on any uploaded document or filing. AI analyzes the content and extracts key facts, timeline, people mentioned, inconsistencies, liability issues, and a case-relevant takeaway. Medical records receive specialized analysis.</p>
       </Accordion>
-      <Accordion sectionKey="tut-transcripts" title="Transcripts & Scribe" icon="🎙️">
+      <Accordion sectionKey="tut-transcripts" title="Transcripts & Scribe" icon={Mic}>
         <p><strong>Creating Transcripts:</strong> In a case detail's Documents tab, switch to the Transcripts sub-tab. Upload audio/video files (MP3, WAV, M4A, OGG, FLAC, AAC, WebM, MP4 up to 100MB) to transcribe client interviews, depositions, witness statements, and other recordings. The system automatically transcribes audio with timestamps and speaker labels.</p>
         <p><strong>Transcript Viewer:</strong> Click a transcript to open it in the floating Transcript Viewer window. The viewer shows the full transcript with speaker chips, editable segments, timestamps, and audio playback controls (play/pause, skip forward/back 5 seconds, speed adjustment). Multiple transcript viewers can be open at the same time.</p>
         <p><strong>Editing Transcripts:</strong> Click any transcript segment to edit the text inline. Click a speaker chip to rename speakers across all their segments. Use the Export button to download a formatted text transcript.</p>
@@ -3728,25 +3728,25 @@ function HelpTutorials({ Accordion }) {
         <p><strong>Scribe Summaries:</strong> For Scribe-linked transcripts, click the "Summaries" button (purple) in the Transcript Viewer to fetch AI-generated summaries. Summaries highlight key topics, decisions, and action items from the recording.</p>
         <p><strong>Presenter Mode:</strong> Click the present button in the Transcript Viewer to open the transcript in a full-screen presentation window with dark/light mode toggle.</p>
       </Accordion>
-      <Accordion sectionKey="tut-correspondence" title="Correspondence & SMS" icon="💬">
+      <Accordion sectionKey="tut-correspondence" title="Correspondence & SMS" icon={MessageSquare}>
         <p><strong>Email Correspondence:</strong> The Correspondence tab in case detail shows all emails linked to the case (received via the office's inbound email system). View email threads, attachments, and manage correspondence history.</p>
         <p><strong>Setting Up Auto Text:</strong> In the Texts sub-tab of Correspondence, open "Auto Text Settings" to add recipients for automated SMS reminders. Configure each recipient's phone number, notification types (hearings, court dates, deadlines), and reminder intervals (day of, 1/3/7/14 days before).</p>
         <p><strong>Sending Text Messages:</strong> Click "Send Text" to compose a one-off text message. Select a recipient, type your message, or use "AI Draft" to generate a professional message based on the case context. Messages are logged in the case history.</p>
       </Accordion>
-      <Accordion sectionKey="tut-ai" title="AI Tools" icon="✦">
+      <Accordion sectionKey="tut-ai" title="AI Tools" icon={Brain}>
         <p><strong>Using Advocate AI:</strong> Open Advocate AI from the Help Center's "Advocate AI" tab, or click the floating AI button (bottom-right corner) on any screen. It's context-aware — it knows what screen you're on and can reference case details when opened from a case. Ask questions, get strategy suggestions, or request help with any MattrMindr feature. Advocate AI also understands the floating document viewer, transcript viewer, Scribe integration, and other system features.</p>
         <p><strong>AI Center Agents:</strong> The AI Center provides access to all specialized agents: Liability Analysis, Deadline Generator, Case Valuation & Strategy, Document Drafting, Case Triage, Client Communication Summary, Medical Record Summarizer, Task Suggestions, Filing Classifier, Audio Transcription, and Batch Case Manager.</p>
         <p><strong>Training AI Agents:</strong> Use the "Advocate AI Trainer" tab in AI Center to customize AI behavior. Add personal or office-wide training entries with local rules, office policies, settlement strategies, or jurisdiction preferences. Target specific agents or apply to all. Upload documents or type instructions directly.</p>
       </Accordion>
-      <Accordion sectionKey="tut-contacts" title="Contacts & Staff" icon="📇">
+      <Accordion sectionKey="tut-contacts" title="Contacts & Staff" icon={Users}>
         <p><strong>Managing Contacts:</strong> The Contacts view stores judges, insurance adjusters, medical providers, defense attorneys, witnesses, experts, and other contacts. Add contact details, notes, and associate contacts with cases. Pin frequently-used contacts for quick access.</p>
         <p><strong>Staff Directory:</strong> The Staff view shows all office personnel with their roles and assignments. Administrators can manage roles, send temporary passwords, and remove staff members. Staff members can have multiple roles.</p>
       </Accordion>
-      <Accordion sectionKey="tut-reports" title="Reports & Time Log" icon="📊">
+      <Accordion sectionKey="tut-reports" title="Reports & Time Log" icon={BarChart3}>
         <p><strong>Running Reports:</strong> The Reports view offers pre-built report types including caseload analysis, deadline compliance, task completion, SOL tracking, settlement reports, and case value pipeline. Filter by attorney, state, or case type. Export results to CSV or print directly.</p>
         <p><strong>Time Log Tracking:</strong> The Time Log view consolidates all time entries from task completions, case notes, and correspondence. Add manual time entries for activities not captured elsewhere. View entries by day, week, or custom date range. Filter by case or attorney.</p>
       </Accordion>
-      <Accordion sectionKey="tut-admin" title="Administration" icon="🔧">
+      <Accordion sectionKey="tut-admin" title="Administration" icon={Settings}>
         <p><strong>Batch Operations:</strong> Authorized staff (Managing Partner, Senior Partner, Partners, IT, App Admin) can perform bulk operations via the Batch Case Manager in AI Center. Operations include staff reassignment, status changes, stage advancement, court date updates, and jurisdiction changes.</p>
         <p><strong>Staff Management:</strong> Administrators can add new staff members (who receive a temporary password via email), assign or modify roles, and remove staff. Use the "Send Temp Password" button to reset a staff member's credentials.</p>
       </Accordion>
@@ -3768,7 +3768,7 @@ function HelpFAQ({ Accordion }) {
         <p>Yes. MattrMindr is fully responsive and works on phones and tablets. On mobile devices, the sidebar becomes a slide-out menu accessed via the hamburger icon. All features — case management, calendar, tasks, AI tools, and more — are available on mobile with touch-optimized controls. Note: the case info panel in the document viewer is hidden on mobile to preserve screen space.</p>
       </Accordion>
       <Accordion sectionKey="faq-close-popups" title="How do I close pop-up windows?">
-        <p>All pop-up windows and dialogs require you to click the close button (✕) or Cancel to dismiss them. Clicking outside a pop-up will not close it — this prevents accidentally losing unsaved work in forms and dialogs.</p>
+        <p>All pop-up windows and dialogs require you to click the close button (X) or Cancel to dismiss them. Clicking outside a pop-up will not close it — this prevents accidentally losing unsaved work in forms and dialogs.</p>
       </Accordion>
 
       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16 }}>Cases</div>
@@ -3922,9 +3922,9 @@ function AiPanel({ title, result, loading, error, onRun, onClose, actions, child
           {title}
         </div>
         <div className="flex gap-2 items-center">
-          {result && onRun && <button className="border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 bg-white dark:bg-amber-900/20 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md cursor-pointer transition-colors" style={{ fontSize: 11, padding: "3px 10px", fontWeight: 500 }} onClick={onRun}>↻ Retry</button>}
+          {result && onRun && <button className="border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 bg-white dark:bg-amber-900/20 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md cursor-pointer transition-colors" style={{ fontSize: 11, padding: "3px 10px", fontWeight: 500 }} onClick={onRun}><RotateCcw size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Retry</button>}
           {actions}
-          {onClose && <button className="bg-transparent border-none cursor-pointer text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-0 transition-colors" onClick={onClose}>✕</button>}
+          {onClose && <button className="bg-transparent border-none cursor-pointer text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-0 transition-colors" onClick={onClose}><X size={14} /></button>}
         </div>
       </div>
       {loading && (
@@ -4035,7 +4035,7 @@ function NewCaseModal({ onSave, onClose }) {
         )}
         {intakeSuccess && (
           <div style={{ padding: "8px 12px", background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 6, marginBottom: 10, fontSize: 12, color: "#059669" }}>
-            ✓ Intake form parsed successfully. Review the auto-filled fields below before submitting.
+            Intake form parsed successfully. Review the auto-filled fields below before submitting.
           </div>
         )}
 
@@ -4113,7 +4113,7 @@ function NewCaseModal({ onSave, onClose }) {
         <div style={{ background: autoTasks ? "#f1f5f9" : "var(--c-bg)", border: `1px solid ${autoTasks ? "#f59e0b22" : "#e2e8f0"}`, borderRadius: 7, padding: "12px 14px", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}>✅ Auto-generate opening tasks</div>
+              <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}><><CheckSquare size={13} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Auto-generate opening tasks</></div>
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Initial client interview, request discovery, obtain arrest report, review bond, conflict check, background investigation</div>
             </div>
             <Toggle on={autoTasks} onChange={() => setAutoTasks(p => !p)} />
@@ -4139,7 +4139,7 @@ function EscalateBox({ on, onChange, basePriority, mediumDays, highDays, urgentD
   return (
     <div style={{ background: on ? "#f1f5f9" : "var(--c-bg)", border: `1px solid ${on ? "#f59e0b22" : "#e2e8f0"}`, borderRadius: 7, padding: "12px 14px", transition: "all 0.2s" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: on ? 10 : 0 }}>
-        <div><div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}>🔺 Auto-Escalate Priority</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Priority rises automatically as the due date approaches</div></div>
+        <div><div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}><AlertTriangle size={13} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Auto-Escalate Priority</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Priority rises automatically as the due date approaches</div></div>
         <Toggle on={on} onChange={onChange} />
       </div>
       {on && (
@@ -4177,21 +4177,21 @@ function EscalateBox({ on, onChange, basePriority, mediumDays, highDays, urgentD
 
 // ─── Dashboard Widget System ─────────────────────────────────────────────────
 const DASHBOARD_WIDGETS = [
-  { id: "stat-active", label: "Active Records", size: "quarter", icon: "📊" },
-  { id: "stat-deadlines", label: "Upcoming Deadlines Count", size: "quarter", icon: "📅" },
-  { id: "stat-tasks", label: "My Open Tasks Count", size: "quarter", icon: "✅" },
-  { id: "stat-trials", label: "Trials in 90 Days Count", size: "quarter", icon: "⚖️" },
-  { id: "deadlines", label: "Upcoming Deadlines", size: "half", icon: "📋" },
-  { id: "trials", label: "Trials Within 90 Days", size: "half", icon: "🏛️" },
-  { id: "tasks", label: "My Tasks", size: "full", icon: "📝" },
-  { id: "pinned", label: "Pinned Cases", size: "full", icon: "pin" },
-  { id: "recent-activity", label: "Recent Activity", size: "half", icon: "🕐" },
-  { id: "overdue", label: "Overdue Tasks", size: "half", icon: "⚠️" },
-  { id: "my-time", label: "My Time", size: "half", icon: "⏱️" },
-  { id: "ai-triage", label: "AI Case Triage", size: "full", icon: "sparkles" },
-  { id: "quick-notes", label: "Quick Notes", size: "half", icon: "📝" },
-  { id: "pinned-contacts", label: "Pinned Contacts", size: "half", icon: "👤" },
-  { id: "client-comm", label: "Unread Client Communication", size: "half", icon: "💬" },
+  { id: "stat-active", label: "Active Records", size: "quarter", icon: BarChart3 },
+  { id: "stat-deadlines", label: "Upcoming Deadlines Count", size: "quarter", icon: Calendar },
+  { id: "stat-tasks", label: "My Open Tasks Count", size: "quarter", icon: CheckSquare },
+  { id: "stat-trials", label: "Trials in 90 Days Count", size: "quarter", icon: Scale },
+  { id: "deadlines", label: "Upcoming Deadlines", size: "half", icon: ClipboardList },
+  { id: "trials", label: "Trials Within 90 Days", size: "half", icon: Scale },
+  { id: "tasks", label: "My Tasks", size: "full", icon: PenLine },
+  { id: "pinned", label: "Pinned Cases", size: "full", icon: Pin },
+  { id: "recent-activity", label: "Recent Activity", size: "half", icon: Clock },
+  { id: "overdue", label: "Overdue Tasks", size: "half", icon: AlertTriangle },
+  { id: "my-time", label: "My Time", size: "half", icon: Clock },
+  { id: "ai-triage", label: "AI Case Triage", size: "full", icon: Sparkles },
+  { id: "quick-notes", label: "Quick Notes", size: "half", icon: PenLine },
+  { id: "pinned-contacts", label: "Pinned Contacts", size: "half", icon: User },
+  { id: "client-comm", label: "Unread Client Communication", size: "half", icon: MessageSquare },
 ];
 const DEFAULT_LAYOUT = ["stat-active", "stat-deadlines", "stat-tasks", "stat-trials", "deadlines", "trials", "tasks"];
 const getDashboardLayout = (prefs) => { try { return prefs?.dashboardLayout || DEFAULT_LAYOUT; } catch { return DEFAULT_LAYOUT; } };
@@ -4202,7 +4202,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   const [overIdx, setOverIdx] = useState(null);
   const [customWidgets, setCustomWidgets] = useState([]);
   useEffect(() => { apiGetCustomWidgets().then(r => setCustomWidgets(r || [])).catch(() => {}); }, []);
-  const allWidgets = [...DASHBOARD_WIDGETS, ...customWidgets.map(cw => ({ id: `custom-${cw.id}`, label: cw.name, size: cw.size || "half", icon: "sparkles", _custom: true }))];
+  const allWidgets = [...DASHBOARD_WIDGETS, ...customWidgets.map(cw => ({ id: `custom-${cw.id}`, label: cw.name, size: cw.size || "half", icon: Sparkles, _custom: true }))];
   const available = allWidgets.filter(w => !layout.includes(w.id));
   const remove = (id) => { const n = layout.filter(x => x !== id); setLayout(n); saveDashboardLayout(n); };
   const add = (id) => { const n = [...layout, id]; setLayout(n); saveDashboardLayout(n); };
@@ -4257,10 +4257,10 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
               }}
             >
               <span style={{ fontSize: 16, color: "var(--c-text2)", cursor: "grab", userSelect: "none", width: 20, textAlign: "center", letterSpacing: 1 }} title="Drag to reorder">⠿</span>
-              <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon === "sparkles" ? <Sparkles size={16} className="text-amber-500 inline" /> : w.icon}</span>
+              <span style={{ width: 24, textAlign: "center", display: "inline-flex", justifyContent: "center" }}>{(() => { const WI = w.icon; return <WI size={16} />; })()}</span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
               <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
-              <button onClick={() => remove(id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B24A4A", padding: "2px 4px" }} title="Remove">✕</button>
+              <button onClick={() => remove(id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#B24A4A", padding: "2px 4px" }} title="Remove"><X size={14} /></button>
             </div>
           );
         })}
@@ -4270,7 +4270,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--c-text2)", marginTop: 20, marginBottom: 8 }}>Available Widgets</div>
             {available.map(w => (
               <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border)" }}>
-                <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{w.icon === "pin" ? <Pin size={16} className="text-amber-500 inline" /> : w.icon === "sparkles" ? <Sparkles size={16} className="text-amber-500 inline" /> : w.icon}</span>
+                <span style={{ width: 24, textAlign: "center", display: "inline-flex", justifyContent: "center" }}>{(() => { const WI = w.icon; return <WI size={16} />; })()}</span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--c-text)" }}>{w.label}</span>
                 <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: sizeColor(w.size), color: "#fff", fontWeight: 600 }}>{sizeLabel(w.size)}</span>
                 <button onClick={() => add(w.id)} className="btn" style={{ fontSize: 11, padding: "3px 10px" }}>+ Add</button>
@@ -4372,8 +4372,8 @@ function UnreadClientCommWidget({ allCases, onSelectCase }) {
                 <div style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.caseTitle}</div>
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                {item.messageCount > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, padding: "2px 6px", borderRadius: 10, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600 }}>💬 {item.messageCount}</span>}
-                {item.documentCount > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, padding: "2px 6px", borderRadius: 10, background: "#fef3c7", color: "#92400e", fontWeight: 600 }}>📄 {item.documentCount}</span>}
+                {item.messageCount > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, padding: "2px 6px", borderRadius: 10, background: "#dbeafe", color: "#1d4ed8", fontWeight: 600 }}><MessageSquare size={11} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {item.messageCount}</span>}
+                {item.documentCount > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, padding: "2px 6px", borderRadius: 10, background: "#fef3c7", color: "#92400e", fontWeight: 600 }}><FileText size={11} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {item.documentCount}</span>}
               </div>
             </div>
           );
@@ -4562,7 +4562,7 @@ function CaseSearchField({ allCases, value, onChange, placeholder, userId, pinne
       {selectedCase ? (
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", fontSize: 12 }}>
           <span style={{ flex: 1, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedCase.title || selectedCase.caseNum}</span>
-          <button onClick={() => { onChange(""); setSearch(""); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+          <button onClick={() => { onChange(""); setSearch(""); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}><X size={14} /></button>
         </div>
       ) : (
         <input
@@ -4618,7 +4618,7 @@ function StaffSearchField({ value, onChange, placeholder, userList, showRole }) 
       {selectedUser ? (
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg)", fontSize: 12 }}>
           <span style={{ flex: 1, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedUser.name}{showRole !== false && selectedUser.role ? ` (${selectedUser.role})` : ""}</span>
-          <button onClick={() => { onChange(0); setSearch(""); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+          <button onClick={() => { onChange(0); setSearch(""); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}><X size={14} /></button>
         </div>
       ) : (
         <input
@@ -4846,7 +4846,7 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds, 
                 onClick={toggleSpeech}
                 style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 6, border: isListening ? "1px solid #e05252" : "1px solid var(--c-border)", background: isListening ? "rgba(224,82,82,0.08)" : "transparent", color: isListening ? "#e05252" : "var(--c-text2)", cursor: "pointer", fontSize: 12, animation: isListening ? "pulse-mic 1.5s ease-in-out infinite" : "none" }}
               >
-                <span style={{ fontSize: 14 }}>{isListening ? "🔴" : "🎙️"}</span>
+                <span style={{ fontSize: 14 }}>{isListening ? <Circle size={14} fill="currentColor" style={{color:"#ef4444"}} /> : <Mic size={14} />}</span>
                 {isListening ? "Listening…" : "Dictate"}
               </button>
             )}
@@ -4890,8 +4890,8 @@ function QuickNotesWidget({ currentUser, allCases, onSelectCase, pinnedCaseIds, 
                   <span style={{ fontSize: 11, color: "#64748b" }}>{fmtDate(note.createdAt)}</span>
                   {note.timeLogged && <span style={{ fontSize: 11, color: "var(--c-brand)", fontWeight: 600 }}>{note.timeLogged}h</span>}
                   <div style={{ flex: 1 }} />
-                  <button onClick={() => startEdit(note)} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Edit note">✎</button>
-                  <button onClick={async () => { if (!await confirmDelete()) return; handleDelete(note.id); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Delete note">✕</button>
+                  <button onClick={() => startEdit(note)} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Edit note"><Pencil size={12} /></button>
+                  <button onClick={async () => { if (!await confirmDelete()) return; handleDelete(note.id); }} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: "2px 6px" }} title="Delete note"><X size={14} /></button>
                 </div>
               </div>
             )}
@@ -5024,7 +5024,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                     <div className="checkbox" onClick={() => onCompleteTask(t.id)} title="Mark complete" />
                     <div className="dl-dot" style={{ background: urgencyColor(days), flexShrink: 0 }} />
                     <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
-                      <div className="dl-title">{t.title}{t.recurring && <span className="rec-badge">🔁</span>}{t.isChained && <span className="chain-badge">⛓</span>}</div>
+                      <div className="dl-title">{t.title}{t.recurring && <span className="rec-badge"><RefreshCw size={10} /></span>}{t.isChained && <span className="chain-badge"><GitBranch size={10} /></span>}</div>
                       <div className="dl-case">{cs?.title?.slice(0, 45) || `#${t.caseId}`}</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -5034,7 +5034,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                         onClick={() => setExpandedTask(isExpanded ? null : t.id)}
                         style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12, padding: "2px 4px" }}
                         title="Edit task"
-                      >{isExpanded ? "▲" : "✎"}</button>
+                      >{isExpanded ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <Pencil size={12} />}</button>
                     </div>
                   </div>
                   {isExpanded && (
@@ -5064,7 +5064,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                   style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", cursor: "pointer", borderTop: "1px solid var(--c-border)", background: showCompleted ? "var(--c-bg2)" : "transparent" }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>{showCompleted ? "▼" : "▶"}</span>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>{showCompleted ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text2)" }}>Completed</span>
                     <Badge label={`${myCompleted.length}`} />
                   </div>
@@ -5075,7 +5075,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
                     <div key={t.id} className="deadline-item" style={{ padding: "8px 16px", opacity: 0.7 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
                         <div style={{ width: 16, height: 16, borderRadius: 4, background: "#2F7A5F", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <span style={{ color: "#fff", fontSize: 10, lineHeight: 1 }}>✓</span>
+                          <Check size={10} style={{ color: "#fff" }} />
                         </div>
                         <div className="dl-info" style={{ flex: 1, minWidth: 0 }}>
                           <div className="dl-title" style={{ textDecoration: "line-through", color: "var(--c-text2)" }}>{t.title}</div>
@@ -5170,7 +5170,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
               <button className="!px-3 !py-1.5 !text-xs !font-medium !border !border-amber-200 dark:!border-amber-800/50 !text-amber-700 dark:!text-amber-400 !bg-amber-50 dark:!bg-amber-900/30 hover:!bg-amber-100 dark:hover:!bg-amber-900/50 !rounded-md !transition-colors !cursor-pointer !flex !items-center !gap-1.5" onClick={() => {
                 setTriageLoading(true); setTriageError(null);
                 apiCaseTriage().then(r => { setTriageResults(r.cases || []); setTriageLoading(false); }).catch(e => { setTriageError(e.message); setTriageLoading(false); });
-              }}>{triageResults ? <><span>↻</span> Refresh</> : <><Sparkles size={12} /> Run Triage</>}</button>
+              }}>{triageResults ? <><RotateCcw size={12} /> Refresh</> : <><Sparkles size={12} /> Run Triage</>}</button>
             </div>
             {triageLoading && (
               <div className="flex items-center gap-2.5 py-5 text-slate-500 dark:text-slate-400 text-xs">
@@ -5317,7 +5317,7 @@ function StaffSearchPicker({ staffSearchRef, attyFilter, setAttyFilter, staffInp
           onMouseDown={e => { e.preventDefault(); setAttyFilter("All"); setStaffInput(""); }}
           style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
           title="Clear filter"
-        >✕</button>
+        ><X size={14} /></button>
       )}
       {staffFocused && dropdownPos && createPortal(
         <div style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: 260, overflowY: "auto", background: ddBg, border: `1px solid ${ddBorder}`, borderRadius: 6, boxShadow: "0 6px 24px rgba(0,0,0,0.35)", zIndex: 99999, fontSize: 13 }}>
@@ -5404,7 +5404,7 @@ function BatchStaffPicker({ staffList, value, onChange, inputValue, onInputChang
           onMouseDown={e => { e.preventDefault(); onChange(""); onInputChange(""); }}
           style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--c-text2)", padding: "2px 4px", lineHeight: 1 }}
           title="Clear"
-        >✕</button>
+        ><X size={14} /></button>
       )}
       {focused && dropdownPos && createPortal(
         <div style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: 280, overflowY: "auto", background: ddBg, border: `1px solid ${ddBorder}`, borderRadius: 6, boxShadow: "0 6px 24px rgba(0,0,0,0.35)", zIndex: 99999, fontSize: 13 }}>
@@ -6022,7 +6022,7 @@ function EditField({ fieldKey, label, type, options, value, onChange, onBlur, on
             onClick={onRemove}
             title="Remove field"
             style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", padding: "2px 6px", borderRadius: 3, fontSize: 13, lineHeight: 1 }}
-          >✕</button>
+          ><X size={14} /></button>
         </div>
       )}
     </div>
@@ -6768,7 +6768,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className="modal" style={{ maxWidth: 700, maxHeight: "85vh", overflow: "auto" }}>
             <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="flex items-center gap-1.5"><Sparkles size={16} className="text-amber-500" /> Case Valuation & Strategy</span>
-              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b" }} onClick={() => setAiStrategy({ loading: false, result: null, error: null, show: false })}>✕</button>
+              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b" }} onClick={() => setAiStrategy({ loading: false, result: null, error: null, show: false })}><X size={14} /></button>
             </div>
             <div className="modal-sub">{draft.title} — {draft.clientName || "Client"}</div>
             <AiPanel title="Strategy Analysis" result={aiStrategy.result} loading={aiStrategy.loading} error={aiStrategy.error}
@@ -6807,7 +6807,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
           <div className="mobile-full" style={{ background: "var(--c-card)", borderRadius: 12, padding: "24px 28px", minWidth: 380, maxWidth: 500, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.3)", margin: "0 8px" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
               <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 17, fontWeight: 600, color: "var(--c-text-h)" }}>Team</div>
-              <button onClick={() => setShowTeamPopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b", lineHeight: 1, padding: "2px 4px" }}>✕</button>
+              <button onClick={() => setShowTeamPopup(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b", lineHeight: 1, padding: "2px 4px" }}><X size={14} /></button>
             </div>
             {teamFields.map(f => (
               <EditField
@@ -6826,7 +6826,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
               <div key={m.id} className="edit-field">
                 <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span>{m.role}</span>
-                  <button onClick={() => setCustomTeam(p => p.filter(t => t.id !== m.id))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
+                  <button onClick={() => setCustomTeam(p => p.filter(t => t.id !== m.id))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}><X size={14} /></button>
                 </div>
                 <StaffSearchField value={m.userId || 0} onChange={val => setCustomTeam(p => p.map(t => t.id === m.id ? { ...t, userId: val } : t))} placeholder="Search staff…" userList={filteredUsersForTeam} />
               </div>
@@ -6865,7 +6865,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
       {contactPopup && (
         <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
           <div className="login-box" style={{ maxWidth: 420, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative" }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => { setContactPopup(null); setContactEditMode(false); }} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
+            <button onClick={() => { setContactPopup(null); setContactEditMode(false); }} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}><X size={14} /></button>
             {contactEditMode && contactEditDraft ? (
               <>
                 <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 16 }}>Edit Contact</div>
@@ -6906,10 +6906,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <span style={{ fontSize: 11, fontWeight: 600, background: cs.bg, color: "#1e293b", borderRadius: 4, padding: "2px 8px" }}>{contactPopup.category}</span>
                   </div>
                   <div style={{ borderTop: "1px solid var(--c-border)", paddingTop: 14 }}>
-                    {row("📞", contactPopup.phone)}
-                    {row("✉️", contactPopup.email)}
-                    {row("📠", contactPopup.fax)}
-                    {row("📍", contactPopup.address)}
+                    {row(<span style={{display:"inline-flex"}}><Phone size={12} /></span>, contactPopup.phone)}
+                    {row(<span style={{display:"inline-flex"}}><Mail size={12} /></span>, contactPopup.email)}
+                    {row(<span style={{display:"inline-flex"}}><FileText size={12} /></span>, contactPopup.fax)}
+                    {row(<span style={{display:"inline-flex"}}><Pin size={12} /></span>, contactPopup.address)}
                     {!contactPopup.phone && !contactPopup.email && !contactPopup.fax && !contactPopup.address && (
                       <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>No contact details on file.</div>
                     )}
@@ -6988,21 +6988,21 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 className={`btn btn-sm ${editMode ? "" : "btn-outline"}`}
                 style={editMode ? { background: "#f59e0b", color: "#fff", border: "1px solid #1E2A3A", lineHeight: "20px" } : { lineHeight: "20px" }}
                 onClick={() => setEditMode(e => !e)}
-              >{editMode ? "✓ Done" : "✎ Edit"}</button>
+              >{editMode ? <><Check size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> Done</> : <><Pencil size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> Edit</>}</button>
               <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px", fontSize: 13, padding: "4px 10px" }} onClick={() => setActionsExpanded(e => !e)} title={actionsExpanded ? "Collapse actions" : "More actions"}>
-                {actionsExpanded ? "▲" : "▼"}
+                {actionsExpanded ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />}
               </button>
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={onClose}>✕</button>
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }} onClick={onClose}><X size={14} /></button>
           </div>
           {actionsExpanded && (
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8, width: "100%" }}>
-              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowTeamPopup(true)}>👥 Team</button>
+              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowTeamPopup(true)}><Users size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Team</button>
               <button className="px-3 py-1.5 border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-md text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-1.5 cursor-pointer" onClick={() => {
                 setAiStrategy(p => ({ ...p, show: true, loading: true, result: null, error: null }));
                 apiCaseStrategy({ caseId: c.id }).then(r => setAiStrategy(p => ({ ...p, loading: false, result: r.result }))).catch(e => setAiStrategy(p => ({ ...p, loading: false, error: e.message })));
               }}><Sparkles size={12} className="text-amber-500" /> Strategy</button>
-              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowPrint(true)}>🖨 Print</button>
-              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); }}>📄 Generate</button>
+              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => setShowPrint(true)}><Printer size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Print</button>
+              <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => { if (parties.length === 0) apiGetParties(c.id).then(setParties).catch(() => {}); setShowDocGen(true); }}><FileText size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Generate</button>
               {onOpenTrialCenter && <button className="btn btn-outline btn-sm" style={{ lineHeight: "20px" }} onClick={() => onOpenTrialCenter(c.id)}><Scale size={12} className="inline mr-1" /> Trial Center</button>}
               {canDelete && (
                 <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5", lineHeight: "20px" }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
@@ -7177,7 +7177,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           {["Cell", "Home", "Work", "Fax", "Other"].map(l => <option key={l}>{l}</option>)}
                         </select>
                         <input type="text" value={ph.number || ""} onChange={e => { const phones = [...(draft.clientPhones || [])]; phones[idx] = { ...phones[idx], number: e.target.value }; set("clientPhones", phones); }} onBlur={() => handleBlur("clientPhones")} placeholder="(555) 555-5555" style={{ flex: 1, fontSize: 13 }} />
-                        <button onClick={() => { const phones = (draft.clientPhones || []).filter((_, i) => i !== idx); set("clientPhones", phones); setAndLog("clientPhones", phones); }} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, padding: "0 2px" }}>✕</button>
+                        <button onClick={() => { const phones = (draft.clientPhones || []).filter((_, i) => i !== idx); set("clientPhones", phones); setAndLog("clientPhones", phones); }} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, padding: "0 2px" }}><X size={14} /></button>
                       </div>
                     ))}
                     {(!draft.clientPhones || draft.clientPhones.length === 0) && <span style={{ fontSize: 12, color: "#94a3b8" }}>No phone numbers</span>}
@@ -7214,7 +7214,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <span>{displayLabel}</span>
                           {editMode && canRemove && (
-                            <button onClick={() => setHiddenFields(p => [...p, f.key])} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
+                            <button onClick={() => setHiddenFields(p => [...p, f.key])} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}><X size={14} /></button>
                           )}
                         </div>
                         <div className="edit-field-val" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -7238,7 +7238,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <div className="edit-field-key" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span>{d.label}</span>
                       {editMode && (
-                        <button onClick={() => removeCustomDate(d.id)} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}>✕</button>
+                        <button onClick={() => removeCustomDate(d.id)} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px" }}><X size={14} /></button>
                       )}
                     </div>
                     <div className="edit-field-val">
@@ -7356,7 +7356,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         <div>{fmt(d.date)}</div>
                         {days !== null && <div style={{ fontSize: 10 }}>{days < 0 ? `${Math.abs(days)}d over` : `${days}d`}</div>}
                       </div>
-                      {canDel && <button onClick={async () => { if (!(await confirmDelete())) return; onDeleteDeadline(d.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 12, padding: "2px 4px", flexShrink: 0 }} title="Remove deadline">✕</button>}
+                      {canDel && <button onClick={async () => { if (!(await confirmDelete())) return; onDeleteDeadline(d.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 12, padding: "2px 4px", flexShrink: 0 }} title="Remove deadline"><X size={14} /></button>}
                     </div>
                   );
                 })}
@@ -7464,8 +7464,8 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: "var(--c-text)", lineHeight: 1.3 }}>
                           {t.title}
-                          {t.recurring && <span className="rec-badge">🔁</span>}
-                          {t.isChained && <span className="chain-badge">⛓</span>}
+                          {t.recurring && <span className="rec-badge"><RefreshCw size={10} /></span>}
+                          {t.isChained && <span className="chain-badge"><GitBranch size={10} /></span>}
                         </div>
                         <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                           <Badge label={getEffectivePriority(t)} />
@@ -7489,7 +7489,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       onClick={() => setShowCompletedOverlay(!showCompletedOverlay)}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", cursor: "pointer", borderBottom: "1px solid var(--c-border2)" }}
                     >
-                      <span style={{ fontSize: 12, color: "#64748b" }}>{showCompletedOverlay ? "▼" : "▶"}</span>
+                      <span style={{ fontSize: 12, color: "#64748b" }}>{showCompletedOverlay ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                       <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text2)" }}>Completed</span>
                       <Badge label={`${tasks.filter(t => t.status === "Completed").length}`} />
                     </div>
@@ -7497,12 +7497,12 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       const assignee = getUserById(t.assigned);
                       return (
                         <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--c-border2)", opacity: 0.45 }}>
-                          <div className="checkbox done" style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)}>✓</div>
+                          <div className="checkbox done" style={{ marginTop: 2 }} onClick={() => handleComplete(t.id)}><Check size={12} /></div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, color: "var(--c-text)", textDecoration: "line-through", lineHeight: 1.3 }}>
                               {t.title}
-                              {t.recurring && <span className="rec-badge">🔁</span>}
-                              {t.isChained && <span className="chain-badge">⛓</span>}
+                              {t.recurring && <span className="rec-badge"><RefreshCw size={10} /></span>}
+                              {t.isChained && <span className="chain-badge"><GitBranch size={10} /></span>}
                             </div>
                             <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                               <Badge label={getEffectivePriority(t)} />
@@ -7563,7 +7563,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           const dk = isDarkMode();
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "7px 0", borderBottom: "1px dashed #d4c9a8", opacity: isAdded ? 0.45 : 1 }}>
-                              <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
+                              <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{isAdded ? <Check size={11} /> : ""}{!isAdded && <Sparkles size={10} className="text-amber-500" />}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12, color: dk ? "var(--c-text)" : "#0f172a", fontWeight: 500 }}>{s.title}</div>
                                 <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
@@ -7645,7 +7645,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <>
                       {!draft.inLitigation && solDays !== null && solDays <= 180 && (
                         <div style={{ background: solDays <= 60 ? "#fef2f2" : "#fffbeb", border: `1px solid ${solDays <= 60 ? "#fca5a5" : "#fcd34d"}`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ fontSize: 20 }}>{solDays <= 60 ? "⚠️" : "⏳"}</span>
+                          <span style={{ fontSize: 20 }}>{solDays <= 60 ? <AlertTriangle size={20} /> : <CalendarClock size={20} />}</span>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: solColor }}>SOL {solDays <= 0 ? "EXPIRED" : `in ${solDays} days`}</div>
                             <div style={{ fontSize: 11, color: "#64748b" }}>Statute of Limitations: {solDate.toLocaleDateString()}</div>
@@ -7833,7 +7833,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", cursor: "pointer", background: isExp ? "var(--c-bg2)" : "transparent" }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 14 }}>🩺</span>
+                        <Briefcase size={14} />
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{displayName}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -7842,7 +7842,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           </div>
                         </div>
                       </div>
-                      <span style={{ fontSize: 12, color: "#64748b" }}>{isExp ? "▲" : "▼"}</span>
+                      <span style={{ fontSize: 12, color: "#64748b" }}>{isExp ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                     </div>
 
                     {isExp && (
@@ -8023,7 +8023,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", cursor: "pointer", background: isExp ? "var(--c-bg2)" : "transparent" }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ fontSize: 14 }}>👤</span>
+                          <User size={14} />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{displayName}</div>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -8033,7 +8033,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                             </div>
                           </div>
                         </div>
-                        <span style={{ fontSize: 12, color: "#64748b" }}>{isExp ? "▲" : "▼"}</span>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{isExp ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                       </div>
 
                       {isExp && (
@@ -8208,7 +8208,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", cursor: "pointer", background: isExp ? "var(--c-bg2)" : "transparent" }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 14 }}>📋</span>
+                        <ClipboardList size={14} />
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{displayName}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -8218,7 +8218,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           </div>
                         </div>
                       </div>
-                      <span style={{ fontSize: 12, color: "#64748b" }}>{isExp ? "▲" : "▼"}</span>
+                      <span style={{ fontSize: 12, color: "#64748b" }}>{isExp ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                     </div>
 
                     {isExp && (
@@ -8368,7 +8368,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                     <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
-                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteInsurancePolicy(c.id, p.id).then(() => { setInsurancePolicies(prev => prev.filter(x => x.id !== p.id)); if (expandedPolicyId === p.id) setExpandedPolicyId(null); }).catch(e2 => alert(e2.message)); }}>✕</button>
+                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteInsurancePolicy(c.id, p.id).then(() => { setInsurancePolicies(prev => prev.filter(x => x.id !== p.id)); if (expandedPolicyId === p.id) setExpandedPolicyId(null); }).catch(e2 => alert(e2.message)); }}><X size={14} /></button>
                     {isPolExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
                   </div>
                 </div>
@@ -8448,7 +8448,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                         value={n.fromParty || n.from_party || ""} onChange={e => updateNegLocal("fromParty", e.target.value)} onBlur={e => saveNeg({ fromParty: e.target.value })} /></div>
                                   </div>
                                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
-                                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
+                                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}><X size={14} /></button>
                                 </div>
                                 {policyGross > 0 && (
                                   <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)", flexWrap: "wrap" }}>
@@ -8534,7 +8534,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     value={n.fromParty || n.from_party || ""} onChange={e => updateNegLocal("fromParty", e.target.value)} onBlur={e => saveNeg({ fromParty: e.target.value })} /></div>
                               </div>
                               <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 13, marginLeft: 6 }}
-                                onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}>✕</button>
+                                onClick={async () => { if (!await confirmDelete()) return; apiDeleteNegotiation(c.id, n.id).then(() => setNegotiations(prev => prev.filter(x => x.id !== n.id))).catch(e => alert(e.message)); }}><X size={14} /></button>
                             </div>
                             {(entryGross > 0 || combinedGross > 0) && (
                               <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--c-border)", flexWrap: "wrap" }}>
@@ -8734,10 +8734,10 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     <span style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{provName}</span>
                     <Badge label={provType} />
                     {firstDate && <span style={{ fontSize: 11, color: "var(--c-text3)" }}>{fmt(firstDate)}{lastDate ? ` — ${fmt(lastDate)}` : ""}</span>}
-                    {!!(t.stillTreating || t.still_treating) && <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 600 }}>● Active</span>}
+                    {!!(t.stillTreating || t.still_treating) && <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 600 }}><Circle size={8} fill="currentColor" style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> Active</span>}
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteMedicalTreatment(c.id, t.id).then(() => setMedicalTreatments(p => p.filter(x => x.id !== t.id))).catch(err => alert(err.message)); }}>✕</button>
+                    onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteMedicalTreatment(c.id, t.id).then(() => setMedicalTreatments(p => p.filter(x => x.id !== t.id))).catch(err => alert(err.message)); }}><X size={14} /></button>
                 </div>
                 {!isCollapsed && (
                   <div style={{ padding: "12px 14px" }}>
@@ -8795,7 +8795,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                           <div style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 8, background: "var(--c-bg)", maxHeight: 240, overflowY: "auto" }}>
                             <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--c-bg)", zIndex: 1 }}>
                               <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Select a document to import as medical record</span>
-                              <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)", fontSize: 14 }} onClick={() => setDocPickerForTreatment(null)}>✕</button>
+                              <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)", fontSize: 14 }} onClick={() => setDocPickerForTreatment(null)}><X size={14} /></button>
                             </div>
                             {sortedDocs.length === 0 && <div style={{ padding: "12px 10px", fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No documents in this case.</div>}
                             {sortedDocs.map(doc => {
@@ -8831,11 +8831,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                   }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                      {isMedical && <span style={{ color: "#16a34a", marginRight: 4 }}>●</span>}
+                                      {isMedical && <span style={{ color: "#16a34a", marginRight: 4, display: "inline-flex", alignItems: "center" }}><Circle size={6} fill="currentColor" /></span>}
                                       {doc.filename}
                                     </div>
                                     <div style={{ fontSize: 10, color: "var(--c-text3)" }}>
-                                      {folder && <span style={{ marginRight: 8 }}>📁 {folder.name}</span>}
+                                      {folder && <span style={{ marginRight: 8 }}><><FolderOpen size={10} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {folder.name}</></span>}
                                       {doc.docType && <span>{doc.docType}</span>}
                                     </div>
                                   </div>
@@ -8903,7 +8903,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                                       <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
                                         onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; try { await apiDeleteMedicalRecord(c.id, t.id, rec.id); setMedicalRecords(p => ({ ...p, [t.id]: (p[t.id] || []).filter(r => r.id !== rec.id) })); } catch (err) { alert(err.message); } }}>
-                                        ✕
+                                        <X size={14} />
                                       </button>
                                       {isExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
                                     </div>
@@ -9014,7 +9014,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div style={{ border: "1px solid var(--c-border)", borderRadius: 6, marginBottom: 12, background: "var(--c-bg)", maxHeight: 240, overflowY: "auto" }}>
                   <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--c-bg)", zIndex: 1 }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Select a document to analyze for billing</span>
-                    <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)", fontSize: 14 }} onClick={() => setDamageDocPicker(false)}>✕</button>
+                    <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)", fontSize: 14 }} onClick={() => setDamageDocPicker(false)}><X size={14} /></button>
                   </div>
                   {sortedDocs.length === 0 && <div style={{ padding: "12px 10px", fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No documents in this case.</div>}
                   {sortedDocs.map(doc => {
@@ -9039,11 +9039,11 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                         }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-h)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {isBilling && <span style={{ color: "#0369a1", marginRight: 4 }}>●</span>}
+                            {isBilling && <span style={{ color: "#0369a1", marginRight: 4, display: "inline-flex", alignItems: "center" }}><Circle size={6} fill="currentColor" /></span>}
                             {doc.filename}
                           </div>
                           <div style={{ fontSize: 10, color: "var(--c-text3)" }}>
-                            {folder && <span style={{ marginRight: 8 }}>📁 {folder.name}</span>}
+                            {folder && <span style={{ marginRight: 8 }}><><FolderOpen size={10} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {folder.name}</></span>}
                             {doc.docType && <span>{doc.docType}</span>}
                           </div>
                         </div>
@@ -9105,7 +9105,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                     <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
-                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e2 => alert(e2.message)); }}>✕</button>
+                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDamage(c.id, d.id).then(() => setDamages(p => p.filter(x => x.id !== d.id))).catch(e2 => alert(e2.message)); }}><X size={14} /></button>
                     {isDmgExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
                   </div>
                 </div>
@@ -9231,7 +9231,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                     </div>
                   </div>
                   <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14, marginLeft: 8 }}
-                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}>✕</button>
+                    onClick={async () => { if (!await confirmDelete()) return; apiDeleteLien(c.id, l.id).then(() => setLiens(p => p.filter(x => x.id !== l.id))).catch(e => alert(e.message)); }}><X size={14} /></button>
                 </div>
               </div>
             );
@@ -9278,7 +9278,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                     <button style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 12, padding: 2 }}
-                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteExpense(c.id, exp.id).then(() => setExpenses(p => p.filter(x => x.id !== exp.id))).catch(e2 => alert(e2.message)); }}>✕</button>
+                      onClick={async (e) => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteExpense(c.id, exp.id).then(() => setExpenses(p => p.filter(x => x.id !== exp.id))).catch(e2 => alert(e2.message)); }}><X size={14} /></button>
                     {isExpExpanded ? <ChevronUp size={14} style={{ color: "var(--c-text3)" }} /> : <ChevronDown size={14} style={{ color: "var(--c-text3)" }} />}
                   </div>
                 </div>
@@ -9430,7 +9430,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                 <div style={{ background: "var(--c-card)", borderRadius: 12, width: "90%", maxWidth: 640, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
                   <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>Import from OneDrive</div>
-                    <button onClick={() => !oneDriveImporting && setShowOneDriveImport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}>✕</button>
+                    <button onClick={() => !oneDriveImporting && setShowOneDriveImport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}><X size={14} /></button>
                   </div>
                   <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)" }}>
                     <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, display: "block", marginBottom: 6 }}>Paste a OneDrive sharing link:</label>
@@ -9638,7 +9638,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                       {doc.summary && (
                         <div style={{ marginTop: 8 }}>
                           <button onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 text-sm font-medium bg-transparent border-none cursor-pointer p-0">
-                            {expandedDocId === doc.id ? "▾ Hide Summary" : "▸ View Summary"}
+                            {expandedDocId === doc.id ? <><ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> Hide Summary</> : <><ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} /> View Summary</>}
                           </button>
                           {expandedDocId === doc.id && (
                             <AiPanel title="Document Summary" result={doc.summary}
@@ -9681,7 +9681,7 @@ function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, act
                                   <button onClick={e => { e.stopPropagation(); const name = prompt("Subfolder name:"); if (name) { apiCreateDocFolder(c.id, name, folder.id).then(f => setDocFolders(prev => [...prev, { ...f, collapsed: true }])).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }} title="Add subfolder"><FolderPlus size={11} /></button>
                                   <button onClick={e => { e.stopPropagation(); const name = prompt("Rename folder:", folder.name); if (name && name !== folder.name) { apiUpdateDocFolder(folder.id, { name }).then(u => setDocFolders(prev => prev.map(f => f.id === folder.id ? { ...f, name: u.name } : f))).catch(err => alert(err.message)); } }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Pencil size={11} /></button>
                                   <button onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; apiDeleteDocFolder(folder.id).then(() => { const descendantIds = docFolders.filter(f => (f.parentId || f.parent_id) === folder.id).map(f => f.id); setDocFolders(prev => prev.filter(f => f.id !== folder.id && !descendantIds.includes(f.id))); setCaseDocuments(prev => prev.map(d => d.folderId === folder.id || descendantIds.includes(d.folderId) ? { ...d, folderId: null } : d)); }).catch(err => alert(err.message)); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8" }}><Trash2 size={11} /></button>
-                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? "▶" : "▼"}</span>
+                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>{folder.collapsed ? <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                                 </div>
                               </div>
                               {!folder.collapsed && (
@@ -10571,7 +10571,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   <div style={{ marginBottom: 12, border: "1px solid var(--c-border2)", borderRadius: 8, overflow: "hidden" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--c-bg2)", cursor: "pointer" }} onClick={() => setSmsWatchExpanded(p => !p)}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-text)" }}>
-                        {smsWatchExpanded ? "▾" : "▸"} Monitored Numbers {smsWatchNumbers.length > 0 && <span style={{ color: "#64748b", fontWeight: 400 }}>({smsWatchNumbers.length})</span>}
+                        {smsWatchExpanded ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />} Monitored Numbers {smsWatchNumbers.length > 0 && <span style={{ color: "#64748b", fontWeight: 400 }}>({smsWatchNumbers.length})</span>}
                       </span>
                       <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "1px 6px" }} onClick={e => { e.stopPropagation(); setSmsWatchAdding(true); setSmsWatchExpanded(true); setSmsWatchPhone(""); setSmsWatchName(""); }}>+ Add</button>
                     </div>
@@ -10586,7 +10586,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                               <span style={{ fontSize: 12, color: "var(--c-text)", fontFamily: "monospace" }}>{w.phoneNumber}</span>
                               {w.contactName && <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{w.contactName}</span>}
                             </div>
-                            <button onClick={() => { apiDeleteSmsWatch(w.id).then(() => setSmsWatchNumbers(p => p.filter(x => x.id !== w.id))).catch(() => {}); }} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: "0 2px", lineHeight: 1 }} title="Remove">✕</button>
+                            <button onClick={() => { apiDeleteSmsWatch(w.id).then(() => setSmsWatchNumbers(p => p.filter(x => x.id !== w.id))).catch(() => {}); }} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: "0 2px", lineHeight: 1 }} title="Remove"><X size={14} /></button>
                           </div>
                         ))}
                         {smsWatchAdding && (
@@ -10740,7 +10740,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--c-border)", background: "var(--c-bg2)", color: "var(--c-text)", fontSize: 13, boxSizing: "border-box" }}
                 />
                 {smsComposeSelected && (
-                  <button onClick={() => { setSmsComposeSelected(null); setSmsComposeSearch(""); setSmsComposeName(""); setSmsComposePhone(""); }} style={{ position: "absolute", right: 8, top: 28, background: "transparent", border: "none", fontSize: 14, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                  <button onClick={() => { setSmsComposeSelected(null); setSmsComposeSearch(""); setSmsComposeName(""); setSmsComposePhone(""); }} style={{ position: "absolute", right: 8, top: 28, background: "transparent", border: "none", fontSize: 14, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1 }}><X size={14} /></button>
                 )}
                 {smsComposeDropdown && smsComposeResults.length > 0 && (
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
@@ -10957,7 +10957,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                       style={{ width: "100%", padding: "6px 8px", borderRadius: 4, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, boxSizing: "border-box" }}
                     />
                     {smsContactSelected && (
-                      <button onClick={() => { setSmsContactSelected(null); setSmsContactSearch(""); setSmsNewName(""); setSmsNewPhones([]); setSmsNewType("client"); }} style={{ position: "absolute", right: 6, top: 20, background: "transparent", border: "none", fontSize: 14, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                      <button onClick={() => { setSmsContactSelected(null); setSmsContactSearch(""); setSmsNewName(""); setSmsNewPhones([]); setSmsNewType("client"); }} style={{ position: "absolute", right: 6, top: 20, background: "transparent", border: "none", fontSize: 14, color: "#64748b", cursor: "pointer", lineHeight: 1 }}><X size={14} /></button>
                     )}
                     {smsContactDropdownOpen && smsContactResults.length > 0 && (
                       <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
@@ -11031,7 +11031,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         {smsNewPhones.map((ph, i) => (
                           <span key={i} style={{ fontSize: 11, padding: "2px 8px", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4 }}>
                             {ph}
-                            <button onClick={() => setSmsNewPhones(p => p.filter((_, idx) => idx !== i))} style={{ background: "transparent", border: "none", fontSize: 12, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
+                            <button onClick={() => setSmsNewPhones(p => p.filter((_, idx) => idx !== i))} style={{ background: "transparent", border: "none", fontSize: 12, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1, padding: 0 }}><X size={14} /></button>
                           </span>
                         ))}
                       </div>
@@ -11105,7 +11105,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         {smsNewReminderDays.filter(d => ![0, 1, 3, 7, 14].includes(d)).map(d => (
                           <span key={d} style={{ fontSize: 11, padding: "2px 8px", background: "var(--c-bg)", border: "1px solid var(--c-border)", borderRadius: 12, color: "var(--c-text)", display: "flex", alignItems: "center", gap: 4 }}>
                             {d} days before
-                            <button onClick={() => setSmsNewReminderDays(p => p.filter(x => x !== d))} style={{ background: "transparent", border: "none", fontSize: 12, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
+                            <button onClick={() => setSmsNewReminderDays(p => p.filter(x => x !== d))} style={{ background: "transparent", border: "none", fontSize: 12, color: "var(--c-text3)", cursor: "pointer", lineHeight: 1, padding: 0 }}><X size={14} /></button>
                           </span>
                         ))}
                       </div>
@@ -11202,7 +11202,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                 </div>
                                 <div style={{ fontSize: 13, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</div>
                                 {!isExpanded && <div style={{ fontSize: 12, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{(email.bodyText || "").substring(0, 120)}</div>}
-                                {audioAttachments.length > 0 && !isExpanded && <div style={{ fontSize: 11, color: "#7c3aed", marginTop: 2 }}>🎵 Audio attachment</div>}
+                                {audioAttachments.length > 0 && !isExpanded && <div style={{ fontSize: 11, color: "#7c3aed", marginTop: 2 }}><FileAudio size={10} style={{display:"inline",verticalAlign:"middle"}} /> Audio attachment</div>}
                               </div>
                             </div>
                             {isExpanded && (
@@ -11239,7 +11239,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                                                 openBlobInViewer(typedBlob, att.filename, att.contentType);
                                               } catch (err) { alert("Failed to load attachment: " + err.message); }
                                             }} style={{ fontSize: 11, padding: "4px 10px", background: "var(--c-bg2)", border: "1px solid var(--c-border)", borderRadius: 4, cursor: "pointer", color: "var(--c-text)" }}>
-                                              📎 {att.filename} ({fmtFileSize(att.size)})
+                                              <Paperclip size={10} style={{display:"inline",verticalAlign:"middle"}} /> {att.filename} ({fmtFileSize(att.size)})
                                             </button>
                                           )}
                                         </div>
@@ -11409,7 +11409,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   <button
                     onClick={() => { if (attachmentPreview.blobUrl) URL.revokeObjectURL(attachmentPreview.blobUrl); setAttachmentPreview(null); }}
                     style={{ background: "transparent", border: "none", fontSize: 20, color: "#64748b", cursor: "pointer", padding: "2px 6px", lineHeight: 1 }}
-                  >✕</button>
+                  ><X size={14} /></button>
                 </div>
               </div>
               <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#1F2428" }}>
@@ -11419,7 +11419,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   <iframe src={attachmentPreview.url} title={attachmentPreview.filename} style={{ width: "100%", height: "100%", border: "none" }} />
                 ) : (
                   <div style={{ color: "#64748b", fontSize: 14, textAlign: "center", padding: 40 }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>📎</div>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}><Paperclip size={10} style={{display:"inline",verticalAlign:"middle"}} /></div>
                     <div>Preview not available for this file type.</div>
                     <div style={{ marginTop: 8 }}>
                       <button onClick={() => { const a = document.createElement("a"); a.href = attachmentPreview.url; a.download = attachmentPreview.filename; a.click(); }} style={{ color: "#0f172a", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 14 }}>Download to view</button>
@@ -11585,7 +11585,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                         ) : (
                           f.docType && <span style={{ fontSize: 10, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 7px", cursor: "pointer" }} onClick={() => { setEditingFilingId(f.id); setEditingFilingData({ filename: f.filename, filedBy: f.filedBy || "", docType: f.docType || "", filingDate: f.filingDate ? f.filingDate.substring(0, 10) : "" }); }} title="Click to edit">{f.docType}</span>
                         )}
-                        {f.source === "email" && <span style={{ fontSize: 10, color: "#D97706", background: "#FEF3C7", borderRadius: 4, padding: "2px 7px" }}>📧 Email</span>}
+                        {f.source === "email" && <span style={{ fontSize: 10, color: "#D97706", background: "#FEF3C7", borderRadius: 4, padding: "2px 7px" }}><Mail size={10} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> Email</span>}
                         {isEditing ? (
                           <input type="date" value={editingFilingData.filingDate || ""} onChange={e => setEditingFilingData(d => ({ ...d, filingDate: e.target.value }))} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #3B82F6" }} />
                         ) : (
@@ -11621,7 +11621,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                       )}
                       {f.summary && (
                         <div style={{ marginTop: 8 }}>
-                          <button onClick={() => setExpandedFilingId(expandedFilingId === f.id ? null : f.id)} style={{ fontSize: 11, fontWeight: 500, color: "var(--c-text2)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandedFilingId === f.id ? "▾ Hide Summary" : "▸ View Summary"}</button>
+                          <button onClick={() => setExpandedFilingId(expandedFilingId === f.id ? null : f.id)} style={{ fontSize: 11, fontWeight: 500, color: "var(--c-text2)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandedFilingId === f.id ? <><ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> Hide Summary</> : <><ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} /> View Summary</>}</button>
                           {expandedFilingId === f.id && (
                             <div style={{ marginTop: 6 }}>
                               <AiPanel title="Filing Summary" result={f.summary} />
@@ -11771,7 +11771,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                 return (
                   <div key={lc.id} className="card" style={{ marginBottom: 8 }}>
                     <div style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }} onClick={() => setExpandedLinkedId(isExpanded ? null : lc.id)}>
-                      <span style={{ fontSize: 11, color: "#64748b", flexShrink: 0 }}>{isExpanded ? "▼" : "▶"}</span>
+                      <span style={{ fontSize: 11, color: "#64748b", flexShrink: 0 }}>{isExpanded ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-h)" }}>{caseNum}</span>
@@ -12110,7 +12110,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   {u.status === "error" && <AlertCircle size={14} style={{ color: "#dc2626", flexShrink: 0 }} />}
                   <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.filename}</span>
                 </div>
-                <button onClick={() => removeBackgroundUpload(u.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", fontSize: 14, lineHeight: 1 }}>✕</button>
+                <button onClick={() => removeBackgroundUpload(u.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#94a3b8", fontSize: 14, lineHeight: 1 }}><X size={14} /></button>
               </div>
               {u.status === "uploading" && (
                 <div style={{ width: "100%", height: 4, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
@@ -12171,8 +12171,8 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink, co
   // Derive a file-type icon from the extension
   const linkIcon = (path) => {
     const ext = (path || "").split(".").pop().toLowerCase();
-    const map = { pdf: "📄", doc: "📝", docx: "📝", xls: "📊", xlsx: "📊", ppt: "📋", pptx: "📋", txt: "📃", csv: "📊", jpg: "🖼️", jpeg: "🖼️", png: "🖼️", gif: "🖼️", msg: "📧", eml: "📧", zip: "🗜️" };
-    return map[ext] || "📎";
+    const map = { pdf: FileText, doc: PenLine, docx: PenLine, xls: BarChart2, xlsx: BarChart2, ppt: ClipboardList, pptx: ClipboardList, txt: FileText, csv: BarChart2, jpg: Camera, jpeg: Camera, png: Camera, gif: Camera, msg: Mail, eml: Mail, zip: Layers };
+    return map[ext] || Paperclip;
   };
 
   return (
@@ -12237,7 +12237,7 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink, co
               onMouseEnter={e => e.currentTarget.style.background = "var(--c-hover)"}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
             >
-              <div style={{ fontSize: 18, flexShrink: 0, width: 26, textAlign: "center" }}>{linkIcon(link.path)}</div>
+              <div style={{ flexShrink: 0, width: 26, textAlign: "center", display: "flex", justifyContent: "center" }}>{(() => { const LI = linkIcon(link.path); return <LI size={16} />; })()}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   onClick={() => openLink(link.path)}
@@ -12260,7 +12260,7 @@ function CaseFileLinks({ caseId, links, currentUser, onAddLink, onDeleteLink, co
                 title="Remove link"
                 onMouseEnter={e => e.currentTarget.style.color = "#e05252"}
                 onMouseLeave={e => e.currentTarget.style.color = "#64748b"}
-              >🗑</button>
+              ><Trash2 size={14} /></button>
             </div>
           ))}
         </div>
@@ -12406,7 +12406,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
                   }}
                   title={isListening ? "Stop dictation" : "Start voice dictation"}
                 >
-                  <span style={{ fontSize: 14 }}>{isListening ? "🔴" : "🎙️"}</span>
+                  <span style={{ fontSize: 14 }}>{isListening ? <Circle size={14} fill="currentColor" style={{color:"#ef4444"}} /> : <Mic size={14} />}</span>
                   {isListening ? "Listening…" : "Dictate"}
                 </button>
               )}
@@ -12475,7 +12475,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
                   </span>
                   <span style={{ fontSize: 11, color: "#64748b", flex: 1 }}>{note.authorName}</span>
                   <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap" }}>{dateStr}</span>
-                  <span style={{ fontSize: 10, color: "#e2e8f0" }}>{isExpanded ? "▲" : "▼"}</span>
+                  <span style={{ fontSize: 10, color: "#e2e8f0" }}>{isExpanded ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                 </div>
 
                 {!isExpanded && (
@@ -12488,8 +12488,8 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
                 {isExpanded && (
                   <div>
                     <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <span>👤 {note.authorName} ({note.authorRole})</span>
-                      <span>🕐 {dateStr} at {timeStr}</span>
+                      <span><User size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> {note.authorName} ({note.authorRole})</span>
+                      <span><Clock size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> {dateStr} at {timeStr}</span>
                     </div>
                     {editingNoteId === note.id ? (
                       <div onClick={e => e.stopPropagation()}>
@@ -12538,7 +12538,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
                           style={{ fontSize: 11 }}
                           onClick={e => { e.stopPropagation(); setEditingNoteId(note.id); setEditBody(note.body); }}
                         >
-                          ✏️ Edit
+                          <><Pencil size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Edit</>
                         </button>
                       )}
                       <button
@@ -12546,7 +12546,7 @@ function CaseNotes({ caseId, notes, currentUser, onAddNote, onDeleteNote, onUpda
                         style={{ fontSize: 11, color: "#e05252", borderColor: "#fca5a5" }}
                         onClick={async e => { e.stopPropagation(); if (!await confirmDelete()) return; onDeleteNote(note.id); setExpandedId(null); }}
                       >
-                        🗑 Delete
+                        <><Trash2 size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Delete</>
                       </button>
                     </div>
                   </div>
@@ -12607,10 +12607,10 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
       <div style={{ width: "100%", maxWidth: 860 }}>
         {/* Toolbar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, padding: "0 4px" }}>
-          <div style={{ color: "var(--c-text)", fontSize: 14, fontWeight: 600 }}>📄 Case File Preview — {c.title}</div>
+          <div style={{ color: "var(--c-text)", fontSize: 14, fontWeight: 600 }}><FileText size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Case File Preview — {c.title}</div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button className="btn btn-gold" onClick={handlePrint}>🖨 Print / Save as PDF</button>
-            <button className="btn btn-outline" onClick={onClose}>✕ Close</button>
+            <button className="btn btn-gold" onClick={handlePrint}><Printer size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Print / Save as PDF</button>
+            <button className="btn btn-outline" onClick={onClose}><><X size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Close</></button>
           </div>
         </div>
 
@@ -12737,7 +12737,7 @@ function CasePrintView({ c, notes, tasks, deadlines, links, onClose }) {
                     <span>{note.authorName} ({note.authorRole})</span>
                     <span>·</span>
                     <span>{dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
-                    {note.timeLogged && <><span>·</span><span style={{ fontWeight: 600 }}>⏱ {note.timeLogged}</span></>}
+                    {note.timeLogged && <><span>·</span><span style={{ fontWeight: 600 }}><Clock size={11} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {note.timeLogged}</span></>}
                   </div>
                   <div className="nb">{note.body}</div>
                 </div>
@@ -12858,7 +12858,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvent
   }
 
   const KIND_COLORS = { deadline: null, task: "#8b5cf6", "court-date": "#d97706", trial: "#dc2626", mediation: "#0891b2", deposition: "#7c3aed", external: "#5588cc", outlook: "#0078d4" };
-  const KIND_ICONS = { deadline: "📋", task: "✅", "court-date": "⚖", trial: "⚖", mediation: "🤝", deposition: "📝", external: "📅", outlook: "📨" };
+  const KIND_ICONS = { deadline: ClipboardList, task: CheckSquare, "court-date": Scale, trial: Scale, mediation: Users, deposition: PenLine, external: Calendar, outlook: Mail };
   const KIND_LABELS = { deadline: "Deadline", task: "Task", "court-date": "Court Date", trial: "Trial", mediation: "Mediation", deposition: "Deposition", external: "External", outlook: "Outlook" };
 
   const eventsByDate = useMemo(() => {
@@ -12890,7 +12890,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvent
     return urgencyColor(daysUntil(item.date));
   };
 
-  const chipPrefix = (item) => KIND_ICONS[item.kind] || "";
+  const chipPrefix = (item) => { const KI = KIND_ICONS[item.kind]; return KI ? <KI size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> : ""; };
 
   const toggleStyle = (active) => ({ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", opacity: active ? 1 : 0.4, transition: "opacity 0.15s", userSelect: "none" });
 
@@ -12910,24 +12910,24 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvent
           <span style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 2 }}>Show:</span>
           <div style={toggleStyle(showDeadlines)} onClick={() => setShowDeadlines(v => !v)}>
             <input type="checkbox" checked={showDeadlines} readOnly style={{ accentColor: "#e07a30", width: 13, height: 13, cursor: "pointer" }} />
-            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>📋 Deadlines</span>
+            <span style={{ fontSize: 11, color: "var(--c-text2)", display: "inline-flex", alignItems: "center", gap: 3 }}><ClipboardList size={11} /> Deadlines</span>
           </div>
           <div style={toggleStyle(showTasks)} onClick={() => setShowTasks(v => !v)}>
             <input type="checkbox" checked={showTasks} readOnly style={{ accentColor: "#8b5cf6", width: 13, height: 13, cursor: "pointer" }} />
-            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>✅ Tasks</span>
+            <span style={{ fontSize: 11, color: "var(--c-text2)" }}><CheckSquare size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Tasks</span>
           </div>
           <div style={toggleStyle(showCourtDates)} onClick={() => setShowCourtDates(v => !v)}>
             <input type="checkbox" checked={showCourtDates} readOnly style={{ accentColor: "#d97706", width: 13, height: 13, cursor: "pointer" }} />
-            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>⚖ Court Dates</span>
+            <span style={{ fontSize: 11, color: "var(--c-text2)" }}><Scale size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Court Dates</span>
           </div>
           <div style={toggleStyle(showExternal)} onClick={() => setShowExternal(v => !v)}>
             <input type="checkbox" checked={showExternal} readOnly style={{ accentColor: "#5588cc", width: 13, height: 13, cursor: "pointer" }} />
-            <span style={{ fontSize: 11, color: "var(--c-text2)" }}>📅 External</span>
+            <span style={{ fontSize: 11, color: "var(--c-text2)" }}><Calendar size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> External</span>
           </div>
           {(outlookEvents || []).length > 0 && (
             <div style={toggleStyle(showOutlook)} onClick={() => setShowOutlook(v => !v)}>
               <input type="checkbox" checked={showOutlook} readOnly style={{ accentColor: "#0078d4", width: 13, height: 13, cursor: "pointer" }} />
-              <span style={{ fontSize: 11, color: "var(--c-text2)" }}>📨 Outlook</span>
+              <span style={{ fontSize: 11, color: "var(--c-text2)" }}><Mail size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Outlook</span>
             </div>
           )}
         </div>
@@ -12985,7 +12985,7 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvent
           return order.filter(k => grouped[k]).map(kind => (
             <div key={kind}>
               <div style={{ padding: "6px 16px", fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", background: "var(--c-bg)", borderBottom: "1px solid var(--c-border2)" }}>
-                {KIND_ICONS[kind]} {KIND_LABELS[kind]}s ({grouped[kind].length})
+                {(() => { const KI = KIND_ICONS[kind]; return KI ? <KI size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> : null; })()} {KIND_LABELS[kind]}s ({grouped[kind].length})
               </div>
               {grouped[kind].map((ev, i) => {
                 const col = chipColor(ev);
@@ -13001,9 +13001,9 @@ function CalendarGrid({ deadlines, tasks, allCases, externalEvents, outlookEvent
                         <span style={{ fontSize: 11, color: "#64748b" }}>{ev.status || "Open"}</span>
                       </div>
                     )}
-                    {kind === "external" && <div style={{ fontSize: 11, color: "#5588cc", marginTop: 2 }}>📅 {ev.source}</div>}
-                    {kind === "outlook" && <div style={{ fontSize: 11, color: "#0078d4", marginTop: 2 }}>📨 Outlook Calendar</div>}
-                    {ev.location && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>📍 {ev.location}</div>}
+                    {kind === "external" && <div style={{ fontSize: 11, color: "#5588cc", marginTop: 2 }}><Calendar size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> {ev.source}</div>}
+                    {kind === "outlook" && <div style={{ fontSize: 11, color: "#0078d4", marginTop: 2 }}><Mail size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Outlook Calendar</div>}
+                    {ev.location && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}><Pin size={11} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> {ev.location}</div>}
                     {ev.notes && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2, fontStyle: "italic" }}>{(ev.notes || "").slice(0, 80)}</div>}
                     {cs && (
                       <div style={{ marginTop: 4 }}>
@@ -13104,7 +13104,7 @@ function ICalManager({ externalEvents, setExternalEvents, allCases }) {
     <div style={{ maxWidth: 680 }}>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
-          <div className="card-title">📅 Internet Calendar Feeds</div>
+          <div className="card-title"><Calendar size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Internet Calendar Feeds</div>
           <span style={{ fontSize: 12, color: "#64748b" }}>{feeds.length} feed{feeds.length !== 1 ? "s" : ""} · {externalEvents.length} events imported</span>
         </div>
         <div style={{ padding: 20 }}>
@@ -13132,7 +13132,7 @@ function ICalManager({ externalEvents, setExternalEvents, allCases }) {
 
           {error && (
             <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 6, padding: "10px 14px", marginTop: 12, fontSize: 12, color: "#cc8888", lineHeight: 1.5 }}>
-              ⚠ {error}
+              <AlertTriangle size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> {error}
             </div>
           )}
 
@@ -13141,8 +13141,8 @@ function ICalManager({ externalEvents, setExternalEvents, allCases }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}>{feed.name}</div>
-                  {feed.status === "ok" && <span style={{ fontSize: 10, background: "#dcfce7", color: "#1e293b", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✓ {feed.count} events</span>}
-                  {feed.status === "error" && <span style={{ fontSize: 10, background: "#fee2e2", color: "#1e293b", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>✗ Error</span>}
+                  {feed.status === "ok" && <span style={{ fontSize: 10, background: "#dcfce7", color: "#1e293b", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}><><Check size={10} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {feed.count} events</></span>}
+                  {feed.status === "error" && <span style={{ fontSize: 10, background: "#fee2e2", color: "#1e293b", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}><><X size={10} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> Error</></span>}
                   {feed.status === "pending" && <span style={{ fontSize: 10, color: "#64748b" }}>Importing…</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{feed.url}</div>
@@ -13154,9 +13154,9 @@ function ICalManager({ externalEvents, setExternalEvents, allCases }) {
                   {feed.active ? "On" : "Off"}
                 </button>
                 <button className="btn btn-outline btn-sm" onClick={() => syncFeed(feed)} disabled={importing === feed.id || !feed.active}>
-                  {importing === feed.id ? "…" : "↻ Sync"}
+                  {importing === feed.id ? "…" : <><RotateCcw size={11} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> Sync</>}
                 </button>
-                <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => removeFeed(feed.id, feed.name)}>✕</button>
+                <button className="btn btn-outline btn-sm" style={{ color: "#e05252", borderColor: "#fca5a5" }} onClick={() => removeFeed(feed.id, feed.name)}><X size={14} /></button>
               </div>
             </div>
           ))}
@@ -13301,7 +13301,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
       </div>
       <div className="content">
         <div className="tabs">
-          {[["calendar","📅 Calendar"], ["list","List View"], ["add","Add Deadline"], ["ical","Internet Calendars"], ...(msStatus?.connected ? [["outlook-sync","📨 Outlook Sync"]] : []), ["calc","Rules Calculator"]].map(([t, l]) => (
+          {[["calendar","Calendar"], ["list","List View"], ["add","Add Deadline"], ["ical","Internet Calendars"], ...(msStatus?.connected ? [["outlook-sync","Outlook Sync"]] : []), ["calc","Rules Calculator"]].map(([t, l]) => (
             <div key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>{l}</div>
           ))}
         </div>
@@ -13357,7 +13357,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
                         <td data-label="Due" style={{ color: col, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(d.date)}</td>
                         <td data-label="Days" style={{ color: col, fontWeight: 700 }}>{days < 0 ? <span style={{ color: "#e05252" }}>{Math.abs(days)}d over</span> : days === 0 ? "Today" : `${days}d`}</td>
                         <td data-label="Assigned"><Avatar userId={d.assigned} size={26} /></td>
-                        {canDeleteDeadline && <td><button onClick={async () => { if (!confirmDelete || !(await confirmDelete())) return; onDeleteDeadline(d.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 13, padding: "2px 6px", borderRadius: 4 }} title="Remove deadline">✕</button></td>}
+                        {canDeleteDeadline && <td><button onClick={async () => { if (!confirmDelete || !(await confirmDelete())) return; onDeleteDeadline(d.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#e05252", fontSize: 13, padding: "2px 6px", borderRadius: 4 }} title="Remove deadline"><X size={14} /></button></td>}
                       </tr>
                     );
                   })}
@@ -13389,7 +13389,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
                     return (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #cbd5e1", borderRadius: 6, padding: "7px 10px", background: "var(--c-bg)", cursor: "default" }}>
                         <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sc?.clientName || sc?.title || "Unknown"}{sc?.caseNum ? <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{sc.caseNum}</span> : null}</span>
-                        <button type="button" style={{ border: "none", background: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewDl(p => ({ ...p, caseId: 0 })); setDlCaseSearch(""); setDlCaseDropOpen(true); }}>×</button>
+                        <button type="button" style={{ border: "none", background: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewDl(p => ({ ...p, caseId: 0 })); setDlCaseSearch(""); setDlCaseDropOpen(true); }}><X size={14} /></button>
                       </div>
                     );
                   })() : (
@@ -13460,7 +13460,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
           <div style={{ maxWidth: 680 }}>
             <div className="card" style={{ marginBottom: 16 }}>
               <div className="card-header">
-                <div className="card-title">📨 Outlook Calendar Sync</div>
+                <div className="card-title"><Mail size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Outlook Calendar Sync</div>
                 <span style={{ fontSize: 12, color: "#64748b" }}>{outlookEvents.length} Outlook event{outlookEvents.length !== 1 ? "s" : ""} loaded</span>
               </div>
               <div style={{ padding: 20 }}>
@@ -13469,7 +13469,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--c-border)", background: outlookCalSync ? "#eff6ff" : "var(--c-bg)", marginBottom: 16 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #0078d4, #00bcf2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ color: "white", fontSize: 18 }}>📨</span>
+                    <Mail size={18} style={{color:"white"}} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)" }}>Auto-sync deadlines to Outlook</div>
@@ -13539,7 +13539,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
                       {outlookEvents.slice(0, 20).map((ev, i) => (
                         <div key={ev.id || i} style={{ padding: "8px 12px", borderBottom: "1px solid var(--c-border2)", fontSize: 12 }}>
                           <div style={{ fontWeight: 600, color: "var(--c-text)" }}>{ev.title}</div>
-                          <div style={{ color: "#64748b", fontSize: 11 }}>{ev.date}{ev.location ? ` · 📍 ${ev.location}` : ""}</div>
+                          <div style={{ color: "#64748b", fontSize: 11 }}>{ev.date}{ev.location ? ` · ${ev.location}` : ""}</div>
                         </div>
                       ))}
                     </div>
@@ -13570,7 +13570,7 @@ function DeadlinesView({ deadlines, tasks, onAddDeadline, onUpdateDeadline, onDe
                     <div style={{ fontSize: 11, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Result</div>
                     <div style={{ fontSize: 24, fontFamily: "'Inter',sans-serif", color: "var(--c-text-h)", marginBottom: 8 }}>{fmt(calcResult.result)}</div>
                     <div style={{ fontSize: 13, color: "var(--c-text2)" }}><strong style={{ color: "#0f172a" }}>{calcResult.rule.name}</strong><br />{calcResult.rule.days < 0 ? `${Math.abs(calcResult.rule.days)} days before` : calcResult.rule.days === 0 ? "Same day as" : `${calcResult.rule.days} days from`} {fmt(calcResult.from)} · <span style={{ fontFamily: "monospace", fontSize: 12 }}>{calcResult.rule.rule}</span></div>
-                    <div style={{ marginTop: 10, fontSize: 12, color: "#ea580c", fontStyle: "italic" }}>⚠ Always verify against current court orders and applicable state/federal rules of civil procedure.</div>
+                    <div style={{ marginTop: 10, fontSize: 12, color: "#ea580c", fontStyle: "italic" }}><AlertTriangle size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Always verify against current court orders and applicable state/federal rules of civil procedure.</div>
                   </div>
                 )}
               </div>
@@ -13656,7 +13656,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                   {newTask.caseId && !caseDropOpen ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #cbd5e1", borderRadius: 6, padding: "7px 10px", background: "var(--c-bg)", cursor: "default" }}>
                       <span style={{ flex: 1, fontSize: 13, color: "var(--c-text)" }}>{sortedCases.find(c => c.id === newTask.caseId)?.clientName || sortedCases.find(c => c.id === newTask.caseId)?.title || "Unknown"}{sortedCases.find(c => c.id === newTask.caseId)?.caseNum ? <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>{sortedCases.find(c => c.id === newTask.caseId)?.caseNum}</span> : null}</span>
-                      <button type="button" style={{ border: "none", background: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewTask(p => ({ ...p, caseId: 0 })); setCaseSearch(""); setCaseDropOpen(true); }}>×</button>
+                      <button type="button" style={{ border: "none", background: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }} onClick={() => { setNewTask(p => ({ ...p, caseId: 0 })); setCaseSearch(""); setCaseDropOpen(true); }}><X size={14} /></button>
                     </div>
                   ) : (
                     <div onBlur={e => { setTimeout(() => { if (!e.currentTarget.contains(document.activeElement)) setCaseDropOpen(false); }, 150); }} tabIndex={-1} style={{ outline: "none" }}>
@@ -13719,7 +13719,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
               <div className="form-group">
                 <div style={{ background: newTask.recurring ? "#f0fdf4" : "var(--c-bg)", border: `1px solid ${newTask.recurring ? "#44bbaa55" : "#e2e8f0"}`, borderRadius: 7, padding: "12px 14px", marginBottom: 8, transition: "all 0.2s" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: newTask.recurring ? 12 : 0 }}>
-                    <div><div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}>🔁 Recurring Task</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>A new task is auto-generated when this one is checked off</div></div>
+                    <div><div style={{ fontSize: 13, color: "var(--c-text)", fontWeight: 600 }}><RefreshCw size={13} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Recurring Task</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>A new task is auto-generated when this one is checked off</div></div>
                     <Toggle on={newTask.recurring} onChange={() => setNewTask(p => ({ ...p, recurring: !p.recurring }))} color="#44bbaa" />
                   </div>
                   {newTask.recurring && (
@@ -13784,10 +13784,10 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                   return (
                     <Fragment key={t.id}>
                       <tr style={{ opacity: done ? 0.5 : 1 }}>
-                        <td data-label=""><div className={`checkbox ${done ? "done" : ""}`} onClick={() => onCompleteTask(t.id)}>{done && "✓"}</div></td>
+                        <td data-label=""><div className={`checkbox ${done ? "done" : ""}`} onClick={() => onCompleteTask(t.id)}>{done && <Check size={12} />}</div></td>
                         <td data-label="Task">
                           <div style={{ color: "var(--c-text)", fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>
-                            {t.title}{t.recurring && <span className="rec-badge">🔁 {t.recurringDays}d</span>}{t.isChained && <span className="chain-badge">⛓ auto</span>}
+                            {t.title}{t.recurring && <span className="rec-badge"><RefreshCw size={10} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {t.recurringDays}d</span>}{t.isChained && <span className="chain-badge"><GitBranch size={10} /> auto</span>}
                           </div>
                           {t.notes && <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{t.notes}</div>}
                         </td>
@@ -13797,7 +13797,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                         <td data-label="Priority">
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                             <Badge label={ep} />
-                            {t.autoEscalate && <span title={escalated ? `Escalated from ${t.priority}` : "Auto-escalate on"} style={{ fontSize: 11, cursor: "help" }}>🔺</span>}
+                            {t.autoEscalate && <span title={escalated ? `Escalated from ${t.priority}` : "Auto-escalate on"} style={{ fontSize: 11, cursor: "help" }}><AlertTriangle size={10} /></span>}
                           </div>
                           {escalated && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>was {t.priority}</div>}
                         </td>
@@ -13807,7 +13807,7 @@ function TasksView({ tasks, onAddTask, allCases, currentUser, onCompleteTask, on
                             onClick={() => setExpandedTask(isExpanded ? null : t.id)}
                             style={{ background: "none", border: "none", color: isExpanded ? "#0f172a" : "#64748b", cursor: "pointer", fontSize: 13, padding: "2px 6px", borderRadius: 3, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
                             title="Edit due date, priority, assignee"
-                          >✎</button>
+                          ><Pencil size={12} /></button>
                         </td>
                       </tr>
                       {isExpanded && (
@@ -15205,7 +15205,7 @@ function CustomReportBuilder({ currentUser }) {
                   {FILTER_OPS.map(op => <option key={op} value={op}>{op.replace(/_/g, " ")}</option>)}
                 </select>
                 <input value={f.value} onChange={e => updateFilter(i, "value", e.target.value)} placeholder="Value" style={{ flex: 1, padding: "6px 8px", fontSize: 12, border: "1px solid var(--c-border)", borderRadius: 4, background: "var(--c-bg)", color: "var(--c-text)" }} />
-                <button onClick={() => removeFilter(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, padding: "0 4px" }}>✕</button>
+                <button onClick={() => removeFilter(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, padding: "0 4px" }}><X size={14} /></button>
               </div>
             ))}
           </div>
@@ -15980,8 +15980,8 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-outline btn-sm" onClick={handleCSV}>⬇ CSV</button>
-                <button className="btn btn-outline btn-sm" onClick={handlePrint}>🖨 Print</button>
+                <button className="btn btn-outline btn-sm" onClick={handleCSV}><Download size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> CSV</button>
+                <button className="btn btn-outline btn-sm" onClick={handlePrint}><Printer size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Print</button>
               </div>
             </div>
 
@@ -16357,7 +16357,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                       <strong>{selectedCase.clientName || selectedCase.title}</strong>
                       <span style={{ color: "var(--c-text2)", marginLeft: 6, fontSize: 11 }}>{selectedCase.stage} · {selectedCase.caseType}</span>
                     </div>
-                    <button onClick={() => { setSelectedCaseId(""); setCaseSearch(""); setAiState({ loading: false, result: null, error: null }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#64748b", padding: "0 2px" }}>✕</button>
+                    <button onClick={() => { setSelectedCaseId(""); setCaseSearch(""); setAiState({ loading: false, result: null, error: null }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#64748b", padding: "0 2px" }}><X size={14} /></button>
                   </div>
                 ) : (
                   <>
@@ -16629,7 +16629,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                               const sel = batchSelectedCases.find(x => x.id === c.id);
                               return (
                                 <div key={c.id} onClick={() => { toggleCase(c); setBatchCaseSearch(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "var(--c-text)", borderBottom: "1px solid var(--c-border)", background: sel ? "var(--c-bg)" : "transparent", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => { if (!sel) e.currentTarget.style.background = "var(--c-bg)"; }} onMouseLeave={e => { if (!sel) e.currentTarget.style.background = "transparent"; }}>
-                                  <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>{sel ? "✓" : ""}</span>
+                                  <span style={{ width: 18, textAlign: "center", display: "inline-flex", justifyContent: "center" }}>{sel ? <Check size={14} /> : ""}</span>
                                   <div>
                                     <div style={{ fontWeight: 500 }}>{c.clientName || c.title}</div>
                                     <div style={{ fontSize: 11, color: "var(--c-text2)" }}>{c.caseNum || "—"} · {c.status} · {c.stage}</div>
@@ -16645,7 +16645,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                           {batchSelectedCases.map(c => (
                             <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, background: "var(--c-bg)", border: "1px solid var(--c-border)", fontSize: 11, color: "var(--c-text)" }}>
                               {c.clientName || c.title}
-                              <button onClick={() => toggleCase(c)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#e05252", padding: 0, lineHeight: 1 }}>✕</button>
+                              <button onClick={() => toggleCase(c)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#e05252", padding: 0, lineHeight: 1 }}><X size={14} /></button>
                             </span>
                           ))}
                           <button onClick={() => { setBatchSelectedCases([]); setBatchPreview(null); }} style={{ fontSize: 11, color: "#e05252", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Clear all</button>
@@ -16814,7 +16814,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                   const dk = isDarkMode();
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--c-border)", opacity: isAdded ? 0.45 : 1 }}>
-                      <span style={{ fontSize: 12, marginTop: 1 }}>{isAdded ? "✓" : ""}{!isAdded && <Sparkles size={12} className="text-amber-500" />}</span>
+                      <span style={{ fontSize: 12, marginTop: 1 }}>{isAdded ? <Check size={11} /> : ""}{!isAdded && <Sparkles size={12} className="text-amber-500" />}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: "var(--c-text-h)", fontWeight: 500 }}>{s.title}</div>
                         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
@@ -16843,7 +16843,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
             )}
             {aiState.result === "__FILING_CLASSIFIER__" && aiCenterFilingResult && (
               <div className="card" style={{ marginTop: 16, padding: 20 }}>
-                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 15, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}>📁 Classification Result</div>
+                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 15, fontWeight: 600, color: "var(--c-text-h)", marginBottom: 12 }}><FolderOpen size={10} style={{display:"inline",verticalAlign:"middle"}} /> Classification Result</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text2)" }}>Suggested Name:</span>
@@ -16911,7 +16911,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
               const filtered = trainingEntries.filter(e => trainingTab === "personal" ? (e.scope === "personal" && e.user_id === userId) : e.scope === "office");
               if (filtered.length === 0) return (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--c-text2)" }}>
-                  <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>🧠</div>
+                  <div style={{ marginBottom: 12, opacity: 0.3 }}><Brain size={32} /></div>
                   <div style={{ fontSize: 13 }}>{trainingTab === "personal" ? "No personal training entries yet. Add instructions to customize AI for your workflow." : "No office-wide training entries yet." + (canOffice ? " Add guidelines that apply to all staff." : "")}</div>
                 </div>
               );
@@ -16949,7 +16949,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                                         return { ...f, target_agents: next };
                                       });
                                     }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 12, border: `1px solid ${isSel ? "#6366f1" : "var(--c-border)"}`, background: isSel ? "#6366f118" : "transparent", color: isSel ? "#6366f1" : "var(--c-text2)", cursor: "pointer", fontWeight: isSel ? 600 : 400 }}>
-                                      {isSel ? "✓ " : ""}{opt.label}
+                                      {isSel ? <><Check size={11} style={{display:"inline",verticalAlign:"middle"}} /> </> : ""}{opt.label}
                                     </button>
                                   );
                                 })}
@@ -16968,7 +16968,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                                   <span style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text-h)" }}>{entry.title}</span>
                                   <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3, background: entry.scope === "office" ? "#05966918" : "#2563eb18", color: entry.scope === "office" ? "#059669" : "#2563eb" }}>{entry.scope === "office" ? "Office" : "Personal"}</span>
                                   <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "var(--c-bg)", color: "var(--c-text2)", border: "1px solid var(--c-border)" }}>{entry.category}</span>
-                                  <span style={{ fontSize: 10, color: "#64748b" }}>{entry.source_type === "document" ? "📄" : "📝"}</span>
+                                  <span style={{ fontSize: 10, color: "#64748b" }}>{entry.source_type === "document" ? <FileText size={10} /> : <PenLine size={10} />}</span>
                                   {(() => {
                                     const ta = entry.target_agents || ["all"];
                                     if (ta.includes("all")) return <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#6366f118", color: "#6366f1", fontWeight: 500 }}>All Agents</span>;
@@ -16986,9 +16986,9 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                               </div>
                               {canEdit && (
                                 <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, marginLeft: 8 }}>
-                                  <button onClick={() => handleToggleActive(entry)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px", color: entry.active ? "#059669" : "#64748b" }} title={entry.active ? "Active — click to disable" : "Inactive — click to enable"}>{entry.active ? "✓" : "○"}</button>
-                                  <button onClick={() => { setEditingId(entry.id); setEditForm(entry.source_type === "document" ? { title: entry.title, category: entry.category, target_agents: entry.target_agents || ["all"] } : { title: entry.title, category: entry.category, content: entry.content, target_agents: entry.target_agents || ["all"] }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#64748b" }}>✎</button>
-                                  <button onClick={() => handleDeleteTraining(entry.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#e05252" }}>✕</button>
+                                  <button onClick={() => handleToggleActive(entry)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px", color: entry.active ? "#059669" : "#64748b" }} title={entry.active ? "Active — click to disable" : "Inactive — click to enable"}>{entry.active ? <Check size={14} /> : <Circle size={14} />}</button>
+                                  <button onClick={() => { setEditingId(entry.id); setEditForm(entry.source_type === "document" ? { title: entry.title, category: entry.category, target_agents: entry.target_agents || ["all"] } : { title: entry.title, category: entry.category, content: entry.content, target_agents: entry.target_agents || ["all"] }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#64748b" }}><Pencil size={12} /></button>
+                                  <button onClick={() => handleDeleteTraining(entry.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "2px 4px", color: "#e05252" }}><X size={14} /></button>
                                 </div>
                               )}
                             </div>
@@ -17006,11 +17006,11 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                 <div className="modal" style={{ maxWidth: 540 }}>
                   <div className="modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>Add Agent Training</span>
-                    <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b" }} onClick={() => setShowAddTraining(false)}>✕</button>
+                    <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b" }} onClick={() => setShowAddTraining(false)}><X size={14} /></button>
                   </div>
                   <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "1px solid var(--c-border)" }}>
-                    <button onClick={() => setAddMode("text")} style={{ padding: "6px 14px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: addMode === "text" ? "#6366f1" : "var(--c-text2)", borderBottom: addMode === "text" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -1 }}>📝 Write Instructions</button>
-                    <button onClick={() => setAddMode("document")} style={{ padding: "6px 14px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: addMode === "document" ? "#6366f1" : "var(--c-text2)", borderBottom: addMode === "document" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -1 }}>📄 Upload Document</button>
+                    <button onClick={() => setAddMode("text")} style={{ padding: "6px 14px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: addMode === "text" ? "#6366f1" : "var(--c-text2)", borderBottom: addMode === "text" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -1 }}><PenLine size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Write Instructions</button>
+                    <button onClick={() => setAddMode("document")} style={{ padding: "6px 14px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "none", color: addMode === "document" ? "#6366f1" : "var(--c-text2)", borderBottom: addMode === "document" ? "2px solid #6366f1" : "2px solid transparent", marginBottom: -1 }}><FileText size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Upload Document</button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     <div>
@@ -17052,7 +17052,7 @@ function AiCenterView({ allCases, currentUser, onMenuToggle, pinnedCaseIds, conf
                                 return { ...f, target_agents: next };
                               });
                             }} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, border: `1px solid ${isSelected ? "#6366f1" : "var(--c-border)"}`, background: isSelected ? "#6366f118" : "transparent", color: isSelected ? "#6366f1" : "var(--c-text2)", cursor: "pointer", fontWeight: isSelected ? 600 : 400, transition: "all 0.15s" }}>
-                              {isSelected ? "✓ " : ""}{opt.label}
+                              {isSelected ? <><Check size={11} style={{display:"inline",verticalAlign:"middle"}} /> </> : ""}{opt.label}
                             </button>
                           );
                         })}
@@ -17371,7 +17371,7 @@ function TimeLogView({ currentUser, allCases, tasks, caseNotes, correspondence =
                         {r._source === "manual" && (
                           <button onClick={() => handleDeleteManual(r._id)}
                             style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", padding: 2, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
-                            title="Delete entry">✕</button>
+                            title="Delete entry"><X size={14} /></button>
                         )}
                       </td>
                     </tr>
@@ -17455,7 +17455,7 @@ function AddTimeEntryModal({ allCases, currentUser, tasks, caseNotes, correspond
   return (
     <div className="case-overlay" style={{ left: 0, background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
       <div className="login-box" style={{ maxWidth: 440, borderRadius: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", position: "relative", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}><X size={14} /></button>
         <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, color: "var(--c-text-h)", marginBottom: 16 }}>Add Time Entry</div>
 
         <div className="form-group">
@@ -17601,7 +17601,7 @@ function NewContactModal({ onSave, onClose }) {
   return (
     <div className="modal-overlay">
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 500, maxWidth: "calc(100vw - 24px)" }}>
-        <div className="modal-header"><span>New Contact</span><button className="modal-close" onClick={onClose}>✕</button></div>
+        <div className="modal-header"><span>New Contact</span><button className="modal-close" onClick={onClose}><X size={14} /></button></div>
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label className="field-label">Name *</label>
@@ -17646,7 +17646,7 @@ function NewContactModal({ onSave, onClose }) {
                   {["Cell", "Office", "Home", "Work", "Fax", "Other"].map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
                 <input className="field-input" value={p.number} onChange={e => setExtraPhones(prev => prev.map((x, j) => j === i ? { ...x, number: e.target.value } : x))} placeholder="(555) 555-5555" style={{ flex: 1 }} />
-                <button onClick={() => setExtraPhones(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#e05252", fontSize: 14, cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}>✕</button>
+                <button onClick={() => setExtraPhones(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#e05252", fontSize: 14, cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}><X size={14} /></button>
               </div>
             ))}
           </div>
@@ -17882,7 +17882,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
               style={{ background: "transparent", border: "none", outline: "none", fontSize: 20, fontWeight: 700, color: "var(--c-text)", fontFamily: "'Inter',sans-serif", width: "100%", padding: 0 }}
             />
           </div>
-          <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} style={{ position: "absolute", top: 14, right: 16, background: "transparent", border: "none", fontSize: 18, color: "#64748b", cursor: "pointer", lineHeight: 1 }}><X size={14} /></button>
         </div>
 
         <div style={{ padding: "20px 28px", overflowY: "auto", flex: 1 }}>
@@ -17921,7 +17921,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                     {["Cell", "Office", "Home", "Work", "Fax", "Other"].map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                   <input className="field-input" value={p.number} onChange={e => updatePhone(p, "number", e.target.value)} placeholder="(555) 555-5555" style={{ flex: 1 }} />
-                  <button onClick={() => removePhone(p.id)} style={{ background: "none", border: "none", color: "#e05252", fontSize: 14, cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}>✕</button>
+                  <button onClick={() => removePhone(p.id)} style={{ background: "none", border: "none", color: "#e05252", fontSize: 14, cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}><X size={14} /></button>
                 </div>
               ))}
             </div>
@@ -17963,7 +17963,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                         onClick={() => setExpandedStaff(isExp ? null : s.id)}
                         style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", background: isExp ? "var(--c-bg2)" : "transparent", borderRadius: isExp ? "8px 8px 0 0" : 8, transition: "background 0.15s" }}
                       >
-                        <span style={{ fontSize: 12, color: "var(--c-text2)" }}>{isExp ? "▲" : "▼"}</span>
+                        <span style={{ fontSize: 12, color: "var(--c-text2)" }}>{isExp ? <ChevronUp size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                         <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#f1f5f9", color: "#1e293b" }}>{s.staffType}</span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", flex: 1 }}>{d.name || "Unnamed"}</span>
                         {d.phone && <span style={{ fontSize: 11, color: "#64748b" }}>{d.phone}</span>}
@@ -18031,7 +18031,7 @@ function ContactDetailOverlay({ contact, currentUser, notes, allCases, onClose, 
                         <td style={{ padding: "7px 8px 7px 0", color: "var(--c-text)" }}>{c.title}</td>
                         <td style={{ padding: "7px 0", color: c.status === "Active" ? "#4CAE72" : "var(--c-text2)", fontWeight: 600 }}>{c.status}</td>
                         <td style={{ padding: "7px 0" }}>
-                          {link && <button onClick={e => { e.stopPropagation(); removeCaseLink(link.id); }} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: 0, lineHeight: 1 }} title="Remove from contact">✕</button>}
+                          {link && <button onClick={e => { e.stopPropagation(); removeCaseLink(link.id); }} style={{ background: "none", border: "none", color: "#e05252", fontSize: 12, cursor: "pointer", padding: 0, lineHeight: 1 }} title="Remove from contact"><X size={14} /></button>}
                         </td>
                       </tr>
                     );
@@ -18184,7 +18184,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{ width: 700, maxWidth: "calc(100vw - 40px)", maxHeight: "90vh", background: "var(--c-card)", border: "1px solid var(--c-border3)", borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>Merge {contacts.length} Contacts</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }}><X size={14} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "20px 24px", flex: 1, overflowY: "auto" }}>
 
@@ -18219,7 +18219,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                   <th style={{ width: 90, padding: "9px 10px", textAlign: "left", fontWeight: 400 }}></th>
                   {contacts.map(c => (
                     <th key={c.id} style={{ padding: "9px 14px", textAlign: "left", fontSize: 13, fontWeight: 700, color: c.id === primaryId ? "#f59e0b" : "var(--c-text2)", borderLeft: "1px solid var(--c-border)", wordBreak: "break-word", letterSpacing: "normal", textTransform: "none" }}>
-                      {c.name}{c.id === primaryId ? " ★" : ""}
+                      {c.name}{c.id === primaryId ? <Sparkles size={10} style={{display:"inline",verticalAlign:"middle",marginLeft:4,color:"#f59e0b"}} /> : ""}
                     </th>
                   ))}
                 </tr>
@@ -18235,7 +18235,7 @@ function ContactMergeModal({ contacts, contactNotes, onMerge, onClose }) {
                       {allSame ? (
                         <td colSpan={contacts.length} style={{ padding: "11px 14px", verticalAlign: "middle" }}>
                           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 4, background: "#dcfce7", color: "#1e293b", fontSize: 13 }}>
-                            <span>✓</span>
+                            <Check size={12} />
                             <span style={{ fontWeight: 400, letterSpacing: "normal", textTransform: "none" }}>
                               {contacts[0][key] || <em style={{ color: "#64748b", fontStyle: "italic" }}>empty on all</em>}
                             </span>
@@ -18830,8 +18830,8 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
                 setOutlookImportLoading(true);
                 try { const oc = await apiGetOutlookContacts(); setOutlookContacts(oc); } catch (err) { alert("Failed to load Outlook contacts: " + err.message); }
                 setOutlookImportLoading(false);
-              }}>📨 Import from Outlook</button>
-              <button className="btn btn-outline btn-sm" style={{ fontSize: 12 }} onClick={() => { setShowOutlookExport(true); setOutlookExportSelected(new Set()); }}>📤 Export to Outlook</button>
+              }}><Mail size={13} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Import from Outlook</button>
+              <button className="btn btn-outline btn-sm" style={{ fontSize: 12 }} onClick={() => { setShowOutlookExport(true); setOutlookExportSelected(new Set()); }}><Upload size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Export to Outlook</button>
             </>
           )}
           {!mergeMode && <button className="btn btn-primary" onClick={() => setShowNew(true)}>+ New Contact</button>}
@@ -18842,8 +18842,8 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowOutlookImport(false)}>
           <div style={{ background: "var(--c-card)", borderRadius: 12, width: "90%", maxWidth: 640, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>📨 Import Contacts from Outlook</div>
-              <button onClick={() => setShowOutlookImport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}>✕</button>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}><Mail size={16} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Import Contacts from Outlook</div>
+              <button onClick={() => setShowOutlookImport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}><X size={14} /></button>
             </div>
             <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Import as:</label>
@@ -18919,8 +18919,8 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowOutlookExport(false)}>
           <div style={{ background: "var(--c-card)", borderRadius: 12, width: "90%", maxWidth: 640, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}>📤 Export Contacts to Outlook</div>
-              <button onClick={() => setShowOutlookExport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}>✕</button>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--c-text)" }}><Upload size={16} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> Export Contacts to Outlook</div>
+              <button onClick={() => setShowOutlookExport(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}><X size={14} /></button>
             </div>
             <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", gap: 10, alignItems: "center" }}>
               <button className="btn btn-sm" style={{ fontSize: 11 }} onClick={() => {
@@ -19030,7 +19030,7 @@ function ContactsView({ currentUser, allCases, onOpenCase, onMenuToggle, confirm
                       <span style={{ fontSize: 13, fontWeight: 700, color: "var(--c-text-h)" }}>Pinned Contacts</span>
                       <span style={{ fontSize: 11, color: "#64748b" }}>({pinnedContacts.length})</span>
                     </div>
-                    <span style={{ fontSize: 11, color: "#64748b" }}>{pinnedContactsExpanded ? "▼" : "▶"}</span>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>{pinnedContactsExpanded ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                   </div>
                   {pinnedContactsExpanded && (
                     <table className="mobile-cards" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -19738,7 +19738,7 @@ function GenerateDocumentModal({ caseData, currentUser, onClose, parties, expert
             <h2 style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, margin: 0, color: "var(--c-text-h)" }}>
               {mode === "template" && selected ? "Fill in Document Fields" : "Generate Document"}
             </h2>
-            <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--c-text2)" }}>✕</button>
+            <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--c-text2)" }}><X size={14} /></button>
           </div>
           <div style={{ display: "flex", gap: 0, marginTop: 12 }}>
             <button onClick={() => setMode("template")} style={{ fontSize: 13, fontWeight: mode === "template" ? 600 : 400, padding: "8px 18px", border: "none", borderBottom: mode === "template" ? "2px solid #1E2A3A" : "2px solid transparent", background: "none", color: mode === "template" ? "var(--c-text-h)" : "var(--c-text2)", cursor: "pointer" }}>From Template</button>
@@ -20199,7 +20199,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle, confirmDelete }) {
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
                     {wizard.tags.map(tag => (
                       <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#f1f5f9", color: "#1e293b", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
-                        {tag} ✕
+                        <>{tag} <X size={10} style={{display:"inline",verticalAlign:"middle"}} /></>
                       </span>
                     ))}
                   </div>
@@ -20335,7 +20335,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle, confirmDelete }) {
                         {ph.original && <div style={{ color: "#64748b", fontSize: 11 }}>replaces: "{(ph.original || "").substring(0, 40)}{(ph.original || "").length > 40 ? "..." : ""}"</div>}
                         {!ph.original && ph.autoDetected && <div style={{ color: "#64748b", fontSize: 11 }}>{"<<"}{ph.token}{">>"}</div>}
                       </div>
-                      <button onClick={() => setWizard(w => ({ ...w, placeholders: w.placeholders.filter(x => x.id !== ph.id) }))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14 }}>✕</button>
+                      <button onClick={() => setWizard(w => ({ ...w, placeholders: w.placeholders.filter(x => x.id !== ph.id) }))} style={{ background: "none", border: "none", color: "#e05252", cursor: "pointer", fontSize: 14 }}><X size={14} /></button>
                     </div>
                   ))}
                 </div>
@@ -20391,7 +20391,7 @@ function DocumentsView({ currentUser, allCases, onMenuToggle, confirmDelete }) {
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
                         {wizard.tags.map(tag => (
                           <span key={tag} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: "#f1f5f9", color: "#1e293b", cursor: "pointer" }} onClick={() => setWizard(w => ({ ...w, tags: w.tags.filter(t => t !== tag) }))}>
-                            {tag} ✕
+                            <>{tag} <X size={10} style={{display:"inline",verticalAlign:"middle"}} /></>
                           </span>
                         ))}
                       </div>
@@ -20903,7 +20903,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
               onClick={() => setPinnedExpanded(!pinnedExpanded)}
               style={{ background: "transparent", border: "none", padding: "0 0 12px 0", fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Inter',sans-serif" }}
             >
-              {pinnedExpanded ? "▾" : "▸"} Pinned ({pinnedStaff.length})
+              {pinnedExpanded ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />} Pinned ({pinnedStaff.length})
             </button>
             {pinnedExpanded && (
               <div ref={pinnedGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16 }}>
@@ -20923,7 +20923,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
                             {(u.roles && u.roles.length ? u.roles : [u.role]).map(r => <Badge key={r} label={r} />)}
                           </div>
                         </div>
-                        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0 }}>{isExpanded ? "▾" : "▸"}</span>
+                        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0 }}>{isExpanded ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                       </div>
                       {isExpanded && (
                         <>
@@ -20950,7 +20950,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
             onClick={() => setAllStaffExpanded(!allStaffExpanded)}
             style={{ background: "transparent", border: "none", padding: "0 0 12px 0", fontSize: 14, fontWeight: 600, color: "var(--c-text-h)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Inter',sans-serif" }}
           >
-            {allStaffExpanded ? "▾" : "▸"} All Staff ({filteredStaff.length})
+            {allStaffExpanded ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />} All Staff ({filteredStaff.length})
           </button>
         </div>
         {allStaffExpanded && <div ref={allGridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16 }}>
@@ -20972,13 +20972,13 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
                       <>
                         <button onClick={() => togglePin(u.id)} title={pinnedIds.includes(u.id) ? "Unpin" : "Pin to top"} className={`bg-transparent border-none cursor-pointer p-0.5 leading-none transition-opacity ${pinnedIds.includes(u.id) ? "opacity-100" : "opacity-50 hover:opacity-100"}`}><Pin size={14} className={pinnedIds.includes(u.id) ? "text-amber-500" : "text-slate-400"} /></button>
                         {(canAdmin || currentUser.id === u.id) && (
-                          <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>✎</button>
+                          <button onClick={() => setEditingUser(u)} title="Edit contact info" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}><Pencil size={12} /></button>
                         )}
                         {canAdmin && (
-                          <button onClick={async () => { if (!window.confirm(`Send a temporary password to ${u.email}?`)) return; try { const r = await apiSendTempPassword(u.id); alert(r.message || "Sent!"); } catch (e) { alert(e.message || "Failed"); } }} title="Send temporary password" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: "2px 4px" }}>🔑</button>
+                          <button onClick={async () => { if (!window.confirm(`Send a temporary password to ${u.email}?`)) return; try { const r = await apiSendTempPassword(u.id); alert(r.message || "Sent!"); } catch (e) { alert(e.message || "Failed"); } }} title="Send temporary password" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: "2px 4px" }}><Lock size={12} /></button>
                         )}
                         {canAdmin && (
-                          <button onClick={() => setConfirmDeleteId(u.id)} title="Remove staff member" style={{ background: "transparent", border: "none", color: "var(--c-border)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}>✕</button>
+                          <button onClick={() => setConfirmDeleteId(u.id)} title="Remove staff member" style={{ background: "transparent", border: "none", color: "var(--c-border)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}><X size={14} /></button>
                         )}
                       </>
                     )}
@@ -20992,7 +20992,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
                       {(u.roles && u.roles.length ? u.roles : [u.role]).map(r => <Badge key={r} label={r} />)}
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0 }}>{isExpanded ? "▾" : "▸"}</span>
+                  <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0 }}>{isExpanded ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />}</span>
                 </div>
                 {isExpanded && (
                   <>
@@ -21036,7 +21036,7 @@ function StaffView({ allCases, currentUser, setCurrentUser, allUsers, setAllUser
               onClick={() => setShowDeletedStaff(!showDeletedStaff)}
               style={{ background: "transparent", border: "1px solid var(--c-border)", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, color: "#64748b", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
             >
-              {showDeletedStaff ? "▾" : "▸"} Deactivated Staff ({deletedUsers.length})
+              {showDeletedStaff ? <ChevronDown size={12} style={{display:"inline",verticalAlign:"middle"}} /> : <ChevronRight size={12} style={{display:"inline",verticalAlign:"middle"}} />} Deactivated Staff ({deletedUsers.length})
             </button>
             {showDeletedStaff && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(290px,100%),1fr))", gap: 16, marginTop: 16 }}>
