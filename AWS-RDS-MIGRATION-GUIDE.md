@@ -1,26 +1,42 @@
-# AWS RDS PostgreSQL Migration Guide
+# AWS Aurora PostgreSQL Migration Guide
 
-Complete walkthrough for migrating MattrMindr from Replit's database to AWS RDS PostgreSQL.
+Complete walkthrough for migrating MattrMindr from Replit's database to AWS Aurora PostgreSQL-Compatible.
+
+---
+
+## Why Aurora Instead of Standard RDS?
+
+Aurora PostgreSQL-Compatible offers several advantages over standard RDS PostgreSQL:
+
+- **Up to 3x faster** than standard PostgreSQL on RDS
+- **Auto-scaling storage** from 10 GB to 128 TB — no need to pre-provision or worry about running out
+- **Built-in high availability** with 6-way replication across 3 Availability Zones
+- **Automatic failover** in under 30 seconds (vs. 60-120 seconds on standard RDS)
+- **Reader endpoints** for load balancing read-heavy queries across replicas
+- **Backtrack** — rewind the database to a specific point in time without restoring from backup
+- **Serverless v2 option** — scales compute capacity automatically based on load
+
+The connection protocol is identical to standard PostgreSQL — no code changes needed.
 
 ---
 
 ## Prerequisites
 
-- An AWS account with permissions to create RDS instances
+- An AWS account with permissions to create Aurora clusters
 - AWS CLI installed on your local machine (`aws --version`)
 - `psql` client installed locally (`psql --version`)
 - Access to this Replit project's shell
 
 ---
 
-## Phase 1: Create the RDS Instance
+## Phase 1: Create the Aurora Cluster
 
 ### Step 1: Log into AWS Console
 
 1. Go to https://console.aws.amazon.com
 2. Make sure you're in the **us-east-1 (N. Virginia)** region (top-right dropdown) — this matches your S3 bucket region
 
-### Step 2: Create the Database
+### Step 2: Create the Database Cluster
 
 1. Navigate to **RDS** (search "RDS" in the top search bar)
 2. Click **Create database**
@@ -29,66 +45,78 @@ Complete walkthrough for migrating MattrMindr from Replit's database to AWS RDS 
 | Setting | Value |
 |---|---|
 | Creation method | Standard create |
-| Engine | PostgreSQL |
-| Engine version | 16.x (latest 16) |
-| Templates | **Free tier** (for testing) or **Production** (for go-live) |
-| DB instance identifier | `mattrmindr-prod` |
+| Engine type | **Amazon Aurora** |
+| Edition | **Amazon Aurora PostgreSQL-Compatible** |
+| Engine version | Aurora PostgreSQL 16.x (latest 16) |
+| Templates | **Production** (or **Dev/Test** for testing) |
+| DB cluster identifier | `mattrmindr-prod` |
 | Master username | `mattrmindr_admin` |
 | Master password | Choose a strong password and save it somewhere safe |
-| DB instance class | `db.t3.micro` (free tier) or `db.t3.medium` (production) |
-| Storage type | gp3 |
-| Allocated storage | 20 GB (can grow later) |
-| Storage autoscaling | Enable, max 100 GB |
 
-4. Under **Connectivity**:
+4. Under **Instance configuration**:
+
+   **Option A — Provisioned (predictable workload):**
+   - `db.r6g.large` (production) or `db.t4g.medium` (dev/test)
+
+   **Option B — Aurora Serverless v2 (variable workload):**
+   - Check "Include Aurora Serverless v2 reader" or select Serverless v2 capacity
+   - Set minimum ACUs: `0.5` (scales down when idle)
+   - Set maximum ACUs: `4` (dev) or `16` (production)
+
+5. Under **Availability & durability**:
+   - **Multi-AZ deployment**: Create an Aurora Replica in a different AZ (recommended for production)
+   - For dev/test: "Don't create an Aurora Replica" is fine
+
+6. Under **Connectivity**:
    - VPC: Default VPC (or your custom one)
    - **Public access**: Yes (needed so Replit/your server can connect — you'll restrict by security group)
-   - VPC security group: Create new → name it `mattrmindr-rds-sg`
-   - Availability zone: No preference
+   - VPC security group: Create new → name it `mattrmindr-aurora-sg`
    - Database port: `5432`
 
-5. Under **Database authentication**: Password authentication
+7. Under **Database authentication**: Password authentication
 
-6. Under **Additional configuration**:
+8. Under **Additional configuration**:
    - Initial database name: `mattrmindr`
+   - Enable **Backtrack**: Yes, backtrack window `24` hours (Aurora-exclusive feature — lets you rewind the DB)
    - Enable automated backups: Yes
    - Backup retention: 7 days
    - Enable encryption: Yes
+   - Enable Enhanced Monitoring: Yes (1-second granularity)
 
-7. Click **Create database** — this takes 5-10 minutes
+9. Click **Create database** — this takes 5-15 minutes
 
 ### Step 3: Configure Security Group
 
-Once the instance is created:
+Once the cluster is created:
 
-1. Click on the database instance name in the RDS dashboard
+1. Click on the cluster name `mattrmindr-prod` in the RDS dashboard
 2. Under **Connectivity & security**, click the VPC security group link
 3. Click **Inbound rules** → **Edit inbound rules**
 4. Add a rule:
    - Type: PostgreSQL
    - Port: 5432
-   - Source: `0.0.0.0/0` (allows all IPs — you can restrict later once you know your server's IP)
+   - Source: `0.0.0.0/0` (allows all IPs — restrict this later once you know your server's IP)
 5. Click **Save rules**
 
 ### Step 4: Get Your Connection Details
 
-From the RDS instance details page, note:
-- **Endpoint**: something like `mattrmindr-prod.abc123xyz.us-east-1.rds.amazonaws.com`
-- **Port**: `5432`
-- **Database name**: `mattrmindr`
-- **Username**: `mattrmindr_admin`
-- **Password**: the one you chose
+From the Aurora cluster details page, note these **two endpoints**:
 
-Your connection string (DATABASE_URL) will be:
+| Endpoint | Purpose |
+|---|---|
+| **Writer endpoint** | `mattrmindr-prod.cluster-abc123.us-east-1.rds.amazonaws.com` — for all reads and writes |
+| **Reader endpoint** | `mattrmindr-prod.cluster-ro-abc123.us-east-1.rds.amazonaws.com` — for read-only queries (load balanced across replicas) |
+
+Your primary connection string (DATABASE_URL) uses the **writer endpoint**:
 ```
-postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.abc123xyz.us-east-1.rds.amazonaws.com:5432/mattrmindr
+postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr
 ```
 
 ### Step 5: Verify You Can Connect
 
 From your local terminal (or the Replit shell):
 ```bash
-psql "postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.abc123xyz.us-east-1.rds.amazonaws.com:5432/mattrmindr"
+psql "postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr"
 ```
 
 You should see a `mattrmindr=>` prompt. Type `\q` to exit.
@@ -137,13 +165,13 @@ You should see `CREATE TABLE` statements followed by `INSERT INTO` statements.
 
 ---
 
-## Phase 3: Import Into RDS
+## Phase 3: Import Into Aurora
 
 ### Step 1: Import the SQL Dump
 
-From the Replit shell (or your local terminal):
+From the Replit shell (or your local terminal), use the **writer endpoint**:
 ```bash
-psql "postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.abc123xyz.us-east-1.rds.amazonaws.com:5432/mattrmindr" < server/export.sql
+psql "postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr" < server/export.sql
 ```
 
 This will:
@@ -155,9 +183,9 @@ It may take a few minutes depending on data size.
 
 ### Step 2: Verify the Import
 
-Connect to the RDS database and check:
+Connect to the Aurora cluster and check:
 ```bash
-psql "postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.abc123xyz.us-east-1.rds.amazonaws.com:5432/mattrmindr"
+psql "postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr"
 ```
 
 Then run:
@@ -178,11 +206,11 @@ The counts should match what the export script reported.
 
 ---
 
-## Phase 4: Connect the App to RDS
+## Phase 4: Connect the App to Aurora
 
-### Step 1: Download the RDS SSL Certificate
+### Step 1: Download the RDS/Aurora SSL Certificate
 
-AWS RDS requires SSL for secure connections. Download the certificate bundle:
+Aurora uses the same SSL certificate bundle as RDS. Download it:
 
 ```bash
 curl -o server/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
@@ -194,14 +222,14 @@ In your Replit project (or wherever you deploy the app), set these environment v
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | `postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.abc123xyz.us-east-1.rds.amazonaws.com:5432/mattrmindr` |
+| `DATABASE_URL` | `postgresql://mattrmindr_admin:YOUR_PASSWORD@mattrmindr-prod.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr` |
 | `RDS_SSL_CA` | `./server/global-bundle.pem` (path to the cert you downloaded) |
 
 The pool settings can stay at defaults, or you can tune them:
 
 | Variable | Default | Description |
 |---|---|---|
-| `DB_POOL_MAX` | `20` | Max connections (20 is good for most setups) |
+| `DB_POOL_MAX` | `20` | Max connections (Aurora supports more than RDS — up to 1000+ depending on instance size) |
 | `DB_CONNECTION_TIMEOUT` | `10000` | 10 seconds to connect (reasonable for cross-region) |
 | `DB_IDLE_TIMEOUT` | `30000` | Close idle connections after 30 seconds |
 | `DB_STATEMENT_TIMEOUT` | `60000` | Kill queries running longer than 60 seconds |
@@ -227,37 +255,54 @@ Database connected — X users in database
 
 ### Security Hardening
 
-Once everything is running on RDS:
+Once everything is running on Aurora:
 
 1. **Restrict the security group**: Replace `0.0.0.0/0` with only the IP addresses of your server(s)
 2. **Rotate the database password**: Change it in AWS, then update `DATABASE_URL`
-3. **Enable deletion protection**: In the RDS console, modify the instance and enable "Deletion protection"
+3. **Enable deletion protection**: In the RDS console, modify the cluster and enable "Deletion protection"
+4. **Consider IAM authentication**: Aurora supports IAM-based authentication (no passwords in connection strings)
 
 ### Monitoring
 
-1. In the RDS console, check **Monitoring** tab for CPU, memory, and connection counts
-2. Set up **CloudWatch alarms** for:
+1. In the RDS console, check the **Monitoring** tab for CPU, memory, and connection counts
+2. Use **Performance Insights** (Aurora-exclusive) for detailed query-level performance analysis
+3. Set up **CloudWatch alarms** for:
    - CPU > 80% sustained
-   - Free storage < 5 GB
    - Database connections > 80% of max
+   - Replica lag > 100ms (if using reader replicas)
+   - Aurora-specific: Volume bytes used, buffer cache hit ratio
 
-### Backups
+### Backups & Recovery
 
-AWS RDS automatically creates daily backups (you configured 7-day retention). You can also:
-- Create manual snapshots before major changes
-- Enable **Point-in-time recovery** for granular restore
+Aurora provides multiple recovery options:
+
+- **Automated backups**: Daily snapshots retained for 7 days (configured above)
+- **Backtrack**: Rewind the database to any point within the 24-hour backtrack window — no restore needed, takes seconds
+- **Point-in-time recovery**: Restore to any second within the backup retention period (creates a new cluster)
+- **Manual snapshots**: Create before major changes (retained indefinitely until you delete them)
+
+### Optional: Aurora Serverless v2 Auto-Scaling
+
+If you chose Serverless v2, Aurora automatically scales compute capacity:
+- Scales down to minimum ACUs during off-hours (reduces cost)
+- Scales up within seconds when load increases
+- You only pay for the capacity you use
+
+Monitor scaling activity in CloudWatch under the `ServerlessDatabaseCapacity` metric.
 
 ---
 
 ## Rollback Plan
 
-If something goes wrong after switching to RDS:
+If something goes wrong after switching to Aurora:
 
 1. Change `DATABASE_URL` back to the Replit database URL
 2. Remove `RDS_SSL_CA` (or set `DB_SSL=false`)
 3. Restart the app
 
 The Replit database will still have all your data until you explicitly delete it.
+
+If you need to undo a recent change on Aurora itself, use **Backtrack** to rewind to before the problem occurred — no restore or downtime needed.
 
 ---
 
@@ -266,9 +311,12 @@ The Replit database will still have all your data until you explicitly delete it
 Here's the complete list for a fully AWS-connected setup:
 
 ```bash
-# Database
-DATABASE_URL=postgresql://mattrmindr_admin:PASSWORD@your-rds-endpoint.us-east-1.rds.amazonaws.com:5432/mattrmindr
+# Database (use Aurora writer endpoint)
+DATABASE_URL=postgresql://mattrmindr_admin:PASSWORD@mattrmindr-prod.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr
 RDS_SSL_CA=./server/global-bundle.pem
+
+# Optional: Aurora reader endpoint for read-heavy queries (future use)
+# DATABASE_READ_URL=postgresql://mattrmindr_admin:PASSWORD@mattrmindr-prod.cluster-ro-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr
 
 # Optional pool tuning
 DB_POOL_MAX=20
@@ -292,9 +340,9 @@ NODE_ENV=production
 ## Troubleshooting
 
 ### "Connection timed out"
-- Check the RDS security group allows inbound on port 5432 from your IP
-- Make sure "Public access" is enabled on the RDS instance
-- Verify the endpoint URL is correct (no typos)
+- Check the Aurora security group allows inbound on port 5432 from your IP
+- Make sure "Public access" is enabled on the Aurora cluster
+- Verify you're using the **writer endpoint** (not an instance endpoint)
 
 ### "SSL connection required" / SSL errors
 - Make sure `RDS_SSL_CA` is set and points to the downloaded `global-bundle.pem`
@@ -309,6 +357,20 @@ NODE_ENV=production
 - Check for errors in the import output
 
 ### App works but is slow
-- Check RDS instance CPU/memory in CloudWatch — you may need a larger instance class
-- Consider increasing `DB_POOL_MAX` if you see connection queuing
-- The S3 bucket and RDS are both in us-east-1, so file operations should be fast. Latency is mainly between your app server and us-east-1.
+- Check Aurora cluster CPU/memory in CloudWatch
+- Use **Performance Insights** to identify slow queries
+- If using Serverless v2, check if minimum ACUs is too low — increase from 0.5 to 1 or 2
+- Consider adding a **reader replica** and routing read-heavy queries to the reader endpoint
+- The S3 bucket and Aurora cluster are both in us-east-1, so file operations should be fast
+
+### Failover behavior
+- Aurora automatically fails over to a read replica if the writer instance fails (under 30 seconds)
+- Your app may see a brief connection error during failover — the pg Pool will automatically reconnect
+- Consider setting `DB_CONNECTION_TIMEOUT=15000` (15s) to allow time for failover reconnection
+
+### Using Backtrack
+If you need to undo a mistake (accidental delete, bad migration, etc.):
+1. Go to the RDS console → your Aurora cluster
+2. Click **Actions** → **Backtrack**
+3. Choose a timestamp before the problem occurred
+4. Confirm — the cluster rewinds in seconds with no downtime

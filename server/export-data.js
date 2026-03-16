@@ -169,7 +169,7 @@ async function exportData() {
 
     const stream = fs.createWriteStream(outPath);
     stream.write("-- Full database export generated on " + new Date().toISOString() + "\n");
-    stream.write("-- Schema + data for import into AWS RDS PostgreSQL\n");
+    stream.write("-- Schema + data for import into AWS Aurora PostgreSQL-Compatible\n");
     stream.write("-- Import with: psql $DATABASE_URL < export.sql\n\n");
     stream.write("SET client_encoding = 'UTF8';\n");
     stream.write("SET standard_conforming_strings = on;\n");
