@@ -4,7 +4,7 @@ const multer = require("multer");
 const OpenAI = require("openai");
 const { requireAuth } = require("../middleware/auth");
 const { extractText } = require("../utils/extract-text");
-const { isR2Configured, uploadToR2, downloadFromR2, deleteFromR2 } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3, deleteFromS3 } = require("../s3");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -101,8 +101,8 @@ router.put("/:id", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { rows: existing } = await pool.query("SELECT s3_instruction_key FROM custom_agents WHERE id=$1 AND user_id=$2", [req.params.id, req.session.userId]);
-    if (existing.length && existing[0].s3_instruction_key && isR2Configured()) {
-      deleteFromR2(existing[0].s3_instruction_key).catch(e => console.error("S3 agent delete error:", e.message));
+    if (existing.length && existing[0].s3_instruction_key && isS3Configured()) {
+      deleteFromS3(existing[0].s3_instruction_key).catch(e => console.error("S3 agent delete error:", e.message));
     }
     const { rows } = await pool.query("DELETE FROM custom_agents WHERE id=$1 AND user_id=$2 RETURNING id", [req.params.id, req.session.userId]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
@@ -257,10 +257,10 @@ router.post("/:id/upload-instructions", requireAuth, upload.single("file"), asyn
     }
 
     let s3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         s3Key = `custom-agents/${req.params.id}/${filename}`;
-        await uploadToR2(s3Key, buffer, mimeType);
+        await uploadToS3(s3Key, buffer, mimeType);
       } catch (e) { console.error("S3 agent instruction pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
     const { rows } = await pool.query(
@@ -280,8 +280,8 @@ router.get("/:id/download-instructions", requireAuth, async (req, res) => {
     const { rows } = await pool.query("SELECT instruction_file, instruction_filename, s3_instruction_key FROM custom_agents WHERE id=$1", [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: "Not found" });
     let buffer = null;
-    if (rows[0].s3_instruction_key && isR2Configured()) {
-      try { buffer = await downloadFromR2(rows[0].s3_instruction_key); } catch (e) { console.error("S3 instruction download fallback:", e.message); }
+    if (rows[0].s3_instruction_key && isS3Configured()) {
+      try { buffer = await downloadFromS3(rows[0].s3_instruction_key); } catch (e) { console.error("S3 instruction download fallback:", e.message); }
     }
     if (!buffer) {
       buffer = rows[0].instruction_file;
@@ -298,8 +298,8 @@ router.get("/:id/download-instructions", requireAuth, async (req, res) => {
 router.delete("/:id/clear-instructions", requireAuth, async (req, res) => {
   try {
     const { rows: existing } = await pool.query("SELECT s3_instruction_key FROM custom_agents WHERE id=$1 AND user_id=$2", [req.params.id, req.session.userId]);
-    if (existing.length && existing[0].s3_instruction_key && isR2Configured()) {
-      deleteFromR2(existing[0].s3_instruction_key).catch(e => console.error("S3 instruction delete error:", e.message));
+    if (existing.length && existing[0].s3_instruction_key && isS3Configured()) {
+      deleteFromS3(existing[0].s3_instruction_key).catch(e => console.error("S3 instruction delete error:", e.message));
     }
     const { rows } = await pool.query(
       "UPDATE custom_agents SET instruction_file=NULL, instruction_filename=NULL, instruction_text=NULL, s3_instruction_key=NULL, updated_at=NOW() WHERE id=$1 AND user_id=$2 RETURNING *",

@@ -7,11 +7,11 @@ const path = require("path");
 const fs = require("fs");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
-const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3 } = require("../s3");
 
 async function getTemplateBuffer(row) {
-  if (row.s3_key && isR2Configured()) {
-    try { return await downloadFromR2(row.s3_key); } catch (e) { console.error("S3 template download fallback:", e.message); }
+  if (row.s3_key && isS3Configured()) {
+    try { return await downloadFromS3(row.s3_key); } catch (e) { console.error("S3 template download fallback:", e.message); }
   }
   return row.docx_data || null;
 }
@@ -375,11 +375,11 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const useSystemCos = req.body.useSystemCos !== "false";
 
     let s3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         const { randomUUID } = require("crypto");
         s3Key = `templates/${randomUUID()}/${name.trim()}.docx`;
-        await uploadToR2(s3Key, docxBuffer, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        await uploadToS3(s3Key, docxBuffer, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       } catch (e) { console.error("S3 template pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
 
@@ -537,11 +537,11 @@ router.put("/:id", requireAuth, async (req, res) => {
 
       const newDocxData = zip.generate({ type: "nodebuffer" });
       let reprocessS3Key = null;
-      if (isR2Configured()) {
+      if (isS3Configured()) {
         try {
           const tplName = name || "template";
           reprocessS3Key = `templates/${req.params.id}/${tplName}.docx`;
-          await uploadToR2(reprocessS3Key, newDocxData, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+          await uploadToS3(reprocessS3Key, newDocxData, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         } catch (e) { console.error("S3 template reprocess pre-upload failed, using BYTEA:", e.message); reprocessS3Key = null; }
       }
       sets.push(`docx_data = $${idx++}`);
@@ -571,9 +571,9 @@ router.delete("/:id", requireAuth, async (req, res) => {
     const { rows: existing } = await pool.query("SELECT created_by, s3_key FROM doc_templates WHERE id = $1", [req.params.id]);
     if (existing.length === 0) return res.status(404).json({ error: "Not found" });
     if (!canEditTemplate(req, existing[0])) return res.status(403).json({ error: "Only the creator or a Shareholder can delete this template" });
-    if (existing[0].s3_key && isR2Configured()) {
-      const { deleteFromR2 } = require("../r2");
-      deleteFromR2(existing[0].s3_key).catch(e => console.error("S3 template delete error:", e.message));
+    if (existing[0].s3_key && isS3Configured()) {
+      const { deleteFromS3 } = require("../s3");
+      deleteFromS3(existing[0].s3_key).catch(e => console.error("S3 template delete error:", e.message));
     }
     await pool.query("DELETE FROM doc_templates WHERE id=$1", [req.params.id]);
     return res.json({ ok: true });

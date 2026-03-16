@@ -2,7 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
-const { isR2Configured, uploadToR2 } = require("../r2");
+const { isS3Configured, uploadToS3 } = require("../s3");
 const router = express.Router();
 
 const pendingOAuthStates = new Map();
@@ -580,11 +580,11 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
     const { extractText } = require("../utils/extract-text");
 
     let odS3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         const { randomUUID } = require("crypto");
         odS3Key = `documents/${randomUUID()}/${filename}`;
-        await uploadToR2(odS3Key, buffer, mimeType);
+        await uploadToS3(odS3Key, buffer, mimeType);
       } catch (e) { console.error("S3 OneDrive pre-upload failed, using BYTEA:", e.message); odS3Key = null; }
     }
 

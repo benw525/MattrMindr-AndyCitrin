@@ -7,22 +7,22 @@ const path = require("path");
 const OpenAI = require("openai");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
-const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3 } = require("../s3");
 
 const router = express.Router();
 
 async function uploadVmToS3(vmId, buffer, contentType) {
-  if (!isR2Configured()) return null;
+  if (!isS3Configured()) return null;
   const ext = contentType === "audio/wav" ? "wav" : contentType === "audio/mpeg" ? "mp3" : "audio";
   const key = `voicemails/${vmId}/audio.${ext}`;
-  await uploadToR2(key, buffer, contentType);
+  await uploadToS3(key, buffer, contentType);
   await pool.query("UPDATE case_voicemails SET s3_key = $1 WHERE id = $2", [key, vmId]);
   return key;
 }
 
 async function getVmBuffer(row) {
-  if (row.s3_key && isR2Configured()) {
-    try { return await downloadFromR2(row.s3_key); } catch (e) { console.error("S3 VM download fallback:", e.message); }
+  if (row.s3_key && isS3Configured()) {
+    try { return await downloadFromS3(row.s3_key); } catch (e) { console.error("S3 VM download fallback:", e.message); }
   }
   return row.audio_data || null;
 }

@@ -8,7 +8,7 @@ const path = require("path");
 const OpenAI = require("openai");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
-const { isR2Configured, uploadToR2, downloadFromR2, streamFromR2, deleteFromR2, createMultipartUpload, uploadPart, completeMultipartUpload, abortMultipartUpload } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3, streamFromS3, deleteFromS3, createMultipartUpload, uploadPart, completeMultipartUpload, abortMultipartUpload } = require("../s3");
 
 const router = express.Router();
 router.use(express.json({ limit: "10mb" }));
@@ -195,8 +195,8 @@ async function processTranscription(transcriptId) {
     if (!rows.length) throw new Error("Transcript record not found");
 
     let audioBuffer = rows[0].audio_data;
-    if (!audioBuffer && rows[0].r2_audio_key && isR2Configured()) {
-      audioBuffer = await downloadFromR2(rows[0].r2_audio_key);
+    if (!audioBuffer && rows[0].r2_audio_key && isS3Configured()) {
+      audioBuffer = await downloadFromS3(rows[0].r2_audio_key);
     }
     if (!audioBuffer) throw new Error("No audio data available");
 
@@ -305,7 +305,7 @@ router.post("/upload/init", requireAuth, express.json(), async (req, res) => {
       r2Parts: [],
     };
 
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       const r2Key = `transcripts/${caseId}/${randomUUID()}/audio`;
       const r2UploadId = await createMultipartUpload(r2Key, contentType || "application/octet-stream");
       pendingData.useR2Multipart = true;
@@ -391,19 +391,19 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
 
       if (isVideo) {
         r2VideoKey = pending.r2AudioKey.replace(/\/audio$/, "/video");
-        const videoData = await downloadFromR2(r2AudioKey);
-        await uploadToR2(r2VideoKey, videoData, pending.contentType);
+        const videoData = await downloadFromS3(r2AudioKey);
+        await uploadToS3(r2VideoKey, videoData, pending.contentType);
       }
     } else {
       fullBuffer = Buffer.concat(pending.chunks);
 
-      if (isR2Configured()) {
+      if (isS3Configured()) {
         const baseKey = `transcripts/${pending.caseId}/${randomUUID()}`;
         r2AudioKey = `${baseKey}/audio`;
-        await uploadToR2(r2AudioKey, fullBuffer, pending.contentType);
+        await uploadToS3(r2AudioKey, fullBuffer, pending.contentType);
         if (isVideo) {
           r2VideoKey = `${baseKey}/video`;
-          await uploadToR2(r2VideoKey, fullBuffer, pending.contentType);
+          await uploadToS3(r2VideoKey, fullBuffer, pending.contentType);
         }
       }
     }
@@ -454,13 +454,13 @@ router.post("/upload", requireAuth, upload.single("audio"), async (req, res) => 
 
     let r2AudioKey = null;
     let r2VideoKey = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       const baseKey = `transcripts/${caseId}/${randomUUID()}`;
       r2AudioKey = `${baseKey}/audio`;
-      await uploadToR2(r2AudioKey, req.file.buffer, req.file.mimetype);
+      await uploadToS3(r2AudioKey, req.file.buffer, req.file.mimetype);
       if (isVideo) {
         r2VideoKey = `${baseKey}/video`;
-        await uploadToR2(r2VideoKey, req.file.buffer, req.file.mimetype);
+        await uploadToS3(r2VideoKey, req.file.buffer, req.file.mimetype);
       }
     }
 
@@ -468,8 +468,8 @@ router.post("/upload", requireAuth, upload.single("audio"), async (req, res) => 
       `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by, uploaded_by_name, is_video, video_data, video_content_type, r2_audio_key, r2_video_key)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [caseId, req.file.originalname, req.file.mimetype,
-       isR2Configured() ? null : req.file.buffer, req.file.size, req.session.userId, uploaderName,
-       isVideo, isVideo && !isR2Configured() ? req.file.buffer : null, isVideo ? req.file.mimetype : null,
+       isS3Configured() ? null : req.file.buffer, req.file.size, req.session.userId, uploaderName,
+       isVideo, isVideo && !isS3Configured() ? req.file.buffer : null, isVideo ? req.file.mimetype : null,
        r2AudioKey, r2VideoKey]
     );
 
@@ -613,9 +613,9 @@ router.get("/:id/download-audio", requireAuth, async (req, res) => {
     const { filename, content_type, audio_data, r2_audio_key } = rows[0];
     res.set("Content-Type", content_type || "application/octet-stream");
     res.set("Content-Disposition", `attachment; filename="${filename}"`);
-    if (r2_audio_key && isR2Configured()) {
+    if (r2_audio_key && isS3Configured()) {
       try {
-        const data = await downloadFromR2(r2_audio_key);
+        const data = await downloadFromS3(r2_audio_key);
         return res.send(data);
       } catch {}
     }
@@ -641,10 +641,10 @@ router.get("/:id/video", requireAuth, async (req, res) => {
     const contentType = video_content_type || "video/mp4";
     const rangeHeader = req.headers.range;
 
-    if (r2_video_key && isR2Configured()) {
+    if (r2_video_key && isS3Configured()) {
       try {
         if (rangeHeader) {
-          const r2Resp = await streamFromR2(r2_video_key, rangeHeader);
+          const r2Resp = await streamFromS3(r2_video_key, rangeHeader);
           res.status(206);
           res.set("Content-Type", contentType);
           res.set("Accept-Ranges", "bytes");
@@ -652,7 +652,7 @@ router.get("/:id/video", requireAuth, async (req, res) => {
           if (r2Resp.contentLength) res.set("Content-Length", r2Resp.contentLength);
           return r2Resp.stream.pipe(res);
         } else {
-          const data = await downloadFromR2(r2_video_key);
+          const data = await downloadFromS3(r2_video_key);
           res.set("Content-Type", contentType);
           res.set("Content-Length", data.length);
           res.set("Accept-Ranges", "bytes");

@@ -33,13 +33,14 @@ Login: email + password (existing users default: `1234`, new users get temp pass
 ```
 server/
   index.js          — Express entry point, session middleware, CORS, prod static serving
-  db.js             — pg Pool configured from DATABASE_URL
+  db.js             — pg Pool configured from DATABASE_URL; supports AWS RDS SSL (RDS_SSL_CA env var) and configurable pool settings (DB_POOL_MAX, DB_IDLE_TIMEOUT, DB_CONNECTION_TIMEOUT, DB_STATEMENT_TIMEOUT)
   schema.js         — Creates all DB tables (run once)
   seed.js           — Seeds USERS from firmData.js + imports all table data from seed-data.json
   email.js          — SendGrid email utility
   sms.js            — Twilio SMS utility
   sms-scheduler.js  — SMS scheduler for appointment/treatment reminders
-  r2.js             — AWS S3 storage module (supports S3 via AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION/S3_BUCKET_NAME; legacy R2 fallback via R2_* vars)
+  s3.js             — AWS S3 storage module (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION/S3_BUCKET_NAME)
+  export-data.js    — Database export script (SQL format by default for RDS import, --json for legacy JSON format)
   migrate-to-s3.js  — One-time migration script: uploads BYTEA data to S3, sets s3_key columns, optional --nullify-bytea to clear BYTEA after confirming
   routes/
     auth.js         — login, logout, me, change-password, forgot/reset-password

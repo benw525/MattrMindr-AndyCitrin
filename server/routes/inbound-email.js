@@ -3,7 +3,7 @@ const multer = require("multer");
 const { simpleParser } = require("mailparser");
 const pool = require("../db");
 const { extractText } = require("../utils/extract-text");
-const { isR2Configured, uploadToR2 } = require("../r2");
+const { isS3Configured, uploadToS3 } = require("../s3");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, fieldSize: 50 * 1024 * 1024 } });
@@ -153,11 +153,11 @@ router.post("/", upload.any(), async (req, res) => {
           }
 
           let filingS3Key = null;
-          if (isR2Configured()) {
+          if (isS3Configured()) {
             try {
               const { randomUUID } = require("crypto");
               filingS3Key = `filings/${randomUUID()}/${pdfAtt.filename}`;
-              await uploadToR2(filingS3Key, fileBuffer, "application/pdf");
+              await uploadToS3(filingS3Key, fileBuffer, "application/pdf");
             } catch (e) { console.error("S3 filing pre-upload failed, using BYTEA:", e.message); filingS3Key = null; }
           }
 
@@ -292,11 +292,11 @@ router.post("/", upload.any(), async (req, res) => {
 
         if (isFiling) {
           let triageFilingS3Key = null;
-          if (isR2Configured()) {
+          if (isS3Configured()) {
             try {
               const { randomUUID } = require("crypto");
               triageFilingS3Key = `filings/${randomUUID()}/${pdfAtt.filename}`;
-              await uploadToR2(triageFilingS3Key, fileBuffer, "application/pdf");
+              await uploadToS3(triageFilingS3Key, fileBuffer, "application/pdf");
             } catch (e) { console.error("S3 triage filing pre-upload failed, using BYTEA:", e.message); triageFilingS3Key = null; }
           }
 
@@ -378,11 +378,11 @@ router.post("/", upload.any(), async (req, res) => {
           console.log(`PDF filing created from email: ${pdfAtt.filename} for case ${caseId}`);
         } else {
           let triageDocS3Key = null;
-          if (isR2Configured()) {
+          if (isS3Configured()) {
             try {
               const { randomUUID } = require("crypto");
               triageDocS3Key = `documents/${randomUUID()}/${pdfAtt.filename}`;
-              await uploadToR2(triageDocS3Key, fileBuffer, "application/pdf");
+              await uploadToS3(triageDocS3Key, fileBuffer, "application/pdf");
             } catch (e) { console.error("S3 triage doc pre-upload failed, using BYTEA:", e.message); triageDocS3Key = null; }
           }
 
@@ -458,11 +458,11 @@ router.post("/", upload.any(), async (req, res) => {
           const fileBuffer = Buffer.from(audioAtt.data, "base64");
           const vmExt = (audioAtt.filename || "audio.mp3").split(".").pop() || "mp3";
           let vmS3Key = null;
-          if (isR2Configured()) {
+          if (isS3Configured()) {
             try {
               const { randomUUID } = require("crypto");
               vmS3Key = `voicemails/${randomUUID()}/audio.${vmExt}`;
-              await uploadToR2(vmS3Key, fileBuffer, audioAtt.contentType);
+              await uploadToS3(vmS3Key, fileBuffer, audioAtt.contentType);
             } catch (e) { console.error("S3 voicemail pre-upload failed, using BYTEA:", e.message); vmS3Key = null; }
           }
           const { rows: vmRows } = await pool.query(
@@ -480,11 +480,11 @@ router.post("/", upload.any(), async (req, res) => {
         try {
           const fileBuffer = Buffer.from(audioAtt.data, "base64");
           let r2AudioKey = null;
-          if (isR2Configured()) {
+          if (isS3Configured()) {
             const { randomUUID } = require("crypto");
             r2AudioKey = `transcripts/${caseId}/${randomUUID()}/audio`;
             try {
-              await uploadToR2(r2AudioKey, fileBuffer, audioAtt.contentType);
+              await uploadToS3(r2AudioKey, fileBuffer, audioAtt.contentType);
             } catch (e) {
               console.error("S3 transcript audio upload error:", e.message);
               r2AudioKey = null;
@@ -525,11 +525,11 @@ router.post("/", upload.any(), async (req, res) => {
         }
 
         let emailDocS3Key = null;
-        if (isR2Configured()) {
+        if (isS3Configured()) {
           try {
             const { randomUUID } = require("crypto");
             emailDocS3Key = `documents/${randomUUID()}/${docAtt.filename}`;
-            await uploadToR2(emailDocS3Key, fileBuffer, docAtt.contentType);
+            await uploadToS3(emailDocS3Key, fileBuffer, docAtt.contentType);
           } catch (e) { console.error("S3 email doc pre-upload failed, using BYTEA:", e.message); emailDocS3Key = null; }
         }
 

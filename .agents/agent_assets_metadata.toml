@@ -12,3 +12,9 @@ id = "ivKP3jcbWQ9gfqtg_CWxX"
 uri = "file://MattrMindr_Technical_Blueprint.rtf"
 type = "unspecified"
 title = "MattrMindr Technical Blueprint (.rtf)"
+
+[[outputs]]
+id = "5NFvQxcUZxtHVS2mu8YOp"
+uri = "file://AWS-RDS-MIGRATION-GUIDE.md"
+type = "text"
+title = "AWS RDS Migration Guide"

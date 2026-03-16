@@ -175,8 +175,8 @@ router.get("/download/:token", async (req, res) => {
     let audioBuffer = t.audio_data;
     if (!audioBuffer && t.r2_audio_key) {
       try {
-        const { isR2Configured, downloadFromR2 } = require("../r2");
-        if (isR2Configured()) audioBuffer = await downloadFromR2(t.r2_audio_key);
+        const { isS3Configured, downloadFromS3 } = require("../s3");
+        if (isS3Configured()) audioBuffer = await downloadFromS3(t.r2_audio_key);
       } catch {}
     }
     if (!audioBuffer) return res.status(404).json({ error: "No audio data available" });

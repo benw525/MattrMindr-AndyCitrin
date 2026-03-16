@@ -3,14 +3,14 @@ const multer = require("multer");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { extractText } = require("../utils/extract-text");
-const { isR2Configured, uploadToR2, downloadFromR2, deleteFromR2 } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3, deleteFromS3 } = require("../s3");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 async function getDocBuffer(doc) {
-  if (doc.s3_key && isR2Configured()) {
-    return downloadFromR2(doc.s3_key);
+  if (doc.s3_key && isS3Configured()) {
+    return downloadFromS3(doc.s3_key);
   }
   return doc.file_data || null;
 }
@@ -139,11 +139,11 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     }
 
     let s3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         const { randomUUID } = require("crypto");
         s3Key = `documents/${randomUUID()}/${req.file.originalname}`;
-        await uploadToR2(s3Key, req.file.buffer, ct);
+        await uploadToS3(s3Key, req.file.buffer, ct);
       } catch (e) { console.error("S3 pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
 
@@ -381,11 +381,11 @@ router.put("/:id/xlsx-data", requireAuth, async (req, res) => {
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     const { rows: docInfo } = await pool.query("SELECT filename, content_type FROM case_documents WHERE id = $1", [req.params.id]);
     let xlsxS3Key = null;
-    if (isR2Configured() && docInfo.length) {
+    if (isS3Configured() && docInfo.length) {
       try {
         const { randomUUID } = require("crypto");
         xlsxS3Key = `documents/${randomUUID()}/${docInfo[0].filename}`;
-        await uploadToR2(xlsxS3Key, buffer, docInfo[0].content_type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        await uploadToS3(xlsxS3Key, buffer, docInfo[0].content_type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       } catch (e) { console.error("S3 xlsx pre-upload failed, using BYTEA:", e.message); xlsxS3Key = null; }
     }
     await pool.query("UPDATE case_documents SET file_data = $1, s3_key = COALESCE($2, s3_key) WHERE id = $3", [xlsxS3Key ? null : buffer, xlsxS3Key, req.params.id]);
@@ -699,11 +699,11 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     const uploaderName = userRows.length ? userRows[0].name : "";
 
     let s3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         const { randomUUID } = require("crypto");
         s3Key = `documents/${randomUUID()}/${pending.filename}`;
-        await uploadToR2(s3Key, fullBuffer, pending.contentType);
+        await uploadToS3(s3Key, fullBuffer, pending.contentType);
       } catch (e) { console.error("S3 chunk pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
 

@@ -3,15 +3,15 @@ const multer = require("multer");
 const { randomUUID } = require("crypto");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
-const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3 } = require("../s3");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 const pendingFilingChunks = new Map();
 
 async function getFilingBuffer(row) {
-  if (row.s3_key && isR2Configured()) {
-    return downloadFromR2(row.s3_key);
+  if (row.s3_key && isS3Configured()) {
+    return downloadFromS3(row.s3_key);
   }
   return row.file_data || null;
 }
@@ -90,11 +90,11 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
     const userName = req.session.userName || "";
     let s3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         const { randomUUID } = require("crypto");
         s3Key = `filings/${randomUUID()}/${req.file.originalname}`;
-        await uploadToR2(s3Key, req.file.buffer, req.file.mimetype);
+        await uploadToS3(s3Key, req.file.buffer, req.file.mimetype);
       } catch (e) { console.error("S3 filing pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
     const { rows } = await pool.query(
@@ -340,11 +340,11 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     const { rows: userRows } = await pool.query("SELECT name FROM users WHERE id = $1", [pending.userId]);
     const uploaderName = userRows.length ? userRows[0].name : "";
     let s3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         const { randomUUID } = require("crypto");
         s3Key = `filings/${randomUUID()}/${pending.filename}`;
-        await uploadToR2(s3Key, fullBuffer, "application/pdf");
+        await uploadToS3(s3Key, fullBuffer, "application/pdf");
       } catch (e) { console.error("S3 filing chunk pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
     const { rows } = await pool.query(

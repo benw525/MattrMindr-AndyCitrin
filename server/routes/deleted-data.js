@@ -3,8 +3,8 @@ const router = express.Router();
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
 
-let r2Module;
-try { r2Module = require("../r2"); } catch (e) { r2Module = null; }
+let s3Module;
+try { s3Module = require("../s3"); } catch (e) { s3Module = null; }
 
 function requireAppAdmin(req, res, next) {
   const roles = req.session.userRoles || [req.session.userRole];
@@ -37,7 +37,7 @@ const ENTITY_CONFIG = [
 ];
 
 async function deleteR2Objects(cfg, ids) {
-  if (!r2Module || !r2Module.isR2Configured()) return;
+  if (!s3Module || !s3Module.isS3Configured()) return;
   try {
     if (cfg.r2KeyCol) {
       const { rows } = await pool.query(
@@ -46,7 +46,7 @@ async function deleteR2Objects(cfg, ids) {
       );
       for (const row of rows) {
         if (row[cfg.r2KeyCol]) {
-          try { await r2Module.deleteFromR2(row[cfg.r2KeyCol]); } catch (e) { console.error("R2 delete error:", e.message); }
+          try { await s3Module.deleteFromS3(row[cfg.r2KeyCol]); } catch (e) { console.error("R2 delete error:", e.message); }
         }
       }
     }
@@ -59,7 +59,7 @@ async function deleteR2Objects(cfg, ids) {
       for (const row of rows) {
         for (const col of cfg.r2KeyCols) {
           if (row[col]) {
-            try { await r2Module.deleteFromR2(row[col]); } catch (e) { console.error("R2 delete error:", e.message); }
+            try { await s3Module.deleteFromS3(row[col]); } catch (e) { console.error("R2 delete error:", e.message); }
           }
         }
       }

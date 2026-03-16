@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const pool = require("./db");
-const { isR2Configured, uploadToR2 } = require("./r2");
+const { isS3Configured, uploadToS3 } = require("./s3");
 
 const BATCH_SIZE = 10;
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -53,7 +53,7 @@ async function migrateTable({ table, idCol, dataCol, s3KeyCol, keyPrefix, filena
       }
 
       try {
-        await uploadToR2(key, buffer, mime || defaultMime || "application/octet-stream");
+        await uploadToS3(key, buffer, mime || defaultMime || "application/octet-stream");
         await pool.query(`UPDATE ${table} SET ${s3KeyCol} = $1 WHERE ${idCol} = $2`, [key, id]);
         migrated++;
         if (migrated % 50 === 0) console.log(`  [${label}] ${migrated}/${total} migrated...`);
@@ -84,7 +84,7 @@ async function nullifyBytea({ table, dataCol, s3KeyCol }) {
 }
 
 async function main() {
-  if (!isR2Configured()) {
+  if (!isS3Configured()) {
     console.error("S3 is not configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET_NAME.");
     process.exit(1);
   }

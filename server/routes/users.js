@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
-const { isR2Configured, uploadToR2, downloadFromR2, deleteFromR2 } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3, deleteFromS3 } = require("../s3");
 
 const router = express.Router();
 const ppUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -183,10 +183,10 @@ router.post("/:id/profile-picture", requireAuth, ppUpload.single("picture"), asy
     }
     const ext = req.file.mimetype === "image/png" ? "png" : req.file.mimetype === "image/webp" ? "webp" : req.file.mimetype === "image/gif" ? "gif" : "jpg";
     let s3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         s3Key = `profile-pictures/${targetId}/avatar.${ext}`;
-        await uploadToR2(s3Key, req.file.buffer, req.file.mimetype);
+        await uploadToS3(s3Key, req.file.buffer, req.file.mimetype);
       } catch (e) { console.error("S3 profile pic pre-upload failed, using BYTEA:", e.message); s3Key = null; }
     }
     await pool.query(
@@ -209,8 +209,8 @@ router.get("/:id/profile-picture", async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: "No profile picture" });
     let buffer = null;
     let contentType = rows[0].profile_picture_type || "image/jpeg";
-    if (rows[0].s3_profile_picture_key && isR2Configured()) {
-      try { buffer = await downloadFromR2(rows[0].s3_profile_picture_key); } catch (e) { console.error("S3 profile pic download fallback:", e.message); }
+    if (rows[0].s3_profile_picture_key && isS3Configured()) {
+      try { buffer = await downloadFromS3(rows[0].s3_profile_picture_key); } catch (e) { console.error("S3 profile pic download fallback:", e.message); }
     }
     if (!buffer && rows[0].profile_picture) {
       buffer = rows[0].profile_picture;
@@ -232,8 +232,8 @@ router.delete("/:id/profile-picture", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Not authorized" });
     }
     const { rows } = await pool.query("SELECT s3_profile_picture_key FROM users WHERE id = $1", [targetId]);
-    if (rows[0]?.s3_profile_picture_key && isR2Configured()) {
-      deleteFromR2(rows[0].s3_profile_picture_key).catch(e => console.error("S3 profile pic delete error:", e.message));
+    if (rows[0]?.s3_profile_picture_key && isS3Configured()) {
+      deleteFromS3(rows[0].s3_profile_picture_key).catch(e => console.error("S3 profile pic delete error:", e.message));
     }
     await pool.query(
       "UPDATE users SET profile_picture = NULL, profile_picture_type = NULL, s3_profile_picture_key = NULL WHERE id = $1",

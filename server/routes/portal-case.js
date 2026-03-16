@@ -4,7 +4,7 @@ const multer = require("multer");
 const pool = require("../db");
 const { requireClientAuth } = require("../middleware/clientAuth");
 const { extractText } = require("../utils/extract-text");
-const { isR2Configured, uploadToR2, downloadFromR2 } = require("../r2");
+const { isS3Configured, uploadToS3, downloadFromS3 } = require("../s3");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
@@ -211,11 +211,11 @@ router.post("/documents/upload", requireClientAuth, upload.single("file"), async
     } catch (_) {}
 
     let portalS3Key = null;
-    if (isR2Configured()) {
+    if (isS3Configured()) {
       try {
         const { randomUUID } = require("crypto");
         portalS3Key = `documents/${randomUUID()}/${req.file.originalname}`;
-        await uploadToR2(portalS3Key, req.file.buffer, req.file.mimetype);
+        await uploadToS3(portalS3Key, req.file.buffer, req.file.mimetype);
       } catch (e) { console.error("S3 portal pre-upload failed, using BYTEA:", e.message); portalS3Key = null; }
     }
 
@@ -239,8 +239,8 @@ router.get("/documents/:id/download", requireClientAuth, async (req, res) => {
     );
     if (rows.length === 0) return res.status(404).json({ error: "Document not found" });
     let buffer = null;
-    if (rows[0].s3_key && isR2Configured()) {
-      try { buffer = await downloadFromR2(rows[0].s3_key); } catch (e) { console.error("S3 portal download fallback:", e.message); }
+    if (rows[0].s3_key && isS3Configured()) {
+      try { buffer = await downloadFromS3(rows[0].s3_key); } catch (e) { console.error("S3 portal download fallback:", e.message); }
     }
     if (!buffer) {
       buffer = rows[0].file_data;
