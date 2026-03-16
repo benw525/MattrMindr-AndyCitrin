@@ -302,7 +302,7 @@ router.get("/:id/download", requireAuth, async (req, res) => {
       pool.query("UPDATE case_documents SET firm_viewed_at = NOW() WHERE id = $1 AND firm_viewed_at IS NULL", [req.params.id]).catch(() => {});
     }
     const fileBuffer = await getDocBuffer(doc);
-    if (!fileBuffer) return res.status(404).json({ error: "File data not found" });
+    if (!fileBuffer) return res.status(404).json({ error: "File content is unavailable — the document record exists but no file was stored. Try re-uploading the document." });
     res.setHeader("Content-Type", doc.content_type);
     res.setHeader("Content-Disposition", `attachment; filename="${doc.filename}"`);
     return res.send(fileBuffer);

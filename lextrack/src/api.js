@@ -222,7 +222,7 @@ export const apiReExtractDocument = (docId) => apiFetch(`/api/case-documents/${d
 export const apiGetDocOcrStatus = (docId) => apiFetch(`/api/case-documents/${docId}/ocr-status`);
 export async function apiDownloadDocument(docId) {
   const res = await fetch(`/api/case-documents/${docId}/download`, { credentials: "include" });
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  if (!res.ok) { let msg = `Download failed (${res.status})`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
   return res.blob();
 }
 export const apiGetDocumentText = (docId) => apiFetch(`/api/case-documents/${docId}/text`);
@@ -293,7 +293,7 @@ export async function apiUploadFiling(formData) {
 }
 export async function apiDownloadFiling(id) {
   const res = await fetch(`/api/filings/${id}/download`, { credentials: "include" });
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  if (!res.ok) { let msg = `Download failed (${res.status})`; try { const j = await res.json(); msg = j.error || msg; } catch {} throw new Error(msg); }
   return res.blob();
 }
 export const apiDeleteFiling = (id) => apiFetch(`/api/filings/${id}`, { method: "DELETE" });
