@@ -7,6 +7,43 @@ const os = require("os");
 const OCR_MIN_TEXT_LENGTH = 200;
 const GEMINI_MAX_BATCH_BYTES = 45 * 1024 * 1024;
 const GEMINI_MAX_SINGLE_IMAGE_BYTES = 20 * 1024 * 1024;
+const GEMINI_MAX_RETRIES = 2;
+const GEMINI_RETRY_DELAYS = [3000, 8000];
+
+function isRetryableError(err) {
+  const msg = (err.message || "").toLowerCase();
+  const status = err.status || err.httpStatusCode || err.code;
+  return status === 503 || status === 429 ||
+    msg.includes("high demand") || msg.includes("overloaded") ||
+    msg.includes("service unavailable") || msg.includes("resource exhausted") ||
+    msg.includes("quota") || msg.includes("rate limit") || msg.includes("too many requests");
+}
+
+async function callGeminiWithRetry(model, parts, modelName) {
+  let lastErr;
+  for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
+    try {
+      const result = await model.generateContent(parts);
+      const response = await result.response;
+      return response.text();
+    } catch (err) {
+      lastErr = err;
+      if (!isRetryableError(err) || attempt === GEMINI_MAX_RETRIES) {
+        throw err;
+      }
+      const delay = GEMINI_RETRY_DELAYS[attempt] || 8000;
+      console.log(`${modelName} attempt ${attempt + 1} failed (${err.message}), retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
+function selectDpi(bufferLength) {
+  if (bufferLength > 100 * 1024 * 1024) return 150;
+  if (bufferLength > 50 * 1024 * 1024) return 200;
+  return 300;
+}
 
 function numericSort(a, b) {
   const numA = parseInt(a.match(/(\d+)/)?.[1] || "0", 10);
@@ -128,9 +165,7 @@ async function ocrPdfDirect31(buffer, filename, geminiKey) {
 
   const prompt = "Extract ALL text from this PDF document. Return the complete text content exactly as it appears, preserving the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase — output the raw text only, with no commentary.";
 
-  const result = await model.generateContent([prompt, pdfPart]);
-  const response = await result.response;
-  const fullText = response.text();
+  const fullText = await callGeminiWithRetry(model, [prompt, pdfPart], "Gemini 3.1 direct PDF");
 
   const wordCount = fullText.trim().split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
   console.log(`Gemini 3.1 direct PDF OCR complete: extracted ${fullText.trim().length} chars / ${wordCount} words for "${filename}"`);
@@ -151,12 +186,7 @@ async function ocrPdfImageBased20(buffer, filename, geminiKey) {
   fs.writeFileSync(pdfPath, buffer);
 
   try {
-    let dpi = 300;
-    if (buffer.length > 100 * 1024 * 1024) {
-      dpi = 150;
-    } else if (buffer.length > 50 * 1024 * 1024) {
-      dpi = 200;
-    }
+    const dpi = selectDpi(buffer.length);
 
     const imageFiles = await convertPdfToImages(pdfPath, tmpDir, dpi, null);
 
@@ -215,10 +245,13 @@ async function ocrPdfImageBased20(buffer, filename, geminiKey) {
         ? `Extract ALL text from these ${batch.length} document page images. Return the complete text content exactly as it appears, preserving the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase — output the raw text only, with no commentary.`
         : "Extract ALL text from this document page image. Return the complete text content exactly as it appears, preserving the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase — output the raw text only, with no commentary.";
 
-      const result = await model.generateContent([prompt, ...imageParts]);
-      const response = await result.response;
-      const pageText = response.text();
-      fullText += pageText + "\n";
+      try {
+        const pageText = await callGeminiWithRetry(model, [prompt, ...imageParts], `Gemini 2.0 batch ${bIdx + 1}`);
+        fullText += pageText + "\n";
+      } catch (batchErr) {
+        console.warn(`Gemini 2.0 OCR: batch ${bIdx + 1}/${batches.length} failed: ${batchErr.message}`);
+        if (batches.length === 1) throw batchErr;
+      }
     }
 
     const wordCount = fullText.trim().split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
@@ -396,9 +429,7 @@ async function ocrPdfDirect31WithPages(buffer, filename, geminiKey) {
 
   const prompt = "Extract ALL text from this PDF document page by page. For each page, output a marker [PAGE N] followed by the text content of that page. Preserve the structure and formatting. Include every word, number, date, and detail. Do not summarize or paraphrase. Example format:\n[PAGE 1]\n<text from page 1>\n\n[PAGE 2]\n<text from page 2>";
 
-  const result = await model.generateContent([prompt, pdfPart]);
-  const response = await result.response;
-  const fullText = response.text().trim();
+  const fullText = (await callGeminiWithRetry(model, [prompt, pdfPart], "Gemini 3.1 direct PDF (pages)")).trim();
 
   const wordCount = fullText.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
   console.log(`Gemini 3.1 direct PDF OCR (with pages) complete: ${fullText.length} chars / ${wordCount} words for "${filename}"`);
@@ -417,9 +448,7 @@ async function ocrPdfImageBased20WithPages(buffer, filename, geminiKey) {
   fs.writeFileSync(pdfPath, buffer);
 
   try {
-    let dpi = 300;
-    if (buffer.length > 100 * 1024 * 1024) dpi = 150;
-    else if (buffer.length > 50 * 1024 * 1024) dpi = 200;
+    const dpi = selectDpi(buffer.length);
 
     const imageFiles = await convertPdfToImages(pdfPath, tmpDir, dpi, null);
     if (imageFiles.length === 0) return { text: "", hasPages: false };
@@ -454,9 +483,7 @@ async function ocrPdfImageBased20WithPages(buffer, filename, geminiKey) {
       };
 
       const prompt = "Extract ALL text from this document page image. Return the complete text content exactly as it appears.";
-      const result = await model.generateContent([prompt, imagePart]);
-      const response = await result.response;
-      const pageText = response.text().trim();
+      const pageText = (await callGeminiWithRetry(model, [prompt, imagePart], `Gemini 2.0 page ${i + 1}`)).trim();
       pageResults.push(`[PAGE ${i + 1}]\n${pageText}`);
     }
 
