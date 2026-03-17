@@ -55,6 +55,7 @@ ONLYOFFICE_URL = "https://docspace-13tl7v.onlyoffice.com"
 ONLYOFFICE_USER = "beemer@quarkgames.com"
 ONLYOFFICE_ROOM_ID = "2853087"
 OPENAI_API_KEY = "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"
+RDS_SSL_CA = "./server/global-bundle.pem"
 
 [postMerge]
 path = "scripts/post-merge.sh"
