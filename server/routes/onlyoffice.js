@@ -96,11 +96,16 @@ router.post("/view", requireAuth, async (req, res) => {
     if (!req.session.ooViewSessions) req.session.ooViewSessions = {};
     req.session.ooViewSessions[String(fileId)] = { docId, userId: req.session.userId, createdAt: Date.now() };
 
-    const viewUrl = editorResponse.editorUrl || `${OO_URL}/doceditor?fileId=${fileId}&action=view`;
-
     res.json({
-      viewUrl,
       fileId,
+      editorUrl: editorResponse.editorUrl || `${OO_URL}/web-apps/apps/api/documents/api.js`,
+      editorConfig: {
+        document: editorResponse.document || null,
+        documentType: editorResponse.documentType || null,
+        editorConfig: editorResponse.editorConfig || null,
+        token: editorResponse.token || null,
+        type: editorResponse.type || "embedded",
+      },
     });
   } catch (err) {
     console.error("ONLYOFFICE view error:", err.message);

@@ -150,6 +150,8 @@ export default function DocViewerWindow({
   const [ooEditData, setOoEditData] = useState(null);
   const [ooSyncing, setOoSyncing] = useState(false);
   const [showCasePanel, setShowCasePanel] = useState(false);
+  const [ooViewMode, setOoViewMode] = useState(!!viewer.ooViewConfig);
+  const [ooViewFailed, setOoViewFailed] = useState(false);
 
   const caseData = useMemo(() => {
     if (viewer.caseId == null || !allCases) return null;
@@ -157,6 +159,8 @@ export default function DocViewerWindow({
   }, [viewer.caseId, allCases]);
   const ooEditorRef = useRef(null);
   const ooContainerRef = useRef(null);
+  const ooViewContainerRef = useRef(null);
+  const ooViewerRef = useRef(null);
   const officeTimerRef = useRef(null);
   const draggingRef = useRef(false);
   const dragStartRef = useRef({ mx: 0, my: 0, ex: 0, ey: 0 });
@@ -174,8 +178,77 @@ export default function DocViewerWindow({
         try { ooEditorRef.current.destroyEditor(); } catch {}
         ooEditorRef.current = null;
       }
+      if (ooViewerRef.current) {
+        try { ooViewerRef.current.destroyEditor(); } catch {}
+        ooViewerRef.current = null;
+      }
     };
   }, []);
+
+  const initOOViewer = useCallback(async (editorUrl, editorConfig) => {
+    try {
+      await loadOOScript(editorUrl);
+
+      if (ooViewerRef.current) {
+        try { ooViewerRef.current.destroyEditor(); } catch {}
+        ooViewerRef.current = null;
+      }
+
+      const containerId = "oo-viewer-container";
+      const container = ooViewContainerRef.current;
+      if (container) {
+        container.innerHTML = "";
+        const viewDiv = document.createElement("div");
+        viewDiv.id = containerId;
+        viewDiv.style.width = "100%";
+        viewDiv.style.height = "100%";
+        container.appendChild(viewDiv);
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+
+      const config = {
+        document: editorConfig.document,
+        documentType: editorConfig.documentType,
+        editorConfig: {
+          ...editorConfig.editorConfig,
+          mode: "view",
+          customization: {
+            ...(editorConfig.editorConfig?.customization || {}),
+            compactHeader: true,
+            toolbarNoTabs: true,
+            toolbarHideFileName: true,
+          },
+        },
+        token: editorConfig.token,
+        type: "embedded",
+        width: "100%",
+        height: "100%",
+        events: {
+          onReady: () => {
+            console.log("ONLYOFFICE viewer ready");
+          },
+          onError: (e) => {
+            console.error("ONLYOFFICE viewer error:", e);
+            setOoViewFailed(true);
+            setOoViewMode(false);
+          },
+        },
+      };
+
+      ooViewerRef.current = new window.DocsAPI.DocEditor(containerId, config);
+    } catch (err) {
+      console.error("Failed to init ONLYOFFICE viewer:", err);
+      setOoViewFailed(true);
+      setOoViewMode(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (ooViewMode && viewer.ooViewConfig && !ooEditMode) {
+      initOOViewer(viewer.ooViewConfig.editorUrl, viewer.ooViewConfig.editorConfig);
+    }
+  }, [ooViewMode, viewer.ooViewConfig, ooEditMode, initOOViewer]);
 
   const initOOEditor = useCallback(async (editorUrl, editorConfig) => {
     try {
@@ -353,6 +426,11 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
       const { apiOnlyofficeUploadForEdit } = await import("./api");
       const upRes = await apiOnlyofficeUploadForEdit(viewer.docId);
       if (upRes.editorUrl && upRes.editorConfig && upRes.fileId) {
+        if (ooViewerRef.current) {
+          try { ooViewerRef.current.destroyEditor(); } catch {}
+          ooViewerRef.current = null;
+        }
+        setOoViewMode(false);
         setOoEditData({ docId: viewer.docId, fileId: upRes.fileId, editorUrl: upRes.editorUrl, editorConfig: upRes.editorConfig });
         setOoEditMode(true);
         setTimeout(() => {
@@ -455,11 +533,17 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
       );
     }
 
+    if (ooViewMode && viewer.ooViewConfig && isOfficeType && !ooViewFailed) {
+      return (
+        <div ref={ooViewContainerRef} style={{ width: "100%", height: "100%", background: "#fff" }} />
+      );
+    }
+
     if (officeViewMode && viewer.officeViewUrl && isOfficeType && !officeFailed) {
       return <iframe src={viewer.officeViewUrl} onLoad={handleOfficeLoad} onError={handleOfficeIframeError} style={{ width: "100%", height: "100%", border: "none" }} title="Office Viewer" />;
     }
 
-    if (officeFailed && isOfficeType) {
+    if ((officeFailed || ooViewFailed) && isOfficeType) {
       return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <div style={{ padding: "6px 12px", background: "#fef3c7", color: "#92400e", fontSize: 11, textAlign: "center", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -548,10 +632,10 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
             <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--c-text-h, #0f172a)" }}>
               {viewer.filename || "Document"}
             </span>
-            {!ooEditMode && isOfficeType && viewer.officeViewUrl && !officeFailed && (
+            {!ooEditMode && isOfficeType && (ooViewMode || (viewer.officeViewUrl && !officeFailed)) && (
               <>
-                <span style={{ padding: "1px 8px", fontSize: 10, fontWeight: 700, borderRadius: 4, background: officeViewMode ? "#059669" : "#e2e8f0", color: officeViewMode ? "#fff" : "#64748b", letterSpacing: "0.02em" }}>Office</span>
-                <span style={{ padding: "1px 8px", fontSize: 10, fontWeight: 700, borderRadius: 4, background: !officeViewMode ? "#64748b" : "#e2e8f0", color: !officeViewMode ? "#fff" : "#94a3b8", letterSpacing: "0.02em" }}>Built-in</span>
+                <span style={{ padding: "1px 8px", fontSize: 10, fontWeight: 700, borderRadius: 4, background: (ooViewMode || officeViewMode) ? "#059669" : "#e2e8f0", color: (ooViewMode || officeViewMode) ? "#fff" : "#64748b", letterSpacing: "0.02em" }}>Office</span>
+                <span style={{ padding: "1px 8px", fontSize: 10, fontWeight: 700, borderRadius: 4, background: !(ooViewMode || officeViewMode) ? "#64748b" : "#e2e8f0", color: !(ooViewMode || officeViewMode) ? "#fff" : "#94a3b8", letterSpacing: "0.02em" }}>Built-in</span>
               </>
             )}
           </div>
@@ -577,8 +661,18 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
 
             <button onClick={(e) => { e.stopPropagation(); handlePresent(); }} title="Present" style={btnStyle}><MonitorPlay size={14} /></button>
 
-            {isOfficeType && viewer.officeViewUrl && !officeFailed && !ooEditMode && (
-              <button onClick={(e) => { e.stopPropagation(); setOfficeViewMode(!officeViewMode); }} title={officeViewMode ? "Switch to Built-in viewer" : "Switch to Office viewer"} style={btnStyle}><RefreshCw size={14} /></button>
+            {isOfficeType && !ooEditMode && (ooViewMode || (viewer.officeViewUrl && !officeFailed)) && (
+              <button onClick={(e) => {
+                e.stopPropagation();
+                if (ooViewMode) {
+                  if (ooViewerRef.current) { try { ooViewerRef.current.destroyEditor(); } catch {} ooViewerRef.current = null; }
+                  setOoViewMode(false);
+                } else if (viewer.ooViewConfig && !ooViewFailed) {
+                  setOoViewMode(true);
+                } else if (viewer.officeViewUrl) {
+                  setOfficeViewMode(!officeViewMode);
+                }
+              }} title={(ooViewMode || officeViewMode) ? "Switch to Built-in viewer" : "Switch to Office viewer"} style={btnStyle}><RefreshCw size={14} /></button>
             )}
 
             <button onClick={(e) => { e.stopPropagation(); if (viewer.docId && onViewerUpdate) onViewerUpdate(viewer.docId); }} title="Reload content" style={btnStyle}><LayoutGrid size={14} /></button>
