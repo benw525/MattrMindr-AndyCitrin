@@ -10,7 +10,13 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 
 async function getDocBuffer(doc) {
   if (doc.s3_key && isS3Configured()) {
-    return downloadFromS3(doc.s3_key);
+    try {
+      return await downloadFromS3(doc.s3_key);
+    } catch (err) {
+      console.warn(`S3 download failed for key ${doc.s3_key}: ${err.message}, falling back to BYTEA`);
+      if (doc.file_data) return doc.file_data;
+      return null;
+    }
   }
   return doc.file_data || null;
 }

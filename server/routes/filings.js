@@ -11,7 +11,13 @@ const pendingFilingChunks = new Map();
 
 async function getFilingBuffer(row) {
   if (row.s3_key && isS3Configured()) {
-    return downloadFromS3(row.s3_key);
+    try {
+      return await downloadFromS3(row.s3_key);
+    } catch (err) {
+      console.warn(`S3 filing download failed for key ${row.s3_key}: ${err.message}, falling back to BYTEA`);
+      if (row.file_data) return row.file_data;
+      return null;
+    }
   }
   return row.file_data || null;
 }
