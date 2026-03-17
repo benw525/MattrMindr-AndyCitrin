@@ -152,6 +152,15 @@ export default function DocViewerWindow({
   const [showCasePanel, setShowCasePanel] = useState(false);
   const [ooViewMode, setOoViewMode] = useState(!!viewer.ooViewConfig);
   const [ooViewFailed, setOoViewFailed] = useState(false);
+  const prevOoViewConfigRef = useRef(viewer.ooViewConfig);
+
+  useEffect(() => {
+    if (viewer.ooViewConfig && viewer.ooViewConfig !== prevOoViewConfigRef.current) {
+      setOoViewMode(true);
+      setOoViewFailed(false);
+    }
+    prevOoViewConfigRef.current = viewer.ooViewConfig;
+  }, [viewer.ooViewConfig]);
 
   const caseData = useMemo(() => {
     if (viewer.caseId == null || !allCases) return null;

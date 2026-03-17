@@ -2853,11 +2853,21 @@ function FirmApp() {
               const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
               const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
               let docxHtml = viewer.docxHtml, xlsxData = viewer.xlsxData, pptxSlides = viewer.pptxSlides, blobUrl = viewer.blobUrl;
+              let ooViewConfig = null, ooViewFileId = null;
               if (isDocx) { try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch {} }
               else if (isXlsx) { try { const r = await apiGetXlsxData(docId); xlsxData = r.sheets; } catch {} }
               else if (isPptx) { try { const r = await apiGetPptxSlides(docId); pptxSlides = r.slides; } catch {} }
               else { try { const blob = await apiDownloadDocument(docId); blobUrl = URL.createObjectURL(blob); } catch {} }
-              setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, docxHtml, xlsxData, pptxSlides, blobUrl } : v));
+              if (isDocx || isXlsx || isPptx) {
+                try {
+                  const r = await apiOnlyofficeView(docId);
+                  if (r.editorUrl && r.editorConfig) {
+                    ooViewConfig = { editorUrl: r.editorUrl, editorConfig: r.editorConfig };
+                    ooViewFileId = r.fileId || null;
+                  }
+                } catch {}
+              }
+              setOpenDocViewers(prev => prev.map(v => v.id === viewer.id ? { ...v, docxHtml, xlsxData, pptxSlides, blobUrl, ...(ooViewConfig ? { ooViewConfig, ooViewFileId } : {}) } : v));
             } catch {}
           }}
         />
