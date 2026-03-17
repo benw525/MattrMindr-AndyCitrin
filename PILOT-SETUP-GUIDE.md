@@ -1,6 +1,6 @@
 # MattrMindr — Pilot Deployment Setup Guide
 
-This guide walks through setting up a new MattrMindr pilot deployment (e.g., `andycitrin.mattrmindr.com`) from a cloned Repl.
+This guide walks through setting up a new MattrMindr pilot deployment (e.g., `andycitrin.mattrmindr.com`) from a cloned Repl. Pilots share the existing Aurora cluster and S3 bucket for infrastructure simplicity.
 
 ---
 
@@ -18,19 +18,17 @@ This guide walks through setting up a new MattrMindr pilot deployment (e.g., `an
 
 ## 1. Database (Aurora PostgreSQL)
 
-Each pilot deployment uses a separate database on the shared Aurora cluster for data isolation.
-
-Connect to the existing Aurora writer endpoint and create a new database:
+Pilots share the existing Aurora cluster. Create a new database on the same cluster for data isolation:
 
 ```bash
 psql "postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/postgres"
-CREATE DATABASE pilot_firmname;
+CREATE DATABASE pilot_andycitrin;
 ```
 
 Set `DATABASE_URL` as a Replit secret on the cloned Repl, pointing to the new database on the shared cluster:
 
 ```
-postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/pilot_firmname
+postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/pilot_andycitrin
 ```
 
 If the password contains special characters (e.g., `%`), URL-encode them (e.g., `%25`).
@@ -55,18 +53,9 @@ node -e "require('bcrypt').hash('YourPassword', 10).then(h => console.log(h))"
 
 ## 2. AWS S3 (File Storage)
 
-Pilots can either share the existing S3 bucket (using per-pilot key prefixes like `documents/{id}/...` which are naturally isolated by case ID across separate databases) or use a dedicated bucket for stronger isolation.
+Pilots share the existing S3 bucket. Since S3 keys include unique case/document IDs (e.g., `documents/{id}/{filename}`), and each pilot has its own database with distinct IDs, there are no key collisions.
 
-### Option A: Shared Bucket (Simpler)
-
-Use the same S3 bucket and IAM credentials. Since case IDs are unique per database, file paths won't conflict.
-
-### Option B: Dedicated Bucket (Stronger Isolation)
-
-1. Create bucket: `mattrmindr-pilot-firmname` in your preferred region
-2. Create an IAM user or role with S3 access scoped to this bucket
-
-Either way, set these Replit secrets on the cloned Repl:
+Set these Replit secrets on the cloned Repl using the same values as the main deployment:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_REGION` (e.g., `us-east-1`)
@@ -115,29 +104,38 @@ MattrMindr uses the Replit SendGrid integration for outbound email. In the clone
 
 ### Inbound Parse (Case Email & Filings)
 
-MattrMindr receives inbound email at a single endpoint (`/api/inbound-email`) and routes based on the `To` address:
+MattrMindr receives all inbound email at a single endpoint (`/api/inbound-email`) and routes internally based on the `To` address pattern:
 
 - `case-{id}@MAIL_DOMAIN` — stored as case correspondence
 - `filings@MAIL_DOMAIN` — parsed as court filings (extracts PDFs, auto-classifies, creates hearing deadlines)
 
-To configure inbound email for the pilot:
+For the pilot domain `andycitrin.mattrmindr.com`, set up TWO SendGrid Inbound Parse hostnames:
 
-1. **Authenticate the mail domain** in SendGrid → Settings → Sender Authentication → Domain Authentication for the mail domain (e.g., `andycitrin.mattrmindr.com`)
+#### Case correspondence: `plaintiff.andycitrin.mattrmindr.com`
 
-2. **Add MX record**: Point `andycitrin.mattrmindr.com` → `mx.sendgrid.net` (priority 10)
-
-3. **Configure Inbound Parse** in SendGrid → Settings → Inbound Parse:
-   - Hostname: `andycitrin.mattrmindr.com`
-   - URL: `https://YOUR-DEPLOYED-DOMAIN/api/inbound-email`
+1. **Add MX record**: `plaintiff.andycitrin.mattrmindr.com` → `mx.sendgrid.net` (priority 10)
+2. **Configure Inbound Parse** in SendGrid → Settings → Inbound Parse:
+   - Hostname: `plaintiff.andycitrin.mattrmindr.com`
+   - URL: `https://andycitrin.mattrmindr.com/api/inbound-email`
    - Check "POST the raw, full MIME message"
 
-4. **Set the MAIL_DOMAIN secret** on the Repl:
-   ```
-   MAIL_DOMAIN=andycitrin.mattrmindr.com
-   ```
-   This controls the email addresses displayed in the UI (e.g., `case-123@andycitrin.mattrmindr.com`).
+#### Court filings: `andycitrin.mattrmindr.com`
 
-Both `case-{id}@andycitrin.mattrmindr.com` and `filings@andycitrin.mattrmindr.com` will route to the same endpoint and be handled automatically.
+1. **Add MX record**: `andycitrin.mattrmindr.com` → `mx.sendgrid.net` (priority 10)
+2. **Configure Inbound Parse** in SendGrid → Settings → Inbound Parse:
+   - Hostname: `andycitrin.mattrmindr.com`
+   - URL: `https://andycitrin.mattrmindr.com/api/inbound-email`
+   - Check "POST the raw, full MIME message"
+
+This allows both `case-{id}@plaintiff.andycitrin.mattrmindr.com` and `filings@andycitrin.mattrmindr.com` to work.
+
+#### Set the MAIL_DOMAIN Secret
+
+```
+MAIL_DOMAIN=plaintiff.andycitrin.mattrmindr.com
+```
+
+This controls the email addresses displayed in the UI (e.g., `case-123@plaintiff.andycitrin.mattrmindr.com`).
 
 ---
 
@@ -145,7 +143,7 @@ Both `case-{id}@andycitrin.mattrmindr.com` and `filings@andycitrin.mattrmindr.co
 
 1. **Provision a phone number** in your Twilio Console for this pilot
 2. **Configure the webhook** for the number:
-   - Messaging webhook: `https://YOUR-DEPLOYED-DOMAIN/api/sms/inbound` (HTTP POST)
+   - Messaging webhook: `https://andycitrin.mattrmindr.com/api/sms/inbound` (HTTP POST)
 3. **Set Replit secrets**:
    - `TWILIO_ACCOUNT_SID`
    - `TWILIO_AUTH_TOKEN`
@@ -172,8 +170,7 @@ Alternatively, each user can configure their own SMS number through the in-app S
    - `MS_CLIENT_ID`
    - `MS_CLIENT_SECRET`
    - `MS_TENANT_ID` (use `common` for multi-tenant, or the specific tenant ID)
-
-The Microsoft OAuth flow auto-detects the host from the request, so no additional redirect URI configuration is needed beyond the Azure app registration. Optionally set `MS_REDIRECT_URI` to explicitly override the callback URL.
+   - `MS_REDIRECT_URI=https://andycitrin.mattrmindr.com/api/microsoft/callback` (optional — auto-detected from request host if omitted)
 
 ---
 
@@ -216,12 +213,12 @@ Set it as the `SESSION_SECRET` Replit secret.
 
 After completing all configuration, verify:
 
-1. **Login**: Navigate to the custom domain and log in with the admin credentials
-2. **Public config**: Visit `https://YOUR-DOMAIN/api/public-config` — should return `{"mailDomain":"andycitrin.mattrmindr.com"}`
-3. **Case email**: Open a case → Correspondence tab → verify the email shows `case-{id}@andycitrin.mattrmindr.com`
-4. **Password reset**: Use "Forgot Password" → verify the email arrives with the correct domain link pointing to `https://andycitrin.mattrmindr.com`
-5. **Inbound email**: Forward a test email to `case-{id}@andycitrin.mattrmindr.com` → verify it appears in the case correspondence
-6. **Filings email**: Forward a court filing PDF to `filings@andycitrin.mattrmindr.com` → verify it's processed or stored as unmatched
+1. **Login**: Navigate to `https://andycitrin.mattrmindr.com` and log in with the admin credentials
+2. **Public config**: Visit `https://andycitrin.mattrmindr.com/api/public-config` — should return `{"mailDomain":"plaintiff.andycitrin.mattrmindr.com"}`
+3. **Case email**: Open a case → Correspondence tab → verify the email shows `case-{id}@plaintiff.andycitrin.mattrmindr.com`
+4. **Password reset**: Use "Forgot Password" → verify the email arrives with a "Reset Password" button linking to `https://andycitrin.mattrmindr.com`
+5. **Inbound case email**: Forward a test email to `case-{id}@plaintiff.andycitrin.mattrmindr.com` → verify it appears in the case correspondence
+6. **Inbound filings email**: Forward a court filing PDF to `filings@andycitrin.mattrmindr.com` → verify it's processed or stored as unmatched
 7. **SMS**: Send a test SMS to the Twilio number → verify it appears in the app
 
 ---
@@ -231,12 +228,14 @@ After completing all configuration, verify:
 | Step | Secret(s) | Verified |
 |------|-----------|----------|
 | Aurora database created on shared cluster | `DATABASE_URL`, `RDS_SSL_CA` | ☐ |
-| S3 storage configured | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` | ☐ |
+| S3 storage configured (shared bucket) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` | ☐ |
 | App URL set | `APP_URL` | ☐ |
 | CORS origins set | `CORS_ORIGINS` | ☐ |
 | Mail domain set | `MAIL_DOMAIN` | ☐ |
 | SendGrid connected (Replit integration) | — | ☐ |
-| SendGrid Inbound Parse configured (case + filings) | — | ☐ |
+| SendGrid Inbound Parse: case correspondence | — | ☐ |
+| SendGrid Inbound Parse: court filings | — | ☐ |
+| MX records configured (both hostnames) | — | ☐ |
 | Twilio provisioned | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | ☐ |
 | Microsoft 365 app registered | `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT_ID` | ☐ |
 | ONLYOFFICE provisioned | `ONLYOFFICE_URL`, `ONLYOFFICE_PASSWORD` | ☐ |
