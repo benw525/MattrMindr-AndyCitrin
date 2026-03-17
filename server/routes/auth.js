@@ -312,7 +312,7 @@ router.post("/mfa/verify-setup", requireAuth, async (req, res) => {
     const { rows } = await pool.query("SELECT mfa_secret FROM users WHERE id = $1", [req.session.userId]);
     if (!rows.length) return res.status(404).json({ error: "User not found" });
     if (!rows[0].mfa_secret) return res.status(400).json({ error: "MFA not set up" });
-    const result = verifySync({ token: code.toString(), secret: rows[0].mfa_secret });
+    const result = verifySync({ token: code.toString(), secret: rows[0].mfa_secret, window: 2 });
     if (!result.valid) return res.status(400).json({ error: "Invalid code. Try again." });
     await pool.query("UPDATE users SET mfa_enabled = TRUE WHERE id = $1", [req.session.userId]);
     return res.json({ ok: true });
@@ -331,7 +331,7 @@ router.post("/mfa/verify", async (req, res) => {
     const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [pendingUserId]);
     if (!rows.length) return res.status(404).json({ error: "User not found" });
     const user = rows[0];
-    const result = verifySync({ token: code.toString(), secret: user.mfa_secret });
+    const result = verifySync({ token: code.toString(), secret: user.mfa_secret, window: 2 });
     if (!result.valid) return res.status(401).json({ error: "Invalid verification code" });
 
     if (req.session.mfaRememberMe) {
