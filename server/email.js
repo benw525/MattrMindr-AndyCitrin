@@ -68,7 +68,7 @@ async function sendPasswordResetEmail(toEmail, userName, resetToken, appUrl) {
   await sendEmail({
     to: toEmail,
     subject: "MattrMindr — Password Reset",
-    text: `Hi ${userName},\n\nA password reset was requested for your account. Use this temporary code to reset your password:\n\n${resetToken}\n\nThis code expires in 1 hour. If you did not request this, you can safely ignore this email.\n\nThank you,\nMattrMindr`,
+    text: `Hi ${userName},\n\nA password reset was requested for your account. Use this temporary code to reset your password:\n\n${resetToken}\n\nOr click this link: ${resetLink}\n\nThis code expires in 1 hour. If you did not request this, you can safely ignore this email.\n\nThank you,\nMattrMindr`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 500px; margin: 0 auto; padding: 30px;">
         <h2 style="color: #1e3a5f; font-family: 'Playfair Display', Georgia, serif;">MattrMindr</h2>
@@ -77,6 +77,7 @@ async function sendPasswordResetEmail(toEmail, userName, resetToken, appUrl) {
         <div style="background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; text-align: center; margin: 20px 0;">
           <span style="font-family: monospace; font-size: 22px; letter-spacing: 2px; color: #1e3a5f; font-weight: bold;">${resetToken}</span>
         </div>
+        <p style="margin: 16px 0;"><a href="${resetLink}" style="display: inline-block; background: #1e3a5f; color: #ffffff; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">Reset Password</a></p>
         <p style="color: #94a3b8; font-size: 13px;">This code expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
         <p style="color: #94a3b8; font-size: 13px; margin-top: 30px;">Thank you,<br>MattrMindr</p>
       </div>

@@ -18,22 +18,16 @@ This guide walks through setting up a new MattrMindr pilot deployment (e.g., `an
 
 ## 1. Database (Aurora PostgreSQL)
 
-### Option A: Shared Aurora Cluster (Recommended for Pilots)
+Each pilot gets its own database on the shared Aurora cluster. This keeps data isolated while sharing infrastructure.
 
-Create a new database on the existing Aurora cluster:
+Connect to the existing Aurora cluster and create a new database:
 
 ```bash
 psql "postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/postgres"
 CREATE DATABASE pilot_firmname;
 ```
 
-### Option B: Dedicated Aurora Cluster
-
-Follow the steps in `AWS-RDS-MIGRATION-GUIDE.md` to create a new cluster.
-
-### Configure the Secret
-
-Set `DATABASE_URL` as a Replit secret on the cloned Repl:
+Set `DATABASE_URL` as a Replit secret on the cloned Repl, pointing to the new database:
 
 ```
 postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/pilot_firmname
@@ -45,7 +39,7 @@ Set `RDS_SSL_CA=./global-bundle.pem` (the certificate file is already in `server
 
 ### Seed the Admin User
 
-Start the app once — it will run runtime migrations automatically and create tables. Then insert the admin user:
+Start the app once — it will run runtime migrations automatically and create all tables. Then insert the admin user:
 
 ```sql
 INSERT INTO users (name, email, password_hash, role)
@@ -61,10 +55,10 @@ node -e "require('bcrypt').hash('YourPassword', 10).then(h => console.log(h))"
 
 ## 2. AWS S3 (File Storage)
 
-Create an S3 bucket for this pilot's documents:
+Each pilot gets its own S3 bucket for document isolation. Create a dedicated bucket and IAM credentials:
 
 1. Create bucket: `mattrmindr-pilot-firmname` in your preferred region
-2. Create an IAM user with S3 access to this bucket
+2. Create an IAM user or role with S3 access scoped to this bucket
 3. Set these Replit secrets:
    - `AWS_ACCESS_KEY_ID`
    - `AWS_SECRET_ACCESS_KEY`
@@ -83,7 +77,7 @@ Set the `APP_URL` Replit secret to the pilot's public URL:
 APP_URL=https://andycitrin.mattrmindr.com
 ```
 
-This is used in password-reset emails and other outbound links.
+This is used in password-reset emails (the "Reset Password" link will point to this domain).
 
 ### Set CORS_ORIGINS
 
@@ -120,7 +114,7 @@ To receive inbound emails at `case-{id}@yourdomain.com`:
 2. **Add MX record**: Point `andycitrin.mattrmindr.com` → `mx.sendgrid.net` (priority 10)
 3. **Configure Inbound Parse** in SendGrid → Settings → Inbound Parse:
    - Hostname: `andycitrin.mattrmindr.com`
-   - URL: `https://YOUR-REPL-DOMAIN/api/external/inbound-email`
+   - URL: `https://YOUR-DEPLOYED-DOMAIN/api/inbound-email`
    - Check "POST the raw, full MIME message"
 4. **Set the MAIL_DOMAIN secret** on the Repl:
    ```
@@ -134,7 +128,7 @@ To receive inbound emails at `case-{id}@yourdomain.com`:
 
 1. **Provision a phone number** in your Twilio Console for this pilot
 2. **Configure the webhook** for the number:
-   - Messaging webhook: `https://YOUR-REPL-DOMAIN/api/external/sms-webhook` (HTTP POST)
+   - Messaging webhook: `https://YOUR-DEPLOYED-DOMAIN/api/sms/inbound` (HTTP POST)
 3. **Set Replit secrets**:
    - `TWILIO_ACCOUNT_SID`
    - `TWILIO_AUTH_TOKEN`
@@ -201,7 +195,20 @@ Set it as the `SESSION_SECRET` Replit secret.
 
 ---
 
-## 10. Final Checklist
+## 10. Smoke Test
+
+After completing all configuration, verify:
+
+1. **Login**: Navigate to the custom domain and log in with the admin credentials
+2. **Public config**: Visit `https://YOUR-DOMAIN/api/public-config` — should return `{"mailDomain":"andycitrin.mattrmindr.com"}`
+3. **Case email**: Open a case → Correspondence tab → verify the email shows `case-{id}@andycitrin.mattrmindr.com`
+4. **Password reset**: Use "Forgot Password" → verify the email arrives with the correct domain link
+5. **Inbound email**: Forward a test email to `case-{id}@andycitrin.mattrmindr.com` → verify it appears in the case correspondence
+6. **SMS**: Send a test SMS to the Twilio number → verify it appears in the app
+
+---
+
+## 11. Final Checklist
 
 | Step | Secret(s) | Verified |
 |------|-----------|----------|
@@ -220,8 +227,9 @@ Set it as the `SESSION_SECRET` Replit secret.
 | Custom domain configured in Replit | — | ☐ |
 | DNS records verified | — | ☐ |
 | Admin user created and login tested | — | ☐ |
-| Password reset email tested | — | ☐ |
+| Password reset email tested (correct domain link) | — | ☐ |
 | Inbound email tested (forward to case-X@domain) | — | ☐ |
+| SMS inbound tested | — | ☐ |
 
 ---
 
