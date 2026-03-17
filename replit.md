@@ -72,7 +72,8 @@ server/
     negotiations.js — CRUD /api/negotiations (with policy_id linking, partial-update PUT)
     expenses.js     — CRUD /api/expenses (partial-update PUT)
     voicemails.js   — CRUD /api/voicemails
-    ai-agents.js    — All AI agent endpoints (with AI search enhancement)
+    ai-agents.js    — All AI agent endpoints
+    ai-search.js    — Two-pass AI search: Pass 1 (GPT-4o-mini) analyzes query to select relevant data tables, Pass 2 (GPT-4o) searches focused data and returns ranked results with relevance scores
     trial-center.js — Trial Center CRUD (with Daubert challenge)
     trial-center-ai.js — Trial Center AI agents (civil PI context)
     custom-reports.js — Custom Report Builder with AI assist
