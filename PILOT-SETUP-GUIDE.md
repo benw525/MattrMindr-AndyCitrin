@@ -99,10 +99,12 @@ MattrMindr uses the Replit SendGrid integration for outbound email. In the clone
 
 MattrMindr receives all inbound email at a single endpoint (`/api/inbound-email`) and routes internally based on the `To` address pattern:
 
-- `case-{id}@MAIL_DOMAIN` — stored as case correspondence
-- `filings@MAIL_DOMAIN` — parsed as court filings (extracts PDFs, auto-classifies, creates hearing deadlines)
+- `case-{id}@plaintiff.andycitrin.mattrmindr.com` — stored as case correspondence (controlled by `MAIL_DOMAIN`)
+- `filings@andycitrin.mattrmindr.com` — parsed as court filings (extracts PDFs, auto-classifies, creates hearing deadlines)
 
-For the pilot domain `andycitrin.mattrmindr.com`, set up TWO SendGrid Inbound Parse hostnames:
+Note: The `MAIL_DOMAIN` env var controls the case correspondence address shown in the UI. The filings address uses the base pilot domain separately. Both route to the same inbound endpoint.
+
+Set up TWO SendGrid Inbound Parse hostnames:
 
 #### Case correspondence: `plaintiff.andycitrin.mattrmindr.com`
 
