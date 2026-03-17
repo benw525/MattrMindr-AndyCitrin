@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "python-3.11", "postgresql-16"]
+modules = ["python-3.11", "postgresql-16", "javascript", "nodejs-npm"]
 [nix]
 channel = "stable-25_05"
 packages = ["poppler", "unzip", "ffmpeg"]
@@ -28,7 +28,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm start"
+args = "PATH=\"/nix/store/1lagpgadaybvs1n2312gysg2phjk89y8-nodejs-20.20.0-wrapped/bin:$PATH\" npm start"
 waitForPort = 5000
 
 [[ports]]
@@ -38,10 +38,6 @@ externalPort = 3001
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 5001
-externalPort = 3002
 
 [deployment]
 deploymentTarget = "autoscale"

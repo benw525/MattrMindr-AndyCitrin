@@ -4,7 +4,9 @@ import { USERS } from "./firmData.js";
 import PortalApp from "./portal/PortalApp.js";
 import DocViewerWindow from "./DocViewerWindow.js";
 import TranscriptViewerWindow from "./TranscriptViewerWindow.js";
-import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, ToggleLeft, ToggleRight, Filter, RefreshCw, Inbox, Mail, MessageCircle, Sun, Moon, Paperclip, Circle, Phone, Printer, Copy } from "lucide-react";
+import AdvocateAIButton from "./AdvocateAIButton.js";
+import AdvocateAIPanel from "./AdvocateAIPanel.js";
+import { LayoutDashboard, Briefcase, Calendar, CheckSquare, FileText, Clock, BarChart3, Brain, MessageSquare, Users, UserCog, Settings, HelpCircle, Menu, X, Bot, Search, Plus, Download, Scale, Pin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, CalendarClock, PenLine, FileSearch, ListChecks, FolderOpen, Layers, User, CalendarDays, ClipboardList, AlertCircle, BarChart2, Lock, Mic, Upload, FileAudio, Pencil, Trash2, Loader2, Merge, Check, RotateCcw, FolderPlus, Camera, Shield, Eye, Video, SlidersHorizontal, GitBranch, Zap, ToggleLeft, ToggleRight, Filter, RefreshCw, Inbox, Mail, MessageCircle, Sun, Moon, Paperclip, Circle, Phone, Printer } from "lucide-react";
 import {
   apiLogin, apiLogout, apiChangePassword, apiForgotPassword, apiResetPassword, apiSendTempPassword, apiMe, apiSavePreferences,
   apiGetCases, apiGetDeletedCases, apiGetCasesAll, apiCreateCase, apiUpdateCase, apiDeleteCase, apiRestoreCase,
@@ -1188,115 +1190,6 @@ function FirmApp() {
   const [advocateScreenChips, setAdvocateScreenChips] = useState(null);
   const [advocateFromHelpCenter, setAdvocateFromHelpCenter] = useState(false);
   const [hideAdvocateAI, setHideAdvocateAI] = useState(() => currentUser?.preferences?.hideAdvocateAI || false);
-  const [fabPosition, setFabPosition] = useState(() => currentUser?.preferences?.fabPosition || null);
-  const [fabDragging, setFabDragging] = useState(false);
-  const [fabContextMenu, setFabContextMenu] = useState(null);
-  const fabRef = useRef(null);
-  const fabDragState = useRef({ active: false, offsetX: 0, offsetY: 0, longPressTimer: null, moved: false, startX: 0, startY: 0 });
-
-  const fabPositionRef = useRef(fabPosition);
-  useEffect(() => { fabPositionRef.current = fabPosition; }, [fabPosition]);
-
-  const fabStartDrag = useCallback((clientX, clientY) => {
-    const el = fabRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    fabDragState.current.active = true;
-    fabDragState.current.offsetX = clientX - rect.left;
-    fabDragState.current.offsetY = clientY - rect.top;
-    fabDragState.current.moved = false;
-    fabDragState.current.startX = clientX;
-    fabDragState.current.startY = clientY;
-    setFabDragging(true);
-  }, []);
-
-  const fabClampAndSet = useCallback((clientX, clientY) => {
-    const x = Math.max(0, Math.min(window.innerWidth - 52, clientX - fabDragState.current.offsetX));
-    const y = Math.max(0, Math.min(window.innerHeight - 52, clientY - fabDragState.current.offsetY));
-    const pos = { x, y };
-    setFabPosition(pos);
-    fabPositionRef.current = pos;
-  }, []);
-
-  const fabOnMouseMove = useCallback((e) => {
-    if (!fabDragState.current.active) return;
-    e.preventDefault();
-    const dx = Math.abs(e.clientX - fabDragState.current.startX);
-    const dy = Math.abs(e.clientY - fabDragState.current.startY);
-    if (dx > 3 || dy > 3) fabDragState.current.moved = true;
-    fabClampAndSet(e.clientX, e.clientY);
-  }, [fabClampAndSet]);
-
-  const fabOnMouseUp = useCallback(() => {
-    if (!fabDragState.current.active) return;
-    fabDragState.current.active = false;
-    setFabDragging(false);
-    setFabMoveMode(false);
-    if (fabDragState.current.moved && fabPositionRef.current) {
-      apiSavePreferences({ fabPosition: fabPositionRef.current }).catch(() => {});
-    }
-    setTimeout(() => { fabDragState.current.moved = false; }, 50);
-  }, []);
-
-  const fabOnTouchMove = useCallback((e) => {
-    if (!fabDragState.current.active) return;
-    e.preventDefault();
-    const t = e.touches[0];
-    const dx = Math.abs(t.clientX - fabDragState.current.startX);
-    const dy = Math.abs(t.clientY - fabDragState.current.startY);
-    if (dx > 3 || dy > 3) fabDragState.current.moved = true;
-    fabClampAndSet(t.clientX, t.clientY);
-  }, [fabClampAndSet]);
-
-  const fabOnTouchEnd = useCallback(() => {
-    if (fabDragState.current.longPressTimer) {
-      clearTimeout(fabDragState.current.longPressTimer);
-      fabDragState.current.longPressTimer = null;
-    }
-    if (!fabDragState.current.active) return;
-    fabDragState.current.active = false;
-    setFabDragging(false);
-    if (fabDragState.current.moved && fabPositionRef.current) {
-      apiSavePreferences({ fabPosition: fabPositionRef.current }).catch(() => {});
-    }
-    setTimeout(() => { fabDragState.current.moved = false; }, 50);
-  }, []);
-
-  const fabOnTouchCancel = useCallback(() => {
-    if (fabDragState.current.longPressTimer) {
-      clearTimeout(fabDragState.current.longPressTimer);
-      fabDragState.current.longPressTimer = null;
-    }
-    fabDragState.current.active = false;
-    fabDragState.current.moved = false;
-    setFabDragging(false);
-  }, []);
-
-  const [fabMoveMode, setFabMoveMode] = useState(false);
-
-  useEffect(() => {
-    if (!fabMoveMode) return;
-    const handleEsc = (e) => { if (e.key === "Escape") setFabMoveMode(false); };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [fabMoveMode]);
-
-  useEffect(() => {
-    if (fabDragging) {
-      window.addEventListener("mousemove", fabOnMouseMove);
-      window.addEventListener("mouseup", fabOnMouseUp);
-      window.addEventListener("touchmove", fabOnTouchMove, { passive: false });
-      window.addEventListener("touchend", fabOnTouchEnd);
-      window.addEventListener("touchcancel", fabOnTouchCancel);
-      return () => {
-        window.removeEventListener("mousemove", fabOnMouseMove);
-        window.removeEventListener("mouseup", fabOnMouseUp);
-        window.removeEventListener("touchmove", fabOnTouchMove);
-        window.removeEventListener("touchend", fabOnTouchEnd);
-        window.removeEventListener("touchcancel", fabOnTouchCancel);
-      };
-    }
-  }, [fabDragging, fabOnMouseMove, fabOnMouseUp, fabOnTouchMove, fabOnTouchEnd, fabOnTouchCancel]);
 
   useEffect(() => { if (advocateEndRef.current) advocateEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [advocateMessages, advocateLoading, advocateScreenChips]);
   const [contextContactsCache, setContextContactsCache] = useState(null);
@@ -2549,288 +2442,41 @@ function FirmApp() {
           </div>
         </div>
       )}
-      {!showAdvocateGlobal && !hideAdvocateAI && (
-        <button
-          ref={fabRef}
-          className="advocate-fab"
-          onClick={() => { if (!fabDragState.current.moved && !fabMoveMode) setShowAdvocateGlobal(true); }}
-          title={fabMoveMode ? "Click and drag to move" : "Advocate AI"}
-          style={fabPosition ? { left: fabPosition.x, top: fabPosition.y, right: "auto", bottom: "auto", ...(fabDragging || fabMoveMode ? { animation: "none", cursor: fabDragging ? "grabbing" : "grab", transition: "none" } : {}) } : (view === "collaborate" ? { bottom: "auto", top: 62 } : (fabMoveMode ? { animation: "none", cursor: "grab" } : undefined))}
-          onMouseDown={(e) => {
-            if (fabMoveMode && e.button === 0) {
-              e.preventDefault();
-              fabStartDrag(e.clientX, e.clientY);
-            }
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            if (!fabMoveMode) setFabContextMenu({ x: e.clientX, y: e.clientY });
-          }}
-          onTouchStart={(e) => {
-            const t = e.touches[0];
-            fabDragState.current.startX = t.clientX;
-            fabDragState.current.startY = t.clientY;
-            fabDragState.current.longPressTimer = setTimeout(() => {
-              const el = fabRef.current;
-              if (el) {
-                const rect = el.getBoundingClientRect();
-                fabDragState.current.active = true;
-                fabDragState.current.offsetX = fabDragState.current.startX - rect.left;
-                fabDragState.current.offsetY = fabDragState.current.startY - rect.top;
-                fabDragState.current.moved = false;
-                setFabDragging(true);
-              }
-            }, 500);
-          }}
-          onTouchMove={(e) => {
-            if (fabDragState.current.longPressTimer) {
-              const t = e.touches[0];
-              const dx = Math.abs(t.clientX - fabDragState.current.startX);
-              const dy = Math.abs(t.clientY - fabDragState.current.startY);
-              if (dx > 10 || dy > 10) {
-                clearTimeout(fabDragState.current.longPressTimer);
-                fabDragState.current.longPressTimer = null;
-              }
-            }
-          }}
-          onTouchEnd={() => {
-            if (fabDragState.current.longPressTimer) {
-              clearTimeout(fabDragState.current.longPressTimer);
-              fabDragState.current.longPressTimer = null;
-            }
-          }}
-        >
-          <Bot size={22} className="text-white" />
-        </button>
-      )}
-      {fabContextMenu && (
-        <div className="fixed inset-0 z-[10000]" onClick={() => setFabContextMenu(null)} onContextMenu={e => { e.preventDefault(); setFabContextMenu(null); }}>
-          <div className="absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[140px]" style={{ left: fabContextMenu.x, top: fabContextMenu.y }}>
-            <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-transparent border-none cursor-pointer" onClick={(e) => {
-              e.stopPropagation();
-              setFabContextMenu(null);
-              setFabMoveMode(true);
-            }}>Move</button>
-            <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-transparent border-none cursor-pointer" onClick={(e) => {
-              e.stopPropagation();
-              setFabContextMenu(null);
-              setFabPosition(null);
-              apiSavePreferences({ fabPosition: null }).catch(() => {});
-            }}>Reset Position</button>
-          </div>
-        </div>
-      )}
-      {showAdvocateGlobal && (
-        <div className="advocate-panel" style={view === "collaborate" ? { bottom: "auto", top: 62 } : undefined}>
-          <div className="advocate-panel-header">
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-              <Bot size={18} className="text-indigo-500" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="!text-[15px] !font-semibold !text-slate-900 dark:!text-slate-100">Advocate AI</div>
-                <div style={{ fontSize: 10, color: "#64748b", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {advocateFromHelpCenter ? <span><RenderIcon icon={SCREEN_LABELS.helpcenter.icon} size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> {SCREEN_LABELS.helpcenter.label}</span> : SCREEN_LABELS[view] && <span><RenderIcon icon={SCREEN_LABELS[view].icon} size={14} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> {SCREEN_LABELS[view].label}</span>}
-                  {advocateCaseId && (() => { const ac = allCases.find(cs => cs.id === advocateCaseId); return ac ? <span style={{ fontWeight: 600 }}>· {ac.case_num || ac.title}</span> : null; })()}
-                </div>
-              </div>
-            </div>
-            <div className="advocate-header-actions" style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-              {advocateMessages.length > 0 && advocateCaseId && (
-                <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "2px 6px" }} onClick={() => {
-                  const thread = advocateMessages.map(m => m.role === "user" ? `**You:** ${m.content}` : `**Advocate AI:** ${m.content}`).join("\n\n---\n\n");
-                  apiCreateNote({ caseId: advocateCaseId, body: thread, type: "AI Consultation" }).then(() => alert("Saved as case note.")).catch(e => alert("Failed: " + e.message));
-                }}>Save as Note</button>
-              )}
-              {advocateMessages.length > 0 && (
-                <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", padding: "2px 4px" }} title="New conversation" onClick={advocateClearConversation}><Trash2 size={14} /></button>
-              )}
-              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#64748b", padding: "2px 4px" }} onClick={() => setShowAdvocateGlobal(false)}><X size={14} /></button>
-            </div>
-          </div>
-          <div className="advocate-case-search" style={{ padding: "6px 14px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
-            <CaseSearchField
-              allCases={allCases}
-              value={advocateCaseId ? String(advocateCaseId) : ""}
-              onChange={val => {
-                const newId = val ? Number(val) : null;
-                if (newId !== advocateCaseId) {
-                  advocateClearConversation();
-                  setAdvocateCaseId(newId);
-                }
-              }}
-              placeholder="Search cases or type for general help…"
-              pinnedCaseIds={pinnedCaseIds}
-            />
-          </div>
-          {advocateStats && (
-            <div className="advocate-stats-bar" style={{ padding: "4px 14px", fontSize: 10, color: "#64748b", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {advocateStats.notes > 0 && <span><ClipboardList size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.notes}</span>}
-              {advocateStats.tasks > 0 && <span><Check size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.tasks}</span>}
-              {advocateStats.deadlines > 0 && <span><Calendar size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.deadlines}</span>}
-              {advocateStats.documents > 0 && <span><FileText size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.documents}</span>}
-              {advocateStats.filings > 0 && <span><Scale size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.filings}</span>}
-              {advocateStats.emails > 0 && <span><Mail size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.emails}</span>}
-              {advocateStats.parties > 0 && <span><Users size={12} style={{display:"inline",verticalAlign:"middle",marginRight:2}} /> {advocateStats.parties}</span>}
-            </div>
-          )}
-          <div className="advocate-msg-area" style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {advocateMessages.length === 0 && !advocateLoading && !advocateScreenChips && (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
-                <div style={{ opacity: 0.3 }}><Bot size={36} /></div>
-                <div style={{ fontSize: 12, color: "#64748b", textAlign: "center", maxWidth: 320, lineHeight: 1.5 }}>
-                  {advocateCaseId ? "Ask me anything about this case. I have access to all case data." : "Ask me anything — Alabama law, office procedures, or how to use MattrMindr."}
-                </div>
-                <div className="advocate-starter-chips" style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", maxWidth: 360 }}>
-                  {(advocateCaseId ? ["Analyze defense strategies", "Summarize key evidence", "What motions should I consider?"] : (ADVOCATE_SCREEN_CHIPS[view] || ADVOCATE_SCREEN_CHIPS.dashboard)).map(prompt => (
-                    <button key={prompt} style={{ padding: "5px 10px", fontSize: 11, borderRadius: 14, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
-                      onMouseEnter={e => { e.target.style.background = "rgba(99,102,241,0.18)"; }}
-                      onMouseLeave={e => { e.target.style.background = "rgba(99,102,241,0.08)"; }}
-                      onClick={() => advocateSend(prompt)}>{prompt}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {advocateMessages.map((msg, i) => {
-              const displayText = msg.content;
-              const parsedTasks = msg.suggestedTasks && Array.isArray(msg.suggestedTasks) && msg.suggestedTasks.length > 0 ? msg.suggestedTasks : null;
-              const msgAdded = advocateTasksAdded[i] || {};
-              const priorityColors = { Urgent: "#e05252", High: "#e88c30", Medium: "#d97706", Low: "#2F7A5F" };
-              const priorityDarkBg = { Urgent: "#fca5a5", High: "#fdba74", Medium: "#93c5fd", Low: "#cbd5e1" };
-              const dk = isDarkMode();
-              return (
-              <div key={i}>
-              <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
-                <div style={{
-                  maxWidth: "88%", padding: "8px 12px", borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                  background: msg.role === "user" ? "#0f172a" : "var(--c-card-alt, #1a2332)",
-                  color: msg.role === "user" ? "#fff" : "#E6EDF3",
-                  fontSize: 12, lineHeight: 1.6, position: "relative",
-                  border: msg.role === "user" ? "none" : "1px solid var(--c-border)"
-                }}>
-                  {msg.role === "assistant" && (
-                    <button style={{ position: "absolute", top: 3, right: 3, background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#64748b", opacity: 0.5, padding: "2px" }}
-                      title="Copy" onClick={() => { navigator.clipboard.writeText(displayText); }}><Copy size={14} /></button>
-                  )}
-                  {msg.role === "user" ? (
-                    <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
-                  ) : (
-                    <div>
-                      {displayText.split("\n").map((line, li) => {
-                        if (line.startsWith("## ")) return <div key={li} style={{ fontWeight: 700, fontSize: 13, marginTop: 8, marginBottom: 3 }}>{line.replace(/^## /, "")}</div>;
-                        if (line.startsWith("### ")) return <div key={li} style={{ fontWeight: 600, fontSize: 12, marginTop: 6, marginBottom: 2 }}>{line.replace(/^### /, "")}</div>;
-                        if (line.startsWith("**") && line.endsWith("**")) return <div key={li} style={{ fontWeight: 700, marginTop: 5, marginBottom: 2 }}>{line.replace(/\*\*/g, "")}</div>;
-                        if (line.startsWith("- ") || line.startsWith("* ")) return <div key={li} style={{ paddingLeft: 10, position: "relative" }}><span style={{ position: "absolute", left: 0 }}>•</span>{line.replace(/^[-*] /, "").replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
-                        if (line.match(/^\d+\.\s/)) return <div key={li} style={{ paddingLeft: 4 }}>{line.replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
-                        if (line.trim() === "") return <div key={li} style={{ height: 3 }} />;
-                        return <div key={li}>{line.replace(/\*\*(.+?)\*\*/g, "$1")}</div>;
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {parsedTasks && parsedTasks.length > 0 && advocateCaseId && (
-                <div style={{ maxWidth: "88%", marginTop: 4, padding: "8px 10px", borderRadius: 8, background: "var(--c-card)", border: "1px solid var(--c-border)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1"><Sparkles size={11} className="text-amber-500" /> Suggested Tasks</span>
-                    {Object.keys(msgAdded).length < parsedTasks.length && (
-                      <button className="btn btn-sm" style={{ fontSize: 9, padding: "1px 8px", background: "#6366f1", color: "#fff", border: "none" }} onClick={async () => {
-                        for (let ti = 0; ti < parsedTasks.length; ti++) {
-                          if (msgAdded[ti]) continue;
-                          const t = parsedTasks[ti];
-                          const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
-                          try {
-                            const saved = await apiCreateTask({ caseId: advocateCaseId, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
-                            setTasks(p => [...p, saved]);
-                            setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
-                          } catch (err) { alert("Failed: " + err.message); break; }
-                        }
-                      }}>+ Add All</button>
-                    )}
-                  </div>
-                  {parsedTasks.map((t, ti) => {
-                    const added = msgAdded[ti];
-                    return (
-                      <div key={ti} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", borderTop: ti > 0 ? "1px solid var(--c-border)" : "none", opacity: added ? 0.45 : 1 }}>
-                        <span style={{ fontSize: 11, marginTop: 1 }}>{added ? <Check size={11} /> : ""}{!added && <Sparkles size={11} className="text-amber-500" />}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 11, color: "var(--c-text-h)", fontWeight: 500 }}>{t.title}</div>
-                          <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
-                            <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: dk ? (priorityDarkBg[t.priority] || "#cbd5e1") : (priorityColors[t.priority] || "#d97706") + "18", color: dk ? "#1a1a1a" : (priorityColors[t.priority] || "#d97706") }}>{t.priority}</span>
-                            {t.assignedRole && <span style={{ fontSize: 9, color: "#64748b" }}>{t.assignedRole}</span>}
-                            {t.dueInDays && <span style={{ fontSize: 9, color: "#64748b" }}>{t.dueInDays}d</span>}
-                          </div>
-                        </div>
-                        {!added && (
-                          <button className="btn btn-outline btn-sm" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }} onClick={async () => {
-                            const dueDate = t.dueInDays ? new Date(Date.now() + t.dueInDays * 86400000).toISOString().split("T")[0] : null;
-                            try {
-                              const saved = await apiCreateTask({ caseId: advocateCaseId, title: t.title, priority: t.priority || "Medium", assignedRole: t.assignedRole || "", due: dueDate, notes: t.rationale || "", isGenerated: true });
-                              setTasks(p => [...p, saved]);
-                              setAdvocateTasksAdded(p => ({ ...p, [i]: { ...(p[i] || {}), [ti]: true } }));
-                            } catch (err) { alert("Failed: " + err.message); }
-                          }}>+ Add</button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              </div>
-            )})}
-            {advocateScreenChips && !advocateLoading && ADVOCATE_SCREEN_CHIPS[advocateScreenChips] && (
-              <div style={{ padding: "6px 0" }}>
-                {advocateMessages.length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
-                    <span style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
-                      <RenderIcon icon={SCREEN_LABELS[advocateScreenChips]?.icon} size={12} style={{display:"inline",verticalAlign:"middle",marginRight:3}} /> Navigated to {SCREEN_LABELS[advocateScreenChips]?.label || advocateScreenChips}
-                    </span>
-                    <div style={{ flex: 1, height: 1, background: "var(--c-border)" }} />
-                  </div>
-                )}
-                <div className="advocate-nav-chips" style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center" }}>
-                  {ADVOCATE_SCREEN_CHIPS[advocateScreenChips].map(prompt => (
-                    <button key={prompt} style={{ padding: "4px 9px", fontSize: 11, borderRadius: 14, border: "1px solid #a5b4fc", background: "rgba(99,102,241,0.08)", color: "#818cf8", cursor: "pointer", transition: "all 0.15s" }}
-                      onMouseEnter={e => { e.target.style.background = "rgba(99,102,241,0.18)"; }}
-                      onMouseLeave={e => { e.target.style.background = "rgba(99,102,241,0.08)"; }}
-                      onClick={() => { setAdvocateScreenChips(null); advocateSend(prompt); }}>{prompt}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {advocateLoading && (
-              <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                <div style={{ padding: "10px 14px", borderRadius: "12px 12px 12px 4px", background: "var(--c-card-alt, #1a2332)", border: "1px solid var(--c-border)", display: "flex", gap: 4, alignItems: "center" }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out infinite" }} />
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out 0.2s infinite" }} />
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#818cf8", animation: "pulse 1s ease-in-out 0.4s infinite" }} />
-                </div>
-              </div>
-            )}
-            <div ref={advocateEndRef} />
-          </div>
-          <div className="advocate-input-bar" style={{ padding: "10px 14px", borderTop: "1px solid var(--c-border)", flexShrink: 0, display: "flex", gap: 6 }}>
-            <input
-              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--c-border)", background: "var(--c-bg)", color: "var(--c-text)", fontSize: 12, outline: "none" }}
-              placeholder={advocateCaseId ? "Ask about this case..." : "Ask anything..."}
-              value={advocateInput}
-              onChange={e => setAdvocateInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && !e.shiftKey && advocateInput.trim() && !advocateLoading) {
-                  e.preventDefault();
-                  advocateSend(advocateInput);
-                }
-              }}
-              disabled={advocateLoading}
-            />
-            <button
-              className="btn btn-sm"
-              style={{ background: advocateInput.trim() && !advocateLoading ? "#4f46e5" : "#64748b", color: "#fff", border: "none", padding: "7px 14px", borderRadius: 8, cursor: advocateInput.trim() && !advocateLoading ? "pointer" : "not-allowed", fontSize: 12 }}
-              disabled={!advocateInput.trim() || advocateLoading}
-              onClick={() => advocateSend(advocateInput)}
-            >Send</button>
-          </div>
-        </div>
-      )}
+      <AdvocateAIButton
+        visible={!showAdvocateGlobal && !hideAdvocateAI}
+        onClick={() => setShowAdvocateGlobal(true)}
+        collaborateView={view === "collaborate"}
+      />
+      <AdvocateAIPanel
+        visible={showAdvocateGlobal}
+        onClose={() => setShowAdvocateGlobal(false)}
+        view={view}
+        collaborateView={view === "collaborate"}
+        advocateMessages={advocateMessages}
+        advocateLoading={advocateLoading}
+        advocateInput={advocateInput}
+        setAdvocateInput={setAdvocateInput}
+        advocateSend={advocateSend}
+        advocateClearConversation={advocateClearConversation}
+        advocateCaseId={advocateCaseId}
+        setAdvocateCaseId={setAdvocateCaseId}
+        advocateStats={advocateStats}
+        advocateScreenChips={advocateScreenChips}
+        setAdvocateScreenChips={setAdvocateScreenChips}
+        advocateFromHelpCenter={advocateFromHelpCenter}
+        advocateTasksAdded={advocateTasksAdded}
+        setAdvocateTasksAdded={setAdvocateTasksAdded}
+        allCases={allCases}
+        pinnedCaseIds={pinnedCaseIds}
+        SCREEN_LABELS={SCREEN_LABELS}
+        ADVOCATE_SCREEN_CHIPS={ADVOCATE_SCREEN_CHIPS}
+        isDarkMode={isDarkMode}
+        apiCreateNote={apiCreateNote}
+        apiCreateTask={apiCreateTask}
+        setTasks={setTasks}
+        CaseSearchField={CaseSearchField}
+        advocateEndRef={advocateEndRef}
+      />
 
       {openDocViewers.filter(v => !v.minimized).map(viewer => (
         <DocViewerWindow

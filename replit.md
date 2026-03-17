@@ -18,6 +18,7 @@ A case management system for personal injury law firms. Tracks PI cases, manages
 - **Medical Record Parsing**: AI extracts per-visit: provider, date, body part treated, procedures/treatments, pain levels, progress notes, diagnoses/ICD codes, objective findings, referrals. Entries with no meaningful clinical detail are omitted. `body_part` column in `medical_records` table.
 - **System Dependencies**: ffmpeg (Nix package, required for audio transcription), pdftoppm (for PDF-to-image conversion during OCR)
 - **Design Packages**: tailwindcss@3.4.19, postcss, autoprefixer, lucide-react (in lextrack/package.json devDependencies)
+- **Animation**: framer-motion@11 (Advocate AI FAB spring animation, panel AnimatePresence slide-up/scale)
 
 ## Running the App
 Workflow: `npm start` (root) — runs both Express API and React app via `concurrently`
@@ -94,12 +95,19 @@ server/
 
 lextrack/
   src/
-    App.js          — All UI components and business logic (~15,800 lines)
+    App.js          — All UI components and business logic (~13,600 lines)
+    AdvocateAIButton.js — Advocate AI floating action button (FAB) with hold-to-drag, framer-motion spring animation
+    AdvocateAIPanel.js  — Advocate AI chat panel with draggable title bar, AnimatePresence slide-up animation
+    hooks/
+      useDraggablePosition.js — Hold-to-drag hook (Pointer Events API, sessionStorage persistence, viewport clamping)
+      useDraggableWindow.js   — Title-bar drag hook (instant drag, sessionStorage persistence, viewport clamping)
     portal/
       PortalApp.js  — Client portal UI (login, dashboard, messages, documents)
       portalApi.js  — Portal API fetch wrapper
     CollaborateView.js — Internal chat feature
     TrialCenterView.js — Trial Center (civil PI trial context)
+    DocViewerWindow.js — Document viewer window component
+    TranscriptViewerWindow.js — Transcript viewer window component
     api.js          — Thin fetch wrapper for all API calls
     firmData.js     — Static reference data: PI firm staff (avatars, names, roles)
 ```
