@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { isS3Configured, uploadToS3, downloadFromS3 } = require("../s3");
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.post("/upload-for-edit", requireAuth, async (req, res) => {
     const token = await getSession();
     if (!token) return res.status(500).json({ error: "ONLYOFFICE not available" });
 
-    const { rows } = await pool.query("SELECT filename, content_type, file_data, case_id FROM case_documents WHERE id = $1", [docId]);
+    const { rows } = await pool.query("SELECT filename, content_type, file_data, s3_key, case_id FROM case_documents WHERE id = $1", [docId]);
     if (rows.length) {
       const userId = req.session.userId;
       const userRole = req.session.userRole || "";
@@ -54,10 +55,19 @@ router.post("/upload-for-edit", requireAuth, async (req, res) => {
     }
     if (!rows.length) return res.status(404).json({ error: "Document not found" });
     const doc = rows[0];
-    if (!doc.file_data) return res.status(400).json({ error: "No file data available" });
+    let fileBuffer = doc.file_data;
+    if (!fileBuffer && doc.s3_key && isS3Configured()) {
+      try {
+        fileBuffer = await downloadFromS3(doc.s3_key);
+      } catch (s3Err) {
+        console.error("ONLYOFFICE S3 download error:", s3Err.message);
+        return res.status(500).json({ error: "File storage service error. Please try again." });
+      }
+    }
+    if (!fileBuffer) return res.status(400).json({ error: "No file data available" });
 
     const formData = new FormData();
-    formData.append("file", new Blob([doc.file_data], { type: doc.content_type }), doc.filename);
+    formData.append("file", new Blob([fileBuffer], { type: doc.content_type }), doc.filename);
 
     const uploadRes = await fetch(`${OO_URL}/api/2.0/files/${OO_ROOM_ID}/upload`, {
       method: "POST",
@@ -119,7 +129,18 @@ router.post("/sync-back", requireAuth, async (req, res) => {
     if (!dlRes.ok) return res.status(500).json({ error: "Failed to download from DocSpace" });
     const buffer = Buffer.from(await dlRes.arrayBuffer());
 
-    await pool.query("UPDATE case_documents SET file_data = $1, updated_at = NOW() WHERE id = $2", [buffer, docId]);
+    const { rows: docRows } = await pool.query("SELECT filename, content_type, s3_key FROM case_documents WHERE id = $1", [docId]);
+    if (!docRows.length) return res.status(404).json({ error: "Document not found" });
+    const docRow = docRows[0];
+
+    if (isS3Configured()) {
+      const { v4: uuidv4 } = require("uuid");
+      const newS3Key = `documents/${uuidv4()}/${docRow.filename}`;
+      await uploadToS3(newS3Key, buffer, docRow.content_type || "application/octet-stream");
+      await pool.query("UPDATE case_documents SET file_data = NULL, s3_key = $1, updated_at = NOW() WHERE id = $2", [newS3Key, docId]);
+    } else {
+      await pool.query("UPDATE case_documents SET file_data = $1, s3_key = NULL, updated_at = NOW() WHERE id = $2", [buffer, docId]);
+    }
     res.json({ ok: true, size: buffer.length });
   } catch (err) {
     console.error("ONLYOFFICE sync-back error:", err.message);
