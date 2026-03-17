@@ -27,6 +27,92 @@ The connection protocol is identical to standard PostgreSQL — no code changes 
 - `psql` client installed locally (`psql --version`)
 - Access to this Replit project's shell
 
+### Installing AWS CLI
+
+**On Mac:**
+```bash
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+sudo installer -pkg AWSCLIV2.pkg -target /
+aws --version
+```
+
+It will ask for your Mac password — you won't see characters as you type, that's normal.
+
+**On Windows:**
+1. Download the installer from https://awscli.amazonaws.com/AWSCLIV2.msi
+2. Right-click the .msi file → **Run as administrator** (required for permissions)
+3. Follow the installer prompts
+4. Open a **new** Command Prompt and run `aws --version`
+
+If you get "permission denied" on Windows without admin access, install for your user only:
+```
+msiexec /i AWSCLIV2.msi INSTALL_ROOT="C:\Users\YOUR_USERNAME\aws-cli"
+```
+
+**After installing, configure with your AWS credentials:**
+```bash
+aws configure
+```
+It will prompt for:
+- **AWS Access Key ID** — from AWS console (IAM → Users → Security credentials → Create access key)
+- **AWS Secret Access Key** — shown once when you create the key, save it
+- **Default region** — `us-east-1`
+- **Default output format** — `json`
+
+### Installing psql (PostgreSQL Client)
+
+You only need the client tools, not the full database server.
+
+**On Mac (with Homebrew):**
+```bash
+brew install libpq
+brew link --force libpq
+psql --version
+```
+
+If Homebrew is not installed:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+If Homebrew fails with a git error, use **Postgres.app** instead:
+1. Download from https://postgresapp.com/downloads.html
+2. Open the .dmg and drag Postgres into Applications
+3. Open it once, then add to PATH:
+   ```bash
+   sudo mkdir -p /etc/paths.d && echo /Applications/Postgres.app/Contents/Versions/latest/bin | sudo tee /etc/paths.d/postgresapp
+   ```
+4. Close and reopen terminal, then `psql --version`
+
+**On Windows:**
+1. Download from https://www.postgresql.org/download/windows/
+2. During installation, you can uncheck everything except **"Command Line Tools"**
+3. Open a new Command Prompt and run `psql --version`
+
+**On Ubuntu/Debian:**
+```bash
+sudo apt-get update && sudo apt-get install postgresql-client
+psql --version
+```
+
+### Testing the Replit Shell Connection
+
+The Replit shell is the **Shell** tab at the bottom of your Replit workspace. Test your current database connection:
+```bash
+psql "$DATABASE_URL" -c "SELECT COUNT(*) AS total_users FROM users;"
+```
+
+If you see a count returned, the shell is working.
+
+### Quick Verification Checklist
+
+Run these three to confirm you're ready:
+```bash
+aws --version          # Should show "aws-cli/2.x.x ..."
+psql --version         # Should show "psql (PostgreSQL) 14.x" or similar
+echo "Replit shell OK"  # You're in the shell if you see this
+```
+
 ---
 
 ## Phase 1: Create the Aurora Cluster
@@ -73,11 +159,13 @@ The connection protocol is identical to standard PostgreSQL — no code changes 
    - VPC security group: Create new → name it `mattrmindr-aurora-sg`
    - Database port: `5432`
 
-7. Under **Database authentication**: Password authentication
+7. Under **Credential Settings** (may also appear as "Database authentication"):
+   - Enter your master username and a strong password
+   - Password authentication is the default — no changes needed here
 
 8. Under **Additional configuration**:
    - Initial database name: `mattrmindr`
-   - Enable **Backtrack**: Yes, backtrack window `24` hours (Aurora-exclusive feature — lets you rewind the DB)
+   - Enable **Backtrack** if available: Yes, backtrack window `24` hours (Aurora-exclusive feature — lets you rewind the DB). Note: Backtrack may not be available for all Aurora PostgreSQL versions/regions — if you don't see the option, skip it. You still have automated backups and point-in-time recovery.
    - Enable automated backups: Yes
    - Backup retention: 7 days
    - Enable encryption: Yes
@@ -302,7 +390,7 @@ If something goes wrong after switching to Aurora:
 
 The Replit database will still have all your data until you explicitly delete it.
 
-If you need to undo a recent change on Aurora itself, use **Backtrack** to rewind to before the problem occurred — no restore or downtime needed.
+If you need to undo a recent change on Aurora itself, use **Backtrack** (if enabled) to rewind to before the problem occurred — no restore or downtime needed. If Backtrack isn't available, use **point-in-time recovery** to restore to a new cluster from before the problem.
 
 ---
 
@@ -339,10 +427,43 @@ NODE_ENV=production
 
 ## Troubleshooting
 
-### "Connection timed out"
-- Check the Aurora security group allows inbound on port 5432 from your IP
-- Make sure "Public access" is enabled on the Aurora cluster
-- Verify you're using the **writer endpoint** (not an instance endpoint)
+### "Connection timed out" (most common issue)
+
+This almost always means network traffic isn't reaching Aurora. Check these three things in order:
+
+**1. Public access must be enabled on the instance (not just the cluster):**
+- Go to RDS → Databases → click the **writer instance** (listed under the cluster)
+- Click **Modify**
+- Under **Connectivity** → **Additional configuration** → **Public access**: select **Yes**
+- Click **Continue** → **Apply immediately** → **Modify DB instance**
+- Wait 1-2 minutes for the change to apply
+
+**2. Security group must allow inbound traffic on port 5432:**
+- Search **"Security Groups"** in the top AWS search bar (under EC2 — you don't need an EC2 instance)
+- Find the group attached to your Aurora cluster (e.g., `mattrmindr-aurora-sg`)
+- Click **Inbound rules** → **Edit inbound rules**
+- Ensure there is a rule: Type = **PostgreSQL**, Port = **5432**, Source = **Anywhere-IPv4** (`0.0.0.0/0`)
+- If the source is set to a specific IP (e.g., `208.72.131.98/32`), Replit won't be able to connect — change it to `0.0.0.0/0`
+- Click **Save rules**
+
+**3. The VPC route table must have an Internet Gateway route:**
+- Go to **VPC** → **Route Tables** in the AWS console
+- Find the route table associated with your Aurora subnets (check the **Subnet associations** tab)
+- Click the **Routes** tab — look for a route with destination `0.0.0.0/0` pointing to an Internet Gateway (`igw-...`)
+- If that route is missing, click **Edit routes** → **Add route**:
+  - Destination: `0.0.0.0/0`
+  - Target: **Internet Gateway** → select the `igw-` entry
+- Click **Save changes**
+
+All three must be in place for Replit (or any external connection) to reach Aurora.
+
+### "invalid percent-encoded token" in connection string
+- Special characters in the password need URL encoding in the connection string
+- `%` → `%25`, `@` → `%40`, `#` → `%23`, `!` → `%21`
+- Example: password `100%Warrior92` becomes `100%25Warrior92` in the URL
+```bash
+psql "postgresql://mattrmindr_admin:100%25Warrior92@your-endpoint:5432/mattrmindr"
+```
 
 ### "SSL connection required" / SSL errors
 - Make sure `RDS_SSL_CA` is set and points to the downloaded `global-bundle.pem`
@@ -350,7 +471,7 @@ NODE_ENV=production
 
 ### "Password authentication failed"
 - Double-check the password in your `DATABASE_URL`
-- Special characters in the password may need URL encoding (e.g., `@` → `%40`)
+- Remember to URL-encode special characters (see above)
 
 ### "Relation does not exist"
 - The import may not have completed. Re-run the import command
