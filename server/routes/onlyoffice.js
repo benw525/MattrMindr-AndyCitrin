@@ -201,16 +201,23 @@ router.post("/sync-back", requireAuth, async (req, res) => {
     const dlRes = await fetch(`${OO_URL}/filehandler.ashx?action=download&fileid=${fileId}`, {
       headers: { Authorization: token, Cookie: `asc_auth_key=${token}` },
     });
-    if (!dlRes.ok) return res.status(500).json({ error: "Failed to download from DocSpace" });
+    if (!dlRes.ok) {
+      console.error("ONLYOFFICE sync-back download failed:", dlRes.status, dlRes.statusText);
+      return res.status(500).json({ error: "Failed to download from DocSpace" });
+    }
     const buffer = Buffer.from(await dlRes.arrayBuffer());
+    if (buffer.length === 0) {
+      console.error("ONLYOFFICE sync-back: downloaded empty file");
+      return res.status(500).json({ error: "Downloaded empty file from DocSpace" });
+    }
 
     const { rows: docRows } = await pool.query("SELECT filename, content_type, s3_key FROM case_documents WHERE id = $1", [docId]);
     if (!docRows.length) return res.status(404).json({ error: "Document not found" });
     const docRow = docRows[0];
 
     if (isS3Configured()) {
-      const { v4: uuidv4 } = require("uuid");
-      const newS3Key = `documents/${uuidv4()}/${docRow.filename}`;
+      const { randomUUID } = require("crypto");
+      const newS3Key = `documents/${randomUUID()}/${docRow.filename}`;
       await uploadToS3(newS3Key, buffer, docRow.content_type || "application/octet-stream");
       await pool.query("UPDATE case_documents SET file_data = NULL, s3_key = $1, updated_at = NOW() WHERE id = $2", [newS3Key, docId]);
     } else {
