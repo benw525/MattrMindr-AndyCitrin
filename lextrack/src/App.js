@@ -5279,7 +5279,7 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
         <div className="flex items-center gap-3">
           <button className="hamburger-btn" onClick={onMenuToggle}><Menu size={20} /></button>
           <div>
-            <h1 className="!text-xl !font-semibold !text-slate-900 dark:!text-slate-100 !font-['Inter']">Good morning, {currentUser.name.split(" ")[0]}</h1>
+            <h1 className="!text-xl !font-semibold !text-slate-900 dark:!text-slate-100 !font-['Inter']">{(() => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; })()}, {currentUser.name.split(" ")[0]}</h1>
             <p className="!text-xs !text-slate-500 dark:!text-slate-400 !mt-0.5">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
           </div>
         </div>
