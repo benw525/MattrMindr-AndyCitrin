@@ -4240,8 +4240,20 @@ const DASHBOARD_WIDGETS = [
   { id: "client-comm", label: "Unread Client Communication", size: "half", icon: MessageSquare },
 ];
 const DEFAULT_LAYOUT = ["stat-active", "stat-deadlines", "stat-tasks", "stat-trials", "deadlines", "trials", "tasks"];
-const getDashboardLayout = (prefs) => { try { return prefs?.dashboardLayout || DEFAULT_LAYOUT; } catch { return DEFAULT_LAYOUT; } };
-const saveDashboardLayout = (layout) => { apiSavePreferences({ dashboardLayout: layout }).catch(() => {}); };
+const getDashboardLayout = (prefs, userId) => {
+  try {
+    if (prefs?.dashboardLayout) return prefs.dashboardLayout;
+    if (userId) {
+      const local = localStorage.getItem(`mm_dash_layout_${userId}`);
+      if (local) { try { return JSON.parse(local); } catch {} }
+    }
+    return DEFAULT_LAYOUT;
+  } catch { return DEFAULT_LAYOUT; }
+};
+const saveDashboardLayout = (layout, userId) => {
+  if (userId) localStorage.setItem(`mm_dash_layout_${userId}`, JSON.stringify(layout));
+  apiSavePreferences({ dashboardLayout: layout }).catch(err => console.error("Failed to save dashboard layout:", err));
+};
 
 function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   const [dragIdx, setDragIdx] = useState(null);
@@ -4250,9 +4262,9 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
   useEffect(() => { apiGetCustomWidgets().then(r => setCustomWidgets(r || [])).catch(() => {}); }, []);
   const allWidgets = [...DASHBOARD_WIDGETS, ...customWidgets.map(cw => ({ id: `custom-${cw.id}`, label: cw.name, size: cw.size || "half", icon: Sparkles, _custom: true }))];
   const available = allWidgets.filter(w => !layout.includes(w.id));
-  const remove = (id) => { const n = layout.filter(x => x !== id); setLayout(n); saveDashboardLayout(n); };
-  const add = (id) => { const n = [...layout, id]; setLayout(n); saveDashboardLayout(n); };
-  const reset = () => { setLayout([...DEFAULT_LAYOUT]); saveDashboardLayout(DEFAULT_LAYOUT); };
+  const remove = (id) => { const n = layout.filter(x => x !== id); setLayout(n); saveDashboardLayout(n, userId); };
+  const add = (id) => { const n = [...layout, id]; setLayout(n); saveDashboardLayout(n, userId); };
+  const reset = () => { setLayout([...DEFAULT_LAYOUT]); saveDashboardLayout(DEFAULT_LAYOUT, userId); };
   const sizeLabel = (s) => s === "quarter" ? "\u00BC" : s === "half" ? "\u00BD" : "Full";
   const sizeColor = (s) => s === "quarter" ? "#4F7393" : s === "half" ? "#2F7A5F" : "#B67A18";
   const handleDragStart = (e, i) => { setDragIdx(i); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); };
@@ -4264,7 +4276,7 @@ function CustomizeDashboardModal({ layout, setLayout, userId, onClose }) {
     const [moved] = n.splice(dragIdx, 1);
     n.splice(dropI, 0, moved);
     setLayout(n);
-    saveDashboardLayout(n);
+    saveDashboardLayout(n, userId);
     setDragIdx(null);
     setOverIdx(null);
   };
@@ -4956,9 +4968,9 @@ function Dashboard({ currentUser, allCases, deadlines, tasks, onSelectCase, onAd
   const [triageResults, setTriageResults] = useState(null);
   const [triageLoading, setTriageLoading] = useState(false);
   const [triageError, setTriageError] = useState(null);
-  const [layout, setLayout] = useState(() => getDashboardLayout(currentUser.preferences));
+  const [layout, setLayout] = useState(() => getDashboardLayout(currentUser.preferences, currentUser.id));
   const pinnedIds = pinnedCaseIds;
-  useEffect(() => { setLayout(getDashboardLayout(currentUser.preferences)); }, [currentUser.id, currentUser.preferences?.dashboardLayout]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setLayout(getDashboardLayout(currentUser.preferences, currentUser.id)); }, [currentUser.id, currentUser.preferences?.dashboardLayout]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeCases = allCases.filter(c => c.status === "Active");
   const upcomingDl = deadlines.filter(d => { const n = daysUntil(d.date); return n !== null && n >= 0 && n <= 30; }).sort((a, b) => new Date(a.date) - new Date(b.date));
   const trialSoon = allCases.filter(c => c.trialDate && daysUntil(c.trialDate) >= 0 && daysUntil(c.trialDate) <= 90).sort((a, b) => new Date(a.trialDate) - new Date(b.trialDate));
