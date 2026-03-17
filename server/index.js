@@ -70,6 +70,10 @@ if (isProd) app.set("trust proxy", 1);
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map(s => s.trim())
   : (isProd ? [] : ["http://localhost:5000", "http://0.0.0.0:5000"]);
+if (process.env.REPLIT_DEV_DOMAIN) {
+  const devOrigin = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  if (!corsOrigins.includes(devOrigin)) corsOrigins.push(devOrigin);
+}
 app.use(cors({
   origin: corsOrigins,
   credentials: true,

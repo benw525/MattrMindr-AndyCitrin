@@ -60,6 +60,8 @@ MAIL_DOMAIN = "andycitrin.mattrmindr.com"
 ADMIN_EMAIL = "ben@mattrmindr.com"
 ADMIN_PASSWORD = "100%Warrior92"
 ADMIN_NAME = "Ben Warren"
+APP_URL = "https://andycitrin.mattrmindr.com"
+CORS_ORIGINS = "https://andycitrin.mattrmindr.com"
 
 [postMerge]
 path = "scripts/post-merge.sh"
