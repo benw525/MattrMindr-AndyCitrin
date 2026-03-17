@@ -75,6 +75,21 @@ export default function useDraggableWindow(storageKey, panelWidth = 400, panelHe
     return () => { s.active = false; };
   }, []);
 
+  useEffect(() => {
+    const onResize = () => {
+      setPosition((prev) => {
+        if (!prev) return prev;
+        const x = Math.max(MIN_VISIBLE_H - panelWidth, Math.min(window.innerWidth - MIN_VISIBLE_H, prev.x));
+        const y = Math.max(MIN_VISIBLE_V - panelHeight, Math.min(window.innerHeight - MIN_VISIBLE_V, prev.y));
+        const clamped = { x, y };
+        persistPosition(clamped);
+        return clamped;
+      });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [panelWidth, panelHeight, persistPosition]);
+
   const onTitleBarPointerCancel = useCallback(() => {
     state.current.active = false;
     setDragging(false);

@@ -122,6 +122,21 @@ export default function useDraggablePosition(storageKey, elementSize = 52) {
     return () => cancelHold();
   }, [cancelHold]);
 
+  useEffect(() => {
+    const onResize = () => {
+      setPosition((prev) => {
+        if (!prev) return prev;
+        const x = Math.max(0, Math.min(window.innerWidth - elementSize, prev.x));
+        const y = Math.max(0, Math.min(window.innerHeight - elementSize, prev.y));
+        const clamped = { x, y };
+        persistPosition(clamped);
+        return clamped;
+      });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [elementSize, persistPosition]);
+
   const onPointerCancel = useCallback(() => {
     cancelHold();
     state.current.active = false;
