@@ -271,7 +271,8 @@ router.post("/:id/upload-instructions", requireAuth, upload.single("file"), asyn
     res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Custom agent upload instructions error:", err);
-    res.status(500).json({ error: "Upload failed" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Upload failed";
+    res.status(500).json({ error: msg });
   }
 });
 

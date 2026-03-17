@@ -406,7 +406,8 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Template save error:", err);
-    return res.status(500).json({ error: "Failed to save template" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Failed to save template";
+    return res.status(500).json({ error: msg });
   }
 });
 
@@ -562,7 +563,8 @@ router.put("/:id", requireAuth, async (req, res) => {
     return res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Template update error:", err);
-    return res.status(500).json({ error: "Server error" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Server error";
+    return res.status(500).json({ error: msg });
   }
 });
 

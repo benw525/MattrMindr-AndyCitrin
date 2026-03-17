@@ -196,7 +196,8 @@ router.post("/:id/profile-picture", requireAuth, ppUpload.single("picture"), asy
     return res.json({ ok: true });
   } catch (err) {
     console.error("Profile picture upload error:", err);
-    return res.status(500).json({ error: "Server error" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Server error";
+    return res.status(500).json({ error: msg });
   }
 });
 

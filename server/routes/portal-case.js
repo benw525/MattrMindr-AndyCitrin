@@ -227,7 +227,8 @@ router.post("/documents/upload", requireClientAuth, upload.single("file"), async
     res.json(rows[0]);
   } catch (err) {
     console.error("Portal upload error:", err);
-    res.status(500).json({ error: "Failed to upload document" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Failed to upload document";
+    res.status(500).json({ error: msg });
   }
 });
 

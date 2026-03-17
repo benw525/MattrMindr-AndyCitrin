@@ -631,7 +631,8 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("OneDrive import file error:", err.message);
-    res.status(500).json({ error: "Failed to import file from OneDrive" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Failed to import file from OneDrive";
+    res.status(500).json({ error: msg });
   }
 });
 
