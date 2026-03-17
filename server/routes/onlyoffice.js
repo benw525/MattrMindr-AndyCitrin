@@ -198,6 +198,31 @@ router.post("/sync-back", requireAuth, async (req, res) => {
     const token = await getSession();
     if (!token) return res.status(500).json({ error: "ONLYOFFICE not available" });
 
+    const infoRes = await fetch(`${OO_URL}/api/2.0/files/file/${fileId}`, {
+      headers: { Authorization: token },
+    });
+    const baseVersion = infoRes.ok ? (await infoRes.json()).response?.version : null;
+    console.log("ONLYOFFICE sync-back: base version", baseVersion, "— waiting for Document Server save...");
+
+    let saved = false;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      await new Promise(r => setTimeout(r, attempt === 0 ? 3000 : 2000));
+      const checkRes = await fetch(`${OO_URL}/api/2.0/files/file/${fileId}`, {
+        headers: { Authorization: token },
+      });
+      if (checkRes.ok) {
+        const info = (await checkRes.json()).response;
+        if (info && baseVersion !== null && info.version > baseVersion) {
+          console.log("ONLYOFFICE sync-back: version bumped to", info.version, "after", attempt + 1, "checks");
+          saved = true;
+          break;
+        }
+      }
+    }
+    if (!saved && baseVersion !== null) {
+      console.warn("ONLYOFFICE sync-back: version did not change after polling, downloading anyway");
+    }
+
     const dlRes = await fetch(`${OO_URL}/filehandler.ashx?action=download&fileid=${fileId}`, {
       headers: { Authorization: token, Cookie: `asc_auth_key=${token}` },
     });

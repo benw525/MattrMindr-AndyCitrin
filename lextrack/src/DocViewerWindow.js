@@ -452,13 +452,13 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
     setOoSyncing(true);
     try {
       const { apiOnlyofficeSyncBack, apiOnlyofficeCleanup } = await import("./api");
-      await apiOnlyofficeSyncBack(ooEditData.docId, ooEditData.fileId);
-      if (onViewerUpdate) onViewerUpdate(ooEditData.docId);
-      try { await apiOnlyofficeCleanup(ooEditData.fileId); } catch {}
       if (ooEditorRef.current) {
         try { ooEditorRef.current.destroyEditor(); } catch {}
         ooEditorRef.current = null;
       }
+      await apiOnlyofficeSyncBack(ooEditData.docId, ooEditData.fileId);
+      if (onViewerUpdate) onViewerUpdate(ooEditData.docId);
+      try { await apiOnlyofficeCleanup(ooEditData.fileId); } catch {}
       setOoEditMode(false);
       setOoEditData(null);
     } catch (e) {
