@@ -1,6 +1,6 @@
 # MattrMindr — Pilot Deployment Setup Guide
 
-This guide walks through setting up a new MattrMindr pilot deployment (e.g., `andycitrin.mattrmindr.com`) from a cloned Repl. Pilots share the existing Aurora cluster and S3 bucket for infrastructure simplicity.
+This guide walks through setting up a new MattrMindr pilot deployment (e.g., `andycitrin.mattrmindr.com`) from a cloned Repl. Pilots reuse the existing Aurora database and S3 bucket.
 
 ---
 
@@ -18,17 +18,10 @@ This guide walks through setting up a new MattrMindr pilot deployment (e.g., `an
 
 ## 1. Database (Aurora PostgreSQL)
 
-Pilots share the existing Aurora cluster. Create a new database on the same cluster for data isolation:
-
-```bash
-psql "postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/postgres"
-CREATE DATABASE pilot_andycitrin;
-```
-
-Set `DATABASE_URL` as a Replit secret on the cloned Repl, pointing to the new database on the shared cluster:
+Pilots reuse the existing Aurora database. Set `DATABASE_URL` as a Replit secret on the cloned Repl, using the same connection string as the main deployment:
 
 ```
-postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/pilot_andycitrin
+postgresql://admin:PASSWORD@your-cluster.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mattrmindr
 ```
 
 If the password contains special characters (e.g., `%`), URL-encode them (e.g., `%25`).
@@ -53,7 +46,7 @@ node -e "require('bcrypt').hash('YourPassword', 10).then(h => console.log(h))"
 
 ## 2. AWS S3 (File Storage)
 
-Pilots share the existing S3 bucket. Since S3 keys include unique case/document IDs (e.g., `documents/{id}/{filename}`), and each pilot has its own database with distinct IDs, there are no key collisions.
+Pilots share the existing S3 bucket. Since S3 keys include unique case/document IDs (e.g., `documents/{id}/{filename}`), there are no key collisions between deployments.
 
 Set these Replit secrets on the cloned Repl using the same values as the main deployment:
 - `AWS_ACCESS_KEY_ID`
@@ -113,16 +106,16 @@ For the pilot domain `andycitrin.mattrmindr.com`, set up TWO SendGrid Inbound Pa
 
 #### Case correspondence: `plaintiff.andycitrin.mattrmindr.com`
 
-1. **Add MX record**: `plaintiff.andycitrin.mattrmindr.com` → `mx.sendgrid.net` (priority 10)
-2. **Configure Inbound Parse** in SendGrid → Settings → Inbound Parse:
+1. **Add MX record**: `plaintiff.andycitrin.mattrmindr.com` -> `mx.sendgrid.net` (priority 10)
+2. **Configure Inbound Parse** in SendGrid -> Settings -> Inbound Parse:
    - Hostname: `plaintiff.andycitrin.mattrmindr.com`
    - URL: `https://andycitrin.mattrmindr.com/api/inbound-email`
    - Check "POST the raw, full MIME message"
 
 #### Court filings: `andycitrin.mattrmindr.com`
 
-1. **Add MX record**: `andycitrin.mattrmindr.com` → `mx.sendgrid.net` (priority 10)
-2. **Configure Inbound Parse** in SendGrid → Settings → Inbound Parse:
+1. **Add MX record**: `andycitrin.mattrmindr.com` -> `mx.sendgrid.net` (priority 10)
+2. **Configure Inbound Parse** in SendGrid -> Settings -> Inbound Parse:
    - Hostname: `andycitrin.mattrmindr.com`
    - URL: `https://andycitrin.mattrmindr.com/api/inbound-email`
    - Check "POST the raw, full MIME message"
@@ -157,7 +150,7 @@ Alternatively, each user can configure their own SMS number through the in-app S
 
 ### Register an Azure AD Application
 
-1. Go to Azure Portal → Azure Active Directory → App registrations → New registration
+1. Go to Azure Portal -> Azure Active Directory -> App registrations -> New registration
 2. Name: `MattrMindr - FirmName`
 3. Redirect URI: `https://andycitrin.mattrmindr.com/api/microsoft/callback` (Web platform)
 4. Under API Permissions, add:
@@ -170,7 +163,7 @@ Alternatively, each user can configure their own SMS number through the in-app S
    - `MS_CLIENT_ID`
    - `MS_CLIENT_SECRET`
    - `MS_TENANT_ID` (use `common` for multi-tenant, or the specific tenant ID)
-   - `MS_REDIRECT_URI=https://andycitrin.mattrmindr.com/api/microsoft/callback` (optional — auto-detected from request host if omitted)
+   - `MS_REDIRECT_URI=https://andycitrin.mattrmindr.com/api/microsoft/callback` (optional, auto-detected from request host if omitted)
 
 ---
 
@@ -214,12 +207,12 @@ Set it as the `SESSION_SECRET` Replit secret.
 After completing all configuration, verify:
 
 1. **Login**: Navigate to `https://andycitrin.mattrmindr.com` and log in with the admin credentials
-2. **Public config**: Visit `https://andycitrin.mattrmindr.com/api/public-config` — should return `{"mailDomain":"plaintiff.andycitrin.mattrmindr.com"}`
-3. **Case email**: Open a case → Correspondence tab → verify the email shows `case-{id}@plaintiff.andycitrin.mattrmindr.com`
-4. **Password reset**: Use "Forgot Password" → verify the email arrives with a "Reset Password" button linking to `https://andycitrin.mattrmindr.com`
-5. **Inbound case email**: Forward a test email to `case-{id}@plaintiff.andycitrin.mattrmindr.com` → verify it appears in the case correspondence
-6. **Inbound filings email**: Forward a court filing PDF to `filings@andycitrin.mattrmindr.com` → verify it's processed or stored as unmatched
-7. **SMS**: Send a test SMS to the Twilio number → verify it appears in the app
+2. **Public config**: Visit `https://andycitrin.mattrmindr.com/api/public-config` and confirm it returns `{"mailDomain":"plaintiff.andycitrin.mattrmindr.com"}`
+3. **Case email**: Open a case, go to the Correspondence tab, and verify the email shows `case-{id}@plaintiff.andycitrin.mattrmindr.com`
+4. **Password reset**: Use "Forgot Password" and verify the email arrives with a "Reset Password" button linking to `https://andycitrin.mattrmindr.com`
+5. **Inbound case email**: Forward a test email to `case-{id}@plaintiff.andycitrin.mattrmindr.com` and verify it appears in the case correspondence
+6. **Inbound filings email**: Forward a court filing PDF to `filings@andycitrin.mattrmindr.com` and verify it's processed or stored as unmatched
+7. **SMS**: Send a test SMS to the Twilio number and verify it appears in the app
 
 ---
 
@@ -227,27 +220,27 @@ After completing all configuration, verify:
 
 | Step | Secret(s) | Verified |
 |------|-----------|----------|
-| Aurora database created on shared cluster | `DATABASE_URL`, `RDS_SSL_CA` | ☐ |
-| S3 storage configured (shared bucket) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` | ☐ |
-| App URL set | `APP_URL` | ☐ |
-| CORS origins set | `CORS_ORIGINS` | ☐ |
-| Mail domain set | `MAIL_DOMAIN` | ☐ |
-| SendGrid connected (Replit integration) | — | ☐ |
-| SendGrid Inbound Parse: case correspondence | — | ☐ |
-| SendGrid Inbound Parse: court filings | — | ☐ |
-| MX records configured (both hostnames) | — | ☐ |
-| Twilio provisioned | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | ☐ |
-| Microsoft 365 app registered | `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT_ID` | ☐ |
-| ONLYOFFICE provisioned | `ONLYOFFICE_URL`, `ONLYOFFICE_PASSWORD` | ☐ |
-| AI integration connected | — | ☐ |
-| Session secret set | `SESSION_SECRET` | ☐ |
-| Custom domain configured in Replit | — | ☐ |
-| DNS records verified (CNAME + MX) | — | ☐ |
-| Admin user created and login tested | — | ☐ |
-| Password reset email tested (correct domain link) | — | ☐ |
-| Inbound case email tested | — | ☐ |
-| Inbound filings email tested | — | ☐ |
-| SMS inbound tested | — | ☐ |
+| Aurora database configured (shared) | `DATABASE_URL`, `RDS_SSL_CA` | |
+| S3 storage configured (shared bucket) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` | |
+| App URL set | `APP_URL` | |
+| CORS origins set | `CORS_ORIGINS` | |
+| Mail domain set | `MAIL_DOMAIN` | |
+| SendGrid connected (Replit integration) | | |
+| SendGrid Inbound Parse: case correspondence | | |
+| SendGrid Inbound Parse: court filings | | |
+| MX records configured (both hostnames) | | |
+| Twilio provisioned | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | |
+| Microsoft 365 app registered | `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT_ID` | |
+| ONLYOFFICE provisioned | `ONLYOFFICE_URL`, `ONLYOFFICE_PASSWORD` | |
+| AI integration connected | | |
+| Session secret set | `SESSION_SECRET` | |
+| Custom domain configured in Replit | | |
+| DNS records verified (CNAME + MX) | | |
+| Admin user created and login tested | | |
+| Password reset email tested (correct domain link) | | |
+| Inbound case email tested | | |
+| Inbound filings email tested | | |
+| SMS inbound tested | | |
 
 ---
 
