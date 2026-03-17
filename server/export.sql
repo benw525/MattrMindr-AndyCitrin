@@ -1,4 +1,4 @@
--- Full database export generated on 2026-03-17T00:54:07.074Z
+-- Full database export generated on 2026-03-17T01:21:22.887Z
 -- Schema + data for import into AWS Aurora PostgreSQL-Compatible
 -- Import with: psql $DATABASE_URL < export.sql
 
@@ -14,7 +14,7 @@ SET check_function_bodies = false;
 -- PostgreSQL database dump
 --
 
-\restrict idxHbwrYVZ9RLdAPCE7bfTallrV0EsDeH0TCMUKgMjx0197yw3R6vR0fZQ3e2T8
+\restrict QlVjzcmuXxL1TFSAVsHuzEbaIzLMAJRLP7JsxgZVSm1F8P0KKwdlJdPeXbapHTs
 
 -- Dumped from database version 16.10
 -- Dumped by pg_dump version 16.10
@@ -4812,13 +4812,16 @@ ALTER TABLE ONLY public.unmatched_filings_emails
 -- PostgreSQL database dump complete
 --
 
-\unrestrict idxHbwrYVZ9RLdAPCE7bfTallrV0EsDeH0TCMUKgMjx0197yw3R6vR0fZQ3e2T8
+\unrestrict QlVjzcmuXxL1TFSAVsHuzEbaIzLMAJRLP7JsxgZVSm1F8P0KKwdlJdPeXbapHTs
 
 
 
 -- ========================================
 -- DATA
 -- ========================================
+
+-- Restore search_path (pg_dump clears it for schema safety)
+SET search_path = public;
 
 -- Disable FK checks during data import
 SET session_replication_role = 'replica';
@@ -53466,12 +53469,11 @@ INSERT INTO "client_users" ("id", "case_id", "contact_id", "name", "email", "pho
   (1, 1, NULL, 'Erika Turner', 'shekina525@gmail.com', '251-600-6367', '$2a$10$YgRU3ZxX/fDbBasZ3lRSB.h9FqcejjGUEZTXJBmF..JfvDCpbgwIy', FALSE, '2026-03-13T15:26:52.833Z', TRUE, '2026-03-13T15:26:29.857Z', 1);
 SELECT setval('public.client_users_id_seq', (SELECT COALESCE(MAX(id), 1) FROM "client_users"));
 
--- Table: user_sessions (8 rows)
+-- Table: user_sessions (7 rows)
 DELETE FROM "user_sessions";
 INSERT INTO "user_sessions" ("sid", "sess", "expire") VALUES
   ('dQJ-DCaqTxQiZLEMwVQy00g0Qjm-Kvng', '{"cookie":{"originalMaxAge":28800000,"expires":"2026-03-17T05:31:47.370Z","secure":false,"httpOnly":true,"path":"/"},"userId":1,"userName":"Admin","userEmail":"admin@mattrmindr.com","userRole":"App Admin","userRoles":["App Admin"]}', '2026-03-17T08:47:42.000Z'),
   ('pw8WsqC9o-WBAOhECl27as5RS7XIUlW8', '{"cookie":{"path":"/","secure":true,"expires":"2026-04-12T22:12:58.715Z","httpOnly":true,"sameSite":"lax","originalMaxAge":2592000000},"userId":1,"userName":"Admin","userRole":"App Admin","userEmail":"admin@mattrmindr.com","userRoles":["App Admin"]}', '2026-04-12T22:29:34.000Z'),
-  ('3uF0ULGjBIbWcQ6r7T3uG2_Naaj8ANOF', '{"cookie":{"originalMaxAge":28800000,"expires":"2026-03-15T23:11:24.540Z","secure":false,"httpOnly":true,"path":"/"},"mfaPendingUserId":1,"mfaRememberMe":false}', '2026-03-15T23:11:25.000Z'),
   ('HgmDyPDLmvI2VriGcRNgSWWC_lCCBro1', '{"cookie":{"originalMaxAge":28800000,"expires":"2026-03-17T04:35:05.149Z","secure":false,"httpOnly":true,"path":"/"},"mfaPendingUserId":1,"mfaRememberMe":false}', '2026-03-17T04:35:06.000Z'),
   ('KcNRlBdVrmXZFm8QDGnFiVf-K1Zq3i69', '{"cookie":{"originalMaxAge":28800000,"expires":"2026-03-17T04:35:08.666Z","secure":false,"httpOnly":true,"path":"/"},"mfaPendingUserId":1,"mfaRememberMe":false}', '2026-03-17T04:35:09.000Z'),
   ('OpMRi5Yt6hveElk6ZQIFWDKzSapeuHez', '{"cookie":{"originalMaxAge":28800000,"expires":"2026-03-17T04:35:30.139Z","secure":false,"httpOnly":true,"path":"/"},"userId":1,"userName":"Admin","userEmail":"admin@mattrmindr.com","userRole":"App Admin","userRoles":["App Admin"]}', '2026-03-17T04:35:31.000Z'),
