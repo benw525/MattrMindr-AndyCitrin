@@ -112,7 +112,8 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     return res.status(201).json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Filing upload error:", err);
-    return res.status(500).json({ error: "Upload failed" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Upload failed";
+    return res.status(500).json({ error: msg });
   }
 });
 
@@ -362,7 +363,8 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
     res.json(toFrontend(rows[0]));
   } catch (err) {
     console.error("Filing chunk complete error:", err.message);
-    res.status(500).json({ error: "Failed to complete upload" });
+    const msg = err.message && err.message.includes('S3 upload failed') ? "File storage service error. Please try again." : "Failed to complete upload";
+    res.status(500).json({ error: msg });
   }
 });
 

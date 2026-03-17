@@ -238,6 +238,7 @@ router.post("/", upload.any(), async (req, res) => {
           }
           console.log(`Filings email: filing created from ${pdfAtt.filename} for case ${caseId}`);
         } catch (pErr) {
+          if (pErr.message && pErr.message.includes('S3 upload failed')) throw pErr;
           console.error("Filings email PDF processing error:", pErr.message);
         }
       }
@@ -436,6 +437,7 @@ router.post("/", upload.any(), async (req, res) => {
           console.log(`PDF document created from email: ${pdfAtt.filename} for case ${caseId}`);
         }
       } catch (pdfErr) {
+        if (pdfErr.message && pdfErr.message.includes('S3 upload failed')) throw pdfErr;
         console.error("Process PDF from email error:", pdfErr.message);
       }
     }
@@ -472,6 +474,7 @@ router.post("/", upload.any(), async (req, res) => {
           );
           console.log(`Voicemail audio saved to case_voicemails: ${audioAtt.filename} for case ${caseId}`);
         } catch (audioErr) {
+          if (audioErr.message && audioErr.message.includes('S3 upload failed')) throw audioErr;
           console.error("Process voicemail audio error:", audioErr.message);
         }
       }
@@ -498,6 +501,7 @@ router.post("/", upload.any(), async (req, res) => {
             console.log(`Audio transcript created from email: ${audioAtt.filename} for case ${caseId} (auto-transcribing)`);
           }
         } catch (audioErr) {
+          if (audioErr.message && audioErr.message.includes('S3 upload failed')) throw audioErr;
           console.error("Process audio from email error:", audioErr.message);
         }
       }
@@ -577,6 +581,7 @@ router.post("/", upload.any(), async (req, res) => {
         }
         console.log(`Document created from email: ${docAtt.filename} for case ${caseId}`);
       } catch (docErr) {
+        if (docErr.message && docErr.message.includes('S3 upload failed')) throw docErr;
         console.error("Create document from email error:", docErr.message);
       }
     }
@@ -584,6 +589,9 @@ router.post("/", upload.any(), async (req, res) => {
     return res.status(200).send("OK");
   } catch (err) {
     console.error("Inbound email error:", err);
+    if (err.message && err.message.includes('S3 upload failed')) {
+      return res.status(500).send("S3 upload failed");
+    }
     return res.status(200).send("OK");
   }
 });
