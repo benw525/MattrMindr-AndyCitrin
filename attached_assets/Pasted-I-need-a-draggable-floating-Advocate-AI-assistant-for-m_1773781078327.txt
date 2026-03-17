@@ -1,0 +1,57 @@
+I need a draggable, floating "Advocate AI" assistant for my app. It has two parts: a floating button (the trigger) and a chat panel (the window). Both are draggable and persist their position across the session.
+
+Architecture
+Create two custom React hooks and two components:
+
+Hook 1: useDraggablePosition (for the floating button)
+Located at client/src/hooks/useDraggablePosition.ts
+Used for small circular elements like a floating action button
+Hold-to-drag pattern: The user must press and hold for 400ms before dragging activates. If they move their finger/mouse more than 5px before the hold timer fires, dragging is cancelled (this allows normal clicks/taps without accidental drags)
+Tracks position as { x, y } in sessionStorage using a configurable storageKey, so the position persists across page navigations but resets on new sessions
+Clamps position so the button can't be dragged off-screen (uses window.innerWidth and window.innerHeight minus the element size)
+Uses the Pointer Events API (onPointerDown, onPointerMove, onPointerUp) — not mouse events — for unified mouse + touch support. Set touchAction: 'none' on the element and use setPointerCapture during drag
+Returns: { position, isDragging, hasMoved, resetPosition, handlePointerDown, handlePointerMove, handlePointerUp }
+The handlePointerUp returns a boolean wasDragging so the consuming component can distinguish clicks from drags — only fire onClick when !wasDragging && !hasMoved.current
+Hook 2: useDraggableWindow (for the chat panel)
+Located at client/src/hooks/useDraggableWindow.ts
+Used for larger panel/window elements dragged by a title bar handle
+Instant drag (no hold delay) — dragging starts immediately on pointer down on the title bar area
+Ignores drags that start on a <button> inside the title bar (so close/action buttons still work): if (target.closest('button')) return;
+Same sessionStorage persistence pattern with configurable storageKey
+Clamping allows slight off-screen overflow (panel can be dragged so only ~80px remains visible horizontally, and at least 40px remains visible vertically)
+Uses Pointer Events API with setPointerCapture on the title bar element
+Returns: { position, isDragging, onPointerDown, onPointerMove, onPointerUp }
+Component 1: AdvocateAIButton
+A fixed-position circular button (56x56px) that floats over the app
+Uses useDraggablePosition with storageKey: 'advocate_ai_btn_pos'
+Default position: bottom-right corner (24px from edges)
+Shows your AI icon (e.g., BrainCircuit from Lucide)
+On click (not drag), toggles the chat panel open
+Wrap in framer-motion <motion.div> for a spring scale-in animation on mount
+Set cursor: grabbing while dragging, cursor: pointer otherwise
+Hidden when the panel is open
+Component 2: AdvocateAIPanel
+A fixed-position chat window (370×520px) styled as a rounded card with shadow
+Uses useDraggableWindow with storageKey: 'advocate_ai_window_pos'
+Default position: bottom-right area (24px from right edge, 96px from bottom)
+Title bar is the drag handle — attach pointer event handlers to it, set cursor: grab (or grabbing while dragging), touchAction: none, and select-none
+Title bar contains: icon + "Advocate AI" label on the left, close button + optional "new chat" button on the right
+Below the title bar: scrollable message area showing user/assistant bubbles
+At the bottom: input field + send button in a form
+On mobile (max-sm): panel goes full-screen (position: fixed, inset: 0, no rounded corners)
+Wrap in framer-motion for a slide-up + scale entrance animation
+Uses z-index: 70 (higher than the button's 60) so the panel appears above
+Key implementation details
+sessionStorage (not localStorage) — position resets when the browser tab closes, which prevents stale positions if the user resizes their screen
+Pointer Events API — use onPointerDown/Move/Up everywhere, never onMouseDown. This handles both mouse and touch. Always set touchAction: 'none' on draggable elements
+setPointerCapture — call element.setPointerCapture(e.pointerId) during drag so pointer events keep firing even if the cursor leaves the element. Release on pointer up with try/catch
+Position clamping — prevent dragging off-screen using Math.max(0, Math.min(newX, window.innerWidth - size))
+Click vs drag distinction — for the button, track hasMoved ref and holdActivated ref. Only fire click handler when handlePointerUp returns false (meaning no drag occurred)
+Button ignoring on window drag — the window's onPointerDown checks if (target.closest('button')) return; so clicking buttons in the title bar doesn't start a drag
+Streaming chat (if applicable)
+The panel can support streaming responses using SSE (Server-Sent Events):
+
+POST to your chat endpoint, read the response body as a stream using res.body.getReader()
+Parse data: {...} lines from the stream, accumulate content tokens into a streamingContent state
+Show a pulsing cursor indicator while streaming
+When stream completes (data.done === true), move the accumulated content into the messages array
