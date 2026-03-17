@@ -161,12 +161,21 @@ sudo chown mattrmindr:mattrmindr /opt/mattrmindr
 ### 4.4 Deploy Application Code
 
 ```bash
-sudo su - mattrmindr
 cd /opt/mattrmindr
 
-# Clone or copy the repository
-git clone <your-repo-url> app
-cd app
+# Clone the repository (clones into MattrMindr-AndyCitrin/)
+sudo git clone https://github.com/benw525/MattrMindr-AndyCitrin.git
+
+# Move contents into the app/ directory so paths match the service file
+sudo mkdir -p /opt/mattrmindr/app
+sudo mv /opt/mattrmindr/MattrMindr-AndyCitrin/* /opt/mattrmindr/app/
+sudo mv /opt/mattrmindr/MattrMindr-AndyCitrin/.* /opt/mattrmindr/app/ 2>/dev/null
+sudo rmdir /opt/mattrmindr/MattrMindr-AndyCitrin
+
+# Set ownership
+sudo chown -R mattrmindr:mattrmindr /opt/mattrmindr/app
+
+cd /opt/mattrmindr/app
 
 # Install dependencies
 npm install
@@ -496,7 +505,7 @@ set -e
 APP_DIR="/opt/mattrmindr/app"
 cd $APP_DIR
 
-echo "Pulling latest code..."
+echo "Pulling latest code from GitHub..."
 git pull origin main
 
 echo "Installing dependencies..."
