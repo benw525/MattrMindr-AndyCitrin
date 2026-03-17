@@ -85,8 +85,14 @@ function escapeSqlValue(val, dataType) {
   if (typeof val === "number") return String(val);
   if (val instanceof Date) return `'${val.toISOString()}'`;
   if (Buffer.isBuffer(val)) return `'\\x${val.toString("hex")}'`;
+  if (dataType === "json" || dataType === "jsonb") {
+    return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+  }
   if (Array.isArray(val)) {
-    const items = val.map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",");
+    const items = val.map(v => {
+      if (v !== null && typeof v === "object") return `"${JSON.stringify(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+      return `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    }).join(",");
     return `'{${items}}'`;
   }
   if (dataType === "ARRAY") {
