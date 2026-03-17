@@ -74,6 +74,7 @@ import {
   apiGetTaskFlows, apiGetTaskFlow, apiCreateTaskFlow, apiUpdateTaskFlow, apiDeleteTaskFlow,
   apiGetCustomWidgets, apiCreateCustomWidget, apiUpdateCustomWidget, apiDeleteCustomWidget, apiRunCustomWidget,
   apiGetTraining, apiCreateTraining, apiUploadTrainingDoc, apiUpdateTraining, apiDeleteTraining,
+  apiGetPublicConfig,
 } from "./api.js";
 import CollaborateView from "./CollaborateView.js";
 import TrialCenterView from "./TrialCenterView.js";
@@ -1132,6 +1133,7 @@ function FirmApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userPerms, setUserPerms] = useState({});
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [mailDomain, setMailDomain] = useState("plaintiff.mattrmindr.com");
   const [view, setViewRaw] = useState(() => {
     const saved = localStorage.getItem("lextrack-last-view") || "dashboard";
     if (saved === "documents") return "customization";
@@ -1452,6 +1454,9 @@ function FirmApp() {
   };
 
   useEffect(() => {
+    apiGetPublicConfig().then(cfg => {
+      if (cfg.mailDomain) setMailDomain(cfg.mailDomain);
+    }).catch(() => {});
     apiMe().then(user => {
       setCurrentUser(user);
       const prefs = user.preferences || {};
@@ -2486,11 +2491,11 @@ function FirmApp() {
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
-        {view === "cases" && <CasesView currentUser={currentUser} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
+        {view === "cases" && <CasesView currentUser={currentUser} mailDomain={mailDomain} allCases={allCases} tasks={tasks} selectedCase={selectedCase} setSelectedCase={handleSelectCase} pendingTab={pendingTab} clearPendingTab={() => setPendingTab(null)} onAddRecord={handleAddRecord} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} deadlines={allDeadlines} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} deletedCases={deletedCases} setDeletedCases={setDeletedCases} onDeleteCase={handleDeleteCase} onRestoreCase={handleRestoreCase} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { console.error("Failed to delete deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTogglePinnedCase={handleTogglePinnedCase} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
         {view === "deadlines" && <DeadlinesView deadlines={allDeadlines} tasks={tasks} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add deadline: " + err.message); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onDeleteDeadline={async (id) => { try { await apiDeleteDeadline(id); setAllDeadlines(p => p.filter(d => d.id !== id)); refreshCaseData(); } catch (err) { alert("Failed to remove deadline: " + err.message); } }} allCases={allCases} calcInputs={calcInputs} setCalcInputs={setCalcInputs} calcResult={calcResult} runCalc={() => { const rule = COURT_RULES.find(r => r.id === Number(calcInputs.ruleId)); if (rule && calcInputs.fromDate) setCalcResult({ rule, from: calcInputs.fromDate, result: addDays(calcInputs.fromDate, rule.days) }); }} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onSelectCase={(c) => { handleSelectCase(c); setView("cases"); }} confirmDelete={confirmDelete} msStatus={appMsStatus} />}
 
         {view === "tasks" && <TasksView tasks={tasks} onAddTask={async (task) => { try { const saved = await apiCreateTask(task); setTasks(p => [...p, saved]); refreshCaseData(); } catch (err) { alert("Failed to add task: " + err.message); } }} allCases={allCases} currentUser={currentUser} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} />}
-        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
+        {view === "reports" && <ReportsView allCases={allCases} tasks={tasks} deadlines={allDeadlines} currentUser={currentUser} mailDomain={mailDomain} onUpdateCase={handleUpdateCase} onCompleteTask={handleCompleteTask} onAddTask={(saved) => { setTasks(p => [...p, saved]); refreshCaseData(); }} onDeleteCase={handleDeleteCase} caseNotes={caseNotes} setCaseNotes={setCaseNotes} caseLinks={caseLinks} setCaseLinks={setCaseLinks} caseActivity={caseActivity} setCaseActivity={setCaseActivity} onAddDeadline={async (dl) => { try { const saved = await apiCreateDeadline(dl); setAllDeadlines(p => [...p, saved]); refreshCaseData(); } catch (err) { console.error("Failed to add deadline:", err); } }} onUpdateDeadline={async (id, data) => { try { const updated = await apiUpdateDeadline(id, data); setAllDeadlines(p => p.map(d => d.id === id ? updated : d)); refreshCaseData(); } catch (err) { console.error("Failed to update deadline:", err); } }} onMenuToggle={() => setSidebarOpen(true)} onOpenAdvocate={openAdvocateFromCase} onOpenTrialCenter={openTrialCenterFromCase} confirmDelete={confirmDelete} openAppDocViewer={openAppDocViewer} openAppFilingViewer={openAppFilingViewer} openBlobInViewer={openBlobInViewer} openTranscriptViewer={openTranscriptViewer} />}
         {view === "aicenter" && <AiCenterView allCases={allCases} currentUser={currentUser} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} confirmDelete={confirmDelete} />}
         {view === "trialcenter" && <TrialCenterView currentUser={currentUser} users={allUsers} cases={allCases} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onTrialCenterCaseChange={(caseId) => setCurrentUser(prev => prev ? { ...prev, preferences: { ...(prev.preferences || {}), trialCenterCaseId: caseId } } : prev)} />}
         {view === "collaborate" && <CollaborateView currentUser={currentUser} allUsers={allUsers} allCases={allCases} pinnedCaseIds={pinnedCaseIds} onMenuToggle={() => setSidebarOpen(true)} />}
@@ -5443,7 +5448,7 @@ function BatchStaffPicker({ staffList, value, onChange, inputValue, onInputChang
   );
 }
 
-function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
+function CasesView({ currentUser, mailDomain, allCases, tasks, selectedCase, setSelectedCase: rawSetSelectedCase, pendingTab, clearPendingTab, onAddRecord, onUpdateCase, onCompleteTask, onAddTask, deadlines, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, deletedCases, setDeletedCases, onDeleteCase, onRestoreCase, onAddDeadline, onUpdateDeadline, onDeleteDeadline, onMenuToggle, pinnedCaseIds: pinnedIds, onTogglePinnedCase: togglePin, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
   const setSelectedCase = useCallback((c) => { if (clearPendingTab) clearPendingTab(); rawSetSelectedCase(c); }, [clearPendingTab, rawSetSelectedCase]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [deletedLoading, setDeletedLoading] = useState(false);
@@ -5892,6 +5897,7 @@ function CasesView({ currentUser, allCases, tasks, selectedCase, setSelectedCase
         <CaseDetailOverlay
           c={selectedCase}
           currentUser={currentUser}
+          mailDomain={mailDomain}
           tasks={caseTasks}
           deadlines={caseDeadlines}
           notes={notes}
@@ -6040,7 +6046,7 @@ const KEY_DATE_FIELDS = ["accidentDate", "statuteOfLimitationsDate", "nextCourtD
 const KEY_DATE_TYPES = { accidentDate: "Other", statuteOfLimitationsDate: "SOL", nextCourtDate: "Hearing", trialDate: "Hearing", mediationDate: "Mediation", dispositionDate: "Other", demandDate: "Filing", settlementDate: "Other" };
 
 
-function CaseDetailOverlay({ c, currentUser, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
+function CaseDetailOverlay({ c, currentUser, mailDomain, tasks, deadlines, notes, links, activity, onClose, onUpdate, onDeleteCase, onCompleteTask, onAddTask, onAddNote, onDeleteNote, onUpdateNote, onAddLink, onDeleteLink, onLogActivity, onRefreshActivity, onAddDeadline, onUpdateDeadline, onDeleteDeadline, initialTab, allCases, onSelectCase, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
   const [draft, setDraft] = useState({ ...c });
   const [customFields, setCustomFields] = useState(c._customFields || []);
   const DEFAULT_HIDDEN_DATES = [];
@@ -10433,10 +10439,10 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                     <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>
                       Email: <span style={{ fontFamily: "monospace", color: "var(--c-text)", cursor: "pointer" }} onClick={() => {
-                        navigator.clipboard.writeText(`case-${c.id}@plaintiff.mattrmindr.com`);
+                        navigator.clipboard.writeText(`case-${c.id}@${mailDomain}`);
                         setCorrCopied(true);
                         setTimeout(() => setCorrCopied(false), 2000);
-                      }}>{corrCopied ? "Copied!" : `case-${c.id}@plaintiff.mattrmindr.com`}</span>
+                      }}>{corrCopied ? "Copied!" : `case-${c.id}@${mailDomain}`}</span>
                     </span>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {isAttorneyPlus && correspondence.filter(e => !e.isVoicemail).length > 0 && (
@@ -10468,7 +10474,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close
                   {corrLoading && <div style={{ fontSize: 13, color: "#64748b", padding: "20px 0" }}>Loading correspondence...</div>}
                   {!corrLoading && correspondence.filter(e => !e.isVoicemail).length === 0 && (
                     <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic", padding: "20px 0" }}>
-                      No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "var(--c-text)" }}>case-{c.id}@plaintiff.mattrmindr.com</span> and they will appear here.
+                      No correspondence received yet. CC or forward emails to <span style={{ fontFamily: "monospace", color: "var(--c-text)" }}>case-{c.id}@{mailDomain}</span> and they will appear here.
                     </div>
                   )}
                   {!corrLoading && correspondence.filter(e => !e.isVoicemail).map(email => {
@@ -15851,7 +15857,7 @@ function buildReport(id, allCases, tasks, deadlines, params) {
   }
 }
 
-function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
+function ReportsView({ allCases, tasks, deadlines, currentUser, mailDomain, onUpdateCase, onCompleteTask, onAddTask, onDeleteCase, caseNotes, setCaseNotes, caseLinks, setCaseLinks, caseActivity, setCaseActivity, onAddDeadline, onUpdateDeadline, onMenuToggle, onOpenAdvocate, onOpenTrialCenter, confirmDelete, openAppDocViewer, openAppFilingViewer, openBlobInViewer, openTranscriptViewer }) {
   const [activeReport, setActiveReport] = useState(null);
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
@@ -16058,6 +16064,7 @@ function ReportsView({ allCases, tasks, deadlines, currentUser, onUpdateCase, on
           <CaseDetailOverlay
             c={selectedCase}
             currentUser={currentUser}
+            mailDomain={mailDomain}
             tasks={caseTasks}
             deadlines={caseDeadlines}
             notes={notes}

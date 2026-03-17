@@ -816,3 +816,6 @@ export const apiCreateCustomWidget = (data)         => apiFetch("/api/custom-das
 export const apiUpdateCustomWidget = (id, data)     => apiFetch(`/api/custom-dashboard-widgets/${id}`, { method: "PUT", body: data });
 export const apiDeleteCustomWidget = (id)           => apiFetch(`/api/custom-dashboard-widgets/${id}`, { method: "DELETE" });
 export const apiRunCustomWidget    = (data)         => apiFetch("/api/custom-dashboard-widgets/run", { method: "POST", body: data });
+
+// Public Config
+export const apiGetPublicConfig    = ()             => apiFetch("/api/public-config");

@@ -67,8 +67,11 @@ const isProd = process.env.NODE_ENV === "production";
 
 if (isProd) app.set("trust proxy", 1);
 
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map(s => s.trim())
+  : (isProd ? [] : ["http://localhost:5000", "http://0.0.0.0:5000"]);
 app.use(cors({
-  origin: isProd ? [] : ["http://localhost:5000", "http://0.0.0.0:5000"],
+  origin: corsOrigins,
   credentials: true,
 }));
 
@@ -152,6 +155,12 @@ app.use("/api/external", cors({
   origin: externalCorsOrigins || true,
   credentials: false,
 }), externalRoutes);
+
+app.get("/api/public-config", (req, res) => {
+  res.json({
+    mailDomain: process.env.MAIL_DOMAIN || "plaintiff.mattrmindr.com",
+  });
+});
 
 app.post("/api/support", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
