@@ -99,8 +99,10 @@ router.post("/login", async (req, res) => {
     if (user.mfa_enabled && user.mfa_secret) {
       req.session.mfaPendingUserId = user.id;
       req.session.mfaRememberMe = !!rememberMe;
+      console.log("[MFA] Login: setting mfaPendingUserId =", user.id, "sessionID =", req.sessionID, "secure =", req.secure, "proto =", req.protocol, "x-forwarded-proto =", req.get("x-forwarded-proto"));
       return req.session.save((err) => {
-        if (err) console.error("Session save error (MFA pending):", err);
+        if (err) console.error("[MFA] Session save error:", err);
+        else console.log("[MFA] Session saved successfully, sessionID =", req.sessionID);
         res.json({ requireMfa: true, email: user.email });
       });
     }
@@ -330,6 +332,7 @@ router.post("/mfa/verify", async (req, res) => {
     const code = req.body.code || req.body.token;
     if (!code) return res.status(400).json({ error: "Code is required" });
     const pendingUserId = req.session.mfaPendingUserId;
+    console.log("[MFA] Verify: sessionID =", req.sessionID, "mfaPendingUserId =", pendingUserId, "session keys =", Object.keys(req.session), "cookie =", req.headers.cookie?.substring(0, 80));
     if (!pendingUserId) return res.status(400).json({ error: "No MFA verification pending" });
     const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [pendingUserId]);
     if (!rows.length) return res.status(404).json({ error: "User not found" });
