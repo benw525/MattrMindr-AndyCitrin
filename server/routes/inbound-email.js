@@ -483,12 +483,7 @@ router.post("/", upload.any(), async (req, res) => {
           if (isS3Configured()) {
             const { randomUUID } = require("crypto");
             r2AudioKey = `transcripts/${caseId}/${randomUUID()}/audio`;
-            try {
-              await uploadToS3(r2AudioKey, fileBuffer, audioAtt.contentType);
-            } catch (e) {
-              console.error("S3 transcript audio upload error:", e.message);
-              r2AudioKey = null;
-            }
+            await uploadToS3(r2AudioKey, fileBuffer, audioAtt.contentType);
           }
           const { rows: tRows } = await pool.query(
             `INSERT INTO case_transcripts (case_id, filename, content_type, audio_data, file_size, uploaded_by_name, r2_audio_key)
