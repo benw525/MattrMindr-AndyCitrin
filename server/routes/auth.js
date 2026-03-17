@@ -99,7 +99,10 @@ router.post("/login", async (req, res) => {
     if (user.mfa_enabled && user.mfa_secret) {
       req.session.mfaPendingUserId = user.id;
       req.session.mfaRememberMe = !!rememberMe;
-      return res.json({ requireMfa: true, email: user.email });
+      return req.session.save((err) => {
+        if (err) console.error("Session save error (MFA pending):", err);
+        res.json({ requireMfa: true, email: user.email });
+      });
     }
 
     if (rememberMe) {
