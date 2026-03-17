@@ -61,7 +61,7 @@ import {
   apiGetUnreadClientComm,
   apiGetDeletedData, apiRestoreDeletedItem, apiBatchRestoreDeleted, apiBatchPurgeDeleted,
   apiParseIntake,
-  apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl,
+  apiGetDocHtml, apiGetXlsxData, apiGetPptxSlides, apiGetAnnotations, apiGetOfficeViewUrl, apiOnlyofficeView,
   apiGetMsStatus, apiGetMsConfigured, apiGetMsAuthUrl, apiDisconnectMs, apiConfigureMs,
   apiGetMsCalendarSettings, apiUpdateMsCalendarSettings, apiSyncAllDeadlinesToOutlook, apiGetOutlookEvents,
   apiGetOutlookContacts, apiImportOutlookContacts, apiExportContactsToOutlook,
@@ -1344,7 +1344,7 @@ function FirmApp() {
       const isDocx = ct.includes("wordprocessingml") || ext === "docx" || ext === "doc";
       const isXlsx = ct.includes("spreadsheetml") || ext === "xlsx" || ext === "xls";
       const isPptx = ct.includes("presentationml") || ext === "pptx" || ext === "ppt";
-      let docxHtml = null, xlsxData = null, pptxSlides = null, blobUrl = null, annotations = [], officeViewUrl = null;
+      let docxHtml = null, xlsxData = null, pptxSlides = null, blobUrl = null, annotations = [], officeViewUrl = null, ooViewFileId = null;
       if (isDocx) {
         try { const r = await apiGetDocHtml(docId); docxHtml = r.html; } catch { docxHtml = "<p>Could not convert document.</p>"; }
       } else if (isXlsx) {
@@ -1357,12 +1357,15 @@ function FirmApp() {
       }
       try { const aRes = await apiGetAnnotations(docId); annotations = aRes.annotations || []; } catch {}
       if (isDocx || isXlsx || isPptx) {
-        try { const r = await apiGetOfficeViewUrl(docId); if (r.url) officeViewUrl = r.url; } catch {}
+        try { const r = await apiOnlyofficeView(docId); if (r.viewUrl) { officeViewUrl = r.viewUrl; ooViewFileId = r.fileId || null; } } catch {}
+        if (!officeViewUrl) {
+          try { const r = await apiGetOfficeViewUrl(docId); if (r.url) officeViewUrl = r.url; } catch {}
+        }
       }
       const id = ++nextViewerIdRef.current;
       const offset = (openDocViewers.filter(v => !v.minimized).length % 8) * 30;
       topZIndexRef.current += 1;
-      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId, caseId: caseId || null, docxHtml, xlsxData, pptxSlides, blobUrl, annotations, officeViewUrl, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
+      setOpenDocViewers(prev => [...prev, { id, filename, type: ct, docId, caseId: caseId || null, docxHtml, xlsxData, pptxSlides, blobUrl, annotations, officeViewUrl, ooViewFileId, minimized: false, zIndex: topZIndexRef.current, position: { x: 80 + offset, y: 40 + offset }, size: { width: Math.min(1000, window.innerWidth * 0.75), height: Math.min(700, window.innerHeight * 0.8) } }]);
     } catch (err) { alert("Failed to open document: " + err.message); }
   };
 
@@ -1383,6 +1386,11 @@ function FirmApp() {
     setOpenDocViewers(prev => {
       const v = prev.find(w => w.id === viewerId);
       if (v && v.blobUrl) URL.revokeObjectURL(v.blobUrl);
+      if (v && v.ooViewFileId) {
+        import("./api").then(({ apiOnlyofficeCleanup }) => {
+          apiOnlyofficeCleanup(v.ooViewFileId).catch(() => {});
+        });
+      }
       return prev.filter(w => w.id !== viewerId);
     });
     setMinChipScrollIdx(i => Math.max(0, i - 1));

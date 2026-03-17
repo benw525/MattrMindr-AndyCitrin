@@ -38,6 +38,76 @@ router.get("/status", requireAuth, async (req, res) => {
   res.json({ configured, available: !!token, url: OO_URL || null });
 });
 
+router.post("/view", requireAuth, async (req, res) => {
+  try {
+    const { docId } = req.body;
+    const token = await getSession();
+    if (!token) return res.status(500).json({ error: "ONLYOFFICE not available" });
+
+    const { rows } = await pool.query("SELECT filename, content_type, file_data, s3_key, case_id FROM case_documents WHERE id = $1", [docId]);
+    if (!rows.length) return res.status(404).json({ error: "Document not found" });
+    const doc = rows[0];
+    const userId = req.session.userId;
+    const userRole = req.session.userRole || "";
+    if (userRole !== "App Admin") {
+      const { rows: cRows } = await pool.query("SELECT id FROM cases WHERE id = $1 AND (lead_attorney = $2 OR second_attorney = $2 OR case_manager = $2 OR investigator = $2 OR paralegal = $2 OR confidential = false OR confidential IS NULL)", [doc.case_id, userId]);
+      if (!cRows.length) return res.status(403).json({ error: "Access denied" });
+    }
+
+    let fileBuffer = doc.file_data;
+    if (!fileBuffer && doc.s3_key && isS3Configured()) {
+      try {
+        fileBuffer = await downloadFromS3(doc.s3_key);
+      } catch (s3Err) {
+        console.error("ONLYOFFICE view S3 download error:", s3Err.message);
+        return res.status(500).json({ error: "File storage service error. Please try again." });
+      }
+    }
+    if (!fileBuffer) return res.status(400).json({ error: "No file data available" });
+
+    const formData = new FormData();
+    formData.append("file", new Blob([fileBuffer], { type: doc.content_type }), doc.filename);
+
+    if (!OO_ROOM_ID) return res.status(500).json({ error: "ONLYOFFICE room not configured" });
+
+    const uploadRes = await fetch(`${OO_URL}/api/2.0/files/${OO_ROOM_ID}/upload`, {
+      method: "POST",
+      headers: { Authorization: token },
+      body: formData,
+    });
+    if (!uploadRes.ok) {
+      console.error("ONLYOFFICE view upload failed:", uploadRes.status);
+      return res.status(500).json({ error: "Upload to DocSpace failed" });
+    }
+    const uploadData = await uploadRes.json();
+    const fileId = uploadData.response?.id;
+    if (!fileId) return res.status(500).json({ error: "Upload to DocSpace failed" });
+
+    const editorRes = await fetch(`${OO_URL}/api/2.0/files/file/${fileId}/openedit`, {
+      headers: { Authorization: token },
+    });
+    if (!editorRes.ok) {
+      console.error("ONLYOFFICE openedit failed:", editorRes.status);
+      return res.status(500).json({ error: "Failed to open document in DocSpace" });
+    }
+    const editorData = await editorRes.json();
+    const editorResponse = editorData.response || {};
+
+    if (!req.session.ooViewSessions) req.session.ooViewSessions = {};
+    req.session.ooViewSessions[String(fileId)] = { docId, userId: req.session.userId, createdAt: Date.now() };
+
+    const viewUrl = editorResponse.editorUrl || `${OO_URL}/doceditor?fileId=${fileId}&action=view`;
+
+    res.json({
+      viewUrl,
+      fileId,
+    });
+  } catch (err) {
+    console.error("ONLYOFFICE view error:", err.message);
+    res.status(500).json({ error: "Failed to open document viewer" });
+  }
+});
+
 router.post("/upload-for-edit", requireAuth, async (req, res) => {
   try {
     const { docId } = req.body;
@@ -152,17 +222,25 @@ router.delete("/cleanup/:fileId", requireAuth, async (req, res) => {
   try {
     const fid = req.params.fileId;
     const editSession = (req.session.ooEditSessions || {})[String(fid)];
-    if (!editSession || editSession.userId !== req.session.userId) {
-      return res.status(403).json({ error: "No active editing session for this file" });
+    const viewSession = (req.session.ooViewSessions || {})[String(fid)];
+    if (!editSession && !viewSession) {
+      return res.status(403).json({ error: "No active session for this file" });
+    }
+    if ((editSession && editSession.userId !== req.session.userId) ||
+        (viewSession && viewSession.userId !== req.session.userId)) {
+      return res.status(403).json({ error: "No active session for this file" });
     }
     const token = await getSession();
     if (token) {
-      await fetch(`${OO_URL}/api/2.0/files/file/${fid}`, {
-        method: "DELETE",
-        headers: { Authorization: token },
-      });
+      try {
+        await fetch(`${OO_URL}/api/2.0/files/file/${fid}`, {
+          method: "DELETE",
+          headers: { Authorization: token },
+        });
+      } catch {}
     }
-    delete req.session.ooEditSessions[String(fid)];
+    if (editSession) delete req.session.ooEditSessions[String(fid)];
+    if (viewSession) delete req.session.ooViewSessions[String(fid)];
     res.json({ ok: true });
   } catch (err) {
     console.error("ONLYOFFICE cleanup error:", err.message);

@@ -767,6 +767,7 @@ export const apiImportOneDriveFile = (data) => apiFetch("/api/microsoft/onedrive
 
 // ONLYOFFICE DocSpace Integration
 export const apiGetOnlyofficeStatus    = ()           => apiFetch("/api/onlyoffice/status");
+export const apiOnlyofficeView         = (docId)      => apiFetch("/api/onlyoffice/view", { method: "POST", body: { docId } });
 export const apiOnlyofficeUploadForEdit = (docId)     => apiFetch("/api/onlyoffice/upload-for-edit", { method: "POST", body: { docId } });
 export const apiOnlyofficeSyncBack     = (docId, fileId) => apiFetch("/api/onlyoffice/sync-back", { method: "POST", body: { docId, fileId } });
 export const apiOnlyofficeCleanup      = (fileId)     => apiFetch(`/api/onlyoffice/cleanup/${fileId}`, { method: "DELETE" });
