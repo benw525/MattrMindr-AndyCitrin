@@ -585,7 +585,7 @@ router.post("/onedrive/import-file", requireAuth, async (req, res) => {
         const { randomUUID } = require("crypto");
         odS3Key = `documents/${randomUUID()}/${filename}`;
         await uploadToS3(odS3Key, buffer, mimeType);
-      } catch (e) { console.error("S3 OneDrive pre-upload failed, using BYTEA:", e.message); odS3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
 
     const needsAsyncOcr = mimeType === "application/pdf";

@@ -187,7 +187,7 @@ router.post("/:id/profile-picture", requireAuth, ppUpload.single("picture"), asy
       try {
         s3Key = `profile-pictures/${targetId}/avatar.${ext}`;
         await uploadToS3(s3Key, req.file.buffer, req.file.mimetype);
-      } catch (e) { console.error("S3 profile pic pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
     await pool.query(
       "UPDATE users SET profile_picture = $1, profile_picture_type = $2, s3_profile_picture_key = $3 WHERE id = $4",

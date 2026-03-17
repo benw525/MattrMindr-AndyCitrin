@@ -216,7 +216,7 @@ router.post("/documents/upload", requireClientAuth, upload.single("file"), async
         const { randomUUID } = require("crypto");
         portalS3Key = `documents/${randomUUID()}/${req.file.originalname}`;
         await uploadToS3(portalS3Key, req.file.buffer, req.file.mimetype);
-      } catch (e) { console.error("S3 portal pre-upload failed, using BYTEA:", e.message); portalS3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
 
     const { rows } = await pool.query(

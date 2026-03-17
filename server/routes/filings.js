@@ -101,7 +101,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         const { randomUUID } = require("crypto");
         s3Key = `filings/${randomUUID()}/${req.file.originalname}`;
         await uploadToS3(s3Key, req.file.buffer, req.file.mimetype);
-      } catch (e) { console.error("S3 filing pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
     const { rows } = await pool.query(
       `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, filed_by, filing_date, doc_type, source, uploaded_by, uploaded_by_name, s3_key)
@@ -351,7 +351,7 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
         const { randomUUID } = require("crypto");
         s3Key = `filings/${randomUUID()}/${pending.filename}`;
         await uploadToS3(s3Key, fullBuffer, "application/pdf");
-      } catch (e) { console.error("S3 filing chunk pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
     const { rows } = await pool.query(
       `INSERT INTO case_filings (case_id, filename, original_filename, content_type, file_data, extracted_text, file_size, filed_by, filing_date, doc_type, source, uploaded_by, uploaded_by_name, s3_key)

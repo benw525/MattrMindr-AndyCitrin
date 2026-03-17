@@ -380,7 +380,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         const { randomUUID } = require("crypto");
         s3Key = `templates/${randomUUID()}/${name.trim()}.docx`;
         await uploadToS3(s3Key, docxBuffer, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      } catch (e) { console.error("S3 template pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
 
     const { rows } = await pool.query(
@@ -542,7 +542,7 @@ router.put("/:id", requireAuth, async (req, res) => {
           const tplName = name || "template";
           reprocessS3Key = `templates/${req.params.id}/${tplName}.docx`;
           await uploadToS3(reprocessS3Key, newDocxData, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-        } catch (e) { console.error("S3 template reprocess pre-upload failed, using BYTEA:", e.message); reprocessS3Key = null; }
+        } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
       }
       sets.push(`docx_data = $${idx++}`);
       vals.push(reprocessS3Key ? null : newDocxData);

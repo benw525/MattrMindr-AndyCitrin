@@ -261,7 +261,7 @@ router.post("/:id/upload-instructions", requireAuth, upload.single("file"), asyn
       try {
         s3Key = `custom-agents/${req.params.id}/${filename}`;
         await uploadToS3(s3Key, buffer, mimeType);
-      } catch (e) { console.error("S3 agent instruction pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
     const { rows } = await pool.query(
       "UPDATE custom_agents SET instruction_file=$1, instruction_filename=$2, instruction_text=$3, s3_instruction_key=$4, updated_at=NOW() WHERE id=$5 AND user_id=$6 RETURNING *",

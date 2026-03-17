@@ -158,7 +158,7 @@ router.post("/", upload.any(), async (req, res) => {
               const { randomUUID } = require("crypto");
               filingS3Key = `filings/${randomUUID()}/${pdfAtt.filename}`;
               await uploadToS3(filingS3Key, fileBuffer, "application/pdf");
-            } catch (e) { console.error("S3 filing pre-upload failed, using BYTEA:", e.message); filingS3Key = null; }
+            } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
           }
 
           const { rows: filingRows } = await pool.query(
@@ -297,7 +297,7 @@ router.post("/", upload.any(), async (req, res) => {
               const { randomUUID } = require("crypto");
               triageFilingS3Key = `filings/${randomUUID()}/${pdfAtt.filename}`;
               await uploadToS3(triageFilingS3Key, fileBuffer, "application/pdf");
-            } catch (e) { console.error("S3 triage filing pre-upload failed, using BYTEA:", e.message); triageFilingS3Key = null; }
+            } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
           }
 
           const { rows: filingRows } = await pool.query(
@@ -383,7 +383,7 @@ router.post("/", upload.any(), async (req, res) => {
               const { randomUUID } = require("crypto");
               triageDocS3Key = `documents/${randomUUID()}/${pdfAtt.filename}`;
               await uploadToS3(triageDocS3Key, fileBuffer, "application/pdf");
-            } catch (e) { console.error("S3 triage doc pre-upload failed, using BYTEA:", e.message); triageDocS3Key = null; }
+            } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
           }
 
           const { rows: docRows } = await pool.query(
@@ -463,7 +463,7 @@ router.post("/", upload.any(), async (req, res) => {
               const { randomUUID } = require("crypto");
               vmS3Key = `voicemails/${randomUUID()}/audio.${vmExt}`;
               await uploadToS3(vmS3Key, fileBuffer, audioAtt.contentType);
-            } catch (e) { console.error("S3 voicemail pre-upload failed, using BYTEA:", e.message); vmS3Key = null; }
+            } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
           }
           const { rows: vmRows } = await pool.query(
             `INSERT INTO case_voicemails (case_id, caller_name, caller_number, audio_data, audio_mime, received_at, s3_key)
@@ -530,7 +530,7 @@ router.post("/", upload.any(), async (req, res) => {
             const { randomUUID } = require("crypto");
             emailDocS3Key = `documents/${randomUUID()}/${docAtt.filename}`;
             await uploadToS3(emailDocS3Key, fileBuffer, docAtt.contentType);
-          } catch (e) { console.error("S3 email doc pre-upload failed, using BYTEA:", e.message); emailDocS3Key = null; }
+          } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
         }
 
         const { rows: docRows } = await pool.query(

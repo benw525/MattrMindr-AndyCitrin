@@ -150,7 +150,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         const { randomUUID } = require("crypto");
         s3Key = `documents/${randomUUID()}/${req.file.originalname}`;
         await uploadToS3(s3Key, req.file.buffer, ct);
-      } catch (e) { console.error("S3 pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
 
     if (needsOcr(ct)) {
@@ -392,7 +392,7 @@ router.put("/:id/xlsx-data", requireAuth, async (req, res) => {
         const { randomUUID } = require("crypto");
         xlsxS3Key = `documents/${randomUUID()}/${docInfo[0].filename}`;
         await uploadToS3(xlsxS3Key, buffer, docInfo[0].content_type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      } catch (e) { console.error("S3 xlsx pre-upload failed, using BYTEA:", e.message); xlsxS3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
     await pool.query("UPDATE case_documents SET file_data = $1, s3_key = COALESCE($2, s3_key) WHERE id = $3", [xlsxS3Key ? null : buffer, xlsxS3Key, req.params.id]);
     res.json({ ok: true });
@@ -710,7 +710,7 @@ router.post("/upload/complete", requireAuth, express.json(), async (req, res) =>
         const { randomUUID } = require("crypto");
         s3Key = `documents/${randomUUID()}/${pending.filename}`;
         await uploadToS3(s3Key, fullBuffer, pending.contentType);
-      } catch (e) { console.error("S3 chunk pre-upload failed, using BYTEA:", e.message); s3Key = null; }
+      } catch (e) { throw new Error(`S3 upload failed: ${e.message}`); }
     }
 
     if (needsOcr(pending.contentType)) {
