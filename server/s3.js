@@ -3,9 +3,11 @@ const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand,
   AbortMultipartUploadCommand } = require("@aws-sdk/client-s3");
 
 let s3Client = null;
+let s3ClientKey = "";
 
 function getClient() {
-  if (s3Client) return s3Client;
+  const currentKey = `${process.env.AWS_ACCESS_KEY_ID}:${process.env.AWS_SECRET_ACCESS_KEY}:${process.env.AWS_REGION || "us-east-1"}`;
+  if (s3Client && s3ClientKey === currentKey) return s3Client;
   if (!isS3Configured()) return null;
   s3Client = new S3Client({
     region: process.env.AWS_REGION || "us-east-1",
@@ -14,6 +16,7 @@ function getClient() {
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     },
   });
+  s3ClientKey = currentKey;
   return s3Client;
 }
 
