@@ -56,7 +56,7 @@ export default function useDraggablePosition(storageKey, elementSize = 52) {
     state.current.offsetY = clientY - rect.top;
     state.current.moved = false;
     setDragging(true);
-    setDidDrag(false);
+    setDidDrag(true);
   }, []);
 
   const onPointerDown = useCallback((e) => {
@@ -113,9 +113,8 @@ export default function useDraggablePosition(storageKey, elementSize = 52) {
       const pos = clamp(e.clientX, e.clientY);
       setPosition(pos);
       persistPosition(pos);
-      setDidDrag(true);
-      setTimeout(() => setDidDrag(false), 50);
     }
+    setTimeout(() => setDidDrag(false), 50);
   }, [clamp, persistPosition, cancelHold]);
 
   useEffect(() => {
