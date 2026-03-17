@@ -457,10 +457,11 @@ body.light .theme-btn.active{background:#e0e7ff;color:#3730a3;border-color:#6366
         ooEditorRef.current = null;
       }
       await apiOnlyofficeSyncBack(ooEditData.docId, ooEditData.fileId);
-      if (onViewerUpdate) onViewerUpdate(ooEditData.docId);
       try { await apiOnlyofficeCleanup(ooEditData.fileId); } catch {}
       setOoEditMode(false);
       setOoEditData(null);
+      setOoViewMode(false);
+      if (onViewerUpdate) onViewerUpdate(ooEditData.docId);
     } catch (e) {
       console.error("Sync-back error:", e);
       alert("Failed to save changes: " + e.message + "\n\nYour edits are still open. Try again or discard.");
