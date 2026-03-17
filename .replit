@@ -57,6 +57,9 @@ ONLYOFFICE_ROOM_ID = "2853087"
 OPENAI_API_KEY = "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"
 RDS_SSL_CA = "./global-bundle.pem"
 MAIL_DOMAIN = "andycitrin.mattrmindr.com"
+ADMIN_EMAIL = "ben@mattrmindr.com"
+ADMIN_PASSWORD = "100%Warrior92"
+ADMIN_NAME = "Ben Warren"
 
 [postMerge]
 path = "scripts/post-merge.sh"

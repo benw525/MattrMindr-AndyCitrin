@@ -422,13 +422,15 @@ async function ensureColumns() {
     const bcrypt = require("bcryptjs");
     const adminEmail = process.env.ADMIN_EMAIL || "admin@mattrmindr.com";
     const adminPassword = process.env.ADMIN_PASSWORD || "100%Warrior92";
+    const adminName = process.env.ADMIN_NAME || "Admin";
+    const adminInitials = adminName.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2) || "AD";
     const { rows: existing } = await pool.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [adminEmail]);
     if (existing.length === 0) {
       const hash = await bcrypt.hash(adminPassword, 10);
       await pool.query(
         `INSERT INTO users (id, name, role, roles, email, initials, password_hash)
          SELECT COALESCE(MAX(id), 0) + 1, $1, $2, $3, $4, $5, $6 FROM users`,
-        ["Admin", "App Admin", ["App Admin"], adminEmail, "AD", hash]
+        [adminName, "App Admin", ["App Admin"], adminEmail, adminInitials, hash]
       );
       console.log("Seeded admin user: " + adminEmail);
     }
