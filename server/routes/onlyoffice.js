@@ -219,9 +219,9 @@ router.post("/sync-back", requireAuth, async (req, res) => {
       const { randomUUID } = require("crypto");
       const newS3Key = `documents/${randomUUID()}/${docRow.filename}`;
       await uploadToS3(newS3Key, buffer, docRow.content_type || "application/octet-stream");
-      await pool.query("UPDATE case_documents SET file_data = NULL, s3_key = $1, updated_at = NOW() WHERE id = $2", [newS3Key, docId]);
+      await pool.query("UPDATE case_documents SET file_data = NULL, s3_key = $1 WHERE id = $2", [newS3Key, docId]);
     } else {
-      await pool.query("UPDATE case_documents SET file_data = $1, s3_key = NULL, updated_at = NOW() WHERE id = $2", [buffer, docId]);
+      await pool.query("UPDATE case_documents SET file_data = $1, s3_key = NULL WHERE id = $2", [buffer, docId]);
     }
     res.json({ ok: true, size: buffer.length });
   } catch (err) {
