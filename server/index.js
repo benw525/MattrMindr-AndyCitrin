@@ -1,4 +1,4 @@
-require("dotenv").config();
+try { require("dotenv").config(); } catch {}
 const express = require("express");
 const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);

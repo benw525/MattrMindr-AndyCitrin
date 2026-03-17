@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { X, Minus, Download, MonitorPlay, Pencil, FileText, Printer, RefreshCw, LayoutGrid, Briefcase, ChevronRight, User, MapPin, Scale, Calendar, DollarSign, Shield, AlertTriangle } from "lucide-react";
+import { X, Minus, Download, MonitorPlay, Pencil, FileText, Printer, RefreshCw, LayoutGrid, Briefcase, User, Scale, Calendar, DollarSign, Shield, AlertTriangle, Settings, Check, RotateCcw } from "lucide-react";
 
 function loadOOScript(url) {
   return new Promise((resolve, reject) => {
@@ -26,7 +26,108 @@ function loadOOScript(url) {
   });
 }
 
+const CASE_INFO_SECTIONS = [
+  {
+    key: "client_parties", title: "Client & Parties", icon: "User",
+    fields: [
+      { key: "client_name", label: "Client" },
+      { key: "case_type", label: "Case Type" },
+      { key: "status", label: "Status" },
+      { key: "stage", label: "Stage" },
+      { key: "confidential", label: "Confidential" },
+    ],
+  },
+  {
+    key: "jurisdiction", title: "Jurisdiction & Court", icon: "Scale",
+    fields: [
+      { key: "state_jurisdiction", label: "State" },
+      { key: "court", label: "Court" },
+      { key: "judge", label: "Judge" },
+    ],
+  },
+  {
+    key: "key_dates", title: "Key Dates", icon: "Calendar",
+    fields: [
+      { key: "accident_date", label: "Accident Date", type: "date" },
+      { key: "statute_of_limitations_date", label: "SOL Date", type: "sol" },
+      { key: "trial_date", label: "Trial Date", type: "date" },
+      { key: "mediation_date", label: "Mediation", type: "date" },
+    ],
+  },
+  {
+    key: "injury_incident", title: "Injury & Incident", icon: "AlertTriangle",
+    fields: [
+      { key: "injury_type", label: "Injury Type" },
+      { key: "injury_description", label: "Injury Description", type: "text_block" },
+      { key: "incident_location", label: "Location" },
+      { key: "incident_description", label: "Incident Description", type: "text_block" },
+      { key: "police_report_number", label: "Police Report #" },
+    ],
+  },
+  {
+    key: "financials", title: "Financials", icon: "DollarSign",
+    fields: [
+      { key: "case_value_estimate", label: "Case Value", type: "money" },
+      { key: "demand_amount", label: "Demand", type: "money" },
+      { key: "settlement_amount", label: "Settlement", type: "money" },
+      { key: "property_damage_amount", label: "Property Damage", type: "money" },
+      { key: "fee_structure", label: "Fee Structure" },
+      { key: "contingency_fee", label: "Contingency Fee", type: "percent" },
+    ],
+  },
+  {
+    key: "liability", title: "Liability", icon: "Shield",
+    fields: [
+      { key: "liability_assessment", label: "Assessment" },
+      { key: "comparative_fault_pct", label: "Comp. Fault", type: "percent" },
+    ],
+  },
+  {
+    key: "team", title: "Team", icon: "User",
+    fields: [
+      { key: "lead_attorney", label: "Lead Attorney", altKey: "lead_attorney_name" },
+      { key: "second_attorney", label: "2nd Attorney", altKey: "second_attorney_name" },
+      { key: "paralegal", label: "Paralegal", altKey: "paralegal_name" },
+      { key: "case_manager", label: "Case Manager", altKey: "case_manager_name" },
+      { key: "investigator", label: "Investigator", altKey: "investigator_name" },
+    ],
+  },
+];
+
+const ICON_MAP = { User, Scale, Calendar, AlertTriangle, DollarSign, Shield };
+
+function getDefaultVisibility() {
+  const vis = {};
+  CASE_INFO_SECTIONS.forEach(s => {
+    vis[s.key] = { visible: true, fields: {} };
+    s.fields.forEach(f => { vis[s.key].fields[f.key] = true; });
+  });
+  return vis;
+}
+
+function loadVisibility() {
+  try {
+    const saved = localStorage.getItem("caseInfoPanelVisibility");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const defaults = getDefaultVisibility();
+      CASE_INFO_SECTIONS.forEach(s => {
+        if (!parsed[s.key]) parsed[s.key] = defaults[s.key];
+        if (!parsed[s.key].fields) parsed[s.key].fields = defaults[s.key].fields;
+        s.fields.forEach(f => {
+          if (parsed[s.key].fields[f.key] === undefined) parsed[s.key].fields[f.key] = true;
+        });
+      });
+      return parsed;
+    }
+  } catch {}
+  return getDefaultVisibility();
+}
+
 function CaseInfoPanel({ caseData, onClose }) {
+  const [customizeMode, setCustomizeMode] = useState(false);
+  const [visibility, setVisibility] = useState(loadVisibility);
+
   if (!caseData) return null;
   const c = caseData;
   const fmt = (v) => v || "—";
@@ -37,6 +138,26 @@ function CaseInfoPanel({ caseData, onClose }) {
   const solUrgent = solDays !== null && solDays < 60;
   const solWarn = solDays !== null && solDays < 180 && !solUrgent;
 
+  const saveVisibility = (v) => {
+    setVisibility(v);
+    try { localStorage.setItem("caseInfoPanelVisibility", JSON.stringify(v)); } catch {}
+  };
+
+  const toggleSection = (sKey) => {
+    const next = { ...visibility, [sKey]: { ...visibility[sKey], visible: !visibility[sKey].visible } };
+    saveVisibility(next);
+  };
+
+  const toggleField = (sKey, fKey) => {
+    const next = { ...visibility, [sKey]: { ...visibility[sKey], fields: { ...visibility[sKey].fields, [fKey]: !visibility[sKey].fields[fKey] } } };
+    saveVisibility(next);
+  };
+
+  const resetDefaults = () => {
+    const defaults = getDefaultVisibility();
+    saveVisibility(defaults);
+  };
+
   const Section = ({ icon: Icon, title, children }) => (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, paddingBottom: 4, borderBottom: "1px solid var(--c-border, #e2e8f0)" }}>
@@ -46,12 +167,91 @@ function CaseInfoPanel({ caseData, onClose }) {
       {children}
     </div>
   );
+
   const Field = ({ label, value, highlight }) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "3px 0", gap: 8 }}>
       <span style={{ fontSize: 11, color: "var(--c-text3, #94a3b8)", flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 11, fontWeight: 500, color: highlight || "var(--c-text, #334155)", textAlign: "right", wordBreak: "break-word" }}>{value}</span>
     </div>
   );
+
+  const renderFieldValue = (field) => {
+    const val = field.altKey ? (c[field.altKey] || c[field.key]) : c[field.key];
+    if (field.key === "confidential") return c.confidential ? <Field key={field.key} label={field.label} value="Yes" highlight="#dc2626" /> : null;
+    if (field.type === "date") return <Field key={field.key} label={field.label} value={fmtDate(val)} />;
+    if (field.type === "sol") {
+      return <Field key={field.key} label={field.label} value={
+        solDate ? (
+          <span style={{ color: solUrgent ? "#dc2626" : solWarn ? "#d97706" : "var(--c-text, #334155)" }}>
+            {fmtDate(c.statute_of_limitations_date)}
+            {solDays !== null && ` (${solDays}d)`}
+          </span>
+        ) : "—"
+      } />;
+    }
+    if (field.type === "money") return <Field key={field.key} label={field.label} value={fmtMoney(val)} />;
+    if (field.type === "percent") return (val != null && val !== "") ? <Field key={field.key} label={field.label} value={`${val}%`} /> : null;
+    if (field.type === "text_block") return val ? <div key={field.key} style={{ fontSize: 11, color: "var(--c-text, #334155)", padding: "4px 0", lineHeight: 1.5 }}>{val}</div> : null;
+    return <Field key={field.key} label={field.label} value={fmt(val)} />;
+  };
+
+  const ToggleSwitch = ({ on, onToggle }) => (
+    <button onClick={onToggle} style={{
+      width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer", padding: 0,
+      background: on ? "#6366f1" : "#cbd5e1", position: "relative", transition: "background 0.2s", flexShrink: 0,
+    }}>
+      <div style={{
+        width: 14, height: 14, borderRadius: 7, background: "#fff", position: "absolute", top: 2,
+        left: on ? 16 : 2, transition: "left 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+      }} />
+    </button>
+  );
+
+  if (customizeMode) {
+    return (
+      <div style={{ width: 280, flexShrink: 0, borderLeft: "1px solid var(--c-border, #e2e8f0)", background: "var(--c-bg, #fff)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--c-border, #e2e8f0)", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Settings size={13} style={{ color: "#6366f1" }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--c-text-h, #0f172a)" }}>Customize Fields</span>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button onClick={resetDefaults} title="Reset to defaults" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3, #64748b)", display: "inline-flex" }}><RotateCcw size={13} /></button>
+            <button onClick={() => setCustomizeMode(false)} title="Done" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#6366f1", display: "inline-flex" }}><Check size={14} /></button>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: "auto", padding: "8px 12px 20px" }}>
+          <p style={{ fontSize: 10, color: "var(--c-text3, #94a3b8)", marginBottom: 12, lineHeight: 1.4 }}>
+            Toggle sections and fields to customize what you see in the Case Info panel.
+          </p>
+          {CASE_INFO_SECTIONS.map(section => {
+            const sVis = visibility[section.key];
+            return (
+              <div key={section.key} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--c-border, #e2e8f0)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {(ICON_MAP[section.icon] || Briefcase) && (() => { const I = ICON_MAP[section.icon] || Briefcase; return <I size={12} style={{ color: "#6366f1" }} />; })()}
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--c-text-h, #0f172a)" }}>{section.title}</span>
+                  </div>
+                  <ToggleSwitch on={sVis.visible} onToggle={() => toggleSection(section.key)} />
+                </div>
+                {sVis.visible && (
+                  <div style={{ paddingLeft: 18, paddingTop: 4 }}>
+                    {section.fields.map(field => (
+                      <div key={field.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+                        <span style={{ fontSize: 11, color: sVis.fields[field.key] ? "var(--c-text, #334155)" : "var(--c-text3, #94a3b8)" }}>{field.label}</span>
+                        <ToggleSwitch on={sVis.fields[field.key]} onToggle={() => toggleField(section.key, field.key)} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: 280, flexShrink: 0, borderLeft: "1px solid var(--c-border, #e2e8f0)", background: "var(--c-bg, #fff)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -60,7 +260,10 @@ function CaseInfoPanel({ caseData, onClose }) {
           <Briefcase size={13} style={{ color: "#6366f1" }} />
           <span style={{ fontSize: 12, fontWeight: 700, color: "var(--c-text-h, #0f172a)" }}>Case Info</span>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3, #64748b)", display: "inline-flex" }}><X size={14} /></button>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => setCustomizeMode(true)} title="Customize fields" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3, #64748b)", display: "inline-flex" }}><Settings size={13} /></button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--c-text3, #64748b)", display: "inline-flex" }}><X size={14} /></button>
+        </div>
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "12px 12px 20px" }}>
         <div style={{ marginBottom: 12, padding: "8px 10px", background: "var(--c-bg-h, #f8fafc)", borderRadius: 6, border: "1px solid var(--c-border, #e2e8f0)" }}>
@@ -68,63 +271,18 @@ function CaseInfoPanel({ caseData, onClose }) {
           <div style={{ fontSize: 11, color: "var(--c-text3, #64748b)" }}>{fmt(c.case_num)}</div>
         </div>
 
-        <Section icon={User} title="Client & Parties">
-          <Field label="Client" value={fmt(c.client_name)} />
-          <Field label="Case Type" value={fmt(c.case_type)} />
-          <Field label="Status" value={fmt(c.status)} />
-          <Field label="Stage" value={fmt(c.stage)} />
-          {c.confidential && <Field label="Confidential" value="Yes" highlight="#dc2626" />}
-        </Section>
-
-        <Section icon={Scale} title="Jurisdiction & Court">
-          <Field label="State" value={fmt(c.state_jurisdiction)} />
-          <Field label="Court" value={fmt(c.court)} />
-          <Field label="Judge" value={fmt(c.judge)} />
-        </Section>
-
-        <Section icon={Calendar} title="Key Dates">
-          <Field label="Accident Date" value={fmtDate(c.accident_date)} />
-          <Field label="SOL Date" value={
-            solDate ? (
-              <span style={{ color: solUrgent ? "#dc2626" : solWarn ? "#d97706" : "var(--c-text, #334155)" }}>
-                {fmtDate(c.statute_of_limitations_date)}
-                {solDays !== null && ` (${solDays}d)`}
-              </span>
-            ) : "—"
-          } />
-          <Field label="Trial Date" value={fmtDate(c.trial_date)} />
-          <Field label="Mediation" value={fmtDate(c.mediation_date)} />
-        </Section>
-
-        <Section icon={AlertTriangle} title="Injury & Incident">
-          <Field label="Injury Type" value={fmt(c.injury_type)} />
-          {c.injury_description && <div style={{ fontSize: 11, color: "var(--c-text, #334155)", padding: "4px 0", lineHeight: 1.5 }}>{c.injury_description}</div>}
-          <Field label="Location" value={fmt(c.incident_location)} />
-          {c.incident_description && <div style={{ fontSize: 11, color: "var(--c-text, #334155)", padding: "4px 0", lineHeight: 1.5 }}>{c.incident_description}</div>}
-          <Field label="Police Report #" value={fmt(c.police_report_number)} />
-        </Section>
-
-        <Section icon={DollarSign} title="Financials">
-          <Field label="Case Value" value={fmtMoney(c.case_value_estimate)} />
-          <Field label="Demand" value={fmtMoney(c.demand_amount)} />
-          <Field label="Settlement" value={fmtMoney(c.settlement_amount)} />
-          <Field label="Property Damage" value={fmtMoney(c.property_damage_amount)} />
-          {c.fee_structure && <Field label="Fee Structure" value={fmt(c.fee_structure)} />}
-          {c.contingency_fee != null && c.contingency_fee !== "" && <Field label="Contingency Fee" value={`${c.contingency_fee}%`} />}
-        </Section>
-
-        <Section icon={Shield} title="Liability">
-          <Field label="Assessment" value={fmt(c.liability_assessment)} />
-          <Field label="Comp. Fault" value={c.comparative_fault_pct != null && c.comparative_fault_pct !== "" ? `${c.comparative_fault_pct}%` : "—"} />
-        </Section>
-
-        <Section icon={User} title="Team">
-          <Field label="Lead Attorney" value={fmt(c.lead_attorney_name || c.lead_attorney)} />
-          <Field label="2nd Attorney" value={fmt(c.second_attorney_name || c.second_attorney)} />
-          <Field label="Paralegal" value={fmt(c.paralegal_name || c.paralegal)} />
-          <Field label="Case Manager" value={fmt(c.case_manager_name || c.case_manager)} />
-          <Field label="Investigator" value={fmt(c.investigator_name || c.investigator)} />
-        </Section>
+        {CASE_INFO_SECTIONS.map(section => {
+          const sVis = visibility[section.key];
+          if (!sVis.visible) return null;
+          const IconComp = ICON_MAP[section.icon] || Briefcase;
+          const visibleFields = section.fields.filter(f => sVis.fields[f.key]);
+          if (visibleFields.length === 0) return null;
+          return (
+            <Section key={section.key} icon={IconComp} title={section.title}>
+              {visibleFields.map(field => renderFieldValue(field))}
+            </Section>
+          );
+        })}
       </div>
     </div>
   );
