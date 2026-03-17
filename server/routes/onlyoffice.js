@@ -198,8 +198,8 @@ router.post("/sync-back", requireAuth, async (req, res) => {
     const token = await getSession();
     if (!token) return res.status(500).json({ error: "ONLYOFFICE not available" });
 
-    const dlRes = await fetch(`${OO_URL}/api/2.0/files/file/${fileId}/download`, {
-      headers: { Authorization: token },
+    const dlRes = await fetch(`${OO_URL}/filehandler.ashx?action=download&fileid=${fileId}`, {
+      headers: { Authorization: token, Cookie: `asc_auth_key=${token}` },
     });
     if (!dlRes.ok) return res.status(500).json({ error: "Failed to download from DocSpace" });
     const buffer = Buffer.from(await dlRes.arrayBuffer());
