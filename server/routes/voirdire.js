@@ -4,7 +4,7 @@ const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-const VOIRDIRE_BASE_URL = "https://voirdire.mattrmindr.com";
+const VOIRDIRE_BASE_URL = process.env.VOIRDIRE_URL || "https://voirdire.mattrmindr.com";
 
 async function verifyCaseAccess(caseId, req) {
   const { rows } = await pool.query("SELECT * FROM cases WHERE id = $1 AND deleted_at IS NULL", [caseId]);

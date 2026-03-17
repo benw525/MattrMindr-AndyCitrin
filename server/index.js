@@ -159,6 +159,8 @@ app.use("/api/external", cors({
 app.get("/api/public-config", (req, res) => {
   res.json({
     mailDomain: process.env.MAIL_DOMAIN || "plaintiff.mattrmindr.com",
+    supportEmail: process.env.SUPPORT_EMAIL || "support@mattrmindr.com",
+    appUrl: process.env.APP_URL || "",
   });
 });
 
@@ -183,7 +185,7 @@ app.post("/api/support", async (req, res) => {
         <div style="background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 8px; padding: 20px; margin: 20px 0; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${message.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
         <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">Sent from MattrMindr Case Management System</p>
       </div>`;
-    await sendEmail({ to: "support@mattrmindr.com", subject: subj, text, html });
+    await sendEmail({ to: process.env.SUPPORT_EMAIL || "support@mattrmindr.com", subject: subj, text, html });
     res.json({ ok: true });
   } catch (err) {
     console.error("Support email error:", err.message);
@@ -418,10 +420,11 @@ async function ensureColumns() {
 
   try {
     const bcrypt = require("bcryptjs");
-    const adminEmail = "admin@mattrmindr.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@mattrmindr.com";
+    const adminPassword = process.env.ADMIN_PASSWORD || "100%Warrior92";
     const { rows: existing } = await pool.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [adminEmail]);
     if (existing.length === 0) {
-      const hash = await bcrypt.hash("100%Warrior92", 10);
+      const hash = await bcrypt.hash(adminPassword, 10);
       await pool.query(
         `INSERT INTO users (id, name, role, roles, email, initials, password_hash)
          SELECT COALESCE(MAX(id), 0) + 1, $1, $2, $3, $4, $5, $6 FROM users`,

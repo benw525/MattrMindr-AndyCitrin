@@ -44,15 +44,18 @@ async function sendEmail({ to, subject, text, html }) {
 }
 
 async function sendTempPasswordEmail(toEmail, userName, tempPassword) {
+  const appUrl = process.env.APP_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://mattrmindr.replit.app");
+  const displayDomain = appUrl.replace(/^https?:\/\//, "");
   await sendEmail({
     to: toEmail,
     subject: "MattrMindr — Your Temporary Password",
-    text: `Hi ${userName},\n\nLog in to mattrmindr.com with this temporary password:\n\n${tempPassword}\n\nAfter your first login, you will be required to change your password.\n\nThank you,\nMattrMindr`,
+    text: `Hi ${userName},\n\nLog in to ${displayDomain} with this temporary password:\n\n${tempPassword}\n\nAfter your first login, you will be required to change your password.\n\nThank you,\nMattrMindr`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 500px; margin: 0 auto; padding: 30px;">
         <h2 style="color: #1e3a5f; font-family: 'Playfair Display', Georgia, serif;">MattrMindr</h2>
         <p>Hi ${userName},</p>
-        <p>Log in to <a href="https://mattrmindr.com" style="color: #2563eb;">mattrmindr.com</a> with this temporary password:</p>
+        <p>Log in to <a href="${appUrl}" style="color: #2563eb;">${displayDomain}</a> with this temporary password:</p>
         <div style="background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; text-align: center; margin: 20px 0;">
           <span style="font-family: monospace; font-size: 22px; letter-spacing: 2px; color: #1e3a5f; font-weight: bold;">${tempPassword}</span>
         </div>

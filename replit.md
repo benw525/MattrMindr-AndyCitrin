@@ -506,10 +506,18 @@ Placeholder tokens updated for PI: Client Name, Case Type, Injury Type, State, A
 ### Pilot Deployment / Multi-Tenant Configuration
 MattrMindr supports cloning the Repl for pilot deployments with custom domains. The following environment variables control tenant-specific behavior:
 
-- **`MAIL_DOMAIN`** — Inbound email domain shown in the UI (e.g., `andycitrin.mattrmindr.com`). Default: `plaintiff.mattrmindr.com`. Must match SendGrid Inbound Parse hostname. Served via `GET /api/public-config` endpoint.
-- **`APP_URL`** — Public-facing URL used in password-reset emails (e.g., `https://andycitrin.mattrmindr.com`). Falls back to `REPLIT_DEV_DOMAIN`, then `mattrmindr.replit.app`.
+- **`MAIL_DOMAIN`** — Inbound email domain shown in the UI (e.g., `plaintiff.andycitrin.mattrmindr.com`). Default: `plaintiff.mattrmindr.com`. Must match SendGrid Inbound Parse hostname. Served via `GET /api/public-config` endpoint.
+- **`APP_URL`** — Public-facing URL used in password-reset emails, temp-password emails, and client portal invites (e.g., `https://andycitrin.mattrmindr.com`). Falls back to `REPLIT_DEV_DOMAIN`, then `mattrmindr.replit.app`.
 - **`CORS_ORIGINS`** — Comma-separated allowed CORS origins for production (e.g., `https://andycitrin.mattrmindr.com`). In development, defaults to `localhost:5000`.
+- **`SUPPORT_EMAIL`** — Email address for in-app support form. Default: `support@mattrmindr.com`. Served via `GET /api/public-config` and used on the server for routing support requests.
+- **`ADMIN_EMAIL`** — Email for the auto-seeded admin user. Default: `admin@mattrmindr.com`.
+- **`ADMIN_PASSWORD`** — Password for the auto-seeded admin user.
+- **`SCRIBE_URL`** — MattrMindrScribe service URL. Default: `https://scribe.mattrmindr.com`.
+- **`VOIRDIRE_URL`** — Voir Dire Analyst service URL. Default: `https://voirdire.mattrmindr.com`.
+
+`GET /api/public-config` returns `{ mailDomain, supportEmail, appUrl }` — consumed by the frontend on startup to configure domain-specific values.
 
 Prop threading for `mailDomain`: `FirmApp` → `CasesView` → `CaseDetailOverlay` and `FirmApp` → `ReportsView` → `CaseDetailOverlay`.
+Prop threading for `supportEmail`: `FirmApp` → `HelpCenterModal`.
 
-See `PILOT-SETUP-GUIDE.md` for the complete deployment checklist covering database, S3, SendGrid, Twilio, Microsoft 365, ONLYOFFICE, and DNS setup.
+See `PILOT-SETUP-GUIDE.md` and `.env.example` for the complete deployment checklist covering database, S3, SendGrid, Twilio, Microsoft 365, ONLYOFFICE, and DNS setup.

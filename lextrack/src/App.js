@@ -1134,6 +1134,7 @@ function FirmApp() {
   const [userPerms, setUserPerms] = useState({});
   const [sessionChecked, setSessionChecked] = useState(false);
   const [mailDomain, setMailDomain] = useState("plaintiff.mattrmindr.com");
+  const [supportEmail, setSupportEmail] = useState("support@mattrmindr.com");
   const [view, setViewRaw] = useState(() => {
     const saved = localStorage.getItem("lextrack-last-view") || "dashboard";
     if (saved === "documents") return "customization";
@@ -1456,6 +1457,7 @@ function FirmApp() {
   useEffect(() => {
     apiGetPublicConfig().then(cfg => {
       if (cfg.mailDomain) setMailDomain(cfg.mailDomain);
+      if (cfg.supportEmail) setSupportEmail(cfg.supportEmail);
     }).catch(() => {});
     apiMe().then(user => {
       setCurrentUser(user);
@@ -2487,7 +2489,7 @@ function FirmApp() {
         <SettingsModal currentUser={currentUser} darkMode={darkMode} onToggleDark={() => setDarkMode(d => { const next = !d; savePreference("darkMode", next); return next; })} onChangePassword={() => { setShowSettings(false); setShowChangePw(true); }} onSignOut={() => { apiLogout().catch(() => {}); setCurrentUser(null); setAllCases([]); setAllDeadlines([]); setTasks([]); setCaseNotes({}); setCaseLinks({}); setCaseActivity({}); setSelectedCase(null); setDeletedCases(null); localStorage.removeItem("lextrack-last-case-id"); localStorage.removeItem("lextrack-last-view"); }} onClose={() => setShowSettings(false)} hideAdvocateAI={hideAdvocateAI} onToggleHideAdvocate={(val) => { setHideAdvocateAI(val); apiSavePreferences({ hideAdvocateAI: val }).catch(() => {}); if (val) setShowAdvocateGlobal(false); }} onUpdateUser={setCurrentUser} />
       )}
       {showHelpCenter && (
-        <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} />
+        <HelpCenterModal currentUser={currentUser} tab={helpCenterTab} setTab={setHelpCenterTab} onClose={() => setShowHelpCenter(false)} onOpenAdvocate={() => { setShowHelpCenter(false); setAdvocateFromHelpCenter(true); setAdvocateScreenChips("helpcenter"); setShowAdvocateGlobal(true); }} supportEmail={supportEmail} />
       )}
       <div className="main">
         {view === "dashboard" && <Dashboard currentUser={currentUser} allCases={allCases} deadlines={allDeadlines} tasks={tasks} onSelectCase={(c, tab) => { setPendingTab(tab || null); handleSelectCase(c); setView("cases"); }} onAddRecord={handleAddRecord} onCompleteTask={handleCompleteTask} onUpdateTask={handleUpdateTask} onMenuToggle={() => setSidebarOpen(true)} pinnedCaseIds={pinnedCaseIds} onNavigate={(viewId) => setView(viewId)} pinnedContacts={pinnedContactsList} onSelectContact={() => setView("contacts")} confirmDelete={confirmDelete} />}
@@ -3381,7 +3383,12 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
     setBusy("scribe");
     try {
       await apiConnectScribe(scribeForm);
-      setScribeStatus({ connected: true, url: "https://scribe.mattrmindr.com", email: scribeForm.email });
+      try {
+        const status = await apiGetScribeStatus();
+        setScribeStatus({ connected: true, url: status.url || "", email: scribeForm.email });
+      } catch {
+        setScribeStatus({ connected: true, url: "", email: scribeForm.email });
+      }
       setShowScribeForm(false);
       setScribeForm({ email: "", password: "" });
     } catch (err) { alert(err.message); }
@@ -3399,7 +3406,12 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
     setBusy("voirdire");
     try {
       await apiConnectVoirdire(voirdireForm);
-      setVoirdireStatus({ connected: true, url: "https://voirdire.mattrmindr.com", email: voirdireForm.email });
+      try {
+        const status = await apiGetVoirdireStatus();
+        setVoirdireStatus({ connected: true, url: status.url || "", email: voirdireForm.email });
+      } catch {
+        setVoirdireStatus({ connected: true, url: "", email: voirdireForm.email });
+      }
       setShowVoirdireForm(false);
       setVoirdireForm({ email: "", password: "" });
     } catch (err) { alert(err.message); }
@@ -3549,7 +3561,7 @@ function SettingsIntegrations({ currentUser, onUpdateUser }) {
 }
 
 // ─── Help Center Modal ──────────────────────────────────────────────────────
-function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) {
+function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate, supportEmail }) {
   const [expandedSections, setExpandedSections] = useState({});
   const [supportSubject, setSupportSubject] = useState("");
   const [supportMessage, setSupportMessage] = useState("");
@@ -3673,7 +3685,7 @@ function HelpCenterModal({ currentUser, tab, setTab, onClose, onOpenAdvocate }) 
                 <textarea placeholder="Describe your issue or suggestion..." rows={5} value={supportMessage} onChange={e => { setSupportMessage(e.target.value); setSupportStatus(null); }} style={{ width: "100%", resize: "vertical" }} />
               </div>
               {supportStatus === "success" && (
-                <div style={{ fontSize: 13, color: "#2F7A5F", marginBottom: 12, padding: "8px 12px", background: "var(--c-bg)", border: "1px solid #2F7A5F", borderRadius: 6 }}>Your message has been sent to support@mattrmindr.com. We'll get back to you soon.</div>
+                <div style={{ fontSize: 13, color: "#2F7A5F", marginBottom: 12, padding: "8px 12px", background: "var(--c-bg)", border: "1px solid #2F7A5F", borderRadius: 6 }}>Your message has been sent to {supportEmail}. We'll get back to you soon.</div>
               )}
               {supportStatus && supportStatus !== "success" && (
                 <div style={{ fontSize: 13, color: "#C94C4C", marginBottom: 12 }}>{supportStatus}</div>

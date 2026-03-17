@@ -5,7 +5,7 @@ const { randomUUID } = require("crypto");
 
 const router = express.Router();
 
-const SCRIBE_BASE_URL = "https://scribe.mattrmindr.com";
+const SCRIBE_BASE_URL = process.env.SCRIBE_URL || "https://scribe.mattrmindr.com";
 const SCRIBE_API_KEY = process.env.SCRIBE_API_KEY || "";
 
 const downloadTokens = new Map();
