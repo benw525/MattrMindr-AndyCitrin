@@ -216,8 +216,7 @@ router.post("/:id/summarize", requireAuth, async (req, res) => {
 
     const OpenAI = require("openai");
     const openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.OPENAI_API_KEY,
     });
 
     const systemPrompt = `You are a personal injury attorney's court filing analysis assistant. Summarize the court filing for a PI attorney reviewing a case. Focus on information relevant to the plaintiff's personal injury claim.

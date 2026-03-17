@@ -110,13 +110,13 @@ router.post("/:caseId/clients", async (req, res) => {
         await sendEmail({
           to: email.trim(),
           subject: "MattrMindr — Client Portal Access",
-          text: `Hi ${name},\n\nYou have been given access to the MattrMindr Client Portal to view updates on your case.\n\nLog in at: ${process.env.APP_URL || req.headers.origin || "https://mattrmindr.replit.app"}/portal\n\nEmail: ${email.trim()}\nTemporary Password: ${tempPassword}\n\nYou will be asked to change your password on first login.\n\nThank you,\nMattrMindr`,
+          text: `Hi ${name},\n\nYou have been given access to the MattrMindr Client Portal to view updates on your case.\n\nLog in at: ${process.env.APP_URL || "https://andycitrin.mattrmindr.com"}/portal\n\nEmail: ${email.trim()}\nTemporary Password: ${tempPassword}\n\nYou will be asked to change your password on first login.\n\nThank you,\nMattrMindr`,
           html: `
             <div style="font-family: Georgia, serif; max-width: 500px; margin: 0 auto; padding: 30px;">
               <h2 style="color: #1e3a5f; font-family: 'Playfair Display', Georgia, serif;">MattrMindr</h2>
               <p>Hi ${name},</p>
               <p>You have been given access to the <strong>MattrMindr Client Portal</strong> to view updates on your case.</p>
-              <p>Log in at: <a href="${process.env.APP_URL || req.headers.origin || "https://mattrmindr.replit.app"}/portal" style="color: #2563eb;">${process.env.APP_URL || req.headers.origin || "https://mattrmindr.replit.app"}/portal</a></p>
+              <p>Log in at: <a href="${process.env.APP_URL || "https://andycitrin.mattrmindr.com"}/portal" style="color: #2563eb;">${process.env.APP_URL || "https://andycitrin.mattrmindr.com"}/portal</a></p>
               <p><strong>Email:</strong> ${email.trim()}</p>
               <div style="background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; text-align: center; margin: 20px 0;">
                 <span style="font-family: monospace; font-size: 22px; letter-spacing: 2px; color: #1e3a5f; font-weight: bold;">${tempPassword}</span>

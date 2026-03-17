@@ -192,8 +192,7 @@ router.post("/forgot-password", async (req, res) => {
       [resetToken, expires, user.id]
     );
 
-    const appUrl = process.env.APP_URL
-      || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://mattrmindr.replit.app");
+    const appUrl = process.env.APP_URL || "https://andycitrin.mattrmindr.com";
 
     await sendPasswordResetEmail(user.email, user.name, resetToken, appUrl);
     return res.json({ ok: true, message: "If an account exists with that email, a reset code has been sent." });

@@ -1,37 +1,16 @@
 const sgMail = require("@sendgrid/mail");
 
-let connectionSettings;
-
-async function getCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? "repl " + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-    ? "depl " + process.env.WEB_REPL_RENEWAL
-    : null;
-
-  if (!xReplitToken) {
-    throw new Error("X-Replit-Token not found");
+function getCredentials() {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  if (!apiKey || !fromEmail) {
+    throw new Error("SendGrid not configured. Set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables.");
   }
-
-  connectionSettings = await fetch(
-    "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=sendgrid",
-    {
-      headers: {
-        Accept: "application/json",
-        "X-Replit-Token": xReplitToken,
-      },
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
-
-  if (!connectionSettings || !connectionSettings.settings.api_key || !connectionSettings.settings.from_email) {
-    throw new Error("SendGrid not connected");
-  }
-  return { apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email };
+  return { apiKey, email: fromEmail };
 }
 
 async function sendEmail({ to, subject, text, html }) {
-  const { apiKey, email: fromEmail } = await getCredentials();
+  const { apiKey, email: fromEmail } = getCredentials();
   sgMail.setApiKey(apiKey);
   const msg = {
     to,
@@ -44,8 +23,7 @@ async function sendEmail({ to, subject, text, html }) {
 }
 
 async function sendTempPasswordEmail(toEmail, userName, tempPassword) {
-  const appUrl = process.env.APP_URL
-    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://mattrmindr.replit.app");
+  const appUrl = process.env.APP_URL || "https://andycitrin.mattrmindr.com";
   const displayDomain = appUrl.replace(/^https?:\/\//, "");
   await sendEmail({
     to: toEmail,

@@ -99,8 +99,7 @@ router.put("/assign/:id", requireAuth, async (req, res) => {
 
         const OpenAI = require("openai");
         const openai = new OpenAI({
-          apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+          apiKey: process.env.OPENAI_API_KEY,
         });
         const classifyPrompt = `You are a court filing classification assistant for a personal injury law firm. Analyze the court filing text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — proper legal filing name)
@@ -289,8 +288,7 @@ router.post("/reprocess", requireAuth, async (req, res) => {
 
               const OpenAI = require("openai");
               const openai = new OpenAI({
-                apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-                baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+                apiKey: process.env.OPENAI_API_KEY,
               });
               const classifyPrompt = `You are a court filing classification assistant for a personal injury law firm. Analyze the court filing text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — proper legal filing name)

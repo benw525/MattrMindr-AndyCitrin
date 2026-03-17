@@ -8,7 +8,7 @@ A case management system for personal injury law firms. Tracks PI cases, manages
 - **Backend**: Node.js + Express 4, port 3001
 - **Database**: PostgreSQL (AWS Aurora PostgreSQL-Compatible), accessed via `DATABASE_URL`
 - **Auth**: express-session with bcrypt password hashing; session restore on page refresh via `/api/auth/me`; temporary password emails via SendGrid
-- **Email**: SendGrid (Replit integration) for auth emails; SendGrid Inbound Parse for case correspondence
+- **Email**: SendGrid (via `SENDGRID_API_KEY` + `SENDGRID_FROM_EMAIL` env vars) for auth emails; SendGrid Inbound Parse for case correspondence
 - **Styling**: Tailwind CSS v3 + CSS-in-JS template literal; Inter font, slate/amber color palette, lucide-react icons
 - **Icons**: All UI icons use lucide-react components (no emoji characters). AI Center agent cards and Reports page cards use colored rounded-lg background containers. SCREEN_LABELS, KIND_ICONS, WIDGET_TYPES, and Accordion icon props all store Lucide component references (rendered via `typeof icon === "function" ? <Icon size={N} /> : icon`). New imports include: Sun, Moon, Paperclip, Circle, Phone, Printer.
 - **OCR**: Tiered Gemini OCR pipeline via `@google/generative-ai`: 1) `gemini-3.1-flash-lite-preview` sends PDF directly (fastest), 2) falls back to `gemini-2.0-flash` with image-based extraction (converts pages to JPEG, compresses oversized images with `sharp`, DPI scales by file size: 150 for >100MB, 200 for >50MB, 300 otherwise), 3) falls back to tesseract.js; no page limit. All Gemini calls use `callGeminiWithRetry()` — up to 2 retries with 3s/8s backoff on transient errors (503, 429, rate limits, overloaded). Multi-batch OCR tolerates partial batch failures.
@@ -24,10 +24,23 @@ Workflow: `npm start` (root) — runs both Express API and React app via `concur
 Login: email + password (existing users default: `1234`, new users get temp password via email)
 
 ## Deployment
-- **Target**: autoscale
 - **Build**: `npm install && cd server && npm install && cd ../lextrack && npm install && CI=false npm run build`
-- **Run**: `NODE_ENV=production node server/index.js` (serves API + React build on port 5000)
-- **Note**: `CI=false` is required because Replit's deployment sets `CI=true`, which causes `react-scripts build` to treat ESLint warnings as errors
+- **Run (Production)**: `npm run start:production` or `NODE_ENV=production node server/index.js` (serves API + React build on port 3001)
+- **Run (Dev)**: `npm start` (runs both Express API and React dev server via concurrently)
+- **Note**: `CI=false` is required because `react-scripts build` treats ESLint warnings as errors when `CI=true`
+
+### Required Environment Variables (EC2/Production)
+- `NODE_ENV=production`
+- `DATABASE_URL` — PostgreSQL connection string
+- `DB_SSL=true`, `RDS_SSL_CA` — Path to RDS CA cert (e.g., `/path/to/rds-combined-ca-bundle.pem`)
+- `SESSION_SECRET` — Strong random string for session signing
+- `APP_URL=https://andycitrin.mattrmindr.com`
+- `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` — SendGrid email credentials
+- `OPENAI_API_KEY` — OpenAI API key for AI features
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION=us-east-1`, `S3_BUCKET_NAME=mattrmindr-andycitrin`
+- `ONLYOFFICE_URL`, `ONLYOFFICE_USER`, `ONLYOFFICE_PASSWORD`, `ONLYOFFICE_ROOM_ID`
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (optional, for SMS)
+- `CORS_ORIGINS=https://andycitrin.mattrmindr.com` (if API/frontend on different origins)
 
 ## Project Structure
 ```

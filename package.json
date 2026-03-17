@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "concurrently \"npm start --prefix server\" \"cross-env PORT=5000 DANGEROUSLY_DISABLE_HOST_CHECK=true npm start --prefix lextrack\"",
+    "start:production": "NODE_ENV=production npm start --prefix server",
     "seed": "npm run seed --prefix server",
     "schema": "npm run schema --prefix server",
     "build": "cd lextrack && npm run build"

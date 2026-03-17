@@ -18,7 +18,7 @@ try {
 
 function resolveModel(model) {
   if (!VALID_MODELS.includes(model)) return "gpt-4o-mini";
-  if (!model.startsWith("gpt-") && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) return "gpt-4o-mini";
+  if (!model.startsWith("gpt-") && !process.env.OPENAI_API_KEY) return "gpt-4o-mini";
   return model;
 }
 
@@ -27,10 +27,9 @@ function getClientForModel(model) {
     if (!standardOpenAIClient) standardOpenAIClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
     return standardOpenAIClient;
   }
-  if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  if (process.env.OPENAI_API_KEY) {
     return new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.OPENAI_API_KEY,
     });
   }
   if (!standardOpenAIClient) standardOpenAIClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "placeholder" });
@@ -315,7 +314,7 @@ router.delete("/:id/clear-instructions", requireAuth, async (req, res) => {
 });
 
 router.get("/available-models", requireAuth, (req, res) => {
-  const hasIntegration = !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const hasIntegration = !!process.env.OPENAI_API_KEY;
   res.json({
     models: VALID_MODELS.map(m => ({
       id: m,

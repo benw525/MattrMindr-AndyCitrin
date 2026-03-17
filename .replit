@@ -62,6 +62,8 @@ ADMIN_PASSWORD = "100%Warrior92"
 ADMIN_NAME = "Ben Warren"
 APP_URL = "https://andycitrin.mattrmindr.com"
 CORS_ORIGINS = "https://andycitrin.mattrmindr.com"
+SENDGRID_FROM_EMAIL = "mattrmindr@mattrmindr.com"
+SENDGRID_API_KEY = "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"
 
 [postMerge]
 path = "scripts/post-merge.sh"

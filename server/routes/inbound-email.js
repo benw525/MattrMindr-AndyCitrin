@@ -174,8 +174,7 @@ router.post("/", upload.any(), async (req, res) => {
             try {
               const OpenAI = require("openai");
               const openai = new OpenAI({
-                apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-                baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+                apiKey: process.env.OPENAI_API_KEY,
               });
               const classifyPrompt = `You are a court filing classification assistant for a personal injury law firm. Analyze the court filing text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — proper legal filing name)
@@ -314,8 +313,7 @@ router.post("/", upload.any(), async (req, res) => {
             try {
               const OpenAI = require("openai");
               const openai = new OpenAI({
-                apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-                baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+                apiKey: process.env.OPENAI_API_KEY,
               });
               const classifyPrompt = `You are a court filing classification assistant for a personal injury law firm. Analyze the court filing text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — proper legal filing name)
@@ -400,8 +398,7 @@ router.post("/", upload.any(), async (req, res) => {
             try {
               const OpenAI = require("openai");
               const openai = new OpenAI({
-                apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-                baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+                apiKey: process.env.OPENAI_API_KEY,
               });
               const docClassifyPrompt = `You are a document classification assistant for a personal injury law firm. Analyze the document text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — descriptive document name based on content)
@@ -545,8 +542,7 @@ router.post("/", upload.any(), async (req, res) => {
           try {
             const OpenAI = require("openai");
             const openai = new OpenAI({
-              apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-              baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+              apiKey: process.env.OPENAI_API_KEY,
             });
             const classifyPrompt = `You are a document classification assistant for a personal injury law firm. Analyze the document text and classify it. Return ONLY valid JSON with these fields:
 - "suggestedName" (string — descriptive document name based on content)
