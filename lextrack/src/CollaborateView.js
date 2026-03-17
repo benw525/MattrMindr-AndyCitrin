@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Menu, Settings, Paperclip, MessageSquare, Scale, Pin, ArrowLeft } from "lucide-react";
 import {
   apiGetCollabChannels, apiCreateCollabChannel, apiGetCollabMessages, apiSendCollabMessage,
   apiMarkCollabRead, apiSearchCollabMessages,
@@ -315,7 +316,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
       {(!isMobile || !mobileShowChat) && (
         <div style={{ width: isMobile ? "100%" : 300, minWidth: isMobile ? "100%" : 300, borderRight: "1px solid var(--c-border)", display: "flex", flexDirection: "column", background: "var(--c-bg)", overflow: "hidden" }}>
           <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
-            {onMenuToggle && <button className="hamburger-btn" onClick={onMenuToggle}>☰</button>}
+            {onMenuToggle && <button className="hamburger-btn" onClick={onMenuToggle}><Menu size={20} /></button>}
             <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, fontWeight: 700, color: "var(--c-text-h)", flex: 1 }}>Collaborate</div>
           </div>
 
@@ -378,7 +379,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                         }}
                           onMouseEnter={e => { if (!(activeChannel && ch && ch.id === activeChannel)) e.currentTarget.style.background = "var(--c-bg2)"; }}
                           onMouseLeave={e => { if (!(activeChannel && ch && ch.id === activeChannel)) e.currentTarget.style.background = "transparent"; }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontSize: 14, flexShrink: 0, position: "relative" }}>⚖️{pinnedIds.includes(c.id) && <span style={{ position: "absolute", top: -4, right: -4 }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>}</div>
+                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontSize: 14, flexShrink: 0, position: "relative" }}><Scale size={16} />{pinnedIds.includes(c.id) && <span style={{ position: "absolute", top: -4, right: -4 }}><Pin size={10} color="#ef4444" /></span>}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.case_num || c.title}</div>
                             <div style={{ fontSize: 11, color: "var(--c-text3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.client_name || c.defendant_name || ""}</div>
@@ -417,7 +418,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                           {ch.lastMessageAt && <div style={{ fontSize: 10, color: "var(--c-text3)" }}>{formatTime(ch.lastMessageAt)}</div>}
                           {ch.unreadCount > 0 && <div style={{ background: "#e05252", color: "#fff", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "1px 6px", minWidth: 16, textAlign: "center" }}>{ch.unreadCount}</div>}
                           {ch.groupCreatedBy === currentUser?.id && (
-                            <button onClick={e => { e.stopPropagation(); handleOpenGroupSettings(ch); }} style={{ background: "transparent", border: "none", fontSize: 14, cursor: "pointer", color: "var(--c-text3)", padding: 0 }}>⚙️</button>
+                            <button onClick={e => { e.stopPropagation(); handleOpenGroupSettings(ch); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--c-text3)", padding: 0, display: "flex", alignItems: "center" }}><Settings size={14} /></button>
                           )}
                         </div>
                       </div>
@@ -464,13 +465,13 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
           {activeChannel ? (
             <>
               <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--c-border)", display: "flex", alignItems: "center", gap: 10, background: "var(--c-bg)", flexShrink: 0 }}>
-                {isMobile && <button onClick={() => setMobileShowChat(false)} style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: "var(--c-text2)", padding: 0 }}>←</button>}
+                {isMobile && <button onClick={() => setMobileShowChat(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--c-text2)", padding: 0, display: "flex", alignItems: "center" }}><ArrowLeft size={18} /></button>}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "var(--c-text-h)", fontFamily: "'Playfair Display',serif" }}>{channelTitle}</div>
                   {activeChannelData?.type === "group" && <div style={{ fontSize: 11, color: "var(--c-text3)" }}>{activeChannelData.memberCount || 0} members</div>}
                 </div>
                 {activeChannelData?.type === "group" && activeChannelData.groupCreatedBy === currentUser?.id && (
-                  <button onClick={() => handleOpenGroupSettings(activeChannelData)} style={{ background: "transparent", border: "none", fontSize: 16, cursor: "pointer", color: "var(--c-text3)" }}>⚙️</button>
+                  <button onClick={() => handleOpenGroupSettings(activeChannelData)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--c-text3)", display: "flex", alignItems: "center" }}><Settings size={16} /></button>
                 )}
               </div>
 
@@ -504,7 +505,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                             {renderBody(msg.body, activeUsers)}
                             {msg.attachmentName && msg.attachmentUrl && (
                               <div style={{ marginTop: 6, padding: "6px 10px", background: "var(--c-bg)", borderRadius: 6, border: "1px solid var(--c-border)", display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 16 }}>📎</span>
+                                <Paperclip size={16} style={{ color: "var(--c-text3)", flexShrink: 0 }} />
                                 <a href={msg.attachmentUrl} download={msg.attachmentName} style={{ fontSize: 12, color: "#4f46e5", textDecoration: "none", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.attachmentName}</a>
                               </div>
                             )}
@@ -543,7 +544,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
                 )}
                 <div style={{ display: "flex", gap: 8, alignItems: "center", position: "relative", zIndex: 2 }}>
                   <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={e => { if (e.target.files[0]) handleFileUpload(e.target.files[0]); e.target.value = ""; }} />
-                  <button onClick={() => fileInputRef.current?.click()} style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: "var(--c-text3)", padding: 4, flexShrink: 0 }} title="Attach file">📎</button>
+                  <button onClick={() => fileInputRef.current?.click()} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--c-text3)", padding: 4, flexShrink: 0, display: "flex", alignItems: "center" }} title="Attach file"><Paperclip size={18} /></button>
                   <input
                     ref={inputRef}
                     value={msgInput}
@@ -568,7 +569,7 @@ export default function CollaborateView({ currentUser, allUsers, allCases, pinne
             </>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: "var(--c-text3)" }}>
-              <div style={{ fontSize: 48 }}>💬</div>
+              <MessageSquare size={48} />
               <div style={{ fontSize: 16, fontWeight: 600, fontFamily: "'Playfair Display',serif" }}>Collaborate</div>
               <div style={{ fontSize: 13, maxWidth: 300, textAlign: "center", lineHeight: 1.6 }}>
                 Select a case, group, or private conversation to start chatting with your team.
