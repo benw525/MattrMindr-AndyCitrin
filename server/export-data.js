@@ -196,6 +196,8 @@ async function exportData() {
     stream.write("-- ========================================\n");
     stream.write("-- DATA\n");
     stream.write("-- ========================================\n\n");
+    stream.write("-- Restore search_path (pg_dump clears it for schema safety)\n");
+    stream.write("SET search_path = public;\n\n");
     stream.write("-- Disable FK checks during data import\n");
     stream.write("SET session_replication_role = 'replica';\n\n");
 
