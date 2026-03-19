@@ -218,11 +218,11 @@ async function ocrPdfImageBased20(buffer, filename, geminiKey) {
     }
 
     const batches = buildSizeBatches(tmpDir, validImageFiles);
-    console.log(`Gemini 2.0 OCR: split ${validImageFiles.length} pages into ${batches.length} batch(es) for "${filename}"`);
+    console.log(`Gemini 2.5 OCR: split ${validImageFiles.length} pages into ${batches.length} batch(es) for "${filename}"`);
 
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     let fullText = "";
     for (let bIdx = 0; bIdx < batches.length; bIdx++) {
@@ -467,7 +467,7 @@ async function ocrPdfImageBased20WithPages(buffer, filename, geminiKey) {
 
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const pageResults = [];
 
